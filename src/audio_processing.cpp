@@ -313,7 +313,7 @@ void audioThread(AudioData* audioData) {
         audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
         
         // Apply bandpass filter to the buffer
-        Butterworth::applyBandpass(audioData->buffer, audioData->bandpassed, pitch, 44100.0f, pitch * 0.01f); // 1% bandwidth
+        Butterworth::applyBandpass(audioData->buffer, audioData->bandpassed, pitch, 44100.0f, 100.0f); // 100Hz bandwidth
       } else {
         audioData->pitchConfidence *= 0.95f;
       }
