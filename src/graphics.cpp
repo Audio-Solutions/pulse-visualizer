@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <sys/stat.h>
+#include <cstddef>
 
 namespace Graphics {
 
