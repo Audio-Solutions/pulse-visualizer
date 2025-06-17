@@ -1,5 +1,6 @@
 #include <cstddef>
 #pragma once
+#include "theme.hpp"
 
 // ===== Configuration Section =====
 
@@ -9,16 +10,6 @@ namespace Config {
   constexpr int DEFAULT_WINDOW_WIDTH = 720;
   constexpr int DEFAULT_WINDOW_HEIGHT = 480;
   constexpr float DEFAULT_SPLITTER_POS = 0.65f;  // 65% of window width
-  
-  // Colors (RGBA as floats)
-  struct Colors {
-    // Catppuccin Mocha theme colors
-    static constexpr float BACKGROUND[4] = {24.0f/255.0f, 24.0f/255.0f, 37.0f/255.0f, 1.0f};     // Mantle
-    static constexpr float GRID[4] = {49.0f/255.0f, 50.0f/255.0f, 68.0f/255.0f, 1.0f};        // Surface0
-    static constexpr float VISUALIZER[4] = {203.0f/255.0f, 166.0f/255.0f, 247.0f/255.0f, 1.0f};  // Mauve
-    static constexpr float SPLITTER[4] = {49.0f/255.0f, 50.0f/255.0f, 68.0f/255.0f, 1.0f};    // Surface0 (same as grid)
-    static constexpr float TEXT[4] = {205.0f/255.0f, 214.0f/255.0f, 244.0f/255.0f, 1.0f};  // Text (Catppuccin Mocha Text)
-  };
   
   // Audio Configuration
   namespace Audio {
