@@ -10,7 +10,7 @@
 #include <complex>
 
 namespace AudioProcessing {
-  
+
 namespace Butterworth {
 
 struct Biquad {
@@ -137,11 +137,11 @@ void audioThread(AudioData* audioData) {
   };
 
   pa_buffer_attr attr = {
-    .maxlength = 2048,
-    .tlength = 512,
-    .prebuf = 0,
-    .minreq = 128,
-    .fragsize = 512
+    .maxlength = 4096,
+    .tlength = 1024,
+    .prebuf = 512,
+    .minreq = 512,
+    .fragsize = 1024
   };
 
   pa = pa_simple_new(nullptr,
