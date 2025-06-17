@@ -56,12 +56,12 @@ namespace Config {
     constexpr int TARGET_LENGTH = 512;          // Target buffer length
     constexpr int MIN_REQ = 128;                // Minimum request size
     constexpr int FRAGMENT_SIZE = 512;          // Fragment size
-    constexpr const char* DEFAULT_SOURCE = "bluez_output.FC_A8_9A_33_89_81.1.monitor";
+    constexpr const char* DEFAULT_SOURCE = "whatever.monitor"; // CHANGE
   }
 
   // Font Configuration
   namespace Font {
-    constexpr const char* DEFAULT_FONT = "Location/To/Font/OfChoice.ttf";
+    constexpr const char* DEFAULT_FONT = "Location/To/Font/OfChoice.ttf"; // CHANGE
   }
 }
 

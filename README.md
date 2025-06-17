@@ -39,6 +39,16 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer that tran
 
 ## Building
 
+First, copy the configuration template to create your config file:
+
+```bash
+cp src/config.hpp.template src/config.hpp
+```
+
+Then edit `src/config.hpp` to set your PulseAudio source and font path.
+
+Now you can build the project:
+
 ```bash
 mkdir build
 cd build

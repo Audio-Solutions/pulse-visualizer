@@ -71,3 +71,6 @@ deps/
 # Temporary files
 *.tmp
 *.temp 
+
+# Config files (temporary)
+src/config.hpp
