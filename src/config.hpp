@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 // ===== Configuration Section =====
 
 // Window Configuration
