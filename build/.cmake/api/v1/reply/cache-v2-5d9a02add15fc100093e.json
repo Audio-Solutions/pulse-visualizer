@@ -1,0 +1,2947 @@
+{
+	"entries" : 
+	[
+		{
+			"name" : "CMAKE_ADDR2LINE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-addr2line"
+		},
+		{
+			"name" : "CMAKE_AR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ar"
+		},
+		{
+			"name" : "CMAKE_BUILD_TYPE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "No help, variable specified on the command line."
+				}
+			],
+			"type" : "STRING",
+			"value" : "Debug"
+		},
+		{
+			"name" : "CMAKE_CACHEFILE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "This is the directory where this CMakeCache.txt was created"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/home/bea/pulse/build"
+		},
+		{
+			"name" : "CMAKE_CACHE_MAJOR_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Major version of cmake used to create the current loaded cache"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "4"
+		},
+		{
+			"name" : "CMAKE_CACHE_MINOR_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Minor version of cmake used to create the current loaded cache"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "0"
+		},
+		{
+			"name" : "CMAKE_CACHE_PATCH_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Patch version of cmake used to create the current loaded cache"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "3"
+		},
+		{
+			"name" : "CMAKE_COMMAND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to CMake executable."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/bin/cmake"
+		},
+		{
+			"name" : "CMAKE_CPACK_COMMAND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to cpack program executable."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/bin/cpack"
+		},
+		{
+			"name" : "CMAKE_CTEST_COMMAND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to ctest program executable."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/bin/ctest"
+		},
+		{
+			"name" : "CMAKE_CXX_COMPILER",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "CXX compiler"
+				}
+			],
+			"type" : "STRING",
+			"value" : "/usr/bin/clang++"
+		},
+		{
+			"name" : "CMAKE_CXX_COMPILER_AR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "LLVM archiver"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ar"
+		},
+		{
+			"name" : "CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "`clang-scan-deps` dependency scanner"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/clang-scan-deps"
+		},
+		{
+			"name" : "CMAKE_CXX_COMPILER_RANLIB",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Generate index for LLVM archive"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ranlib"
+		},
+		{
+			"name" : "CMAKE_CXX_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the CXX compiler during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_CXX_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the CXX compiler during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-g"
+		},
+		{
+			"name" : "CMAKE_CXX_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the CXX compiler during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-Os -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_CXX_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the CXX compiler during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-O3 -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_CXX_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the CXX compiler during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-O2 -g -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_C_COMPILER",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "C compiler"
+				}
+			],
+			"type" : "STRING",
+			"value" : "/usr/bin/clang"
+		},
+		{
+			"name" : "CMAKE_C_COMPILER_AR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "LLVM archiver"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ar"
+		},
+		{
+			"name" : "CMAKE_C_COMPILER_CLANG_SCAN_DEPS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "`clang-scan-deps` dependency scanner"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/clang-scan-deps"
+		},
+		{
+			"name" : "CMAKE_C_COMPILER_RANLIB",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Generate index for LLVM archive"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ranlib"
+		},
+		{
+			"name" : "CMAKE_C_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the C compiler during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_C_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the C compiler during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-g"
+		},
+		{
+			"name" : "CMAKE_C_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the C compiler during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-Os -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_C_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the C compiler during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-O3 -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_C_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the C compiler during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-O2 -g -DNDEBUG"
+		},
+		{
+			"name" : "CMAKE_DLLTOOL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-dlltool"
+		},
+		{
+			"name" : "CMAKE_EDIT_COMMAND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to cache edit program executable."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/bin/ccmake"
+		},
+		{
+			"name" : "CMAKE_EXECUTABLE_FORMAT",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Executable file format"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "ELF"
+		},
+		{
+			"name" : "CMAKE_EXE_LINKER_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXE_LINKER_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXE_LINKER_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXE_LINKER_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXPORT_BUILD_DATABASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable/Disable output of build database during the build."
+				}
+			],
+			"type" : "BOOL",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_EXPORT_COMPILE_COMMANDS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "No help, variable specified on the command line."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "TRUE"
+		},
+		{
+			"name" : "CMAKE_EXTRA_GENERATOR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Name of external makefile project generator."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_FIND_PACKAGE_REDIRECTS_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake."
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/bea/pulse/build/CMakeFiles/pkgRedirects"
+		},
+		{
+			"name" : "CMAKE_GENERATOR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Name of generator."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "Ninja"
+		},
+		{
+			"name" : "CMAKE_GENERATOR_INSTANCE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Generator instance identifier."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_GENERATOR_PLATFORM",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Name of generator platform."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_GENERATOR_TOOLSET",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Name of generator toolset."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_HOME_DIRECTORY",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Source directory with the top level CMakeLists.txt file for this project"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/home/bea/pulse"
+		},
+		{
+			"name" : "CMAKE_INSTALL_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Install path prefix, prepended onto install directories."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/local"
+		},
+		{
+			"name" : "CMAKE_INSTALL_SO_NO_EXE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Install .so files without execute permission."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "0"
+		},
+		{
+			"name" : "CMAKE_LINKER",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/ld.lld"
+		},
+		{
+			"name" : "CMAKE_LIST_FILE_NAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Name of CMakeLists files to read"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "CMakeLists.txt"
+		},
+		{
+			"name" : "CMAKE_MAKE_PROGRAM",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Program used to build from build.ninja files."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/ninja"
+		},
+		{
+			"name" : "CMAKE_MODULE_LINKER_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of modules during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_MODULE_LINKER_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of modules during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_MODULE_LINKER_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of modules during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_MODULE_LINKER_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of modules during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of modules during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_NM",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-nm"
+		},
+		{
+			"name" : "CMAKE_NUMBER_OF_MAKEFILES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "number of local generators"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "CMAKE_OBJCOPY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-objcopy"
+		},
+		{
+			"name" : "CMAKE_OBJDUMP",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-objdump"
+		},
+		{
+			"name" : "CMAKE_PLATFORM_INFO_INITIALIZED",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Platform information initialized"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "CMAKE_PROJECT_DESCRIPTION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_PROJECT_HOMEPAGE_URL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_PROJECT_NAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "Pulse"
+		},
+		{
+			"name" : "CMAKE_RANLIB",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-ranlib"
+		},
+		{
+			"name" : "CMAKE_READELF",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-readelf"
+		},
+		{
+			"name" : "CMAKE_ROOT",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to CMake installation."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/share/cmake"
+		},
+		{
+			"name" : "CMAKE_SHARED_LINKER_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of shared libraries during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_SHARED_LINKER_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of shared libraries during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of shared libraries during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_SHARED_LINKER_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of shared libraries during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of shared libraries during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_SKIP_INSTALL_RPATH",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "If set, runtime paths are not added when installing shared libraries, but are added when building."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "NO"
+		},
+		{
+			"name" : "CMAKE_SKIP_RPATH",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "If set, runtime paths are not added when using shared libraries."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "NO"
+		},
+		{
+			"name" : "CMAKE_STATIC_LINKER_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of static libraries during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_STATIC_LINKER_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of static libraries during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_STATIC_LINKER_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of static libraries during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_STATIC_LINKER_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of static libraries during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags used by the linker during the creation of static libraries during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_STRIP",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/llvm-strip"
+		},
+		{
+			"name" : "CMAKE_TAPI",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a program."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "CMAKE_TAPI-NOTFOUND"
+		},
+		{
+			"name" : "CMAKE_UNAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "uname command"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/bin/uname"
+		},
+		{
+			"name" : "CMAKE_VERBOSE_MAKEFILE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "If this value is on, makefiles will be generated without the .SILENT directive, and all commands will be echoed to the console during the make.  This is useful for debugging only. With Visual Studio IDE projects all commands are done without /nologo."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "FALSE"
+		},
+		{
+			"name" : "FFTW_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include"
+		},
+		{
+			"name" : "FFTW_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_FOUND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "FFTW_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "FFTW_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "FFTW_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lfftw3f"
+		},
+		{
+			"name" : "FFTW_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FFTW_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "fftw3f"
+		},
+		{
+			"name" : "FFTW_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FFTW_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_MODULE_NAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "fftw3f"
+		},
+		{
+			"name" : "FFTW_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr"
+		},
+		{
+			"name" : "FFTW_STATIC_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include"
+		},
+		{
+			"name" : "FFTW_STATIC_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "FFTW_STATIC_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lfftw3f;-lm"
+		},
+		{
+			"name" : "FFTW_STATIC_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "fftw3f;m"
+		},
+		{
+			"name" : "FFTW_STATIC_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FFTW_STATIC_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_STATIC_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "3.3.10"
+		},
+		{
+			"name" : "FFTW_fftw3f_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_fftw3f_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_fftw3f_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FFTW_fftw3f_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_OpenGL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Details about finding OpenGL"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "[/usr/lib/libOpenGL.so][/usr/lib/libGLX.so][/usr/include][ ][v()]"
+		},
+		{
+			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Details about finding PkgConfig"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "[/usr/bin/pkg-config][v2.4.3()]"
+		},
+		{
+			"name" : "FREETYPE_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include/freetype2;-I/usr/include;-I/usr/include/libpng16;-DWITH_GZFILEOP;-I/usr/include/harfbuzz;-I/usr/include/glib-2.0;-I/usr/lib/glib-2.0/include;-I/usr/include/sysprof-6;-pthread"
+		},
+		{
+			"name" : "FREETYPE_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-DWITH_GZFILEOP;-pthread"
+		},
+		{
+			"name" : "FREETYPE_FOUND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "FREETYPE_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "FREETYPE_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include/freetype2;/usr/include;/usr/include/libpng16;/usr/include/harfbuzz;/usr/include/glib-2.0;/usr/lib/glib-2.0/include;/usr/include/sysprof-6"
+		},
+		{
+			"name" : "FREETYPE_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lfreetype"
+		},
+		{
+			"name" : "FREETYPE_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FREETYPE_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "freetype"
+		},
+		{
+			"name" : "FREETYPE_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FREETYPE_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_MODULE_NAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "freetype2"
+		},
+		{
+			"name" : "FREETYPE_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr"
+		},
+		{
+			"name" : "FREETYPE_STATIC_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include/freetype2;-I/usr/include;-I/usr/include/libpng16;-DWITH_GZFILEOP;-I/usr/include/harfbuzz;-I/usr/include/glib-2.0;-I/usr/lib/glib-2.0/include;-I/usr/include/sysprof-6;-pthread"
+		},
+		{
+			"name" : "FREETYPE_STATIC_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_STATIC_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-DWITH_GZFILEOP;-pthread"
+		},
+		{
+			"name" : "FREETYPE_STATIC_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include/freetype2;/usr/include;/usr/include/libpng16;/usr/include/harfbuzz;/usr/include/glib-2.0;/usr/lib/glib-2.0/include;/usr/include/sysprof-6"
+		},
+		{
+			"name" : "FREETYPE_STATIC_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lfreetype;-lbz2;-lpng16;-lm;-lm;-lz;-lharfbuzz;-pthread;-lm;-lglib-2.0;-lm;-lsysprof-capture-4;-pthread;-lpcre2-8;-lgraphite2;-lbrotlidec;-lbrotlicommon"
+		},
+		{
+			"name" : "FREETYPE_STATIC_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-pthread;-pthread"
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "freetype;bz2;png16;m;m;z;harfbuzz;m;glib-2.0;m;sysprof-capture-4;pcre2-8;graphite2;brotlidec;brotlicommon"
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_STATIC_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "26.2.20"
+		},
+		{
+			"name" : "FREETYPE_freetype2_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_freetype2_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_freetype2_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "FREETYPE_freetype2_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "OPENGL_EGL_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_GLES2_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_GLES3_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_GLU_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_GLX_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "OPENGL_egl_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libEGL.so"
+		},
+		{
+			"name" : "OPENGL_gl_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libGL.so"
+		},
+		{
+			"name" : "OPENGL_gles2_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libGLESv2.so"
+		},
+		{
+			"name" : "OPENGL_gles3_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libGLESv2.so"
+		},
+		{
+			"name" : "OPENGL_glu_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libGLU.so"
+		},
+		{
+			"name" : "OPENGL_glx_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libGLX.so"
+		},
+		{
+			"name" : "OPENGL_opengl_LIBRARY",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libOpenGL.so"
+		},
+		{
+			"name" : "OPENGL_xmesa_INCLUDE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a file."
+				}
+			],
+			"type" : "PATH",
+			"value" : "OPENGL_xmesa_INCLUDE_DIR-NOTFOUND"
+		},
+		{
+			"name" : "PKG_CONFIG_ARGN",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Arguments to supply to pkg-config"
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "PKG_CONFIG_EXECUTABLE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "pkg-config executable"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/bin/pkg-config"
+		},
+		{
+			"name" : "PULSE_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include;-D_REENTRANT"
+		},
+		{
+			"name" : "PULSE_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-D_REENTRANT"
+		},
+		{
+			"name" : "PULSE_FOUND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "PULSE_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "PULSE_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "PULSE_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lpulse-simple;-lpulse;-pthread"
+		},
+		{
+			"name" : "PULSE_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-pthread"
+		},
+		{
+			"name" : "PULSE_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "PULSE_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "pulse-simple;pulse"
+		},
+		{
+			"name" : "PULSE_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		},
+		{
+			"name" : "PULSE_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_MODULE_NAME",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "libpulse-simple"
+		},
+		{
+			"name" : "PULSE_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr"
+		},
+		{
+			"name" : "PULSE_STATIC_CFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-I/usr/include;-D_REENTRANT"
+		},
+		{
+			"name" : "PULSE_STATIC_CFLAGS_I",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_STATIC_CFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-D_REENTRANT"
+		},
+		{
+			"name" : "PULSE_STATIC_INCLUDE_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/include"
+		},
+		{
+			"name" : "PULSE_STATIC_LDFLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-L/usr/lib;-lpulse-simple;-L/usr/lib/pulseaudio;-lpulsecommon-17.0;-lpulse;-pthread;-L/usr/lib/pulseaudio;-lpulsecommon-17.0"
+		},
+		{
+			"name" : "PULSE_STATIC_LDFLAGS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "-pthread"
+		},
+		{
+			"name" : "PULSE_STATIC_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_STATIC_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "pulse-simple;pulsecommon-17.0;pulse;pulsecommon-17.0"
+		},
+		{
+			"name" : "PULSE_STATIC_LIBRARY_DIRS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib;/usr/lib/pulseaudio;/usr/lib/pulseaudio"
+		},
+		{
+			"name" : "PULSE_STATIC_LIBS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_STATIC_LIBS_L",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_STATIC_LIBS_OTHER",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_STATIC_LIBS_PATHS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "17.0-43-g3e2bb"
+		},
+		{
+			"name" : "PULSE_libpulse-simple_INCLUDEDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_libpulse-simple_LIBDIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_libpulse-simple_PREFIX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "PULSE_libpulse-simple_VERSION",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "Pulse_BINARY_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/bea/pulse/build"
+		},
+		{
+			"name" : "Pulse_IS_TOP_LEVEL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "ON"
+		},
+		{
+			"name" : "Pulse_SOURCE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/bea/pulse"
+		},
+		{
+			"name" : "SDL2_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "The directory containing a CMake configuration file for SDL2."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/usr/lib/cmake/SDL2"
+		},
+		{
+			"name" : "__pkg_config_arguments_FFTW",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "REQUIRED;IMPORTED_TARGET;fftw3f"
+		},
+		{
+			"name" : "__pkg_config_arguments_FREETYPE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "REQUIRED;IMPORTED_TARGET;freetype2"
+		},
+		{
+			"name" : "__pkg_config_arguments_PULSE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "REQUIRED;IMPORTED_TARGET;libpulse-simple"
+		},
+		{
+			"name" : "__pkg_config_checked_FFTW",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "__pkg_config_checked_FREETYPE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "__pkg_config_checked_PULSE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "pkgcfg_lib_FFTW_fftw3f",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libfftw3f.so"
+		},
+		{
+			"name" : "pkgcfg_lib_FREETYPE_freetype",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libfreetype.so"
+		},
+		{
+			"name" : "pkgcfg_lib_PULSE_pulse",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libpulse.so"
+		},
+		{
+			"name" : "pkgcfg_lib_PULSE_pulse-simple",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libpulse-simple.so"
+		},
+		{
+			"name" : "prefix_result",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "/usr/lib"
+		}
+	],
+	"kind" : "cache",
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 0
+	}
+}

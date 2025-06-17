@@ -1,0 +1,3 @@
+/home/bea/pulse/build/CMakeFiles/Pulse.dir
+/home/bea/pulse/build/CMakeFiles/edit_cache.dir
+/home/bea/pulse/build/CMakeFiles/rebuild_cache.dir

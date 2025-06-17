@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/bea/pulse/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
