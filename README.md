@@ -18,7 +18,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer that tran
 
 - Real-time audio visualization
 - Multiple visualization styles:
-	- Lissajous curve
+	- Lissajous curve with phosphor-like effect (simulates analog oscilloscope display)
 	- Oscilloscope
 	- FFT
 - Low-latency audio processing

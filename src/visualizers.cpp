@@ -29,8 +29,45 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       points.push_back({x, y});
     }
 
-    // Draw smooth lines between points using OpenGL
-    Graphics::drawAntialiasedLines(points, Config::Colors::VISUALIZER, 2.0f);
+    // Draw lines with phosphor effect (toggleable too probably)
+    // Enable additive blending for phosphor effect
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    
+    // Draw segments
+    glBegin(GL_LINES);
+    for (size_t i = 1; i < points.size(); ++i) {
+      const auto& p1 = points[i-1];
+      const auto& p2 = points[i];
+      
+      // Calculate distance between points
+      float dx = p2.first - p1.first;
+      float dy = p2.second - p1.second;
+      float distance = sqrtf(dx*dx + dy*dy);
+      
+      // Normalize distance to 0-1 range, with a maximum distance threshold
+      float maxDistance = lissajousSize * 0.2f; // Adjust this value to control the effect (To be added to config)
+      float normalizedDistance = std::min(distance / maxDistance, 1.0f);
+      
+      // Calculate color blend factor (1.0 = full visualizer color, 0.0 = full background)
+      float blendFactor = 1.0f - normalizedDistance;
+      
+      // Blend colors with additive effect
+      float color[4];
+      for (int j = 0; j < 4; ++j) {
+        color[j] = Config::Colors::VISUALIZER[j] * blendFactor;
+      }
+      color[3] = 1.0f; // Full alpha for additive blending
+      
+      // Draw line segment with blended color
+      glColor4fv(color);
+      glVertex2f(p1.first, p1.second);
+      glVertex2f(p2.first, p2.second);
+    }
+    glEnd();
+    
+    // Reset blending
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
 }
 
