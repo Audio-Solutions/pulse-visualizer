@@ -80,6 +80,7 @@ If you find Pulse useful and want to support its development, you can buy me a c
 
 ## Acknowledgments
 
+- [MiniMeters](https://minimeters.app/) for inspiration in audio visualization design
 - SDL2 for cross-platform graphics and input
 - PulseAudio for audio capture
 - FFTW for fast Fourier transforms
