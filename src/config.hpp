@@ -1,6 +1,5 @@
-#pragma once
-
 #include <cstddef>
+#pragma once
 
 // ===== Configuration Section =====
 
@@ -57,12 +56,12 @@ namespace Config {
     constexpr int TARGET_LENGTH = 512;          // Target buffer length
     constexpr int MIN_REQ = 128;                // Minimum request size
     constexpr int FRAGMENT_SIZE = 512;          // Fragment size
-    constexpr const char* DEFAULT_SOURCE = "alsa_output.pci-0000_0e_00.4.iec958-stereo.monitor";
+    constexpr const char* DEFAULT_SOURCE = "bluez_output.FC_A8_9A_33_89_81.1.monitor";
   }
 
   // Font Configuration
   namespace Font {
-    constexpr const char* DEFAULT_FONT = "/home/bea/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf";
+    constexpr const char* DEFAULT_FONT = "Location/To/Font/OfChoice.ttf";
   }
 }
 

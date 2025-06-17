@@ -1,3 +1,4 @@
+#include <cstddef>
 #pragma once
 
 #include "config.hpp"
