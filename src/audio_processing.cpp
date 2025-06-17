@@ -7,42 +7,95 @@
 #include <algorithm>
 #include <fftw3.h>
 #include <cstdio>
+#include <complex>
 
 namespace AudioProcessing {
 
-// Bandpass of type 8th order butterworth
-void applyBandpass(const std::vector<float>& input, std::vector<float>& output, float centerFreq, float sampleRate, float bandwidth) {
-  const int ORDER = 8;  // 8th order filter (4 cascaded second-order sections)
-  const float Q = centerFreq / bandwidth;  // Quality factor
-  const float w0 = 2.0f * M_PI * centerFreq / sampleRate;
-  const float alpha = sin(w0) / (2.0f * Q);
-  
-  const float a0 = 1.0f + alpha;
-  const float a1 = -2.0f * cos(w0);
-  const float a2 = 1.0f - alpha;
-  const float b0 = alpha;
-  const float b1 = 0.0f;
-  const float b2 = -alpha;
-  
-  static std::vector<float> temp;
-  if (temp.size() != input.size()) {
-    temp.resize(input.size());
+namespace Butterworth {
+
+struct Biquad {
+  float b0, b1, b2, a1, a2;
+  float x1 = 0.0f, x2 = 0.0f;
+  float y1 = 0.0f, y2 = 0.0f;
+
+  // Direct Form I
+  float process(float x) {
+    float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
+    return y;
   }
-  
-  // Apply each second-order section in cascade
-  for (int section = 0; section < ORDER/2; section++) {
-    float v1 = 0.0f, v2 = 0.0f;
-    const std::vector<float>& in = (section == 0) ? input : temp;
-    std::vector<float>& out = (section == ORDER/2-1) ? output : temp;
-    
-    for (size_t i = 0; i < input.size(); i++) {
-      float v0 = in[i] - a1/a0 * v1 - a2/a0 * v2;
-      out[i] = b0/a0 * v0 + b1/a0 * v1 + b2/a0 * v2;
-      v2 = v1;
-      v1 = v0;
-    }
+};
+
+// Helper for pre-warping frequencies for bilinear transform
+inline float prewarp(float f, float fs) {
+  return tanf(M_PI * f / fs) / M_PI;
+}
+
+// Designs a Butterworth bandpass filter and returns the biquad sections
+std::vector<Biquad> designButterworthBandpass(int order, float centerFreq, float sampleRate, float bandwidth) {
+  std::vector<Biquad> biquads;
+  int nSections = order / 2;
+  float w0 = 2.0f * M_PI * centerFreq / sampleRate;
+  float BW = 2.0f * M_PI * bandwidth / sampleRate;
+  float Q = centerFreq / bandwidth;
+
+  // Butterworth pole placement
+  for (int k = 0; k < nSections; ++k) {
+    float theta = M_PI * (2.0f * k + 1.0f) / (2.0f * order);
+    float poleReal = -sinf(theta);
+    float poleImag = cosf(theta);
+
+    float alpha = sinf(w0) / (2.0f * Q);
+
+    float b0 = alpha;
+    float b1 = 0.0f;
+    float b2 = -alpha;
+    float a0 = 1.0f + alpha;
+    float a1 = -2.0f * cosf(w0);
+    float a2 = 1.0f - alpha;
+
+    // Normalize coefficients
+    b0 /= a0;
+    b1 /= a0;
+    b2 /= a0;
+    a1 /= a0;
+    a2 /= a0;
+
+    biquads.push_back({b0, b1, b2, a1, a2});
+  }
+  return biquads;
+}
+
+// Process a buffer through a single biquad section
+void processBiquad(const std::vector<float>& in, std::vector<float>& out, Biquad& bq) {
+  for (size_t i = 0; i < in.size(); ++i) {
+    out[i] = bq.process(in[i]);
   }
 }
+
+// Apply cascaded biquads to the signal
+void applyBandpass(const std::vector<float>& input, std::vector<float>& output,
+                   float centerFreq, float sampleRate, float bandwidth, int order = 8) {
+  if (input.empty()) {
+    output.clear();
+    return;
+  }
+  std::vector<Biquad> biquads = designButterworthBandpass(order, centerFreq, sampleRate, bandwidth);
+  std::vector<float> temp1 = input;
+  std::vector<float> temp2(input.size());
+
+  for (auto& bq : biquads) {
+    processBiquad(temp1, temp2, bq);
+    std::swap(temp1, temp2);
+  }
+  output = temp1;
+}
+
+}
+
 
 // Helper function to convert frequency to note
 void freqToNote(float freq, std::string& noteName, int& octave, int& cents) {
@@ -84,11 +137,11 @@ void audioThread(AudioData* audioData) {
   };
 
   pa_buffer_attr attr = {
-    .maxlength = 2048,
-    .tlength = 512,
-    .prebuf = 0,
-    .minreq = 128,
-    .fragsize = 512
+    .maxlength = 4096,
+    .tlength = 1024,
+    .prebuf = 512,
+    .minreq = 512,
+    .fragsize = 1024
   };
 
   pa = pa_simple_new(nullptr,
@@ -259,12 +312,8 @@ void audioThread(AudioData* audioData) {
         audioData->pitchConfidence = 1.0f;
         audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
         
-        // Update bandpass filter with new pitch - but only when pitch changes significantly
-        static float lastBandpassPitch = 0.0f;
-                 if (std::abs(pitch - lastBandpassPitch) > 5.0f) { // Only update if pitch changed by >5Hz
-          applyBandpass(audioData->buffer, audioData->bandpassed, pitch, 44100.0f, 20.0f);
-          lastBandpassPitch = pitch;
-        }
+        // Apply bandpass filter to the buffer
+        Butterworth::applyBandpass(audioData->buffer, audioData->bandpassed, pitch, 44100.0f, pitch * 0.01f); // 1% bandwidth
       } else {
         audioData->pitchConfidence *= 0.95f;
       }
