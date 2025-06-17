@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.hpp"
 #include <vector>
 #include <utility>
 
@@ -14,5 +15,5 @@ namespace Graphics {
   void drawFilledRect(float x, float y, float width, float height, const float color[4]);
 
   // Draw text using a TTF font (JetBrains Mono)
-  void drawText(const char* text, float x, float y, float size, const float color[4], const char* fontPath = "/home/bea/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf");
+  void drawText(const char* text, float x, float y, float size, const float color[4], const char* fontPath = Config::Font::DEFAULT_FONT);
 } 

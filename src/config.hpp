@@ -57,6 +57,11 @@ namespace Config {
     constexpr int FRAGMENT_SIZE = 512;          // Fragment size
     constexpr const char* DEFAULT_SOURCE = "alsa_output.pci-0000_0e_00.4.iec958-stereo.monitor";
   }
+
+  // Font Configuration
+  namespace Font {
+    constexpr const char* DEFAULT_FONT = "/home/bea/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf";
+  }
 }
 
 // Legacy constants for compatibility
