@@ -1,0 +1,24 @@
+BasedOnStyle: LLVM
+ColumnLimit: 120
+IndentWidth: 2
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceBeforeCpp11BracedList: true
+AlignConsecutiveAssignments:
+  PadOperators: true
+  AcrossComments: true
+  AcrossEmptyLines: true
+AlignConsecutiveBitFields: true
+AlignConsecutiveMacros: true
+IncludeBlocks: Regroup
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+AlignArrayOfStructures: Left
+UseTab: Never
+TabWidth: 2
+BreakBeforeBraces: Attach
+SortIncludes: true
+PointerAlignment: Left
+DerivePointerAlignment: false
+Cpp11BracedListStyle: true
+Language: Cpp

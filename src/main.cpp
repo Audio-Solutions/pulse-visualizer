@@ -1,17 +1,17 @@
+#include "audio_data.hpp"
+#include "audio_processing.hpp"
+#include "config.hpp"
+#include "graphics.hpp"
+#include "theme.hpp"
+#include "visualizers.hpp"
+
+#include <GL/gl.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
-#include <GL/gl.h>
-#include <thread>
 #include <algorithm>
 #include <cstdio>
 #include <iostream>
-
-#include "config.hpp"
-#include "audio_data.hpp"
-#include "graphics.hpp"
-#include "audio_processing.hpp"
-#include "visualizers.hpp"
-#include "theme.hpp"
+#include <thread>
 
 int main() {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -27,12 +27,9 @@ int main() {
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-  SDL_Window* win = SDL_CreateWindow("Audio Visualizer",
-                                    SDL_WINDOWPOS_CENTERED,
-                                    SDL_WINDOWPOS_CENTERED,
-                                    Config::DEFAULT_WINDOW_WIDTH,
-                                    Config::DEFAULT_WINDOW_HEIGHT,
-                                    SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  SDL_Window* win =
+      SDL_CreateWindow("Audio Visualizer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, Config::DEFAULT_WINDOW_WIDTH,
+                       Config::DEFAULT_WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!win) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
@@ -57,7 +54,7 @@ int main() {
   bool running = true;
   bool draggingSplitter = false;
   int mouseX = 0;
-  
+
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
 
@@ -65,40 +62,40 @@ int main() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
-        case SDL_QUIT:
-          running = false;
-          break;
-          
-        case SDL_WINDOWEVENT:
-          if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            audioData.windowWidth = event.window.data1;
-            audioData.windowHeight = event.window.data2;
-            glViewport(0, 0, audioData.windowWidth, audioData.windowHeight);
+      case SDL_QUIT:
+        running = false;
+        break;
+
+      case SDL_WINDOWEVENT:
+        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+          audioData.windowWidth = event.window.data1;
+          audioData.windowHeight = event.window.data2;
+          glViewport(0, 0, audioData.windowWidth, audioData.windowHeight);
+        }
+        break;
+
+      case SDL_MOUSEBUTTONDOWN:
+        if (event.button.button == SDL_BUTTON_LEFT) {
+          mouseX = event.button.x;
+          int splitterX = static_cast<int>(audioData.windowWidth * audioData.splitterPos);
+          if (abs(mouseX - splitterX) < 10) {
+            draggingSplitter = true;
           }
-          break;
-          
-        case SDL_MOUSEBUTTONDOWN:
-          if (event.button.button == SDL_BUTTON_LEFT) {
-            mouseX = event.button.x;
-            int splitterX = static_cast<int>(audioData.windowWidth * audioData.splitterPos);
-            if (abs(mouseX - splitterX) < 10) {
-              draggingSplitter = true;
-            }
-          }
-          break;
-          
-        case SDL_MOUSEBUTTONUP:
-          if (event.button.button == SDL_BUTTON_LEFT) {
-            draggingSplitter = false;
-          }
-          break;
-          
-        case SDL_MOUSEMOTION:
-          if (draggingSplitter) {
-            float newPos = static_cast<float>(event.motion.x) / audioData.windowWidth;
-            audioData.splitterPos = std::max(0.2f, std::min(0.8f, newPos));
-          }
-          break;
+        }
+        break;
+
+      case SDL_MOUSEBUTTONUP:
+        if (event.button.button == SDL_BUTTON_LEFT) {
+          draggingSplitter = false;
+        }
+        break;
+
+      case SDL_MOUSEMOTION:
+        if (draggingSplitter) {
+          float newPos = static_cast<float>(event.motion.x) / audioData.windowWidth;
+          audioData.splitterPos = std::max(0.2f, std::min(0.8f, newPos));
+        }
+        break;
       }
     }
 
@@ -114,20 +111,20 @@ int main() {
 
     {
       std::lock_guard<std::mutex> lock(audioData.mutex);
-      
+
       Visualizers::drawLissajous(audioData, lissajousSize);
-      
+
       if (scopeWidth > 0) {
         Visualizers::drawOscilloscope(audioData, scopeWidth);
       }
-      
+
       if (fftWidth > 0) {
         Visualizers::drawFFT(audioData, fftWidth);
       }
-      
+
       Visualizers::drawSplitter(audioData, splitterX);
     }
-    
+
     SDL_GL_SwapWindow(win);
 
     frameCount++;
@@ -140,7 +137,7 @@ int main() {
 
   audioData.running = false;
   audioThreadHandle.join();
-  
+
   SDL_GL_DeleteContext(glContext);
   SDL_DestroyWindow(win);
   SDL_Quit();
