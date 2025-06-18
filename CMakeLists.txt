@@ -31,6 +31,7 @@ add_executable(Pulse
   src/graphics.cpp
   src/audio_processing.cpp
   src/visualizers.cpp
+  src/theme.cpp
 )
 
 # Link libraries

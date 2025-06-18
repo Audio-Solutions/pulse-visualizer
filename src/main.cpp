@@ -11,12 +11,16 @@
 #include "graphics.hpp"
 #include "audio_processing.hpp"
 #include "visualizers.hpp"
+#include "theme.hpp"
 
 int main() {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
     return 1;
   }
+
+  // Initialize the theme system
+  Theme::ThemeManager::initialize();
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
@@ -98,8 +102,8 @@ int main() {
       }
     }
 
-    glClearColor(Config::Colors::BACKGROUND[0], Config::Colors::BACKGROUND[1], 
-                 Config::Colors::BACKGROUND[2], Config::Colors::BACKGROUND[3]);
+    const auto& background = Theme::ThemeManager::getBackground();
+    glClearColor(background.r, background.g, background.b, background.a);
     glClear(GL_COLOR_BUFFER_BIT);
 
     int lissajousSize = audioData.windowHeight;

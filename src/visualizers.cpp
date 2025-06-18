@@ -2,6 +2,7 @@
 #include "graphics.hpp"
 #include "config.hpp"
 #include "audio_processing.hpp"
+#include "theme.hpp"
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -31,7 +32,7 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
     if (Config::Lissajous::ENABLE_PHOSPHOR) {
     // Enable additive blending for phosphor effect
     glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     glBegin(GL_LINES);
     for (size_t i = 1; i < points.size(); ++i) {
@@ -44,25 +45,27 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       float distance = sqrtf(dx*dx + dy*dy);
       
       // Normalize distance to 0-1 range, with a maximum distance threshold
-      float maxDistance = lissajousSize * 0.2f; // Adjust this value to control the effect (To be added to config)
+      float maxDistance = lissajousSize * 0.2f;
       float normalizedDistance = std::min(distance / maxDistance, 1.0f);
       
-      // Calculate color blend factor (1.0 = full visualizer color, 0.0 = full background)
+      // Calculate color blend factor
       float blendFactor = 1.0f - normalizedDistance;
       
-      // Blend colors with additive effect
-      float color[4];
-      for (int j = 0; j < 4; ++j) {
-        color[j] = Config::Colors::VISUALIZER[j] * blendFactor;
-      }
-      color[3] = 1.0f; // Full alpha for additive blending
+      // Get the Lissajous color
+      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
+      float color[4] = {
+        lissajousColor.r,
+        lissajousColor.g,
+        lissajousColor.b,
+        blendFactor
+      };
       
       glColor4fv(color);
       glVertex2f(p1.first, p1.second);
       glVertex2f(p2.first, p2.second);
     }
     glEnd();
-    
+      
       // Reset blending
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
@@ -121,11 +124,15 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
       waveformPoints.push_back({x, y});
     }
     
-    // Create fill color by blending VISUALIZER and BACKGROUND
-    float fillColor[4];
-    for (int i = 0; i < 4; i++) {
-      fillColor[i] = Config::Colors::VISUALIZER[i] * 0.15f + Config::Colors::BACKGROUND[i] * 0.85f;
-    }
+    // Create fill color by blending oscilloscope color with background
+    const auto& oscilloscopeColor = Theme::ThemeManager::getOscilloscope();
+    const auto& backgroundColor = Theme::ThemeManager::getBackground();
+    float fillColor[4] = {
+      oscilloscopeColor.r * 0.15f + backgroundColor.r * 0.85f,
+      oscilloscopeColor.g * 0.15f + backgroundColor.g * 0.85f,
+      oscilloscopeColor.b * 0.15f + backgroundColor.b * 0.85f,
+      oscilloscopeColor.a * 0.15f + backgroundColor.a * 0.85f
+    };
     
     // Draw filled area below waveform
     glBegin(GL_QUAD_STRIP);
@@ -138,7 +145,13 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
     
     // Draw the waveform line using OpenGL only if there's a valid peak
     if (audioData.hasValidPeak) {
-      Graphics::drawAntialiasedLines(waveformPoints, Config::Colors::VISUALIZER, 2.0f);
+      float oscilloscopeColorArray[4] = {
+        oscilloscopeColor.r,
+        oscilloscopeColor.g,
+        oscilloscopeColor.b,
+        oscilloscopeColor.a
+      };
+      Graphics::drawAntialiasedLines(waveformPoints, oscilloscopeColorArray, 2.0f);
     }
   }
 }
@@ -157,7 +170,9 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       if (freq < minFreq || freq > maxFreq) return;
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
       float x = logX * fftWidth;
-      Graphics::drawAntialiasedLine(x, 0, x, audioData.windowHeight, Config::Colors::GRID, 1.0f);
+      const auto& gridColor = Theme::ThemeManager::getGrid();
+      float gridColorArray[4] = { gridColor.r, gridColor.g, gridColor.b, gridColor.a };
+      Graphics::drawAntialiasedLine(x, 0, x, audioData.windowHeight, gridColorArray, 1.0f);
     };
 
     // Draw log-decade lines: 1,2,3,...9,10 per decade, from 100Hz up to maxFreq
@@ -183,16 +198,21 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
       float x = logX * fftWidth;
       float y = 8.0f;
-      
+
       // Draw background rectangle
       float textWidth = 40.0f;  // Approximate width for the labels
       float textHeight = 12.0f; // Height of the text
       float padding = 4.0f;     // Padding around text
+
+      const auto& bgColor = Theme::ThemeManager::getBackground();
+      float bgColorArray[4] = { bgColor.r, bgColor.g, bgColor.b, bgColor.a };
       Graphics::drawFilledRect(x - textWidth/2 - padding, y - textHeight/2 - padding,
-                             textWidth + padding*2, textHeight + padding*2, Config::Colors::BACKGROUND);
-      
+                             textWidth + padding*2, textHeight + padding*2, bgColorArray);
+
       // Draw the text
-      Graphics::drawText(label, x - textWidth/2, y, 10.0f, Config::Colors::GRID);
+      const auto& gridColor = Theme::ThemeManager::getGrid();
+      float gridColorArray[4] = { gridColor.r, gridColor.g, gridColor.b, gridColor.a };
+      Graphics::drawText(label, x - textWidth/2, y, 10.0f, gridColorArray);
     };
     drawFreqLabel(100.0f, "100 Hz");
     drawFreqLabel(1000.0f, "1 kHz");
@@ -226,7 +246,10 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       fftPoints.push_back({x, y});
     }
     
-    Graphics::drawAntialiasedLines(fftPoints, Config::Colors::VISUALIZER, 2.0f);
+    // Draw the FFT curve using OpenGL
+    const auto& spectrumColor = Theme::ThemeManager::getSpectrum();
+    float spectrumColorArray[4] = { spectrumColor.r, spectrumColor.g, spectrumColor.b, spectrumColor.a };
+    Graphics::drawAntialiasedLines(fftPoints, spectrumColorArray, 2.0f);
 
     // Only show note text if we have a valid peak
     if (audioData.hasValidPeak) {
@@ -237,7 +260,10 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       float overlayX = 10.0f;  // Relative to FFT viewport
       float overlayY = audioData.windowHeight - 20.0f;
 
-      Graphics::drawText(overlay, overlayX, overlayY, 14.0f, Config::Colors::TEXT);
+      // Now draw overlay text on top of everything
+      const auto& textColor = Theme::ThemeManager::getText();
+      float textColorArray[4] = { textColor.r, textColor.g, textColor.b, textColor.a };
+      Graphics::drawText(overlay, overlayX, overlayY, 14.0f, textColorArray);
     }
   }
 }
@@ -245,10 +271,14 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
 void drawSplitter(const AudioData& audioData, int splitterX) {
   Graphics::setupViewport(0, 0, audioData.windowWidth, audioData.windowHeight, audioData.windowHeight);
 
+  // Draw splitter using OpenGL
+  const auto& splitterColor = Theme::ThemeManager::getSplitter();
+  float splitterColorArray[4] = { splitterColor.r, splitterColor.g, splitterColor.b, splitterColor.a };
+
   Graphics::drawAntialiasedLine(
     static_cast<float>(splitterX), 0, 
     static_cast<float>(splitterX), static_cast<float>(audioData.windowHeight), 
-    Config::Colors::SPLITTER, 2.0f
+    splitterColorArray, 2.0f
   );
 }
 
