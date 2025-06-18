@@ -4,6 +4,23 @@ project(Pulse)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Check if config.hpp exists, if not provide helpful error message
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp")
+  message(FATAL_ERROR "
+  ================================================
+  CONFIGURATION ERROR
+  ================================================
+  
+  The file 'src/config.hpp' does not exist.
+  
+  Before building, you need to:
+  1. Copy src/config.hpp.template to src/config.hpp
+  2. Edit src/config.hpp to configure your settings
+  
+  ================================================
+  ")
+endif()
+
 # Find pkg-config
 find_package(PkgConfig REQUIRED)
 
