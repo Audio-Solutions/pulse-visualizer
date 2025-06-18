@@ -440,10 +440,70 @@ namespace Theme {
             .scrollbarHover = Color(115.0f/255.0f, 128.0f/255.0f, 145.0f/255.0f), // Read Content (#738091)
             
             // Visualization specific colors
-            .waveform = Color(242.0f/255.0f, 244.0f/255.0f, 248.0f/255.0f),  // Accent (#F2F4F8)
-            .spectrum = Color(45.0f/255.0f, 219.0f/255.0f, 217.0f/255.0f),   // Current User Name (#2DC7C4)
-            .lissajous = Color(37.0f/255.0f, 190.0f/255.0f, 106.0f/255.0f),  // Moderator Name (#25BE6A)
-            .oscilloscope = Color(241.0f/255.0f, 109.0f/255.0f, 166.0f/255.0f) // Upvoted (#F16DA6)
+            .waveform = Color(0.0f, 0.8f, 1.0f),                            // Cyan (C)
+            .spectrum = Color(0.0f, 0.8f, 1.0f),                            // Cyan (C)
+            .lissajous = Color(1.0f, 0.0f, 0.0f),                           // Magenta (M)
+            .oscilloscope = Color(1.0f, 0.8f, 0.0f)                         // Yellow (Y)
+        };
+
+        // CMYK Printer Theme
+        constexpr ThemeDefinition CMYK = {
+            // Core colors
+            .background = Color(1.0f, 1.0f, 1.0f),                           // White paper
+            .grid = Color(0.9f, 0.9f, 0.9f),                                 // Light gray grid
+            .visualizer = Color(0.0f, 0.8f, 1.0f),                          // Cyan
+            .splitter = Color(0.9f, 0.9f, 0.9f),                            // Light gray
+            .text = Color(0.0f, 0.0f, 0.0f),                                // Black text
+            
+            // Semantic colors
+            .accent = Color(1.0f, 0.0f, 0.0f),                              // Magenta
+            .warning = Color(1.0f, 0.8f, 0.0f),                             // Yellow
+            .error = Color(1.0f, 0.0f, 0.0f),                               // Magenta
+            .success = Color(0.0f, 0.8f, 1.0f),                             // Cyan
+            
+            // UI element colors
+            .button = Color(0.95f, 0.95f, 0.95f),                           // Light gray
+            .buttonHover = Color(0.9f, 0.9f, 0.9f),                         // Medium gray
+            .buttonActive = Color(1.0f, 0.0f, 0.0f),                        // Magenta
+            .border = Color(0.8f, 0.8f, 0.8f),                              // Gray
+            .scrollbar = Color(0.8f, 0.8f, 0.8f),                           // Gray
+            .scrollbarHover = Color(0.7f, 0.7f, 0.7f),                      // Dark gray
+            
+            // Visualization specific colors
+            .waveform = Color(0.0f, 1.0f, 1.0f),                            // Cyan (C)
+            .spectrum = Color(0.0f, 1.0f, 1.0f),                            // Cyan (C)
+            .lissajous = Color(1.0f, 0.0f, 1.0f),                           // Magenta (M)
+            .oscilloscope = Color(1.0f, 1.0f, 0.0f)                         // Yellow (Y)
+        };
+
+        // Monochrome Printer Theme (K only)
+        constexpr ThemeDefinition MONOCHROME = {
+            // Core colors
+            .background = Color(1.0f, 1.0f, 1.0f),                           // White paper
+            .grid = Color(0.95f, 0.95f, 0.95f),                             // Very light gray
+            .visualizer = Color(0.2f, 0.2f, 0.2f),                          // Dark gray
+            .splitter = Color(0.9f, 0.9f, 0.9f),                            // Light gray
+            .text = Color(0.0f, 0.0f, 0.0f),                                // Black text
+            
+            // Semantic colors
+            .accent = Color(0.3f, 0.3f, 0.3f),                              // Medium gray
+            .warning = Color(0.5f, 0.5f, 0.5f),                             // Gray
+            .error = Color(0.7f, 0.7f, 0.7f),                               // Light gray
+            .success = Color(0.1f, 0.1f, 0.1f),                             // Very dark gray
+            
+            // UI element colors
+            .button = Color(0.95f, 0.95f, 0.95f),                           // Very light gray
+            .buttonHover = Color(0.9f, 0.9f, 0.9f),                         // Light gray
+            .buttonActive = Color(0.3f, 0.3f, 0.3f),                        // Medium gray
+            .border = Color(0.8f, 0.8f, 0.8f),                              // Gray
+            .scrollbar = Color(0.8f, 0.8f, 0.8f),                           // Gray
+            .scrollbarHover = Color(0.7f, 0.7f, 0.7f),                      // Dark gray
+            
+            // Visualization specific colors
+            .waveform = Color(0.0f, 0.0f, 0.0f),                            // Dark gray
+            .spectrum = Color(0.0f, 0.0f, 0.0f),                            // Medium-dark gray
+            .lissajous = Color(0.0f, 0.0f, 0.0f),                           // Medium gray
+            .oscilloscope = Color(0.0f, 0.0f, 0.0f)                         // Light gray
         };
     }
 
@@ -465,6 +525,8 @@ namespace Theme {
                 registerTheme("dayfox", Themes::DAYFOX);
                 registerTheme("nightfox", Themes::NIGHTFOX);
                 registerTheme("carbonfox", Themes::CARBONFOX);
+                registerTheme("cmyk", Themes::CMYK);
+                registerTheme("monochrome", Themes::MONOCHROME);
             }
         }
 
