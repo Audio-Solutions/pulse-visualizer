@@ -22,6 +22,7 @@ constexpr size_t DISPLAY_SAMPLES = 2000;   // Number of samples to display
 // FFT Configuration
 namespace FFT {
 enum StereoMode { LEFTRIGHT, MIDSIDE };
+enum NoteKeyMode { SHARP, FLAT };
 
 constexpr int FFT_SIZE = 4096;                  // FFT size for frequency analysis
 constexpr float FFT_SMOOTHING_FACTOR = 0.2f;    // Controls FFT visualization smoothness
@@ -35,6 +36,7 @@ constexpr float FFT_FALL_SPEED = 50.0f;         // Speed multiplier for falling 
 constexpr float FFT_DISPLAY_MIN_DB = -60.0f;    // Minimum dB for display scaling
 constexpr float FFT_DISPLAY_MAX_DB = -10.0f;    // Maximum dB for display scaling
 constexpr StereoMode MODE = MIDSIDE;            // Stereo mode for audio processing
+constexpr NoteKeyMode NOTE_KEY_MODE = SHARP;    // Note key mode for note visualization
 } // namespace FFT
 
 // Lissajous Configuration

@@ -20,7 +20,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Multiple visualization styles:
 	- Lissajous curve with toggleable phosphor-like effect
 	- Oscilloscope with configurable gradient modes
-	- FFT with mid/side and right/left modes
+	- FFT with mid/side and right/left modes and sharp/flat note key mode
 - Low-latency audio processing
 - Hardware-accelerated graphics
 - Cross-platform support

@@ -98,7 +98,11 @@ void applyBandpass(const std::vector<float>& input, std::vector<float>& output, 
 
 // Helper function to convert frequency to note
 void freqToNote(float freq, std::string& noteName, int& octave, int& cents) {
-  static const char* noteNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+  static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+  static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+
+  const char* const* noteNames = Config::FFT::NOTE_KEY_MODE == Config::FFT::SHARP ? noteNamesSharp : noteNamesFlat;
+
   if (freq <= 0.0f) {
     noteName = "-";
     octave = 0;
