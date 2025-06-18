@@ -46,9 +46,12 @@ constexpr bool ENABLE_PHOSPHOR = true; // Enable phosphor effect
 
 // Oscilloscope Configuration
 namespace Oscilloscope {
-constexpr float AMPLITUDE_SCALE = 0.5f; // Use 50% of window height for amplitude
-constexpr size_t MIN_CYCLE_COUNT = 1;   // Minimum number of cycles to display
-constexpr size_t MAX_CYCLE_COUNT = 8;   // Maximum number of cycles to display
+enum GradientMode { OFF, HORIZONTAL, VERTICAL };
+
+constexpr float AMPLITUDE_SCALE = 0.5f;            // Use 50% of window height for amplitude
+constexpr size_t MIN_CYCLE_COUNT = 1;              // Minimum number of cycles to display
+constexpr size_t MAX_CYCLE_COUNT = 8;              // Maximum number of cycles to display
+constexpr GradientMode GRADIENT_MODE = HORIZONTAL; // Gradient mode for oscilloscope
 } // namespace Oscilloscope
 
 // PulseAudio Configuration

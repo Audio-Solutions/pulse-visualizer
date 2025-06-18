@@ -129,22 +129,91 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
     // Create fill color by blending oscilloscope color with background
     const auto& oscilloscopeColor = Theme::ThemeManager::getOscilloscope();
     const auto& backgroundColor = Theme::ThemeManager::getBackground();
-    float fillColor[4] = {oscilloscopeColor.r * 0.15f + backgroundColor.r * 0.85f,
-                          oscilloscopeColor.g * 0.15f + backgroundColor.g * 0.85f,
-                          oscilloscopeColor.b * 0.15f + backgroundColor.b * 0.85f,
-                          oscilloscopeColor.a * 0.15f + backgroundColor.a * 0.85f};
-
-    // Draw filled area below waveform
-    glBegin(GL_QUAD_STRIP);
-    glColor4fv(fillColor);
-    for (const auto& point : waveformPoints) {
-      glVertex2f(point.first, point.second);
-      glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
-    }
-    glEnd();
 
     // Draw the waveform line using OpenGL only if there's a valid peak
     if (audioData.hasValidPeak) {
+      // Handle different gradient modes
+      switch (Config::Oscilloscope::GRADIENT_MODE) {
+      case Config::Oscilloscope::OFF:
+        // No gradient fill - just draw the waveform line
+        break;
+
+      case Config::Oscilloscope::HORIZONTAL: {
+        // Horizontal gradient: intensity based on distance from center line outward
+        // Draw filled area using triangles from zero line to waveform
+        glBegin(GL_TRIANGLES);
+        for (size_t i = 1; i < waveformPoints.size(); ++i) {
+          const auto& p1 = waveformPoints[i - 1];
+          const auto& p2 = waveformPoints[i];
+
+          // Calculate gradient for p1
+          float distance1 = std::abs(p1.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+          distance1 = std::min(distance1, 1.0f);
+          float gradientIntensity1 = distance1 * 0.3f; // Higher 30% intensity as its less noticeable
+          float fillColor1[4] = {
+              oscilloscopeColor.r * gradientIntensity1 + backgroundColor.r * (1.0f - gradientIntensity1),
+              oscilloscopeColor.g * gradientIntensity1 + backgroundColor.g * (1.0f - gradientIntensity1),
+              oscilloscopeColor.b * gradientIntensity1 + backgroundColor.b * (1.0f - gradientIntensity1),
+              oscilloscopeColor.a * gradientIntensity1 + backgroundColor.a * (1.0f - gradientIntensity1)};
+
+          // Calculate gradient for p2
+          float distance2 = std::abs(p2.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+          distance2 = std::min(distance2, 1.0f);
+          float gradientIntensity2 = distance2 * 0.3f;
+          float fillColor2[4] = {
+              oscilloscopeColor.r * gradientIntensity2 + backgroundColor.r * (1.0f - gradientIntensity2),
+              oscilloscopeColor.g * gradientIntensity2 + backgroundColor.g * (1.0f - gradientIntensity2),
+              oscilloscopeColor.b * gradientIntensity2 + backgroundColor.b * (1.0f - gradientIntensity2),
+              oscilloscopeColor.a * gradientIntensity2 + backgroundColor.a * (1.0f - gradientIntensity2)};
+
+          // Center color (always background)
+          float centerColor[4] = {backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a};
+
+          // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
+          glColor4fv(centerColor);
+          glVertex2f(p1.first, audioData.windowHeight / 2);
+          glColor4fv(fillColor1);
+          glVertex2f(p1.first, p1.second);
+          glColor4fv(centerColor);
+          glVertex2f(p2.first, audioData.windowHeight / 2);
+
+          // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
+          glColor4fv(fillColor1);
+          glVertex2f(p1.first, p1.second);
+          glColor4fv(fillColor2);
+          glVertex2f(p2.first, p2.second);
+          glColor4fv(centerColor);
+          glVertex2f(p2.first, audioData.windowHeight / 2);
+        }
+        glEnd();
+        break;
+      }
+
+      case Config::Oscilloscope::VERTICAL: {
+        // Vertical gradient: intensity based on distance from center line (current implementation)
+        glBegin(GL_QUAD_STRIP);
+        for (const auto& point : waveformPoints) {
+          // Calculate distance from center line (0.0 = at center, 1.0 = at edge)
+          float distanceFromCenter = std::abs(point.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+          distanceFromCenter = std::min(distanceFromCenter, 1.0f);
+
+          // Create gradient color based on distance
+          float gradientIntensity = distanceFromCenter * 0.15f; // Max 15% oscilloscope color
+          float fillColor[4] = {
+              oscilloscopeColor.r * gradientIntensity + backgroundColor.r * (1.0f - gradientIntensity),
+              oscilloscopeColor.g * gradientIntensity + backgroundColor.g * (1.0f - gradientIntensity),
+              oscilloscopeColor.b * gradientIntensity + backgroundColor.b * (1.0f - gradientIntensity),
+              oscilloscopeColor.a * gradientIntensity + backgroundColor.a * (1.0f - gradientIntensity)};
+
+          glColor4fv(fillColor);
+          glVertex2f(point.first, point.second);
+          glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
+        }
+        glEnd();
+        break;
+      }
+      }
+
       float oscilloscopeColorArray[4] = {oscilloscopeColor.r, oscilloscopeColor.g, oscilloscopeColor.b,
                                          oscilloscopeColor.a};
       Graphics::drawAntialiasedLines(waveformPoints, oscilloscopeColorArray, 2.0f);

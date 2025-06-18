@@ -1,6 +1,6 @@
 # Pulse - Audio Visualizer
 
-Ever wanted to *see* your music? Pulse is a real-time audio visualizer that transforms your system's audio into eye-catching (maybe?) visual effects. Built in C++ and powered by SDL2, OpenGL, PulseAudio, and FFTW, Pulse delivers smooth, responsive visuals that move in sync with your music (unless your system sucks :D).
+Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/) that transforms your system's audio into eye-catching (maybe?) visual effects. Built in C++ and powered by SDL2, OpenGL, PulseAudio, and FFTW, Pulse delivers smooth, responsive visuals that move in sync with your music (unless your system sucks :D).
 
 ## Current Status
 
@@ -19,8 +19,8 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer that tran
 - Real-time audio visualization
 - Multiple visualization styles:
 	- Lissajous curve with toggleable phosphor-like effect
-	- Oscilloscope
-	- FFT
+	- Oscilloscope with configurable gradient modes
+	- FFT with mid/side and right/left modes
 - Low-latency audio processing
 - Hardware-accelerated graphics
 - Cross-platform support
