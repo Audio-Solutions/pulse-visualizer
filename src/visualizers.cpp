@@ -66,7 +66,9 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       // Reset blending
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
-      Graphics::drawAntialiasedLines(points, Config::Colors::VISUALIZER, 2.0f);
+      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
+      float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, 1.0f};
+      Graphics::drawAntialiasedLines(points, color, 2.0f);
     }
   }
 }
