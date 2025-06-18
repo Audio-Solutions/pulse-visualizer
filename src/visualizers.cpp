@@ -30,10 +30,9 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       points.push_back({x, y});
     }
 
-    // Draw lines with phosphor effect (toggleable too probably)
-    // Enable additive blending for phosphor effect
+    // Draw lines with phosphor effect
     glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // Draw segments
     glBegin(GL_LINES);
@@ -47,30 +46,27 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       float distance = sqrtf(dx*dx + dy*dy);
       
       // Normalize distance to 0-1 range, with a maximum distance threshold
-      float maxDistance = lissajousSize * 0.2f; // Adjust this value to control the effect (To be added to config)
+      float maxDistance = lissajousSize * 0.2f;
       float normalizedDistance = std::min(distance / maxDistance, 1.0f);
       
-      // Calculate color blend factor (1.0 = full visualizer color, 0.0 = full background)
+      // Calculate color blend factor
       float blendFactor = 1.0f - normalizedDistance;
       
-      // Blend colors with additive effect
-      const auto& visualizerColor = Theme::ThemeManager::getVisualizer();
+      // Get the Lissajous color
+      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
       float color[4] = {
-        visualizerColor.r * blendFactor,
-        visualizerColor.g * blendFactor,
-        visualizerColor.b * blendFactor,
-        1.0f  // Full alpha for additive blending
+        lissajousColor.r,
+        lissajousColor.g,
+        lissajousColor.b,
+        blendFactor
       };
       
-      // Draw line segment with blended color
+      // Draw line segment with color
       glColor4fv(color);
       glVertex2f(p1.first, p1.second);
       glVertex2f(p2.first, p2.second);
     }
     glEnd();
-    
-    // Reset blending
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
 }
 
@@ -124,14 +120,14 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
       waveformPoints.push_back({x, y});
     }
     
-    // Create fill color by blending VISUALIZER and BACKGROUND
-    const auto& visualizerColor = Theme::ThemeManager::getVisualizer();
+    // Create fill color by blending oscilloscope color with background
+    const auto& oscilloscopeColor = Theme::ThemeManager::getOscilloscope();
     const auto& backgroundColor = Theme::ThemeManager::getBackground();
     float fillColor[4] = {
-      visualizerColor.r * 0.15f + backgroundColor.r * 0.85f,
-      visualizerColor.g * 0.15f + backgroundColor.g * 0.85f,
-      visualizerColor.b * 0.15f + backgroundColor.b * 0.85f,
-      visualizerColor.a * 0.15f + backgroundColor.a * 0.85f
+      oscilloscopeColor.r * 0.15f + backgroundColor.r * 0.85f,
+      oscilloscopeColor.g * 0.15f + backgroundColor.g * 0.85f,
+      oscilloscopeColor.b * 0.15f + backgroundColor.b * 0.85f,
+      oscilloscopeColor.a * 0.15f + backgroundColor.a * 0.85f
     };
     
     // Draw filled area below waveform
@@ -144,13 +140,13 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
     glEnd();
     
     // Draw the waveform line using OpenGL
-    float visualizerColorArray[4] = {
-      visualizerColor.r,
-      visualizerColor.g,
-      visualizerColor.b,
-      visualizerColor.a
+    float oscilloscopeColorArray[4] = {
+      oscilloscopeColor.r,
+      oscilloscopeColor.g,
+      oscilloscopeColor.b,
+      oscilloscopeColor.a
     };
-    Graphics::drawAntialiasedLines(waveformPoints, visualizerColorArray, 2.0f);
+    Graphics::drawAntialiasedLines(waveformPoints, oscilloscopeColorArray, 2.0f);
   }
 }
 
@@ -246,9 +242,9 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
         fftPoints.push_back({x, y});
       }
       // Draw the FFT curve using OpenGL
-      const auto& visualizerColor = Theme::ThemeManager::getVisualizer();
-      float visualizerColorArray[4] = { visualizerColor.r, visualizerColor.g, visualizerColor.b, visualizerColor.a };
-      Graphics::drawAntialiasedLines(fftPoints, visualizerColorArray, 2.0f);
+      const auto& spectrumColor = Theme::ThemeManager::getSpectrum();
+      float spectrumColorArray[4] = { spectrumColor.r, spectrumColor.g, spectrumColor.b, spectrumColor.a };
+      Graphics::drawAntialiasedLines(fftPoints, spectrumColorArray, 2.0f);
 
       // Now draw overlay text on top of everything
       const auto& textColor = Theme::ThemeManager::getText();
