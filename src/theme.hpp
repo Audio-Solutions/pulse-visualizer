@@ -115,6 +115,126 @@ namespace Theme {
             .lissajous = Color(64.0f/255.0f, 160.0f/255.0f, 43.0f/255.0f),   // Green
             .oscilloscope = Color(254.0f/255.0f, 100.0f/255.0f, 11.0f/255.0f) // Peach
         };
+
+        // AMOLED theme (true black with vibrant accents)
+        constexpr ThemeDefinition AMOLED = {
+            // Core colors
+            .background = Color(0.0f/255.0f, 0.0f/255.0f, 0.0f/255.0f),      // True black
+            .grid = Color(30.0f/255.0f, 30.0f/255.0f, 30.0f/255.0f),         // Dark gray
+            .visualizer = Color(255.0f/255.0f, 0.0f/255.0f, 255.0f/255.0f),  // Magenta
+            .splitter = Color(30.0f/255.0f, 30.0f/255.0f, 30.0f/255.0f),     // Dark gray
+            .text = Color(255.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f),      // White
+            
+            // Semantic colors
+            .accent = Color(0.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f),      // Cyan
+            .warning = Color(255.0f/255.0f, 165.0f/255.0f, 0.0f/255.0f),     // Orange
+            .error = Color(255.0f/255.0f, 0.0f/255.0f, 0.0f/255.0f),         // Red
+            .success = Color(0.0f/255.0f, 255.0f/255.0f, 0.0f/255.0f),       // Lime
+            
+            // UI element colors
+            .button = Color(40.0f/255.0f, 40.0f/255.0f, 40.0f/255.0f),       // Darker gray
+            .buttonHover = Color(60.0f/255.0f, 60.0f/255.0f, 60.0f/255.0f),  // Medium gray
+            .buttonActive = Color(0.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f), // Cyan
+            .border = Color(40.0f/255.0f, 40.0f/255.0f, 40.0f/255.0f),       // Darker gray
+            .scrollbar = Color(40.0f/255.0f, 40.0f/255.0f, 40.0f/255.0f),    // Darker gray
+            .scrollbarHover = Color(60.0f/255.0f, 60.0f/255.0f, 60.0f/255.0f), // Medium gray
+            
+            // Visualization specific colors
+            .waveform = Color(255.0f/255.0f, 0.0f/255.0f, 255.0f/255.0f),    // Magenta
+            .spectrum = Color(0.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f),    // Cyan
+            .lissajous = Color(0.0f/255.0f, 255.0f/255.0f, 0.0f/255.0f),     // Lime
+            .oscilloscope = Color(255.0f/255.0f, 165.0f/255.0f, 0.0f/255.0f) // Orange
+        };
+
+        // Catppuccin Frappe theme
+        constexpr ThemeDefinition FRAPPE = {
+            // Core colors
+            .background = Color(48.0f/255.0f, 52.0f/255.0f, 70.0f/255.0f),   // Base
+            .grid = Color(73.0f/255.0f, 77.0f/255.0f, 100.0f/255.0f),        // Surface0
+            .visualizer = Color(202.0f/255.0f, 158.0f/255.0f, 230.0f/255.0f), // Mauve
+            .splitter = Color(73.0f/255.0f, 77.0f/255.0f, 100.0f/255.0f),    // Surface0
+            .text = Color(198.0f/255.0f, 208.0f/255.0f, 245.0f/255.0f),      // Text
+            
+            // Semantic colors
+            .accent = Color(140.0f/255.0f, 170.0f/255.0f, 238.0f/255.0f),    // Blue
+            .warning = Color(239.0f/255.0f, 159.0f/255.0f, 118.0f/255.0f),   // Peach
+            .error = Color(231.0f/255.0f, 130.0f/255.0f, 132.0f/255.0f),     // Red
+            .success = Color(166.0f/255.0f, 209.0f/255.0f, 137.0f/255.0f),   // Green
+            
+            // UI element colors
+            .button = Color(81.0f/255.0f, 85.0f/255.0f, 109.0f/255.0f),      // Surface1
+            .buttonHover = Color(92.0f/255.0f, 95.0f/255.0f, 119.0f/255.0f), // Surface2
+            .buttonActive = Color(140.0f/255.0f, 170.0f/255.0f, 238.0f/255.0f), // Blue
+            .border = Color(81.0f/255.0f, 85.0f/255.0f, 109.0f/255.0f),      // Surface1
+            .scrollbar = Color(81.0f/255.0f, 85.0f/255.0f, 109.0f/255.0f),   // Surface1
+            .scrollbarHover = Color(92.0f/255.0f, 95.0f/255.0f, 119.0f/255.0f), // Surface2
+            
+            // Visualization specific colors
+            .waveform = Color(202.0f/255.0f, 158.0f/255.0f, 230.0f/255.0f),  // Mauve
+            .spectrum = Color(140.0f/255.0f, 170.0f/255.0f, 238.0f/255.0f),  // Blue
+            .lissajous = Color(166.0f/255.0f, 209.0f/255.0f, 137.0f/255.0f), // Green
+            .oscilloscope = Color(239.0f/255.0f, 159.0f/255.0f, 118.0f/255.0f) // Peach
+        };
+
+        // Catppuccin Macchiato theme
+        constexpr ThemeDefinition MACCHIATO = {
+            // Core colors
+            .background = Color(36.0f/255.0f, 39.0f/255.0f, 58.0f/255.0f),   // Base
+            .grid = Color(54.0f/255.0f, 58.0f/255.0f, 79.0f/255.0f),         // Surface0
+            .visualizer = Color(202.0f/255.0f, 158.0f/255.0f, 230.0f/255.0f), // Mauve
+            .splitter = Color(54.0f/255.0f, 58.0f/255.0f, 79.0f/255.0f),     // Surface0
+            .text = Color(202.0f/255.0f, 211.0f/255.0f, 245.0f/255.0f),      // Text
+            
+            // Semantic colors
+            .accent = Color(138.0f/255.0f, 173.0f/255.0f, 244.0f/255.0f),    // Blue
+            .warning = Color(250.0f/255.0f, 179.0f/255.0f, 135.0f/255.0f),   // Peach
+            .error = Color(237.0f/255.0f, 135.0f/255.0f, 150.0f/255.0f),     // Red
+            .success = Color(166.0f/255.0f, 218.0f/255.0f, 149.0f/255.0f),   // Green
+            
+            // UI element colors
+            .button = Color(69.0f/255.0f, 71.0f/255.0f, 90.0f/255.0f),       // Surface1
+            .buttonHover = Color(88.0f/255.0f, 91.0f/255.0f, 112.0f/255.0f), // Surface2
+            .buttonActive = Color(138.0f/255.0f, 173.0f/255.0f, 244.0f/255.0f), // Blue
+            .border = Color(69.0f/255.0f, 71.0f/255.0f, 90.0f/255.0f),       // Surface1
+            .scrollbar = Color(69.0f/255.0f, 71.0f/255.0f, 90.0f/255.0f),    // Surface1
+            .scrollbarHover = Color(88.0f/255.0f, 91.0f/255.0f, 112.0f/255.0f), // Surface2
+            
+            // Visualization specific colors
+            .waveform = Color(202.0f/255.0f, 158.0f/255.0f, 230.0f/255.0f),  // Mauve
+            .spectrum = Color(138.0f/255.0f, 173.0f/255.0f, 244.0f/255.0f),  // Blue
+            .lissajous = Color(166.0f/255.0f, 218.0f/255.0f, 149.0f/255.0f), // Green
+            .oscilloscope = Color(250.0f/255.0f, 179.0f/255.0f, 135.0f/255.0f) // Peach
+        };
+
+        // Tokyo Night theme
+        constexpr ThemeDefinition TOKYO_NIGHT = {
+            // Core colors
+            .background = Color(26.0f/255.0f, 27.0f/255.0f, 38.0f/255.0f),   // Background
+            .grid = Color(41.0f/255.0f, 42.0f/255.0f, 58.0f/255.0f),         // Darker
+            .visualizer = Color(187.0f/255.0f, 154.0f/255.0f, 247.0f/255.0f), // Purple
+            .splitter = Color(41.0f/255.0f, 42.0f/255.0f, 58.0f/255.0f),     // Darker
+            .text = Color(169.0f/255.0f, 177.0f/255.0f, 214.0f/255.0f),      // Text
+            
+            // Semantic colors
+            .accent = Color(122.0f/255.0f, 162.0f/255.0f, 247.0f/255.0f),    // Blue
+            .warning = Color(255.0f/255.0f, 158.0f/255.0f, 100.0f/255.0f),   // Orange
+            .error = Color(247.0f/255.0f, 118.0f/255.0f, 142.0f/255.0f),     // Red
+            .success = Color(158.0f/255.0f, 206.0f/255.0f, 106.0f/255.0f),   // Green
+            
+            // UI element colors
+            .button = Color(41.0f/255.0f, 42.0f/255.0f, 58.0f/255.0f),       // Darker
+            .buttonHover = Color(65.0f/255.0f, 66.0f/255.0f, 82.0f/255.0f),  // Light
+            .buttonActive = Color(122.0f/255.0f, 162.0f/255.0f, 247.0f/255.0f), // Blue
+            .border = Color(41.0f/255.0f, 42.0f/255.0f, 58.0f/255.0f),       // Darker
+            .scrollbar = Color(41.0f/255.0f, 42.0f/255.0f, 58.0f/255.0f),    // Darker
+            .scrollbarHover = Color(65.0f/255.0f, 66.0f/255.0f, 82.0f/255.0f), // Light
+            
+            // Visualization specific colors
+            .waveform = Color(187.0f/255.0f, 154.0f/255.0f, 247.0f/255.0f),  // Purple
+            .spectrum = Color(122.0f/255.0f, 162.0f/255.0f, 247.0f/255.0f),  // Blue
+            .lissajous = Color(158.0f/255.0f, 206.0f/255.0f, 106.0f/255.0f), // Green
+            .oscilloscope = Color(255.0f/255.0f, 158.0f/255.0f, 100.0f/255.0f) // Orange
+        };
     }
 
     // Theme manager class to handle theme switching and access
@@ -124,6 +244,10 @@ namespace Theme {
             if (availableThemes.empty()) {
                 registerTheme("mocha", Themes::MOCHA);
                 registerTheme("latte", Themes::LATTE);
+                registerTheme("amoled", Themes::AMOLED);
+                registerTheme("frappe", Themes::FRAPPE);
+                registerTheme("macchiato", Themes::MACCHIATO);
+                registerTheme("tokyo-night", Themes::TOKYO_NIGHT);
             }
         }
 
@@ -152,6 +276,10 @@ namespace Theme {
         static const Color& getWarning() { return currentTheme.warning; }
         static const Color& getError() { return currentTheme.error; }
         static const Color& getSuccess() { return currentTheme.success; }
+        static const Color& getLissajous() { return currentTheme.lissajous; }
+        static const Color& getOscilloscope() { return currentTheme.oscilloscope; }
+        static const Color& getWaveform() { return currentTheme.waveform; }
+        static const Color& getSpectrum() { return currentTheme.spectrum; }
 
     private:
         static ThemeDefinition currentTheme;

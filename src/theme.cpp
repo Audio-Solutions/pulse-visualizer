@@ -5,7 +5,7 @@
 namespace Theme {
 
 // Define static members
-ThemeDefinition ThemeManager::currentTheme = Themes::MOCHA;
+ThemeDefinition ThemeManager::currentTheme = Themes::LATTE;
 std::unordered_map<std::string, ThemeDefinition> ThemeManager::availableThemes;
 
 } 
