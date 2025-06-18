@@ -24,7 +24,20 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer that tran
 - Low-latency audio processing
 - Hardware-accelerated graphics
 - Cross-platform support
-
+- Included themes:
+	- Mocha (Catppuccin)
+	- Macchiato (Catppuccin)
+	- Frappe (Catppuccin)
+	- Latte (Catppuccin)
+	- Windows Light
+	- Windows Dark
+	- Breeze Light
+	- Breeze Dark
+	- AMOLED
+	- CMYK Printer
+	- Monochrome Printer
+	- Carbonfox (AMOLED Dark)
+	- Nightfox
 
 ## Dependencies
 
@@ -47,6 +60,30 @@ cp src/config.hpp.template src/config.hpp
 
 Then edit `src/config.hpp` to set your PulseAudio source and font path.
 
+
+### Themeing 
+To choose a theme, edit the following line in `theme.cpp`
+
+```cpp
+ThemeDefinition ThemeManager::currentTheme = Themes::MOCHA;
+```
+and replace the `MOCHA` to reflect the value of the theme you wish to apply. Valid values are:
+- `MOCHA` (Catppuccin Mocha)
+- `MACCHIATO` (Catppuccin Macchiato)
+- `FRAPPE` (Catppuccin Frappe)
+- `LATTE` (Catppuccin Latte)
+- `WINDOWS_LIGHT` (Windows Light)
+- `WINDOWS_DARK` (Windows Dark)
+- `BREEZE_LIGHT` (Breeze Light)
+- `BREEZE_DARK` (Breeze Dark)
+- `AMOLED` (AMOLED)
+- `CMYK_PRINTER` (CMYK Printer)
+- `MONOCHROME_PRINTER` (Monochrome Printer)
+- `CARBONFOX` (Carbonfox AMOLED Dark)
+- `NIGHTFOX` (Nightfox)
+
+\
+\
 Now you can build the project:
 
 ```bash
