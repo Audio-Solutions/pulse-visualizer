@@ -235,6 +235,126 @@ namespace Theme {
             .lissajous = Color(158.0f/255.0f, 206.0f/255.0f, 106.0f/255.0f), // Green
             .oscilloscope = Color(255.0f/255.0f, 158.0f/255.0f, 100.0f/255.0f) // Orange
         };
+
+        // Breeze Light theme (KDE Plasma)
+        constexpr ThemeDefinition BREEZE_LIGHT = {
+            // Core colors
+            .background = Color(239.0f/255.0f, 240.0f/255.0f, 241.0f/255.0f), // Background
+            .grid = Color(189.0f/255.0f, 191.0f/255.0f, 193.0f/255.0f),      // Grid
+            .visualizer = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f), // Blue
+            .splitter = Color(189.0f/255.0f, 191.0f/255.0f, 193.0f/255.0f),  // Grid
+            .text = Color(35.0f/255.0f, 38.0f/255.0f, 41.0f/255.0f),         // Text
+            
+            // Semantic colors
+            .accent = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),     // Blue
+            .warning = Color(246.0f/255.0f, 116.0f/255.0f, 0.0f/255.0f),     // Orange
+            .error = Color(237.0f/255.0f, 21.0f/255.0f, 21.0f/255.0f),       // Red
+            .success = Color(39.0f/255.0f, 174.0f/255.0f, 96.0f/255.0f),     // Green
+            
+            // UI element colors
+            .button = Color(252.0f/255.0f, 252.0f/255.0f, 252.0f/255.0f),    // Button
+            .buttonHover = Color(239.0f/255.0f, 240.0f/255.0f, 241.0f/255.0f), // Button Hover
+            .buttonActive = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f), // Button Active
+            .border = Color(189.0f/255.0f, 191.0f/255.0f, 193.0f/255.0f),    // Border
+            .scrollbar = Color(189.0f/255.0f, 191.0f/255.0f, 193.0f/255.0f), // Scrollbar
+            .scrollbarHover = Color(149.0f/255.0f, 151.0f/255.0f, 153.0f/255.0f), // Scrollbar Hover
+            
+            // Visualization specific colors
+            .waveform = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),   // Blue
+            .spectrum = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),   // Blue
+            .lissajous = Color(39.0f/255.0f, 174.0f/255.0f, 96.0f/255.0f),   // Green
+            .oscilloscope = Color(246.0f/255.0f, 116.0f/255.0f, 0.0f/255.0f) // Orange
+        };
+
+        // Breeze Dark theme (KDE Plasma)
+        constexpr ThemeDefinition BREEZE_DARK = {
+            // Core colors
+            .background = Color(35.0f/255.0f, 38.0f/255.0f, 41.0f/255.0f),   // Background
+            .grid = Color(49.0f/255.0f, 54.0f/255.0f, 59.0f/255.0f),         // Grid
+            .visualizer = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f), // Blue
+            .splitter = Color(49.0f/255.0f, 54.0f/255.0f, 59.0f/255.0f),     // Grid
+            .text = Color(239.0f/255.0f, 240.0f/255.0f, 241.0f/255.0f),      // Text
+            
+            // Semantic colors
+            .accent = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),     // Blue
+            .warning = Color(246.0f/255.0f, 116.0f/255.0f, 0.0f/255.0f),     // Orange
+            .error = Color(237.0f/255.0f, 21.0f/255.0f, 21.0f/255.0f),       // Red
+            .success = Color(39.0f/255.0f, 174.0f/255.0f, 96.0f/255.0f),     // Green
+            
+            // UI element colors
+            .button = Color(49.0f/255.0f, 54.0f/255.0f, 59.0f/255.0f),       // Button
+            .buttonHover = Color(55.0f/255.0f, 60.0f/255.0f, 65.0f/255.0f),  // Button Hover
+            .buttonActive = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f), // Button Active
+            .border = Color(49.0f/255.0f, 54.0f/255.0f, 59.0f/255.0f),       // Border
+            .scrollbar = Color(49.0f/255.0f, 54.0f/255.0f, 59.0f/255.0f),    // Scrollbar
+            .scrollbarHover = Color(55.0f/255.0f, 60.0f/255.0f, 65.0f/255.0f), // Scrollbar Hover
+            
+            // Visualization specific colors
+            .waveform = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),   // Blue
+            .spectrum = Color(61.0f/255.0f, 174.0f/255.0f, 233.0f/255.0f),   // Blue
+            .lissajous = Color(39.0f/255.0f, 174.0f/255.0f, 96.0f/255.0f),   // Green
+            .oscilloscope = Color(246.0f/255.0f, 116.0f/255.0f, 0.0f/255.0f) // Orange
+        };
+
+        // Windows Light theme
+        constexpr ThemeDefinition WINDOWS_LIGHT = {
+            // Core colors
+            .background = Color(255.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f), // White
+            .grid = Color(240.0f/255.0f, 240.0f/255.0f, 240.0f/255.0f),      // Light Gray
+            .visualizer = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),  // Windows Blue
+            .splitter = Color(240.0f/255.0f, 240.0f/255.0f, 240.0f/255.0f),  // Light Gray
+            .text = Color(0.0f/255.0f, 0.0f/255.0f, 0.0f/255.0f),            // Black
+            
+            // Semantic colors
+            .accent = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),      // Windows Blue
+            .warning = Color(255.0f/255.0f, 140.0f/255.0f, 0.0f/255.0f),     // Orange
+            .error = Color(232.0f/255.0f, 17.0f/255.0f, 35.0f/255.0f),       // Red
+            .success = Color(0.0f/255.0f, 153.0f/255.0f, 68.0f/255.0f),      // Green
+            
+            // UI element colors
+            .button = Color(240.0f/255.0f, 240.0f/255.0f, 240.0f/255.0f),    // Light Gray
+            .buttonHover = Color(230.0f/255.0f, 230.0f/255.0f, 230.0f/255.0f), // Hover Gray
+            .buttonActive = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f), // Windows Blue
+            .border = Color(240.0f/255.0f, 240.0f/255.0f, 240.0f/255.0f),    // Light Gray
+            .scrollbar = Color(240.0f/255.0f, 240.0f/255.0f, 240.0f/255.0f), // Light Gray
+            .scrollbarHover = Color(230.0f/255.0f, 230.0f/255.0f, 230.0f/255.0f), // Hover Gray
+            
+            // Visualization specific colors
+            .waveform = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),    // Windows Blue
+            .spectrum = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),    // Windows Blue
+            .lissajous = Color(0.0f/255.0f, 153.0f/255.0f, 68.0f/255.0f),    // Green
+            .oscilloscope = Color(255.0f/255.0f, 140.0f/255.0f, 0.0f/255.0f) // Orange
+        };
+
+        // Windows Dark theme
+        constexpr ThemeDefinition WINDOWS_DARK = {
+            // Core colors
+            .background = Color(32.0f/255.0f, 32.0f/255.0f, 32.0f/255.0f),   // Dark Gray
+            .grid = Color(45.0f/255.0f, 45.0f/255.0f, 45.0f/255.0f),         // Slightly Lighter Gray
+            .visualizer = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),  // Windows Blue
+            .splitter = Color(45.0f/255.0f, 45.0f/255.0f, 45.0f/255.0f),     // Slightly Lighter Gray
+            .text = Color(255.0f/255.0f, 255.0f/255.0f, 255.0f/255.0f),      // White
+            
+            // Semantic colors
+            .accent = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),      // Windows Blue
+            .warning = Color(255.0f/255.0f, 140.0f/255.0f, 0.0f/255.0f),     // Orange
+            .error = Color(232.0f/255.0f, 17.0f/255.0f, 35.0f/255.0f),       // Red
+            .success = Color(0.0f/255.0f, 153.0f/255.0f, 68.0f/255.0f),      // Green
+            
+            // UI element colors
+            .button = Color(45.0f/255.0f, 45.0f/255.0f, 45.0f/255.0f),       // Slightly Lighter Gray
+            .buttonHover = Color(55.0f/255.0f, 55.0f/255.0f, 55.0f/255.0f),  // Hover Gray
+            .buttonActive = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f), // Windows Blue
+            .border = Color(45.0f/255.0f, 45.0f/255.0f, 45.0f/255.0f),       // Slightly Lighter Gray
+            .scrollbar = Color(45.0f/255.0f, 45.0f/255.0f, 45.0f/255.0f),    // Slightly Lighter Gray
+            .scrollbarHover = Color(55.0f/255.0f, 55.0f/255.0f, 55.0f/255.0f), // Hover Gray
+            
+            // Visualization specific colors
+            .waveform = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),    // Windows Blue
+            .spectrum = Color(0.0f/255.0f, 120.0f/255.0f, 215.0f/255.0f),    // Windows Blue
+            .lissajous = Color(0.0f/255.0f, 153.0f/255.0f, 68.0f/255.0f),    // Green
+            .oscilloscope = Color(255.0f/255.0f, 140.0f/255.0f, 0.0f/255.0f) // Orange
+        };
     }
 
     // Theme manager class to handle theme switching and access
@@ -248,6 +368,10 @@ namespace Theme {
                 registerTheme("frappe", Themes::FRAPPE);
                 registerTheme("macchiato", Themes::MACCHIATO);
                 registerTheme("tokyo-night", Themes::TOKYO_NIGHT);
+                registerTheme("breeze-light", Themes::BREEZE_LIGHT);
+                registerTheme("breeze-dark", Themes::BREEZE_DARK);
+                registerTheme("windows-light", Themes::WINDOWS_LIGHT);
+                registerTheme("windows-dark", Themes::WINDOWS_DARK);
             }
         }
 
