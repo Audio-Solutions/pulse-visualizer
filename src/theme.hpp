@@ -355,6 +355,96 @@ namespace Theme {
             .lissajous = Color(0.0f/255.0f, 153.0f/255.0f, 68.0f/255.0f),    // Green
             .oscilloscope = Color(255.0f/255.0f, 140.0f/255.0f, 0.0f/255.0f) // Orange
         };
+
+        // Dayfox Theme (Light Theme)
+        constexpr ThemeDefinition DAYFOX = {
+            // Core colors
+            .background = Color(242.0f/255.0f, 233.0f/255.0f, 225.0f/255.0f), // Primary UI Background (#F2E9E1)
+            .grid = Color(246.0f/255.0f, 242.0f/255.0f, 238.0f/255.0f),      // General Background (#F6F2EE)
+            .visualizer = Color(61.0f/255.0f, 43.0f/255.0f, 90.0f/255.0f),   // Accent (#3D2B5A)
+            .splitter = Color(242.0f/255.0f, 233.0f/255.0f, 225.0f/255.0f),  // Divider (#F2E9E1)
+            .text = Color(53.0f/255.0f, 44.0f/255.0f, 36.0f/255.0f),         // Secondary Text (#352C24)
+            
+            // Semantic colors
+            .accent = Color(61.0f/255.0f, 43.0f/255.0f, 90.0f/255.0f),       // Accent (#3D2B5A)
+            .warning = Color(165.0f/255.0f, 34.0f/255.0f, 47.0f/255.0f),     // Upvoted (#A5222F)
+            .error = Color(72.0f/255.0f, 99.0f/255.0f, 182.0f/255.0f),       // Downvoted (#4863B6)
+            .success = Color(87.0f/255.0f, 127.0f/255.0f, 99.0f/255.0f),     // Moderator Name (#577F63)
+            
+            // UI element colors
+            .button = Color(61.0f/255.0f, 43.0f/255.0f, 90.0f/255.0f),       // Accent (#3D2B5A)
+            .buttonHover = Color(72.0f/255.0f, 141.0f/255.0f, 147.0f/255.0f), // Current User Name (#488D93)
+            .buttonActive = Color(72.0f/255.0f, 141.0f/255.0f, 147.0f/255.0f), // Current User Name (#488D93)
+            .border = Color(242.0f/255.0f, 233.0f/255.0f, 225.0f/255.0f),    // Divider (#F2E9E1)
+            .scrollbar = Color(72.0f/255.0f, 141.0f/255.0f, 147.0f/255.0f),  // Flair Background (#488D93)
+            .scrollbarHover = Color(87.0f/255.0f, 127.0f/255.0f, 99.0f/255.0f), // Moderator Name (#577F63)
+            
+            // Visualization specific colors
+            .waveform = Color(61.0f/255.0f, 43.0f/255.0f, 90.0f/255.0f),     // Accent (#3D2B5A)
+            .spectrum = Color(72.0f/255.0f, 141.0f/255.0f, 147.0f/255.0f),   // Flair Background (#488D93)
+            .lissajous = Color(87.0f/255.0f, 127.0f/255.0f, 99.0f/255.0f),   // Moderator Name (#577F63)
+            .oscilloscope = Color(165.0f/255.0f, 34.0f/255.0f, 47.0f/255.0f) // Upvoted (#A5222F)
+        };
+
+        // Nightfox Theme (Dark Theme)
+        constexpr ThemeDefinition NIGHTFOX = {
+            // Core colors
+            .background = Color(43.0f/255.0f, 59.0f/255.0f, 81.0f/255.0f),   // Primary UI Background (#2B3B51)
+            .grid = Color(25.0f/255.0f, 35.0f/255.0f, 48.0f/255.0f),         // Darkest Background (#192330)
+            .visualizer = Color(205.0f/255.0f, 206.0f/255.0f, 207.0f/255.0f), // Accent (#CDCECF)
+            .splitter = Color(43.0f/255.0f, 59.0f/255.0f, 81.0f/255.0f),     // Divider (#2B3B51)
+            .text = Color(223.0f/255.0f, 223.0f/255.0f, 224.0f/255.0f),      // Secondary Text (#DFDFE0)
+            
+            // Semantic colors
+            .accent = Color(205.0f/255.0f, 206.0f/255.0f, 207.0f/255.0f),    // Accent (#CDCECF)
+            .warning = Color(219.0f/255.0f, 192.0f/255.0f, 116.0f/255.0f),   // Upvoted (#DBC074)
+            .error = Color(209.0f/255.0f, 105.0f/255.0f, 131.0f/255.0f),     // Downvoted (#D16983)
+            .success = Color(157.0f/255.0f, 121.0f/255.0f, 214.0f/255.0f),   // Flair Background (#9D79D6)
+            
+            // UI element colors
+            .button = Color(43.0f/255.0f, 59.0f/255.0f, 81.0f/255.0f),       // Primary UI Background (#2B3B51)
+            .buttonHover = Color(57.0f/255.0f, 122.0f/255.0f, 214.0f/255.0f), // Current User Name (#7AD5D6)
+            .buttonActive = Color(214.0f/255.0f, 122.0f/255.0f, 210.0f/255.0f), // Moderator Name (#D67AD2)
+            .border = Color(43.0f/255.0f, 59.0f/255.0f, 81.0f/255.0f),       // Divider (#2B3B51)
+            .scrollbar = Color(57.0f/255.0f, 59.0f/255.0f, 68.0f/255.0f),    // Unread Messages (#393B44)
+            .scrollbarHover = Color(115.0f/255.0f, 128.0f/255.0f, 145.0f/255.0f), // Read Content (#738091)
+            
+            // Visualization specific colors
+            .waveform = Color(205.0f/255.0f, 206.0f/255.0f, 207.0f/255.0f),  // Accent (#CDCECF)
+            .spectrum = Color(57.0f/255.0f, 122.0f/255.0f, 214.0f/255.0f),   // Current User Name (#7AD5D6)
+            .lissajous = Color(214.0f/255.0f, 122.0f/255.0f, 210.0f/255.0f), // Moderator Name (#D67AD2)
+            .oscilloscope = Color(219.0f/255.0f, 192.0f/255.0f, 116.0f/255.0f) // Upvoted (#DBC074)
+        };
+
+        // Carbonfox Theme (AMOLED Dark Theme)
+        constexpr ThemeDefinition CARBONFOX = {
+            // Core colors
+            .background = Color(40.0f/255.0f, 40.0f/255.0f, 40.0f/255.0f),   // Primary UI Background (#282828)
+            .grid = Color(22.0f/255.0f, 22.0f/255.0f, 22.0f/255.0f),         // Darkest Background (#161616)
+            .visualizer = Color(242.0f/255.0f, 244.0f/255.0f, 248.0f/255.0f), // Accent (#F2F4F8)
+            .splitter = Color(72.0f/255.0f, 72.0f/255.0f, 72.0f/255.0f),     // Divider (#484848)
+            .text = Color(228.0f/255.0f, 228.0f/255.0f, 229.0f/255.0f),      // Secondary Text (#E4E4E5)
+            
+            // Semantic colors
+            .accent = Color(242.0f/255.0f, 244.0f/255.0f, 248.0f/255.0f),    // Accent (#F2F4F8)
+            .warning = Color(241.0f/255.0f, 109.0f/255.0f, 166.0f/255.0f),   // Upvoted (#F16DA6)
+            .error = Color(82.0f/255.0f, 189.0f/255.0f, 255.0f/255.0f),      // Downvoted (#52BDFF)
+            .success = Color(37.0f/255.0f, 190.0f/255.0f, 106.0f/255.0f),    // Moderator Name (#25BE6A)
+            
+            // UI element colors
+            .button = Color(40.0f/255.0f, 40.0f/255.0f, 40.0f/255.0f),       // Primary UI Background (#282828)
+            .buttonHover = Color(45.0f/255.0f, 219.0f/255.0f, 217.0f/255.0f), // Current User Name (#2DC7C4)
+            .buttonActive = Color(61.0f/255.0f, 219.0f/255.0f, 217.0f/255.0f), // Flair Background (#3DDBD9)
+            .border = Color(72.0f/255.0f, 72.0f/255.0f, 72.0f/255.0f),       // Divider (#484848)
+            .scrollbar = Color(72.0f/255.0f, 72.0f/255.0f, 72.0f/255.0f),    // Unread Messages (#484848)
+            .scrollbarHover = Color(115.0f/255.0f, 128.0f/255.0f, 145.0f/255.0f), // Read Content (#738091)
+            
+            // Visualization specific colors
+            .waveform = Color(242.0f/255.0f, 244.0f/255.0f, 248.0f/255.0f),  // Accent (#F2F4F8)
+            .spectrum = Color(45.0f/255.0f, 219.0f/255.0f, 217.0f/255.0f),   // Current User Name (#2DC7C4)
+            .lissajous = Color(37.0f/255.0f, 190.0f/255.0f, 106.0f/255.0f),  // Moderator Name (#25BE6A)
+            .oscilloscope = Color(241.0f/255.0f, 109.0f/255.0f, 166.0f/255.0f) // Upvoted (#F16DA6)
+        };
     }
 
     // Theme manager class to handle theme switching and access
@@ -372,6 +462,9 @@ namespace Theme {
                 registerTheme("breeze-dark", Themes::BREEZE_DARK);
                 registerTheme("windows-light", Themes::WINDOWS_LIGHT);
                 registerTheme("windows-dark", Themes::WINDOWS_DARK);
+                registerTheme("dayfox", Themes::DAYFOX);
+                registerTheme("nightfox", Themes::NIGHTFOX);
+                registerTheme("carbonfox", Themes::CARBONFOX);
             }
         }
 
