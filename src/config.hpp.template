@@ -41,9 +41,14 @@ constexpr NoteKeyMode NOTE_KEY_MODE = SHARP;    // Note key mode for note visual
 
 // Lissajous Configuration
 namespace Lissajous {
-constexpr int POINTS = 500;            // Number of points to store
-constexpr int SPLINE_SEGMENTS = 10;    // Number of segments for spline interpolation
-constexpr bool ENABLE_PHOSPHOR = true; // Enable phosphor effect
+constexpr int POINTS = 500;                     // Number of points to store
+constexpr int SPLINE_SEGMENTS = 8;              // Number of segments for spline interpolation
+constexpr bool ENABLE_SPLINES = true;           // Enable Catmull-Rom spline interpolation
+constexpr bool ENABLE_PHOSPHOR = true;          // Enable phosphor effect
+constexpr float PHOSPHOR_MIN_BRIGHTNESS = 0.1f; // Minimum brightness factor (0.0-1.0)
+constexpr float PHOSPHOR_MAX_BRIGHTNESS = 1.0f; // Maximum brightness factor (0.0-1.0)
+constexpr float PHOSPHOR_TENSION = 0.5f;        // Catmull-Rom spline tension parameter
+constexpr float PHOSPHOR_FADE_FACTOR = 0.5f;    // Tail fade factor (0.0-1.0)
 } // namespace Lissajous
 
 // Oscilloscope Configuration

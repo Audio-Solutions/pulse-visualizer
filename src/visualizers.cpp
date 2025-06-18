@@ -17,6 +17,67 @@
 
 namespace Visualizers {
 
+// Catmull-Rom spline interpolation
+std::vector<std::pair<float, float>> generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
+                                                              int segmentsPerSegment) {
+  if (controlPoints.size() < 4) {
+    return controlPoints; // Not enough points for spline
+  }
+
+  std::vector<std::pair<float, float>> splinePoints;
+
+  // Catmull-Rom matrix coefficients using configurable tension
+  const float t = Config::Lissajous::PHOSPHOR_TENSION;
+
+  for (size_t i = 1; i < controlPoints.size() - 2; ++i) {
+    const auto& p0 = controlPoints[i - 1];
+    const auto& p1 = controlPoints[i];
+    const auto& p2 = controlPoints[i + 1];
+    const auto& p3 = controlPoints[i + 2];
+
+    // Generate segments between p1 and p2
+    for (int j = 0; j <= segmentsPerSegment; ++j) {
+      float u = static_cast<float>(j) / segmentsPerSegment;
+      float u2 = u * u;
+      float u3 = u2 * u;
+
+      // Catmull-Rom blending functions
+      float b0 = -t * u3 + 2.0f * t * u2 - t * u;
+      float b1 = (2.0f - t) * u3 + (t - 3.0f) * u2 + 1.0f;
+      float b2 = (t - 2.0f) * u3 + (3.0f - 2.0f * t) * u2 + t * u;
+      float b3 = t * u3 - t * u2;
+
+      float x = b0 * p0.first + b1 * p1.first + b2 * p2.first + b3 * p3.first;
+      float y = b0 * p0.second + b1 * p1.second + b2 * p2.second + b3 * p3.second;
+
+      splinePoints.push_back({x, y});
+    }
+  }
+
+  return splinePoints;
+}
+
+// Calculate cumulative distance along a path of points
+std::vector<float> calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points) {
+  std::vector<float> distances;
+  distances.reserve(points.size());
+
+  float cumulativeDistance = 0.0f;
+  distances.push_back(0.0f);
+
+  for (size_t i = 1; i < points.size(); ++i) {
+    const auto& p1 = points[i - 1];
+    const auto& p2 = points[i];
+    float dx = p2.first - p1.first;
+    float dy = p2.second - p1.second;
+    float segmentDistance = sqrtf(dx * dx + dy * dy);
+    cumulativeDistance += segmentDistance;
+    distances.push_back(cumulativeDistance);
+  }
+
+  return distances;
+}
+
 void drawLissajous(const AudioData& audioData, int lissajousSize) {
   Graphics::setupViewport(0, 0, lissajousSize, lissajousSize, audioData.windowHeight);
 
@@ -31,31 +92,51 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       points.push_back({x, y});
     }
 
+    // Generate spline points if enabled, otherwise use original points
+    std::vector<std::pair<float, float>> displayPoints = points;
+    if (Config::Lissajous::ENABLE_SPLINES && points.size() >= 4) {
+      displayPoints = generateCatmullRomSpline(points, Config::Lissajous::SPLINE_SEGMENTS);
+    }
+
     if (Config::Lissajous::ENABLE_PHOSPHOR) {
+      // Calculate cumulative distances for length-based darkening
+      std::vector<float> cumulativeDistances = calculateCumulativeDistances(displayPoints);
+      float totalLength = cumulativeDistances.back();
+
       // Enable additive blending for phosphor effect
       glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+      glBlendFunc(GL_ONE, GL_ONE);
 
+      // Get the Lissajous color
+      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
+
+      // Draw spline segments with length-based darkening
       glBegin(GL_LINES);
-      for (size_t i = 1; i < points.size(); ++i) {
-        const auto& p1 = points[i - 1];
-        const auto& p2 = points[i];
+      for (size_t i = 1; i < displayPoints.size(); ++i) {
+        const auto& p1 = displayPoints[i - 1];
+        const auto& p2 = displayPoints[i];
 
-        // Calculate distance between points
-        float dx = p2.first - p1.first;
-        float dy = p2.second - p1.second;
-        float distance = sqrtf(dx * dx + dy * dy);
+        // Calculate distance from start of path
+        float distanceFromStart = cumulativeDistances[i];
 
-        // Normalize distance to 0-1 range, with a maximum distance threshold
-        float maxDistance = lissajousSize * 0.2f;
-        float normalizedDistance = std::min(distance / maxDistance, 1.0f);
+        // Normalize distance to 0-1 range
+        float normalizedDistance = totalLength > 0.0f ? distanceFromStart / totalLength : 0.0f;
 
-        // Calculate color blend factor
-        float blendFactor = 1.0f - normalizedDistance;
+        // Calculate brightness factor based on distance (longer paths get brighter)
+        // Use configurable parameters for phosphor effect
+        float brightnessFactor = normalizedDistance * (Config::Lissajous::PHOSPHOR_MAX_BRIGHTNESS -
+                                                       Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS) +
+                                 Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS;
+        brightnessFactor = std::clamp(brightnessFactor, Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS,
+                                      Config::Lissajous::PHOSPHOR_MAX_BRIGHTNESS);
 
-        // Get the Lissajous color
-        const auto& lissajousColor = Theme::ThemeManager::getLissajous();
-        float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, blendFactor};
+        // Tail fade: 1.0 at head, PHOSPHOR_FADE_FACTOR at tail
+        float tailFade = Config::Lissajous::PHOSPHOR_FADE_FACTOR +
+                         (1.0f - Config::Lissajous::PHOSPHOR_FADE_FACTOR) * (1.0f - float(i) / displayPoints.size());
+        float finalBrightness = brightnessFactor * tailFade;
+
+        float color[4] = {lissajousColor.r * finalBrightness, lissajousColor.g * finalBrightness,
+                          lissajousColor.b * finalBrightness, finalBrightness};
 
         glColor4fv(color);
         glVertex2f(p1.first, p1.second);
@@ -68,7 +149,7 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
     } else {
       const auto& lissajousColor = Theme::ThemeManager::getLissajous();
       float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, 1.0f};
-      Graphics::drawAntialiasedLines(points, color, 2.0f);
+      Graphics::drawAntialiasedLines(displayPoints, color, 2.0f);
     }
   }
 }
