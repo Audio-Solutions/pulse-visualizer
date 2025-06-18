@@ -49,6 +49,12 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - FreeType2
 - OpenGL
 
+## Platform Support
+
+Pulse is confirmed to work on:
+- Linux (with PulseAudio)
+- BSD (with PulseAudio)
+
 
 ## Building
 
