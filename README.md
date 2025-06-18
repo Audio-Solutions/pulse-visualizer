@@ -105,7 +105,7 @@ After building, just run the executable:
 
 ## Contributing
 
-Contributions are welcome! If you want to help improve Pulse, feel free to jump in.
+Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request.
 
 ## License
 
