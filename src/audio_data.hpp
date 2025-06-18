@@ -11,8 +11,9 @@
 
 struct AudioData {
   static const size_t BUFFER_SIZE = Config::Audio::BUFFER_SIZE;
-  std::vector<float> buffer;
-  std::vector<float> bandpassed;
+  std::vector<float> bufferMid;     // Mid channel
+  std::vector<float> bufferSide;    // Side channel
+  std::vector<float> bandpassedMid; // Mid channel (filtered)
   size_t writePos = 0;
   size_t readPos = 0;
   std::mutex mutex;
@@ -29,10 +30,14 @@ struct AudioData {
   int windowHeight = Config::DEFAULT_WINDOW_HEIGHT; // Current window height
 
   // Pre-allocated FFT data to avoid reallocations
-  std::vector<float> fftMagnitudes;
-  std::vector<float> prevFftMagnitudes;
-  std::vector<float> smoothedMagnitudes;
-  std::vector<float> interpolatedValues;
+  std::vector<float> fftMagnitudesMid;
+  std::vector<float> prevFftMagnitudesMid;
+  std::vector<float> smoothedMagnitudesMid;
+  std::vector<float> interpolatedValuesMid;
+  std::vector<float> fftMagnitudesSide;
+  std::vector<float> prevFftMagnitudesSide;
+  std::vector<float> smoothedMagnitudesSide;
+  std::vector<float> interpolatedValuesSide;
 
   float splitterPos = Config::DEFAULT_SPLITTER_POS;
   bool draggingSplitter = false;

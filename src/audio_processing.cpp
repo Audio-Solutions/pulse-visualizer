@@ -142,17 +142,12 @@ void audioThread(AudioData* audioData) {
   }
 
   // Pre-allocate all buffers to avoid reallocations
-  audioData->buffer.resize(audioData->BUFFER_SIZE, 0.0f);
-  audioData->bandpassed.resize(audioData->BUFFER_SIZE, 0.0f);
+  audioData->bufferMid.resize(audioData->BUFFER_SIZE, 0.0f);
+  audioData->bufferSide.resize(audioData->BUFFER_SIZE, 0.0f);
+  audioData->bandpassedMid.resize(audioData->BUFFER_SIZE, 0.0f);
 
   const int READ_SIZE = 512;
   float readBuffer[READ_SIZE];
-
-  // Use circular buffer for pitch detection instead of vector with erase
-  const int PITCH_BUFFER_SIZE = 8192;
-  std::vector<float> pitchBuffer(PITCH_BUFFER_SIZE, 0.0f);
-  size_t pitchWritePos = 0;
-  bool pitchBufferFull = false;
 
   const int FFT_SIZE = 4096;
   fftwf_complex* out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
@@ -160,10 +155,14 @@ void audioThread(AudioData* audioData) {
   fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
 
   // Pre-allocate all FFT-related vectors
-  audioData->fftMagnitudes.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->prevFftMagnitudes.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->smoothedMagnitudes.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->interpolatedValues.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->fftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->prevFftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->smoothedMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->interpolatedValuesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->fftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->prevFftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->smoothedMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData->interpolatedValuesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
 
   // FFT processing control - reduce frequency to save CPU
   int fftSkipCount = 0;
@@ -181,28 +180,21 @@ void audioThread(AudioData* audioData) {
 
     // Write to circular buffer
     std::unique_lock<std::mutex> lock(audioData->mutex);
-    for (int i = 0; i < READ_SIZE; i += 2) { // Only use left channel
-      float sample = readBuffer[i];
-
-      // Add to circular pitch detection buffer
-      pitchBuffer[pitchWritePos] = sample;
-      pitchWritePos = (pitchWritePos + 1) % PITCH_BUFFER_SIZE;
-      if (!pitchBufferFull && pitchWritePos == 0) {
-        pitchBufferFull = true;
-      }
+    for (int i = 0; i < READ_SIZE; i += 2) {
+      float sampleLeft = readBuffer[i];
+      float sampleRight = readBuffer[i + 1];
 
       // Store Lissajous points (using left and right channels)
       if (i + 1 < READ_SIZE) {
-        float left = readBuffer[i];
-        float right = readBuffer[i + 1];
-        audioData->lissajousPoints.push_back({left, right});
+        audioData->lissajousPoints.push_back({sampleLeft, sampleRight});
         if (audioData->lissajousPoints.size() > ::LISSAJOUS_POINTS) {
           audioData->lissajousPoints.pop_front();
         }
       }
 
       // Write to circular buffer
-      audioData->buffer[audioData->writePos] = sample;
+      audioData->bufferMid[audioData->writePos] = (sampleLeft + sampleRight) / 2.0f;
+      audioData->bufferSide[audioData->writePos] = (sampleLeft - sampleRight) / 2.0f;
       audioData->writePos = (audioData->writePos + 1) % audioData->BUFFER_SIZE;
       audioData->availableSamples++;
     }
@@ -214,21 +206,21 @@ void audioThread(AudioData* audioData) {
     }
     fftSkipCount = 0;
 
-    if (pitchBufferFull) {
-      // Copy and window the input data from circular buffer
-      size_t startPos = (pitchWritePos + PITCH_BUFFER_SIZE - FFT_SIZE) % PITCH_BUFFER_SIZE;
+    if (audioData->availableSamples > 0) {
+      // Copy and window the input data from circular buffer (mid channel)
+      size_t startPos = (audioData->writePos + audioData->BUFFER_SIZE - FFT_SIZE) % audioData->BUFFER_SIZE;
       for (int i = 0; i < FFT_SIZE; i++) {
         // Apply Hanning window
         float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % PITCH_BUFFER_SIZE;
-        in[i] = pitchBuffer[pos] * window;
+        size_t pos = (startPos + i) % audioData->BUFFER_SIZE;
+        in[i] = audioData->bufferMid[pos] * window;
       }
 
-      // Execute FFT
+      // Execute FFT (mid channel)
       fftwf_execute(plan);
 
       // Store previous frame for interpolation
-      audioData->prevFftMagnitudes = audioData->fftMagnitudes;
+      audioData->prevFftMagnitudesMid = audioData->fftMagnitudesMid;
 
       // Calculate new magnitudes with proper FFTW3 scaling
       const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
@@ -237,7 +229,30 @@ void audioThread(AudioData* audioData) {
         // Double all bins except DC and Nyquist
         if (i != 0 && i != FFT_SIZE / 2)
           mag *= 2.0f;
-        audioData->fftMagnitudes[i] = mag;
+        audioData->fftMagnitudesMid[i] = mag;
+      }
+
+      // Copy and window the input data from circular buffer (side channel)
+      for (int i = 0; i < FFT_SIZE; i++) {
+        // Apply Hanning window
+        float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+        size_t pos = (startPos + i) % audioData->BUFFER_SIZE;
+        in[i] = audioData->bufferSide[pos] * window;
+      }
+
+      // Execute FFT (side channel)
+      fftwf_execute(plan);
+
+      // Store previous frame for interpolation
+      audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
+
+      // Calculate new magnitudes with proper FFTW3 scaling
+      for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
+        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
+        // Double all bins except DC and Nyquist
+        if (i != 0 && i != FFT_SIZE / 2)
+          mag *= 2.0f;
+        audioData->fftMagnitudesSide[i] = mag;
       }
 
       // Update FFT timing
@@ -260,7 +275,7 @@ void audioThread(AudioData* audioData) {
 
       // Find the bin with maximum magnitude
       for (int i = minBin; i <= maxBin; i++) {
-        float magnitude = audioData->fftMagnitudes[i];
+        float magnitude = audioData->fftMagnitudesMid[i];
         if (magnitude > maxMagnitude) {
           maxMagnitude = magnitude;
           peakBin = i;
@@ -269,7 +284,7 @@ void audioThread(AudioData* audioData) {
 
       float avgMagnitude = 0.0f;
       for (int i = minBin; i <= maxBin; i++) {
-        avgMagnitude += audioData->fftMagnitudes[i];
+        avgMagnitude += audioData->fftMagnitudesMid[i];
       }
       avgMagnitude /= (maxBin - minBin + 1);
 
@@ -278,9 +293,9 @@ void audioThread(AudioData* audioData) {
 
       if (peakBin > 0 && peakBin < FFT_SIZE / 2 - 1) {
         // Get magnitudes of surrounding bins
-        float m0 = audioData->fftMagnitudes[peakBin - 1];
-        float m1 = audioData->fftMagnitudes[peakBin];
-        float m2 = audioData->fftMagnitudes[peakBin + 1];
+        float m0 = audioData->fftMagnitudesMid[peakBin - 1];
+        float m1 = audioData->fftMagnitudesMid[peakBin];
+        float m2 = audioData->fftMagnitudesMid[peakBin + 1];
 
         // Calculate weighted average of bin positions
         float totalWeight = m0 + m1 + m2;
@@ -300,7 +315,7 @@ void audioThread(AudioData* audioData) {
         audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
 
         // Apply bandpass filter to the buffer
-        Butterworth::applyBandpass(audioData->buffer, audioData->bandpassed, pitch, 44100.0f,
+        Butterworth::applyBandpass(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
                                    100.0f); // 100Hz bandwidth
       } else {
         audioData->pitchConfidence *= 0.95f;
@@ -315,13 +330,13 @@ void audioThread(AudioData* audioData) {
       peakBin = 0;
       const float minFreq = Config::FFT::FFT_MIN_FREQ;
       const float maxFreq = Config::FFT::FFT_MAX_FREQ;
-      const int fftSize = (audioData->fftMagnitudes.size() - 1) * 2;
+      const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
 
-      for (size_t i = 1; i < audioData->fftMagnitudes.size(); ++i) {
+      for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
         float freq = (float)i * sampleRate / fftSize;
         if (freq < minFreq || freq > maxFreq)
           continue;
-        float mag = audioData->fftMagnitudes[i];
+        float mag = audioData->fftMagnitudesMid[i];
         float dB = 20.0f * log10f(mag + 1e-9f);
         if (dB > peakDb) {
           peakDb = dB;
@@ -331,10 +346,10 @@ void audioThread(AudioData* audioData) {
       }
 
       // Refine peak frequency using weighted average
-      if (peakBin > 0 && peakBin < audioData->fftMagnitudes.size() - 1) {
-        float m0 = audioData->fftMagnitudes[peakBin - 1];
-        float m1 = audioData->fftMagnitudes[peakBin];
-        float m2 = audioData->fftMagnitudes[peakBin + 1];
+      if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
+        float m0 = audioData->fftMagnitudesMid[peakBin - 1];
+        float m1 = audioData->fftMagnitudesMid[peakBin];
+        float m2 = audioData->fftMagnitudesMid[peakBin + 1];
 
         float totalWeight = m0 + m1 + m2;
         if (totalWeight > 0) {
@@ -371,15 +386,20 @@ void audioThread(AudioData* audioData) {
       }
 
       // Apply linear interpolation
-      for (size_t i = 0; i < audioData->fftMagnitudes.size(); ++i) {
-        audioData->interpolatedValues[i] = (1.0f - fftInterpolation) * audioData->prevFftMagnitudes[i] +
-                                           fftInterpolation * audioData->fftMagnitudes[i];
+      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
+        audioData->interpolatedValuesMid[i] = (1.0f - fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
+                                              fftInterpolation * audioData->fftMagnitudesMid[i];
       }
 
-      // Apply temporal smoothing with asymmetric speeds
-      for (size_t i = 0; i < audioData->fftMagnitudes.size(); ++i) {
-        float current = audioData->interpolatedValues[i];
-        float previous = audioData->smoothedMagnitudes[i];
+      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
+        audioData->interpolatedValuesSide[i] = (1.0f - fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
+                                               fftInterpolation * audioData->fftMagnitudesSide[i];
+      }
+
+      // Apply temporal smoothing with asymmetric speeds (mid channel)
+      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
+        float current = audioData->interpolatedValuesMid[i];
+        float previous = audioData->smoothedMagnitudesMid[i];
 
         // Calculate frequency for this bin
         float freq = (float)i * sampleRate / fftSize;
@@ -400,7 +420,34 @@ void audioThread(AudioData* audioData) {
         float newDb = previousDb + change;
 
         // Convert back to linear space
-        audioData->smoothedMagnitudes[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+        audioData->smoothedMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+      }
+
+      // Apply temporal smoothing with asymmetric speeds (side channel)
+      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
+        float current = audioData->interpolatedValuesSide[i];
+        float previous = audioData->smoothedMagnitudesSide[i];
+
+        // Calculate frequency for this bin
+        float freq = (float)i * sampleRate / fftSize;
+        if (freq < minFreq || freq > maxFreq)
+          continue;
+
+        // Convert to dB for consistent speed calculation
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
+
+        // Calculate the difference and determine if we're rising or falling
+        float diff = currentDb - previousDb;
+        float speed = (diff > 0) ? Config::FFT::FFT_RISE_SPEED : Config::FFT::FFT_FALL_SPEED;
+
+        // Apply speed-based smoothing in dB space
+        float maxChange = speed * dt;
+        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+        float newDb = previousDb + change;
+
+        // Convert back to linear space
+        audioData->smoothedMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
     }
     lock.unlock();

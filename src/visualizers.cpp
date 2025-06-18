@@ -84,12 +84,14 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
     // Use pre-computed bandpassed data for zero crossing detection
     size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle);
     size_t zeroCrossPos = targetPos;
-    if (!audioData.bandpassed.empty() && audioData.pitchConfidence > 0.5f) {
+    if (!audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
       // Search backward for the nearest positive zero crossing in bandpassed signal
-      for (size_t i = 1; i < searchRange && i < audioData.bandpassed.size(); i++) {
+      for (size_t i = 1; i < searchRange && i < audioData.bandpassedMid.size(); i++) {
         size_t pos = (targetPos + audioData.BUFFER_SIZE - i) % audioData.BUFFER_SIZE;
         size_t prevPos = (pos + audioData.BUFFER_SIZE - 1) % audioData.BUFFER_SIZE;
-        if (audioData.bandpassed[prevPos] < 0.0f && audioData.bandpassed[pos] >= 0.0f) {
+        float currentSample = audioData.bandpassedMid[pos];
+        float prevSample = audioData.bandpassedMid[prevPos];
+        if (prevSample < 0.0f && currentSample >= 0.0f) {
           zeroCrossPos = pos;
           break;
         }
@@ -117,9 +119,9 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
       size_t pos = (startPos + i) % audioData.BUFFER_SIZE;
       float x = (static_cast<float>(i) * scopeWidth) / audioData.DISPLAY_SAMPLES;
 #ifdef SCOPE_USE_RAW_SIGNAL
-      float y = audioData.windowHeight / 2 + audioData.buffer[pos] * amplitudeScale;
+      float y = audioData.windowHeight / 2 + audioData.bufferMid[pos] * amplitudeScale;
 #else
-      float y = audioData.windowHeight / 2 + audioData.bandpassed[pos] * amplitudeScale;
+      float y = audioData.windowHeight / 2 + audioData.bandpassedMid[pos] * amplitudeScale;
 #endif
       waveformPoints.push_back({x, y});
     }
@@ -154,11 +156,11 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
   Graphics::setupViewport(audioData.windowWidth - fftWidth, 0, fftWidth, audioData.windowHeight,
                           audioData.windowHeight);
 
-  if (!audioData.fftMagnitudes.empty()) {
+  if (!audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty()) {
     const float minFreq = Config::FFT::FFT_MIN_FREQ;
     const float maxFreq = Config::FFT::FFT_MAX_FREQ;
     const float sampleRate = Config::Audio::SAMPLE_RATE;
-    const int fftSize = (audioData.fftMagnitudes.size() - 1) * 2;
+    const int fftSize = (audioData.fftMagnitudesMid.size() - 1) * 2;
 
     // Draw frequency scale lines using OpenGL
     auto drawFreqLine = [&](float freq) {
@@ -217,17 +219,81 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
     // Slope correction factor for 4.5dB/octave
     const float slope_k = Config::FFT::FFT_SLOPE_CORRECTION_DB / 20.0f / log10f(2.0f);
 
-    // Draw FFT using pre-computed smoothed values
-    std::vector<std::pair<float, float>> fftPoints;
-    fftPoints.reserve(audioData.smoothedMagnitudes.size());
+    // Get the spectrum color for both FFT curves
+    const auto& spectrumColor = Theme::ThemeManager::getSpectrum();
 
-    for (size_t bin = 1; bin < audioData.smoothedMagnitudes.size(); ++bin) {
+    // Determine which data to use based on FFT mode
+    const std::vector<float>* mainMagnitudes = nullptr;
+    const std::vector<float>* alternateMagnitudes = nullptr;
+
+    // Temporary vectors for computed LEFTRIGHT mode data
+    std::vector<float> leftMagnitudes, rightMagnitudes;
+
+    if (Config::FFT::MODE == Config::FFT::LEFTRIGHT) {
+      // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
+      leftMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
+      rightMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
+
+      for (size_t i = 0; i < audioData.smoothedMagnitudesMid.size(); ++i) {
+        leftMagnitudes[i] = audioData.smoothedMagnitudesMid[i] - audioData.smoothedMagnitudesSide[i];
+        rightMagnitudes[i] = audioData.smoothedMagnitudesMid[i] + audioData.smoothedMagnitudesSide[i];
+      }
+
+      mainMagnitudes = &leftMagnitudes;
+      alternateMagnitudes = &rightMagnitudes;
+    } else {
+      // MIDSIDE mode: Main = Mid, Alternate = Side
+      mainMagnitudes = &audioData.smoothedMagnitudesMid;
+      alternateMagnitudes = &audioData.smoothedMagnitudesSide;
+    }
+
+    // Draw Alternate FFT using pre-computed smoothed values
+    std::vector<std::pair<float, float>> alternateFFTPoints;
+    alternateFFTPoints.reserve(alternateMagnitudes->size());
+
+    for (size_t bin = 1; bin < alternateMagnitudes->size(); ++bin) {
       float freq = (float)bin * sampleRate / fftSize;
       if (freq < minFreq || freq > maxFreq)
         continue;
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
       float x = logX * fftWidth;
-      float magnitude = audioData.smoothedMagnitudes[bin];
+      float magnitude = (*alternateMagnitudes)[bin];
+
+      // Apply slope correction
+      float gain = powf(freq / 440.0f, slope_k); // Use A440 as 0dB reference
+      magnitude *= gain / 2.0f;                  // Hann window
+
+      // Convert to dB using proper scaling
+      float dB = 20.0f * log10f(magnitude + 1e-9f);
+
+      // Map dB to screen coordinates using config display limits
+      float dB_min = Config::FFT::FFT_DISPLAY_MIN_DB;
+      float dB_max = Config::FFT::FFT_DISPLAY_MAX_DB;
+      float y = (dB - dB_min) / (dB_max - dB_min) * audioData.windowHeight;
+      alternateFFTPoints.push_back({x, y});
+    }
+
+    // Draw the Alternate FFT curve using OpenGL (darken the color towards the background color)
+    constexpr float alternateFFTAlpha = 0.3f; // Maybe make this a config option?
+    const auto& backgroundColor = Theme::ThemeManager::getBackground();
+    float alternateFFTColorArray[4] = {
+        spectrumColor.r * alternateFFTAlpha + backgroundColor.r * (1.0f - alternateFFTAlpha),
+        spectrumColor.g * alternateFFTAlpha + backgroundColor.g * (1.0f - alternateFFTAlpha),
+        spectrumColor.b * alternateFFTAlpha + backgroundColor.b * (1.0f - alternateFFTAlpha),
+        spectrumColor.a * alternateFFTAlpha + backgroundColor.a * (1.0f - alternateFFTAlpha)};
+    Graphics::drawAntialiasedLines(alternateFFTPoints, alternateFFTColorArray, 2.0f);
+
+    // Draw Main FFT using pre-computed smoothed values
+    std::vector<std::pair<float, float>> fftPoints;
+    fftPoints.reserve(mainMagnitudes->size());
+
+    for (size_t bin = 1; bin < mainMagnitudes->size(); ++bin) {
+      float freq = (float)bin * sampleRate / fftSize;
+      if (freq < minFreq || freq > maxFreq)
+        continue;
+      float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
+      float x = logX * fftWidth;
+      float magnitude = (*mainMagnitudes)[bin];
 
       // Apply slope correction
       float gain = powf(freq / 440.0f, slope_k); // Use A440 as 0dB reference
@@ -243,8 +309,7 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       fftPoints.push_back({x, y});
     }
 
-    // Draw the FFT curve using OpenGL
-    const auto& spectrumColor = Theme::ThemeManager::getSpectrum();
+    // Draw the Main FFT curve using OpenGL
     float spectrumColorArray[4] = {spectrumColor.r, spectrumColor.g, spectrumColor.b, spectrumColor.a};
     Graphics::drawAntialiasedLines(fftPoints, spectrumColorArray, 2.0f);
 
