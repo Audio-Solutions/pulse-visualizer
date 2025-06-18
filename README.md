@@ -6,8 +6,8 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- Font configuration is hardcoded (update [config.hpp line 62](src/config.hpp#L62))
-- PulseAudio source is hardcoded (get the name via `pactl list sources | grep Name` and update [config.hpp line 58](src/config.hpp#L58))
+- Font configuration is hardcoded (update [config.hpp line 65](src/config.hpp.template#L70))
+- PulseAudio source is hardcoded (get the name via `pactl list sources | grep Name` and update [config.hpp line 65](src/config.hpp.template#L65))
 - No settings menu or source selection yet
 - Configuration is minimal and handled through a header file
 - Performance may vary depending on your system's framerate
