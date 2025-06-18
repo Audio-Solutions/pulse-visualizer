@@ -17,21 +17,28 @@ namespace Config {
     constexpr int CHANNELS = 2;
     constexpr size_t BUFFER_SIZE = 128 * 1024;  // 128KB buffer
     constexpr size_t DISPLAY_SAMPLES = 2000;    // Number of samples to display
-    constexpr int FFT_SIZE = 4096;              // FFT size for frequency analysis
-    constexpr float FFT_SMOOTHING_FACTOR = 0.2f;  // Controls FFT visualization smoothness
-    constexpr float FFT_MIN_DB = -60.0f;        // Minimum dB level for FFT display
-    constexpr float FFT_MAX_DB = 10.0f;         // Maximum dB level for FFT display
-    constexpr float FFT_MIN_FREQ = 10.0f;       // Minimum frequency to display
-    constexpr float FFT_MAX_FREQ = 20000.0f;    // Maximum frequency to display
-    constexpr float FFT_SLOPE_CORRECTION = 4.5f; // dB/octave slope correction
-    constexpr float FFT_RISE_SPEED = 500.0f;     // Speed multiplier for rising FFT values (units/second)
-    constexpr float FFT_FALL_SPEED = 50.0f;      // Speed multiplier for falling FFT values (units/second)
+  }
+  
+  // FFT Configuration
+  namespace FFT {
+    constexpr int FFT_SIZE = 4096;                  // FFT size for frequency analysis
+    constexpr float FFT_SMOOTHING_FACTOR = 0.2f;    // Controls FFT visualization smoothness
+    constexpr float FFT_MIN_DB = -60.0f;            // Minimum dB level for FFT display
+    constexpr float FFT_MAX_DB = 10.0f;             // Maximum dB level for FFT display
+    constexpr float FFT_MIN_FREQ = 10.0f;           // Minimum frequency to display
+    constexpr float FFT_MAX_FREQ = 20000.0f;        // Maximum frequency to display
+    constexpr float FFT_SLOPE_CORRECTION_DB = 4.5f; // dB/octave slope correction
+    constexpr float FFT_RISE_SPEED = 500.0f;        // Speed multiplier for rising FFT values (units/second)
+    constexpr float FFT_FALL_SPEED = 50.0f;         // Speed multiplier for falling FFT values (units/second)
+    constexpr float FFT_DISPLAY_MIN_DB = -60.0f;    // Minimum dB for display scaling
+    constexpr float FFT_DISPLAY_MAX_DB = -10.0f;    // Maximum dB for display scaling
   }
   
   // Lissajous Configuration
   namespace Lissajous {
     constexpr int POINTS = 500;                // Number of points to store
     constexpr int SPLINE_SEGMENTS = 10;         // Number of segments for spline interpolation
+    constexpr bool ENABLE_PHOSPHOR = true;       // Enable phosphor effect
   }
   
   // Oscilloscope Configuration

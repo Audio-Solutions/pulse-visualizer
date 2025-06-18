@@ -248,9 +248,13 @@ void audioThread(AudioData* audioData) {
       // Store previous frame for interpolation
       audioData->prevFftMagnitudes = audioData->fftMagnitudes;
       
-      // Calculate new magnitudes
+      // Calculate new magnitudes with proper FFTW3 scaling
+      const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
       for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-        audioData->fftMagnitudes[i] = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]);
+        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
+        // Double all bins except DC and Nyquist
+        if (i != 0 && i != FFT_SIZE / 2) mag *= 2.0f;
+        audioData->fftMagnitudes[i] = mag;
       }
 
       // Update FFT timing
@@ -325,15 +329,15 @@ void audioThread(AudioData* audioData) {
       float peakDb = -100.0f;
       float peakFreq = 0.0f;
       peakBin = 0;
-      const float minFreq = Config::Audio::FFT_MIN_FREQ;
-      const float maxFreq = Config::Audio::FFT_MAX_FREQ;
+      const float minFreq = Config::FFT::FFT_MIN_FREQ;
+      const float maxFreq = Config::FFT::FFT_MAX_FREQ;
       const int fftSize = (audioData->fftMagnitudes.size() - 1) * 2;
       
       for (size_t i = 1; i < audioData->fftMagnitudes.size(); ++i) {
         float freq = (float)i * sampleRate / fftSize;
         if (freq < minFreq || freq > maxFreq) continue;
         float mag = audioData->fftMagnitudes[i];
-        float dB = 20.0f * log10f(mag * 0.000983f + 1e-9f);
+        float dB = 20.0f * log10f(mag + 1e-9f);
         if (dB > peakDb) {
           peakDb = dB;
           peakFreq = freq;
@@ -378,7 +382,7 @@ void audioThread(AudioData* audioData) {
           currentFrameTime - audioData->lastFftUpdate).count();
         float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
         fftInterpolation = fftInterpolation + 
-          (targetInterpolation - fftInterpolation) * Config::Audio::FFT_SMOOTHING_FACTOR;
+          (targetInterpolation - fftInterpolation) * Config::FFT::FFT_SMOOTHING_FACTOR;
         fftInterpolation = std::min(1.0f, fftInterpolation);
       }
 
@@ -398,12 +402,12 @@ void audioThread(AudioData* audioData) {
         if (freq < minFreq || freq > maxFreq) continue;
         
         // Convert to dB for consistent speed calculation
-        float currentDb = 20.0f * log10f(current * 0.0002f + 1e-9f);
-        float previousDb = 20.0f * log10f(previous * 0.0002f + 1e-9f);
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
         
         // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? Config::Audio::FFT_RISE_SPEED : Config::Audio::FFT_FALL_SPEED;
+        float speed = (diff > 0) ? Config::FFT::FFT_RISE_SPEED : Config::FFT::FFT_FALL_SPEED;
         
         // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;
@@ -411,7 +415,7 @@ void audioThread(AudioData* audioData) {
         float newDb = previousDb + change;
         
         // Convert back to linear space
-        audioData->smoothedMagnitudes[i] = (powf(10.0f, newDb / 20.0f) - 1e-9f) / 0.0002f;
+        audioData->smoothedMagnitudes[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
     }
     lock.unlock();
