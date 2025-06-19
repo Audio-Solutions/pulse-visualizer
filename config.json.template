@@ -9,7 +9,8 @@
     "sample_rate": 44100,
     "channels": 2,
     "buffer_size": 32768,
-    "display_samples": 2000
+    "display_samples": 2000,
+    "silence_threshold": -100.0
   },
   "fft": {
     "fft_size": 4096,

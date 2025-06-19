@@ -213,6 +213,7 @@ void audioThread(AudioData* audioData) {
   static float fft_smoothing_factor = 0.2f;
   static float fft_rise_speed = 500.0f;
   static float fft_fall_speed = 50.0f;
+  static float silence_threshold = -100.0f;
   static size_t lastConfigVersion = 0;
   if (Config::getVersion() != lastConfigVersion) {
     lissajous_points = Config::getInt("lissajous.points");
@@ -221,6 +222,7 @@ void audioThread(AudioData* audioData) {
     fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
     fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
     fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
+    silence_threshold = Config::getFloat("audio.silence_threshold");
     lastConfigVersion = Config::getVersion();
   }
 
@@ -419,8 +421,7 @@ void audioThread(AudioData* audioData) {
       freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents);
 
       // Check if we have a valid peak (above silence threshold)
-      const float SILENCE_THRESHOLD_DB = -60.0f;
-      audioData->hasValidPeak = (peakDb > SILENCE_THRESHOLD_DB);
+      audioData->hasValidPeak = (peakDb > silence_threshold);
 
       // Pre-compute smoothed FFT values for display
       static auto lastFrameTime = std::chrono::steady_clock::now();
