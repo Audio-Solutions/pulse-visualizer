@@ -36,6 +36,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 	- Monochrome Printer
 	- Carbonfox (AMOLED Dark)
 	- Nightfox
+	- All MiniMeters themes
 
 ## Dependencies
 
