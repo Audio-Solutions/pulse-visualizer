@@ -1,0 +1,18 @@
+
+# welcome to le AK theme
+# main
+credit: "Made by AK: twitter.com/akliquid"
+color: 255, 228, 131
+selection: 170, 146, 255
+text: 161, 135, 255
+accent: 93, 86, 111
+bg: 58, 83, 85
+bgaccent: 58, 83, 85
+monotone: 1
+
+# spectrum_analyser
+
+spectrum_analyzer_main: 255, 228, 131
+spectrum_analyzer_secondary: 255, 245, 196
+spectrum_analyzer_frequency_lines: 174, 133, 254
+spectrum_analyzer_reference_line: 161, 135, 255

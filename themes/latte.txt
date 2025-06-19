@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Catppuccin Latte - Catppuccin Team"
+color: 136, 57, 239
+selection: 136, 57, 239
+text: 76, 79, 105
+accent: 220, 224, 232
+bg: 239, 241, 245
+bgaccent: 230, 233, 239
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 136, 57, 239, 255
+oscilloscope_main: 254, 100, 11
+oscilloscope_bg: 239, 241, 245
+spectrum_analyzer_main: 30, 102, 245
+spectrum_analyzer_secondary: 64, 160, 43 

@@ -1,0 +1,40 @@
+
+credit: "Made by LightShard: twitter.com/light_shard"
+
+color: 90, 180, 255
+selection: 97, 190, 255
+text: 255,255,255
+accent: 103, 136, 161
+bg: 30, 30, 30
+bgaccent: 43,48,55
+
+waveform: 70, 160, 255
+
+rgb_waveform_opacity_with_history: 150
+history_low: 255, 101, 101, 255
+history_mid: 140, 255, 160
+history_high: 0, 70, 255, 255
+
+waveform_low: 255, 70, 70
+waveform_mid: 40, 255, 40
+waveform_high: 0, 125, 255
+
+oscilloscope_main: 140, 255, 160
+oscilloscope_bg: 140, 255, 160
+
+stereometer: 255, 101, 101
+stereometer_low: 255, 51, 51
+stereometer_mid: 40, 255, 60
+stereometer_high: 0, 100, 255
+
+spectrum_analyzer_main: 255,90,120
+spectrum_analyzer_secondary: 70, 160, 255
+spectrum_analyzer_frequency_lines: 103, 136, 161
+spectrum_analyzer_reference_line: 255, 255, 255
+
+spectrogram_low: 280
+spectrogram_high: 410
+color_bars_low: 280
+color_bars_high: 410
+color_bars_opacity: 255
+

@@ -1,0 +1,9 @@
+
+credit: "Made by CloudNone: twitter.com/cloudnonemusic"
+color: 140,210,255
+selection: 120,110,235
+text: 160, 190, 255
+accent: 55,49,101
+bg: 15, 10, 30
+bgaccent: 20,18,42
+    

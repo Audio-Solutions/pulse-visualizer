@@ -1,25 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
-project(Pulse)
+project(Pulse VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Check if config.hpp exists, if not provide helpful error message
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp")
-  message(FATAL_ERROR "
-  ================================================
-  CONFIGURATION ERROR
-  ================================================
-  
-  The file 'src/config.hpp' does not exist.
-  
-  Before building, you need to:
-  1. Copy src/config.hpp.template to src/config.hpp
-  2. Edit src/config.hpp to configure your settings
-  
-  ================================================
-  ")
-endif()
 
 # Find pkg-config
 find_package(PkgConfig REQUIRED)
@@ -55,8 +38,71 @@ target_link_libraries(Pulse PRIVATE
   OpenGL::GL
 )
 
-# Ensure config file exists in ~/.config/pulse/config.json
-execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{HOME}/.config/pulse-visualizer)
-if(NOT EXISTS "$ENV{HOME}/.config/pulse-visualizer/config.json")
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/src/config.json.template" DESTINATION "$ENV{HOME}/.config/pulse-visualizer/")
-endif()
+# Installation targets
+include(GNUInstallDirs)
+
+# Install the executable
+install(TARGETS Pulse
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install README and LICENSE
+install(FILES README.md LICENSE
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+)
+
+# Create a desktop entry
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+  @ONLY
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+# Create a man page
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+  @ONLY
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+  DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+)
+
+# Custom install target for user configuration
+install(CODE "
+  # Get the original user's home directory (works with sudo)
+  if(DEFINED ENV{SUDO_USER})
+    set(CURRENT_USER \$ENV{SUDO_USER})
+  else()
+    execute_process(COMMAND whoami OUTPUT_VARIABLE CURRENT_USER OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+  
+  execute_process(COMMAND getent passwd \${CURRENT_USER} OUTPUT_VARIABLE PASSWD_LINE OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REPLACE \":\" \";\" PASSWD_FIELDS \${PASSWD_LINE})
+  list(GET PASSWD_FIELDS 5 USER_HOME)
+  
+  # Create user config directories
+  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \${USER_HOME}/.config/pulse-visualizer)
+  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \${USER_HOME}/.config/pulse-visualizer/themes)
+  
+  # Copy config template to user config
+  execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
+    \"${CMAKE_CURRENT_SOURCE_DIR}/src/config.json.template\"
+    \"\${USER_HOME}/.config/pulse-visualizer/config.json\"
+  )
+  
+  # Copy themes to user config (using shell command to avoid CMake GLOB issues)
+  execute_process(COMMAND bash -c \"cp '${CMAKE_CURRENT_SOURCE_DIR}/themes/'*.txt '\${USER_HOME}/.config/pulse-visualizer/themes/'\" RESULT_VARIABLE COPY_RESULT)
+  
+  # Change ownership back to the original user
+  execute_process(COMMAND chown -R \${CURRENT_USER}:\${CURRENT_USER} \${USER_HOME}/.config/pulse-visualizer)
+  
+  if(COPY_RESULT EQUAL 0)
+    message(STATUS \"Installed user configuration to \${USER_HOME}/.config/pulse-visualizer/\")
+  else()
+    message(WARNING \"Failed to copy themes to \${USER_HOME}/.config/pulse-visualizer/themes/\")
+  endif()
+")

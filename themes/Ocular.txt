@@ -1,0 +1,9 @@
+
+credit: "Made by Ocular: twitter.com/ocularedm"
+color: 205,150,239
+selection: 205,150,239
+text: 205,150,239
+accent: 103,23,152
+bg: 116,26,172
+bgaccent: 103,23,152
+spectrogram_main: 205,150,239

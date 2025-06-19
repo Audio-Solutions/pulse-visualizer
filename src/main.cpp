@@ -92,6 +92,7 @@ int main() {
 
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
+  Uint32 lastThemeCheck = SDL_GetTicks();
 
   while (running) {
     SDL_Event event;
@@ -115,6 +116,13 @@ int main() {
         }
         break;
       }
+    }
+
+    // Check for theme changes every second
+    Uint32 currentTime = SDL_GetTicks();
+    if (currentTime - lastThemeCheck >= 1000) {
+      Theme::ThemeManager::reloadIfChanged();
+      lastThemeCheck = currentTime;
     }
 
     // Always update layout before drawing
@@ -142,7 +150,7 @@ int main() {
     SDL_GL_SwapWindow(win);
 
     frameCount++;
-    Uint32 currentTime = SDL_GetTicks();
+    currentTime = SDL_GetTicks();
     if (currentTime - lastFpsUpdate >= 1000) {
       if (drawFPS) {
         std::cerr << "FPS: " << frameCount << std::endl;

@@ -1,0 +1,70 @@
+
+
+## All RGB & RGBA colors follow a 0-255 range, with an optional alpha channel.
+## Example: White is 255,255,255,255 or 255,255,255.
+
+## To enable a particular optional color remove the '#' (hash tag) from before the color.
+## Primary Colors:
+
+credit: "list your credit here in quotes. this text shows up in the tooltip pane at the bottom of MiniMeters"
+
+color: 172,192,222
+selection: 172,192,222
+text: 255,255,255
+accent: 86,96,111
+bg: 0, 0, 0
+bgaccent: 43,48,55
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+# waveform: 255,0,255,255
+
+# rgb_waveform_opacity_with_history:170
+# history_low: 255,0,0,255
+# history_mid: 0,255,0,255
+# history_high: 0,0,255,255
+
+## the RGB Mode in the Waveform has a low (0-200hz) band, a mid (200-2000hz) band, and a high (2000-22050hz) band.
+## these are the default values:
+# waveform_low: 255,0,0
+# waveform_mid: 0,255,0
+# waveform_high: 50,50,255
+
+# oscilloscope_main: 255,0,0
+# oscilloscope_bg: 0,0,255
+
+# stereometer: 255,255,0
+# stereometer_low: 255,0,0
+# stereometer_mid: 0,255,0
+# stereometer_high: 0,0,255
+
+# spectrum_analyzer_main: 255,127,255
+# spectrum_analyzer_secondary: 127,255,127
+# spectrum_analyzer_frequency_lines: 127,255,127
+# spectrum_analyzer_reference_line: 127,255,127
+# spectrum_analyzer_threshold_line: 255,255,0
+
+## Spectrogram and Color Bars (Spectrum Analyzer) both have a low volume and high volume value. The colors are chosen in a clockwise direction around the HSB/HSV color wheel.
+## Note: This loops around the color wheel. Any value you put here will be (I % 360). This will be replaced in a future version.
+
+# spectrogram_low: 260
+# spectrogram_high: 420
+# color_bars_low: 186
+# color_bars_high: 385
+# color_bars_opacity: 255
+
+## If spectrogram_main or color_bars_main is given a color value the spectrogram becomes monotone and the hue values are ignored.
+# spectrogram_main: 255,255,255
+# color_bars_main: 255,255,255
+
+## Set the color of the RMS meter
+# loudness_main: 255,255,255
+# loudness_text: 255,255,255
+
+## This shows up when connecting to an audio device fails.
+# error_bar: 255, 127, 0
+
+## These are the values for the Loudness Meter (currently named Peak/LUFS)
+loudness_main: 255,255,255
+loudness_text: 0,0,0

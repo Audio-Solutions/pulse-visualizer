@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Breeze Dark - KDE Plasma Team"
+color: 61, 174, 233
+selection: 61, 174, 233
+text: 239, 240, 241
+accent: 49, 54, 59
+bg: 35, 38, 41
+bgaccent: 55, 60, 65
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 61, 174, 233, 255
+oscilloscope_main: 246, 116, 0
+oscilloscope_bg: 35, 38, 41
+spectrum_analyzer_main: 61, 174, 233
+spectrum_analyzer_secondary: 39, 174, 96 

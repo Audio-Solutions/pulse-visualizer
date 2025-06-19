@@ -1,0 +1,12 @@
+
+credit: "Inspired by the classic audio editor <3. Theme made by Direct: twitter.com/directofficial"
+color: 0,7,77
+selection: 0,7,77
+text: 0,0,0
+accent: 255,255,255
+bg: 255,255,255
+bgaccent: 236,236,236
+spectrogram_main: 0,7,77
+color_bars_main: 0,7,77
+waveform_invert_noise_brightness: 1
+

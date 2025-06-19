@@ -1,0 +1,9 @@
+
+credit: "Made by Direct: twitter.com/directofficial"
+color: 222,193,172
+selection: 222,193,172
+text: 222,193,172
+accent: 111,96,86
+bg: 59, 47, 33
+bgaccent: 43,48,55
+spectrogram_main: 222,193,172

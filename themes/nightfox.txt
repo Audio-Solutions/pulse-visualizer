@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Nightfox - Eeems"
+color: 205, 206, 207
+selection: 205, 206, 207
+text: 223, 223, 224
+accent: 25, 35, 48
+bg: 43, 59, 81
+bgaccent: 57, 122, 214
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 205, 206, 207, 255
+oscilloscope_main: 219, 192, 116
+oscilloscope_bg: 43, 59, 81
+spectrum_analyzer_main: 57, 122, 214
+spectrum_analyzer_secondary: 214, 122, 210 

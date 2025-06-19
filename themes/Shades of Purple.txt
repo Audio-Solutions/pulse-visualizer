@@ -1,0 +1,20 @@
+
+credit: "Made by Direct: twitter.com/directofficial"
+color: 182, 158, 255, 255
+selection: 182, 158, 255
+text: 208, 199, 255, 255
+accent: 86,96,111
+bg: 0, 0, 0
+bgaccent: 64, 0, 107
+
+spectrogram_low: 224
+spectrogram_high: 295
+spectrogram_bg: 0,0,0
+
+color_bars_low: 224
+color_bars_high: 295
+color_bars_bg: 0,0,0
+
+waveform_low: 87, 20, 255
+waveform_mid: 31, 64, 255
+waveform_high: 241, 133, 255

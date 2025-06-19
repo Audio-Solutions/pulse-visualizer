@@ -47,12 +47,12 @@
     "target_length": 512,
     "min_req": 128,
     "fragment_size": 512,
-    "default_source": "default"
+    "default_source": "@DEFAULT_SOURCE@"
   },
   "font": {
     "default_font": "/path/to/font.ttf"
   },
   "debug": {
-    "log_fps": true
+    "log_fps": false
   }
 }

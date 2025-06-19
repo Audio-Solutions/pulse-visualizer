@@ -1,0 +1,8 @@
+
+credit: "Made by Midnight Kids: twitter.com/midnightkids"
+color:  59,161,189
+selection: 84, 201, 202
+text: 238, 79, 144
+accent: 53,51,59
+bg: 30,27,36
+bgaccent: 38,35,46

@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Dayfox - Eeems"
+color: 61, 43, 90
+selection: 61, 43, 90
+text: 53, 44, 36
+accent: 246, 242, 238
+bg: 242, 233, 225
+bgaccent: 72, 141, 147
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 61, 43, 90, 255
+oscilloscope_main: 165, 34, 47
+oscilloscope_bg: 242, 233, 225
+spectrum_analyzer_main: 72, 141, 147
+spectrum_analyzer_secondary: 87, 127, 99 

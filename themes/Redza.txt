@@ -1,0 +1,9 @@
+
+credit: "Made by Redza: twitter.com/redzamusic"
+color: 255,255,255
+selection: 255,255,255
+text: 255,255,255
+accent: 128,128,128
+bg: 54,57,62
+bgaccent: 47,49,54
+spectrogram_main: 255,255,255

@@ -12,7 +12,6 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Performance may vary depending on your system's framerate
 - Bugs and quirks are to be expected
 
-
 ## Features
 
 - Real-time audio visualization
@@ -57,68 +56,57 @@ Pulse is confirmed to work on:
 
 ## Building
 
-First, copy the configuration template to create your config file:
+Build and install the project:
 
 ```bash
-cp src/config.json.template ~/.config/pulse-visualizer/config.json
+mkdir build
+cd build
+cmake -G Ninja ..
+ninja
+sudo ninja install
 ```
 
-Additionally, if you want to keep your config in the project root for testing, you can symlink it:
-
-```bash
-ln -sf ~/.config/pulse-visualizer/config.json ./config.json
-```
-
-Then edit `~/.config/pulse-visualizer/config.json` (or `./config.json` if you symlinked) to set your PulseAudio source and font path.
+The installation will automatically:
+- Install the executable to `/usr/local/bin/Pulse`
+- Set up user configuration in `~/.config/pulse-visualizer/`
+- Install themes to `~/.config/pulse-visualizer/themes/`
+- Create desktop integration and man page
 
 > **Note:** Font configuration and PulseAudio source are still hardcoded by path/name. You must set the correct values in your config file:
 >
 > - For the font, set the `"default_font"` field to the full path of your font file.
 > - For the PulseAudio source, set the `"default_source"` field to the correct source name (get it via `pactl list sources | grep Name`).
 
-
 ### Themeing 
-To choose a theme, edit the following line in `theme.cpp`
+To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
 
-```cpp
-ThemeDefinition ThemeManager::currentTheme = Themes::MOCHA;
-```
-and replace the `MOCHA` to reflect the value of the theme you wish to apply. Valid values are:
-- `MOCHA` (Catppuccin Mocha)
-- `MACCHIATO` (Catppuccin Macchiato)
-- `FRAPPE` (Catppuccin Frappe)
-- `LATTE` (Catppuccin Latte)
-- `WINDOWS_LIGHT` (Windows Light)
-- `WINDOWS_DARK` (Windows Dark)
-- `BREEZE_LIGHT` (Breeze Light)
-- `BREEZE_DARK` (Breeze Dark)
-- `AMOLED` (AMOLED)
-- `CMYK_PRINTER` (CMYK Printer)
-- `MONOCHROME_PRINTER` (Monochrome Printer)
-- `CARBONFOX` (Carbonfox AMOLED Dark)
-- `NIGHTFOX` (Nightfox)
-
-\
-\
-Now you can build the project:
-
-```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
+```json
+"default_theme": "mocha.txt"
 ```
 
+Replace `"mocha.txt"` with the name of the theme file you wish to apply. Available themes:
+- `mocha.txt` (Catppuccin Mocha)
+- `macchiato.txt` (Catppuccin Macchiato)
+- `frappe.txt` (Catppuccin Frappe)
+- `latte.txt` (Catppuccin Latte)
+- `windows-light.txt` (Windows Light)
+- `windows-dark.txt` (Windows Dark)
+- `breeze-light.txt` (Breeze Light)
+- `breeze-dark.txt` (Breeze Dark)
+- `amoled.txt` (AMOLED)
+- `cmyk.txt` (CMYK Printer)
+- `carbonfox.txt` (Carbonfox AMOLED Dark)
+- `nightfox.txt` (Nightfox)
+- `dayfox.txt` (Dayfox)
+- `tokyo-night.txt` (Tokyo Night)
 
 ## Usage
 
-After building, just run the executable:
+After installation, you can run the visualizer from anywhere:
 
 ```bash
-./Pulse
+Pulse
 ```
-
-
 ## Contributing
 
 Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request.

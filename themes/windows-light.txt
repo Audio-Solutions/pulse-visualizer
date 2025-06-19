@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Windows Light - Microsoft"
+color: 0, 120, 215
+selection: 0, 120, 215
+text: 0, 0, 0
+accent: 240, 240, 240
+bg: 255, 255, 255
+bgaccent: 230, 230, 230
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 0, 120, 215, 255
+oscilloscope_main: 255, 140, 0
+oscilloscope_bg: 255, 255, 255
+spectrum_analyzer_main: 0, 120, 215
+spectrum_analyzer_secondary: 0, 153, 68 

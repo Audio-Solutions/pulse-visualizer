@@ -1,0 +1,9 @@
+
+credit: "Colors picked from Direct - Grow Cold. Theme made by Direct: twitter.com/directofficial"
+color: 122, 191, 191
+selection:  122, 191, 191
+text: 198, 247, 247
+accent: 90, 121, 140
+bg: 15, 32, 38
+bgaccent: 61, 95, 95
+spectrogram_main: 122, 191, 191

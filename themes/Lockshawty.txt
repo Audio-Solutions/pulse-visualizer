@@ -1,0 +1,8 @@
+
+credit: "Made by Lockshawty: twitter.com/lockshawty"
+color: 251, 140, 23
+selection: 240, 78, 178
+text: 250, 234, 202
+accent: 84,34,19
+bg: 56, 30, 12
+bgaccent: 119, 47, 26

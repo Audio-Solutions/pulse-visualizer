@@ -1,0 +1,9 @@
+
+credit: "Made by Ocular: twitter.com/ocularedm - follow twitter.com/dsgbanned"
+color:  235,240,227
+selection:  235,240,227
+text: 255,255,255
+accent: 152,164,132
+bg: 253,125,199
+bgaccent: 215,221,201
+spectrogram_main: 235,240,227

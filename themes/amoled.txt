@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "AMOLED Theme - True Black with Vibrant Accents"
+color: 255, 0, 255
+selection: 255, 0, 255
+text: 255, 255, 255
+accent: 30, 30, 30
+bg: 0, 0, 0
+bgaccent: 40, 40, 40
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 255, 0, 255, 255
+oscilloscope_main: 255, 165, 0
+oscilloscope_bg: 0, 0, 0
+spectrum_analyzer_main: 0, 255, 255
+spectrum_analyzer_secondary: 0, 255, 0 

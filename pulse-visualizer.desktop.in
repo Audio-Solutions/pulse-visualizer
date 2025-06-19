@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Pulse Visualizer
+Comment=Real-time audio visualizer for PulseAudio
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/Pulse
+Icon=audio-volume-high
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=audio;visualizer;pulseaudio;music; 

@@ -1,0 +1,20 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Tokyo Night - Folke Lemaitre"
+color: 187, 154, 247
+selection: 187, 154, 247
+text: 169, 177, 214
+accent: 41, 42, 58
+bg: 26, 27, 38
+bgaccent: 65, 66, 82
+
+## Optional Colors:
+## Omitting these colors defaults them to the values above.
+
+waveform: 187, 154, 247, 255
+oscilloscope_main: 255, 158, 100
+oscilloscope_bg: 26, 27, 38
+spectrum_analyzer_main: 122, 162, 247
+spectrum_analyzer_secondary: 158, 206, 106 

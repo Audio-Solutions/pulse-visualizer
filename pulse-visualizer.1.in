@@ -1,0 +1,42 @@
+.TH PULSE-VISUALIZER 1 "@CMAKE_PROJECT_VERSION@" "Pulse Visualizer"
+
+.SH NAME
+pulse-visualizer \- Real-time audio visualizer for PulseAudio
+
+.SH SYNOPSIS
+.B Pulse
+[\fIOPTIONS\fR]
+
+.SH DESCRIPTION
+Pulse Visualizer is a real-time audio visualizer that displays audio from PulseAudio
+in various visual formats including bars, circles, and other effects.
+
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show help message and exit
+
+.SH CONFIGURATION
+The application reads its configuration from \fI~/.config/pulse-visualizer/config.json\fR.
+If this file doesn't exist, it will be created from a template on first run.
+
+.SH THEMES
+Themes are stored in \fI~/.config/pulse-visualizer/themes/\fR and can be selected
+through the configuration file.
+
+.SH FILES
+.TP
+.I ~/.config/pulse-visualizer/config.json
+Configuration file
+.TP
+.I ~/.config/pulse-visualizer/themes/
+Theme files directory
+
+.SH AUTHOR
+Written for the Pulse Visualizer project.
+
+.SH BUGS
+Report bugs to the project repository.
+
+.SH COPYRIGHT
+Copyright © 2024 Pulse Visualizer contributors. 

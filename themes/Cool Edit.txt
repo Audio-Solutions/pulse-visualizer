@@ -1,0 +1,8 @@
+
+credit: "Inspired by the classic audio editor <3. Made by Direct: twitter.com/directofficial"
+color: 108,235,157
+selection: 108,235,157
+text: 239,239,235
+accent: 54,117,78
+bg: 0,0,0
+bgaccent: 81,89,103
