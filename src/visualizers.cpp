@@ -90,9 +90,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
   static bool enable_splines;
   static int spline_segments;
   static bool enable_phosphor;
-  static float phosphor_max_brightness;
-  static float phosphor_min_brightness;
-  static float phosphor_fade_factor;
+  static int phosphor_spline_density;
+  static float phosphor_max_beam_speed;
+  static float phosphor_persistence_time;
+  static float phosphor_decay_rate;
+  static float phosphor_intensity_scale;
   static size_t lastConfigVersion;
 
   if (Config::getVersion() != lastConfigVersion) {
@@ -100,9 +102,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
     enable_splines = Config::getBool("lissajous.enable_splines");
     spline_segments = Config::getInt("lissajous.spline_segments");
     enable_phosphor = Config::getBool("lissajous.enable_phosphor");
-    phosphor_max_brightness = Config::getFloat("lissajous.phosphor_max_brightness");
-    phosphor_min_brightness = Config::getFloat("lissajous.phosphor_min_brightness");
-    phosphor_fade_factor = Config::getFloat("lissajous.phosphor_fade_factor");
+    phosphor_spline_density = Config::getInt("lissajous.phosphor_spline_density");
+    phosphor_max_beam_speed = Config::getFloat("lissajous.phosphor_max_beam_speed");
+    phosphor_persistence_time = Config::getFloat("lissajous.phosphor_persistence_time");
+    phosphor_decay_rate = Config::getFloat("lissajous.phosphor_decay_rate");
+    phosphor_intensity_scale = Config::getFloat("lissajous.phosphor_intensity_scale");
     lastConfigVersion = Config::getVersion();
   }
 
@@ -117,62 +121,134 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       points.push_back({x, y});
     }
 
-    // Generate spline points if enabled, otherwise use original points
-    std::vector<std::pair<float, float>> displayPoints = points;
-    if (enable_splines && points.size() >= 4) {
-      displayPoints = generateCatmullRomSpline(points, spline_segments);
-    }
-
     if (enable_phosphor) {
-      // Calculate cumulative distances for length-based darkening
-      std::vector<float> cumulativeDistances = calculateCumulativeDistances(displayPoints);
-      float totalLength = cumulativeDistances.back();
+      // Generate high-density spline points for phosphor simulation
+      std::vector<std::pair<float, float>> densePath;
 
-      // Enable additive blending for phosphor effect
-      glEnable(GL_BLEND);
-      if (Theme::ThemeManager::invertNoiseBrightness()) {
-        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-      } else {
-        glBlendFunc(GL_ONE, GL_ONE);
+      if (enable_splines && points.size() >= 4) {
+        // Calculate segments per original segment based on density
+        int segmentsPerSegment = std::max(10, phosphor_spline_density / static_cast<int>(points.size()));
+        densePath = generateCatmullRomSpline(points, segmentsPerSegment);
+      } else if (points.size() >= 2) {
+        // Linear interpolation with high density for non-spline mode
+        densePath.reserve(phosphor_spline_density);
+        for (size_t i = 1; i < points.size(); ++i) {
+          const auto& p1 = points[i - 1];
+          const auto& p2 = points[i];
+
+          // Interpolate with high density
+          int segmentPoints = std::max(1, phosphor_spline_density / static_cast<int>(points.size()));
+          for (int j = 0; j < segmentPoints; ++j) {
+            float t = static_cast<float>(j) / segmentPoints;
+            float x = p1.first + t * (p2.first - p1.first);
+            float y = p1.second + t * (p2.second - p1.second);
+            densePath.push_back({x, y});
+          }
+        }
       }
 
-      // Get the Lissajous color
-      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
+      if (!densePath.empty()) {
+        // Pre-calculate original point distances for intensity mapping
+        std::vector<float> originalDistances;
+        if (enable_splines && points.size() >= 4) {
+          originalDistances.reserve(points.size() - 1);
+          for (size_t i = 1; i < points.size(); ++i) {
+            float dx = points[i].first - points[i - 1].first;
+            float dy = points[i].second - points[i - 1].second;
+            float dist = sqrtf(dx * dx + dy * dy) / width; // Normalized distance
+            originalDistances.push_back(dist);
+          }
+        }
 
-      // Draw spline segments with length-based darkening
-      glBegin(GL_LINES);
-      for (size_t i = 1; i < displayPoints.size(); ++i) {
-        const auto& p1 = displayPoints[i - 1];
-        const auto& p2 = displayPoints[i];
+        // Enable additive blending for phosphor effect
+        glEnable(GL_BLEND);
+        if (Theme::ThemeManager::invertNoiseBrightness()) {
+          glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        } else {
+          glBlendFunc(GL_ONE, GL_ONE);
+        }
 
-        // Calculate distance from start of path
-        float distanceFromStart = cumulativeDistances[i];
+        // Get the Lissajous color
+        const auto& lissajousColor = Theme::ThemeManager::getLissajous();
 
-        // Normalize distance to 0-1 range
-        float normalizedDistance = totalLength > 0.0f ? distanceFromStart / totalLength : 0.0f;
+        // Render lines based on accumulated intensity
+        std::vector<std::pair<float, float>> renderPath;
+        renderPath.reserve(densePath.size());
 
-        // Calculate brightness factor based on distance (longer paths get brighter)
-        float brightnessFactor =
-            normalizedDistance * (phosphor_max_brightness - phosphor_min_brightness) + phosphor_min_brightness;
-        brightnessFactor = std::clamp(brightnessFactor, phosphor_min_brightness, phosphor_max_brightness);
+        for (size_t i = 1; i < densePath.size(); ++i) {
+          const auto& p1 = densePath[i - 1];
+          const auto& p2 = densePath[i];
 
-        // Tail fade: 1.0 at head, PHOSPHOR_FADE_FACTOR at tail
-        float tailFade =
-            phosphor_fade_factor + (1.0f - phosphor_fade_factor) * (1.0f - float(i) / displayPoints.size());
-        float finalBrightness = brightnessFactor * tailFade;
+          // Check beam speed for this segment before rendering
+          float dx = p2.first - p1.first;
+          float dy = p2.second - p1.second;
+          float segmentLength = sqrtf(dx * dx + dy * dy);
+          float beamSpeed = segmentLength / width; // Normalized to screen width
 
-        float color[4] = {lissajousColor.r * finalBrightness, lissajousColor.g * finalBrightness,
-                          lissajousColor.b * finalBrightness, finalBrightness};
+          // Scale max beam speed with screen size for consistent behavior
+          // Use a reference size for normalization
+          const float referenceWidth = 200.0f;
+          float sizeScale = static_cast<float>(width) / referenceWidth;
+          float scaledMaxBeamSpeed = phosphor_max_beam_speed * sizeScale;
 
-        glColor4fv(color);
-        glVertex2f(p1.first, p1.second);
-        glVertex2f(p2.first, p2.second);
+          // Skip segments where beam moves too fast (like real oscilloscope)
+          if (beamSpeed > scaledMaxBeamSpeed) {
+            continue;
+          }
+
+          // Calculate intensity based on local point density around this segment
+          // This gives more consistent brightness along smooth curves
+          float intensity = phosphor_intensity_scale;
+
+          // Scale intensity based on spline density
+          if (enable_splines && points.size() >= 4) {
+            float splineDensityRatio = static_cast<float>(densePath.size()) / static_cast<float>(points.size());
+            float densityScale = 1.0f / sqrtf(splineDensityRatio);
+            intensity *= densityScale;
+
+            // Map this spline segment back to original curve region for speed-based intensity
+            float normalizedSplinePos = static_cast<float>(i) / densePath.size();
+            size_t originalSegmentIndex = static_cast<size_t>(normalizedSplinePos * (originalDistances.size() - 1));
+            originalSegmentIndex = std::min(originalSegmentIndex, originalDistances.size() - 1);
+
+            // Use the original curve speed for intensity modulation
+            float originalSpeed = originalDistances[originalSegmentIndex];
+            float speedIntensity = 1.0f / (1.0f + originalSpeed * 50.0f); // Higher multiplier for more effect
+            intensity *= speedIntensity;
+          } else {
+            // For non-spline mode, use direct segment speed
+            float speedIntensity = 1.0f / (1.0f + beamSpeed * 10.0f);
+            intensity *= speedIntensity;
+          }
+
+          // Apply phosphor persistence decay based on position along path
+          float normalizedPosition = static_cast<float>(i) / densePath.size();
+          float timeFactor = expf(-phosphor_decay_rate * normalizedPosition * phosphor_persistence_time);
+          intensity *= timeFactor;
+
+          // Clamp intensity
+          intensity = std::min(intensity, 1.0f);
+
+          if (intensity > 0.001f) {
+            // Calculate color with intensity
+            float color[4] = {lissajousColor.r * intensity, lissajousColor.g * intensity, lissajousColor.b * intensity,
+                              intensity};
+
+            // Draw antialiased line segment
+            Graphics::drawAntialiasedLine(p1.first, p1.second, p2.first, p2.second, color, 2.0f);
+          }
+        }
+
+        // Reset blending
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
       }
-      glEnd();
-
-      // Reset blending
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
+      // Standard non-phosphor rendering
+      std::vector<std::pair<float, float>> displayPoints = points;
+      if (enable_splines && points.size() >= 4) {
+        displayPoints = generateCatmullRomSpline(points, spline_segments);
+      }
+
       // Draw the Lissajous curve as antialiased lines
       const auto& lissajousColor = Theme::ThemeManager::getLissajous();
       float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, 1.0f};
@@ -188,11 +264,19 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // --- Local static config cache ---
   static float amplitude_scale;
   static std::string gradient_mode;
+  static bool enable_phosphor;
+  static int phosphor_spline_density;
+  static float phosphor_max_beam_speed;
+  static float phosphor_intensity_scale;
   static size_t lastConfigVersion;
 
   if (Config::getVersion() != lastConfigVersion) {
     amplitude_scale = Config::getFloat("oscilloscope.amplitude_scale");
     gradient_mode = Config::getString("oscilloscope.gradient_mode");
+    enable_phosphor = Config::getBool("oscilloscope.enable_phosphor");
+    phosphor_spline_density = Config::getInt("oscilloscope.phosphor_spline_density");
+    phosphor_max_beam_speed = Config::getFloat("oscilloscope.phosphor_max_beam_speed");
+    phosphor_intensity_scale = Config::getFloat("oscilloscope.phosphor_intensity_scale");
     lastConfigVersion = Config::getVersion();
   }
 
@@ -251,81 +335,255 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
     // Draw the waveform line using OpenGL only if there's a valid peak
     if (audioData.hasValidPeak) {
-      // Handle different gradient modes
-      if (gradient_mode == "horizontal") {
-        // Horizontal gradient: intensity based on distance from center line outward
-        // Draw filled area using triangles from zero line to waveform
-        glBegin(GL_TRIANGLES);
+      if (enable_phosphor) {
+        // First draw the gradient background (same as non-phosphor mode)
+        if (gradient_mode == "horizontal") {
+          // Horizontal gradient: intensity based on distance from center line outward
+          // Draw filled area using triangles from zero line to waveform
+          glBegin(GL_TRIANGLES);
+          for (size_t i = 1; i < waveformPoints.size(); ++i) {
+            const auto& p1 = waveformPoints[i - 1];
+            const auto& p2 = waveformPoints[i];
+
+            // Calculate gradient for p1
+            float distance1 = std::abs(p1.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distance1 = std::min(distance1, 1.0f);
+            float gradientIntensity1 = distance1 * 0.3f; // Higher 30% intensity as its less noticeable
+            float fillColor1[4] = {
+                oscilloscopeColor.r * gradientIntensity1 + backgroundColor.r * (1.0f - gradientIntensity1),
+                oscilloscopeColor.g * gradientIntensity1 + backgroundColor.g * (1.0f - gradientIntensity1),
+                oscilloscopeColor.b * gradientIntensity1 + backgroundColor.b * (1.0f - gradientIntensity1),
+                oscilloscopeColor.a * gradientIntensity1 + backgroundColor.a * (1.0f - gradientIntensity1)};
+
+            // Calculate gradient for p2
+            float distance2 = std::abs(p2.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distance2 = std::min(distance2, 1.0f);
+            float gradientIntensity2 = distance2 * 0.3f;
+            float fillColor2[4] = {
+                oscilloscopeColor.r * gradientIntensity2 + backgroundColor.r * (1.0f - gradientIntensity2),
+                oscilloscopeColor.g * gradientIntensity2 + backgroundColor.g * (1.0f - gradientIntensity2),
+                oscilloscopeColor.b * gradientIntensity2 + backgroundColor.b * (1.0f - gradientIntensity2),
+                oscilloscopeColor.a * gradientIntensity2 + backgroundColor.a * (1.0f - gradientIntensity2)};
+
+            // Center color (always background)
+            float centerColor[4] = {backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a};
+
+            // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
+            glColor4fv(centerColor);
+            glVertex2f(p1.first, audioData.windowHeight / 2);
+            glColor4fv(fillColor1);
+            glVertex2f(p1.first, p1.second);
+            glColor4fv(centerColor);
+            glVertex2f(p2.first, audioData.windowHeight / 2);
+
+            // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
+            glColor4fv(fillColor1);
+            glVertex2f(p1.first, p1.second);
+            glColor4fv(fillColor2);
+            glVertex2f(p2.first, p2.second);
+            glColor4fv(centerColor);
+            glVertex2f(p2.first, audioData.windowHeight / 2);
+          }
+          glEnd();
+        } else if (gradient_mode == "vertical") {
+          // Vertical gradient: intensity based on distance from center line
+          glBegin(GL_QUAD_STRIP);
+          for (const auto& point : waveformPoints) {
+            // Calculate distance from center line (0.0 = at center, 1.0 = at edge)
+            float distanceFromCenter =
+                std::abs(point.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distanceFromCenter = std::min(distanceFromCenter, 1.0f);
+
+            // Create gradient color based on distance
+            float gradientIntensity = distanceFromCenter * 0.15f; // Max 15% oscilloscope color
+            float fillColor[4] = {
+                oscilloscopeColor.r * gradientIntensity + backgroundColor.r * (1.0f - gradientIntensity),
+                oscilloscopeColor.g * gradientIntensity + backgroundColor.g * (1.0f - gradientIntensity),
+                oscilloscopeColor.b * gradientIntensity + backgroundColor.b * (1.0f - gradientIntensity),
+                oscilloscopeColor.a * gradientIntensity + backgroundColor.a * (1.0f - gradientIntensity)};
+
+            glColor4fv(fillColor);
+            glVertex2f(point.first, point.second);
+            glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
+          }
+          glEnd();
+        }
+
+        // Now draw the phosphor effect on top of the gradient
+        // Generate high-density points for phosphor simulation
+        std::vector<std::pair<float, float>> densePath;
+        densePath.reserve(phosphor_spline_density);
+
         for (size_t i = 1; i < waveformPoints.size(); ++i) {
           const auto& p1 = waveformPoints[i - 1];
           const auto& p2 = waveformPoints[i];
 
-          // Calculate gradient for p1
-          float distance1 = std::abs(p1.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
-          distance1 = std::min(distance1, 1.0f);
-          float gradientIntensity1 = distance1 * 0.3f; // Higher 30% intensity as its less noticeable
-          float fillColor1[4] = {
-              oscilloscopeColor.r * gradientIntensity1 + backgroundColor.r * (1.0f - gradientIntensity1),
-              oscilloscopeColor.g * gradientIntensity1 + backgroundColor.g * (1.0f - gradientIntensity1),
-              oscilloscopeColor.b * gradientIntensity1 + backgroundColor.b * (1.0f - gradientIntensity1),
-              oscilloscopeColor.a * gradientIntensity1 + backgroundColor.a * (1.0f - gradientIntensity1)};
-
-          // Calculate gradient for p2
-          float distance2 = std::abs(p2.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
-          distance2 = std::min(distance2, 1.0f);
-          float gradientIntensity2 = distance2 * 0.3f;
-          float fillColor2[4] = {
-              oscilloscopeColor.r * gradientIntensity2 + backgroundColor.r * (1.0f - gradientIntensity2),
-              oscilloscopeColor.g * gradientIntensity2 + backgroundColor.g * (1.0f - gradientIntensity2),
-              oscilloscopeColor.b * gradientIntensity2 + backgroundColor.b * (1.0f - gradientIntensity2),
-              oscilloscopeColor.a * gradientIntensity2 + backgroundColor.a * (1.0f - gradientIntensity2)};
-
-          // Center color (always background)
-          float centerColor[4] = {backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a};
-
-          // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
-          glColor4fv(centerColor);
-          glVertex2f(p1.first, audioData.windowHeight / 2);
-          glColor4fv(fillColor1);
-          glVertex2f(p1.first, p1.second);
-          glColor4fv(centerColor);
-          glVertex2f(p2.first, audioData.windowHeight / 2);
-
-          // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
-          glColor4fv(fillColor1);
-          glVertex2f(p1.first, p1.second);
-          glColor4fv(fillColor2);
-          glVertex2f(p2.first, p2.second);
-          glColor4fv(centerColor);
-          glVertex2f(p2.first, audioData.windowHeight / 2);
+          // Interpolate with high density
+          int segmentPoints = std::max(1, phosphor_spline_density / static_cast<int>(waveformPoints.size()));
+          for (int j = 0; j < segmentPoints; ++j) {
+            float t = static_cast<float>(j) / segmentPoints;
+            float x = p1.first + t * (p2.first - p1.first);
+            float y = p1.second + t * (p2.second - p1.second);
+            densePath.push_back({x, y});
+          }
         }
-        glEnd();
-      } else if (gradient_mode == "vertical") {
-        // Vertical gradient: intensity based on distance from center line (current implementation)
-        glBegin(GL_QUAD_STRIP);
-        for (const auto& point : waveformPoints) {
-          // Calculate distance from center line (0.0 = at center, 1.0 = at edge)
-          float distanceFromCenter = std::abs(point.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
-          distanceFromCenter = std::min(distanceFromCenter, 1.0f);
 
-          // Create gradient color based on distance
-          float gradientIntensity = distanceFromCenter * 0.15f; // Max 15% oscilloscope color
-          float fillColor[4] = {
-              oscilloscopeColor.r * gradientIntensity + backgroundColor.r * (1.0f - gradientIntensity),
-              oscilloscopeColor.g * gradientIntensity + backgroundColor.g * (1.0f - gradientIntensity),
-              oscilloscopeColor.b * gradientIntensity + backgroundColor.b * (1.0f - gradientIntensity),
-              oscilloscopeColor.a * gradientIntensity + backgroundColor.a * (1.0f - gradientIntensity)};
+        if (!densePath.empty()) {
+          // Pre-calculate original point distances for intensity mapping
+          std::vector<float> originalDistances;
+          originalDistances.reserve(waveformPoints.size() - 1);
+          for (size_t i = 1; i < waveformPoints.size(); ++i) {
+            float dx = waveformPoints[i].first - waveformPoints[i - 1].first;
+            float dy = waveformPoints[i].second - waveformPoints[i - 1].second;
+            float dist = sqrtf(dx * dx + dy * dy) / width; // Normalized distance
+            originalDistances.push_back(dist);
+          }
 
-          glColor4fv(fillColor);
-          glVertex2f(point.first, point.second);
-          glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
+          // Enable additive blending for phosphor effect
+          glEnable(GL_BLEND);
+          if (Theme::ThemeManager::invertNoiseBrightness()) {
+            glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+          } else {
+            glBlendFunc(GL_ONE, GL_ONE);
+          }
+
+          // Get the oscilloscope color
+          const auto& oscilloscopeColor = Theme::ThemeManager::getOscilloscope();
+
+          for (size_t i = 1; i < densePath.size(); ++i) {
+            const auto& p1 = densePath[i - 1];
+            const auto& p2 = densePath[i];
+
+            // Check beam speed for this segment before rendering
+            float dx = p2.first - p1.first;
+            float dy = p2.second - p1.second;
+            float segmentLength = sqrtf(dx * dx + dy * dy);
+            float beamSpeed = segmentLength / width; // Normalized to screen width
+
+            // Scale max beam speed with screen size for consistent behavior
+            const float referenceWidth = 200.0f;
+            float sizeScale = static_cast<float>(width) / referenceWidth;
+            float scaledMaxBeamSpeed = phosphor_max_beam_speed * sizeScale;
+
+            // Skip segments where beam moves too fast (like real oscilloscope)
+            if (beamSpeed > scaledMaxBeamSpeed) {
+              continue;
+            }
+
+            // Calculate intensity based on local point density
+            float intensity = phosphor_intensity_scale;
+
+            // Scale intensity based on density
+            float splineDensityRatio = static_cast<float>(densePath.size()) / static_cast<float>(waveformPoints.size());
+            float densityScale = 1.0f / sqrtf(splineDensityRatio);
+            intensity *= densityScale;
+
+            // Map this segment back to original curve region for speed-based intensity
+            float normalizedPos = static_cast<float>(i) / densePath.size();
+            size_t originalSegmentIndex = static_cast<size_t>(normalizedPos * (originalDistances.size() - 1));
+            originalSegmentIndex = std::min(originalSegmentIndex, originalDistances.size() - 1);
+
+            // Use the original curve speed for intensity modulation
+            // For oscilloscope, this represents how fast the signal is changing (derivative)
+            float originalSpeed = originalDistances[originalSegmentIndex];
+            float speedIntensity = 1.0f / (1.0f + originalSpeed * 50.0f);
+            intensity *= speedIntensity;
+
+            // Clamp intensity
+            intensity = std::min(intensity, 1.0f);
+
+            if (intensity > 0.001f) {
+              // Calculate color with intensity
+              float color[4] = {oscilloscopeColor.r * intensity, oscilloscopeColor.g * intensity,
+                                oscilloscopeColor.b * intensity, intensity};
+
+              // Draw antialiased line segment
+              Graphics::drawAntialiasedLine(p1.first, p1.second, p2.first, p2.second, color, 2.0f);
+            }
+          }
+
+          // Reset blending
+          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
-        glEnd();
+      } else {
+        // Standard non-phosphor rendering
+        // Handle different gradient modes
+        if (gradient_mode == "horizontal") {
+          // Horizontal gradient: intensity based on distance from center line outward
+          // Draw filled area using triangles from zero line to waveform
+          glBegin(GL_TRIANGLES);
+          for (size_t i = 1; i < waveformPoints.size(); ++i) {
+            const auto& p1 = waveformPoints[i - 1];
+            const auto& p2 = waveformPoints[i];
+
+            // Calculate gradient for p1
+            float distance1 = std::abs(p1.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distance1 = std::min(distance1, 1.0f);
+            float gradientIntensity1 = distance1 * 0.3f; // Higher 30% intensity as its less noticeable
+            float fillColor1[4] = {
+                oscilloscopeColor.r * gradientIntensity1 + backgroundColor.r * (1.0f - gradientIntensity1),
+                oscilloscopeColor.g * gradientIntensity1 + backgroundColor.g * (1.0f - gradientIntensity1),
+                oscilloscopeColor.b * gradientIntensity1 + backgroundColor.b * (1.0f - gradientIntensity1),
+                oscilloscopeColor.a * gradientIntensity1 + backgroundColor.a * (1.0f - gradientIntensity1)};
+
+            // Calculate gradient for p2
+            float distance2 = std::abs(p2.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distance2 = std::min(distance2, 1.0f);
+            float gradientIntensity2 = distance2 * 0.3f;
+            float fillColor2[4] = {
+                oscilloscopeColor.r * gradientIntensity2 + backgroundColor.r * (1.0f - gradientIntensity2),
+                oscilloscopeColor.g * gradientIntensity2 + backgroundColor.g * (1.0f - gradientIntensity2),
+                oscilloscopeColor.b * gradientIntensity2 + backgroundColor.b * (1.0f - gradientIntensity2),
+                oscilloscopeColor.a * gradientIntensity2 + backgroundColor.a * (1.0f - gradientIntensity2)};
+
+            // Center color (always background)
+            float centerColor[4] = {backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a};
+
+            // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
+            glColor4fv(centerColor);
+            glVertex2f(p1.first, audioData.windowHeight / 2);
+            glColor4fv(fillColor1);
+            glVertex2f(p1.first, p1.second);
+            glColor4fv(centerColor);
+            glVertex2f(p2.first, audioData.windowHeight / 2);
+
+            // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
+            glColor4fv(fillColor1);
+            glVertex2f(p1.first, p1.second);
+            glColor4fv(fillColor2);
+            glVertex2f(p2.first, p2.second);
+            glColor4fv(centerColor);
+            glVertex2f(p2.first, audioData.windowHeight / 2);
+          }
+          glEnd();
+        } else if (gradient_mode == "vertical") {
+          // Vertical gradient: intensity based on distance from center line (current implementation)
+          glBegin(GL_QUAD_STRIP);
+          for (const auto& point : waveformPoints) {
+            // Calculate distance from center line (0.0 = at center, 1.0 = at edge)
+            float distanceFromCenter =
+                std::abs(point.second - audioData.windowHeight / 2) / (audioData.windowHeight / 2);
+            distanceFromCenter = std::min(distanceFromCenter, 1.0f);
+
+            // Create gradient color based on distance
+            float gradientIntensity = distanceFromCenter * 0.15f; // Max 15% oscilloscope color
+            float fillColor[4] = {
+                oscilloscopeColor.r * gradientIntensity + backgroundColor.r * (1.0f - gradientIntensity),
+                oscilloscopeColor.g * gradientIntensity + backgroundColor.g * (1.0f - gradientIntensity),
+                oscilloscopeColor.b * gradientIntensity + backgroundColor.b * (1.0f - gradientIntensity),
+                oscilloscopeColor.a * gradientIntensity + backgroundColor.a * (1.0f - gradientIntensity)};
+
+            glColor4fv(fillColor);
+            glVertex2f(point.first, point.second);
+            glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
+          }
+          glEnd();
+        }
+
+        float oscilloscopeColorArray[4] = {oscilloscopeColor.r, oscilloscopeColor.g, oscilloscopeColor.b,
+                                           oscilloscopeColor.a};
+        Graphics::drawAntialiasedLines(waveformPoints, oscilloscopeColorArray, 2.0f);
       }
-
-      float oscilloscopeColorArray[4] = {oscilloscopeColor.r, oscilloscopeColor.g, oscilloscopeColor.b,
-                                         oscilloscopeColor.a};
-      Graphics::drawAntialiasedLines(waveformPoints, oscilloscopeColorArray, 2.0f);
     }
   }
 }

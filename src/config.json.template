@@ -27,20 +27,24 @@
     "note_key_mode": "sharp"
   },
   "lissajous": {
-    "points": 500,
+    "points": 1000,
     "spline_segments": 8,
     "enable_splines": true,
     "enable_phosphor": true,
-    "phosphor_min_brightness": 0.1,
-    "phosphor_max_brightness": 1.0,
     "phosphor_tension": 0.5,
-    "phosphor_fade_factor": 0.0
+    "phosphor_spline_density": 20,
+    "phosphor_max_beam_speed": 0.05,
+    "phosphor_persistence_time": 0.5,
+    "phosphor_decay_rate": 7.0,
+    "phosphor_intensity_scale": 5.0
   },
   "oscilloscope": {
     "amplitude_scale": 0.5,
-    "min_cycle_count": 1,
-    "max_cycle_count": 8,
-    "gradient_mode": "horizontal"
+    "gradient_mode": "horizontal",
+    "enable_phosphor": false,
+    "phosphor_spline_density": 2000,
+    "phosphor_max_beam_speed": 0.001,
+    "phosphor_intensity_scale": 0.5
   },
   "pulseaudio": {
     "max_length": 2048,

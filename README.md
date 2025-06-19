@@ -17,7 +17,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Real-time audio visualization
 - Multiple visualization styles:
 	- Lissajous curve with toggleable phosphor-like effect and Catmull-Rom spline interpolation
-	- Oscilloscope with configurable gradient modes
+	- Oscilloscope with configurable gradient modes, Catmull-Rom spline interpolation and toggleable phosphor-like effect
 	- FFT with mid/side and right/left modes and sharp/flat note key mode
 - Low-latency audio processing
 - Hardware-accelerated graphics
@@ -124,6 +124,7 @@ If you find Pulse useful and want to support its development, you can buy me a c
 ## Acknowledgments
 
 - [MiniMeters](https://minimeters.app/) for inspiration in audio visualization design
+- [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
 - SDL2 for cross-platform graphics and input
 - PulseAudio for audio capture
 - FFTW for fast Fourier transforms
