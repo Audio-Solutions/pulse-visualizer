@@ -130,7 +130,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
       // Enable additive blending for phosphor effect
       glEnable(GL_BLEND);
-      glBlendFunc(GL_ONE, GL_ONE);
+      if (Theme::ThemeManager::invertNoiseBrightness()) {
+        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+      } else {
+        glBlendFunc(GL_ONE, GL_ONE);
+      }
 
       // Get the Lissajous color
       const auto& lissajousColor = Theme::ThemeManager::getLissajous();

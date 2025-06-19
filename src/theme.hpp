@@ -146,6 +146,7 @@ public:
   static const Color& getOscilloscope();
   static const Color& getWaveform();
   static const Color& getSpectrum();
+  static const bool invertNoiseBrightness();
 
 private:
   static void parseThemeValue(const std::string& key, const std::string& value, ThemeDefinition& theme);

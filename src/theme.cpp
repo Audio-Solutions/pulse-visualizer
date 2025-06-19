@@ -220,6 +220,7 @@ const Color& ThemeManager::getLissajous() { return currentTheme.color; }
 const Color& ThemeManager::getOscilloscope() { return currentTheme.oscilloscopeMain; }
 const Color& ThemeManager::getWaveform() { return currentTheme.waveform; }
 const Color& ThemeManager::getSpectrum() { return currentTheme.spectrumAnalyzerMain; }
+const bool ThemeManager::invertNoiseBrightness() { return currentTheme.waveformInvertNoiseBrightness == 1; }
 
 void ThemeManager::applyFallbacks(ThemeDefinition& theme) {
   // Apply fallbacks for optional colors based on primary colors only if they weren't parsed

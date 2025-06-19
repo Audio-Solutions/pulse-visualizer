@@ -6,7 +6,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- **Phosphor effect is incompatible with light themes or themes that have a white or near-white background.** The effect relies on additive blending, which is only visible on dark backgrounds.
+- **Phosphor effect may need configuration for light themes.** The effect relies on additive blending, which is most visible on dark backgrounds. For light themes, you may need to set `waveform_invert_noise_brightness: 1` in your config file to invert the lissajous phosphor blending for better visibility.
 - No settings menu or source selection yet
 - Configuration is handled through a config file (see [Building](#building) for more details)
 - Performance may vary depending on your system's framerate
