@@ -1,0 +1,58 @@
+{
+  "window": {
+    "default_width": 1080,
+    "default_height": 200,
+    "default_splitter_pos": 0.65,
+    "default_theme": "mocha.txt"
+  },
+  "audio": {
+    "sample_rate": 44100,
+    "channels": 2,
+    "buffer_size": 131072,
+    "display_samples": 2000
+  },
+  "fft": {
+    "fft_size": 4096,
+    "fft_smoothing_factor": 0.2,
+    "fft_min_db": -60.0,
+    "fft_max_db": 10.0,
+    "fft_min_freq": 10.0,
+    "fft_max_freq": 20000.0,
+    "fft_slope_correction_db": 4.5,
+    "fft_rise_speed": 500.0,
+    "fft_fall_speed": 50.0,
+    "fft_display_min_db": -60.0,
+    "fft_display_max_db": -10.0,
+    "stereo_mode": "midside",
+    "note_key_mode": "sharp"
+  },
+  "lissajous": {
+    "points": 500,
+    "spline_segments": 8,
+    "enable_splines": true,
+    "enable_phosphor": true,
+    "phosphor_min_brightness": 0.1,
+    "phosphor_max_brightness": 1.0,
+    "phosphor_tension": 0.5,
+    "phosphor_fade_factor": 0.0
+  },
+  "oscilloscope": {
+    "amplitude_scale": 0.5,
+    "min_cycle_count": 1,
+    "max_cycle_count": 8,
+    "gradient_mode": "horizontal"
+  },
+  "pulseaudio": {
+    "max_length": 2048,
+    "target_length": 512,
+    "min_req": 128,
+    "fragment_size": 512,
+    "default_source": "default"
+  },
+  "font": {
+    "default_font": "/path/to/font.ttf"
+  },
+  "debug": {
+    "log_fps": true
+  }
+}

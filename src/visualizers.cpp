@@ -28,7 +28,7 @@ LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float,
   std::vector<std::pair<float, float>> splinePoints;
 
   // Catmull-Rom matrix coefficients using configurable tension
-  const float t = Config::Lissajous::PHOSPHOR_TENSION;
+  const float t = Config::getFloat("lissajous.phosphor_tension");
 
   for (size_t i = 1; i < controlPoints.size() - 2; ++i) {
     const auto& p0 = controlPoints[i - 1];
@@ -85,6 +85,27 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the Lissajous visualizer
   Graphics::setupViewport(position, 0, width, width, audioData.windowHeight);
 
+  // --- Local static config cache ---
+  static float phosphor_tension;
+  static bool enable_splines;
+  static int spline_segments;
+  static bool enable_phosphor;
+  static float phosphor_max_brightness;
+  static float phosphor_min_brightness;
+  static float phosphor_fade_factor;
+  static size_t lastConfigVersion;
+
+  if (Config::getVersion() != lastConfigVersion) {
+    phosphor_tension = Config::getFloat("lissajous.phosphor_tension");
+    enable_splines = Config::getBool("lissajous.enable_splines");
+    spline_segments = Config::getInt("lissajous.spline_segments");
+    enable_phosphor = Config::getBool("lissajous.enable_phosphor");
+    phosphor_max_brightness = Config::getFloat("lissajous.phosphor_max_brightness");
+    phosphor_min_brightness = Config::getFloat("lissajous.phosphor_min_brightness");
+    phosphor_fade_factor = Config::getFloat("lissajous.phosphor_fade_factor");
+    lastConfigVersion = Config::getVersion();
+  }
+
   if (!audioData.lissajousPoints.empty() && audioData.hasValidPeak) {
     std::vector<std::pair<float, float>> points;
     points.reserve(audioData.lissajousPoints.size());
@@ -98,11 +119,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
     // Generate spline points if enabled, otherwise use original points
     std::vector<std::pair<float, float>> displayPoints = points;
-    if (Config::Lissajous::ENABLE_SPLINES && points.size() >= 4) {
-      displayPoints = generateCatmullRomSpline(points, Config::Lissajous::SPLINE_SEGMENTS);
+    if (enable_splines && points.size() >= 4) {
+      displayPoints = generateCatmullRomSpline(points, spline_segments);
     }
 
-    if (Config::Lissajous::ENABLE_PHOSPHOR) {
+    if (enable_phosphor) {
       // Calculate cumulative distances for length-based darkening
       std::vector<float> cumulativeDistances = calculateCumulativeDistances(displayPoints);
       float totalLength = cumulativeDistances.back();
@@ -127,16 +148,13 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         float normalizedDistance = totalLength > 0.0f ? distanceFromStart / totalLength : 0.0f;
 
         // Calculate brightness factor based on distance (longer paths get brighter)
-        // Use configurable parameters for phosphor effect
-        float brightnessFactor = normalizedDistance * (Config::Lissajous::PHOSPHOR_MAX_BRIGHTNESS -
-                                                       Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS) +
-                                 Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS;
-        brightnessFactor = std::clamp(brightnessFactor, Config::Lissajous::PHOSPHOR_MIN_BRIGHTNESS,
-                                      Config::Lissajous::PHOSPHOR_MAX_BRIGHTNESS);
+        float brightnessFactor =
+            normalizedDistance * (phosphor_max_brightness - phosphor_min_brightness) + phosphor_min_brightness;
+        brightnessFactor = std::clamp(brightnessFactor, phosphor_min_brightness, phosphor_max_brightness);
 
         // Tail fade: 1.0 at head, PHOSPHOR_FADE_FACTOR at tail
-        float tailFade = Config::Lissajous::PHOSPHOR_FADE_FACTOR +
-                         (1.0f - Config::Lissajous::PHOSPHOR_FADE_FACTOR) * (1.0f - float(i) / displayPoints.size());
+        float tailFade =
+            phosphor_fade_factor + (1.0f - phosphor_fade_factor) * (1.0f - float(i) / displayPoints.size());
         float finalBrightness = brightnessFactor * tailFade;
 
         float color[4] = {lissajousColor.r * finalBrightness, lissajousColor.g * finalBrightness,
@@ -163,9 +181,20 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the oscilloscope
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
+  // --- Local static config cache ---
+  static float amplitude_scale;
+  static std::string gradient_mode;
+  static size_t lastConfigVersion;
+
+  if (Config::getVersion() != lastConfigVersion) {
+    amplitude_scale = Config::getFloat("oscilloscope.amplitude_scale");
+    gradient_mode = Config::getString("oscilloscope.gradient_mode");
+    lastConfigVersion = Config::getVersion();
+  }
+
   if (audioData.availableSamples > 0) {
     // Calculate the target position for phase correction
-    size_t targetPos = (audioData.writePos + audioData.BUFFER_SIZE - audioData.DISPLAY_SAMPLES) % audioData.BUFFER_SIZE;
+    size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
 
     // Use pre-computed bandpassed data for zero crossing detection
     size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle);
@@ -173,8 +202,8 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     if (!audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
       // Search backward for the nearest positive zero crossing in bandpassed signal
       for (size_t i = 1; i < searchRange && i < audioData.bandpassedMid.size(); i++) {
-        size_t pos = (targetPos + audioData.BUFFER_SIZE - i) % audioData.BUFFER_SIZE;
-        size_t prevPos = (pos + audioData.BUFFER_SIZE - 1) % audioData.BUFFER_SIZE;
+        size_t pos = (targetPos + audioData.bufferSize - i) % audioData.bufferSize;
+        size_t prevPos = (pos + audioData.bufferSize - 1) % audioData.bufferSize;
         float currentSample = audioData.bandpassedMid[pos];
         float prevSample = audioData.bandpassedMid[prevPos];
         if (prevSample < 0.0f && currentSample >= 0.0f) {
@@ -186,24 +215,24 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
     // Calculate phase offset to align with peak (3/4 cycle after zero crossing)
     float threeQuarterCycle = audioData.samplesPerCycle * 0.75f;
-    float phaseOffset = static_cast<float>((targetPos + audioData.BUFFER_SIZE - zeroCrossPos) % audioData.BUFFER_SIZE) +
+    float phaseOffset = static_cast<float>((targetPos + audioData.bufferSize - zeroCrossPos) % audioData.bufferSize) +
                         threeQuarterCycle;
 
     // Calculate the start position for reading samples, adjusted for phase
-    size_t startPos = (audioData.writePos + audioData.BUFFER_SIZE - audioData.DISPLAY_SAMPLES) % audioData.BUFFER_SIZE;
+    size_t startPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
     if (audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f) {
       // Move backward by the phase offset
-      startPos = (startPos + audioData.BUFFER_SIZE - static_cast<size_t>(phaseOffset)) % audioData.BUFFER_SIZE;
+      startPos = (startPos + audioData.bufferSize - static_cast<size_t>(phaseOffset)) % audioData.bufferSize;
     }
 
     // Create waveform points
     std::vector<std::pair<float, float>> waveformPoints;
-    waveformPoints.reserve(audioData.DISPLAY_SAMPLES);
+    waveformPoints.reserve(audioData.displaySamples);
 
-    float amplitudeScale = audioData.windowHeight * Config::Oscilloscope::AMPLITUDE_SCALE;
-    for (size_t i = 0; i < audioData.DISPLAY_SAMPLES; i++) {
-      size_t pos = (startPos + i) % audioData.BUFFER_SIZE;
-      float x = (static_cast<float>(i) * width) / audioData.DISPLAY_SAMPLES;
+    float amplitudeScale = audioData.windowHeight * amplitude_scale;
+    for (size_t i = 0; i < audioData.displaySamples; i++) {
+      size_t pos = (startPos + i) % audioData.bufferSize;
+      float x = (static_cast<float>(i) * width) / audioData.displaySamples;
 #ifdef SCOPE_USE_RAW_SIGNAL
       float y = audioData.windowHeight / 2 + audioData.bufferMid[pos] * amplitudeScale;
 #else
@@ -219,12 +248,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     // Draw the waveform line using OpenGL only if there's a valid peak
     if (audioData.hasValidPeak) {
       // Handle different gradient modes
-      switch (Config::Oscilloscope::GRADIENT_MODE) {
-      case Config::Oscilloscope::OFF:
-        // No gradient fill - just draw the waveform line
-        break;
-
-      case Config::Oscilloscope::HORIZONTAL: {
+      if (gradient_mode == "horizontal") {
         // Horizontal gradient: intensity based on distance from center line outward
         // Draw filled area using triangles from zero line to waveform
         glBegin(GL_TRIANGLES);
@@ -272,10 +296,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glVertex2f(p2.first, audioData.windowHeight / 2);
         }
         glEnd();
-        break;
-      }
-
-      case Config::Oscilloscope::VERTICAL: {
+      } else if (gradient_mode == "vertical") {
         // Vertical gradient: intensity based on distance from center line (current implementation)
         glBegin(GL_QUAD_STRIP);
         for (const auto& point : waveformPoints) {
@@ -296,8 +317,6 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glVertex2f(point.first, audioData.windowHeight / 2); // Zero line
         }
         glEnd();
-        break;
-      }
       }
 
       float oscilloscopeColorArray[4] = {oscilloscopeColor.r, oscilloscopeColor.g, oscilloscopeColor.b,
@@ -311,10 +330,30 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the FFT visualizer
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
+  // --- Local static config cache ---
+  static std::string font;
+  static float minFreq;
+  static float maxFreq;
+  static float sampleRate;
+  static float slope_k;
+  static float fft_display_min_db;
+  static float fft_display_max_db;
+  static std::string stereo_mode;
+  static size_t lastConfigVersion;
+
+  if (Config::getVersion() != lastConfigVersion) {
+    font = Config::getString("font.default_font");
+    minFreq = Config::getFloat("fft.fft_min_freq");
+    maxFreq = Config::getFloat("fft.fft_max_freq");
+    sampleRate = Config::getFloat("audio.sample_rate");
+    slope_k = Config::getFloat("fft.fft_slope_correction_db") / 20.0f / log10f(2.0f);
+    fft_display_min_db = Config::getFloat("fft.fft_display_min_db");
+    fft_display_max_db = Config::getFloat("fft.fft_display_max_db");
+    stereo_mode = Config::getString("fft.stereo_mode");
+    lastConfigVersion = Config::getVersion();
+  }
+
   if (!audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty()) {
-    const float minFreq = Config::FFT::FFT_MIN_FREQ;
-    const float maxFreq = Config::FFT::FFT_MAX_FREQ;
-    const float sampleRate = Config::Audio::SAMPLE_RATE;
     const int fftSize = (audioData.fftMagnitudesMid.size() - 1) * 2;
 
     // Draw frequency scale lines using OpenGL
@@ -365,14 +404,11 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       // Draw the text
       const auto& gridColor = Theme::ThemeManager::getGrid();
       float gridColorArray[4] = {gridColor.r, gridColor.g, gridColor.b, gridColor.a};
-      Graphics::drawText(label, x - textWidth / 2, y, 10.0f, gridColorArray);
+      Graphics::drawText(label, x - textWidth / 2, y, 10.0f, gridColorArray, font.c_str());
     };
     drawFreqLabel(100.0f, "100 Hz");
     drawFreqLabel(1000.0f, "1 kHz");
     drawFreqLabel(10000.0f, "10 kHz");
-
-    // Slope correction factor for 4.5dB/octave
-    const float slope_k = Config::FFT::FFT_SLOPE_CORRECTION_DB / 20.0f / log10f(2.0f);
 
     // Get the spectrum color for both FFT curves
     const auto& spectrumColor = Theme::ThemeManager::getSpectrum();
@@ -384,7 +420,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     // Temporary vectors for computed LEFTRIGHT mode data
     std::vector<float> leftMagnitudes, rightMagnitudes;
 
-    if (Config::FFT::MODE == Config::FFT::LEFTRIGHT) {
+    if (stereo_mode == "leftright") {
       // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
       leftMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
       rightMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
@@ -422,9 +458,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       float dB = 20.0f * log10f(magnitude + 1e-9f);
 
       // Map dB to screen coordinates using config display limits
-      float dB_min = Config::FFT::FFT_DISPLAY_MIN_DB;
-      float dB_max = Config::FFT::FFT_DISPLAY_MAX_DB;
-      float y = (dB - dB_min) / (dB_max - dB_min) * audioData.windowHeight;
+      float y = (dB - fft_display_min_db) / (fft_display_max_db - fft_display_min_db) * audioData.windowHeight;
       alternateFFTPoints.push_back({x, y});
     }
 
@@ -458,9 +492,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       float dB = 20.0f * log10f(magnitude + 1e-9f);
 
       // Map dB to screen coordinates using config display limits
-      float dB_min = Config::FFT::FFT_DISPLAY_MIN_DB;
-      float dB_max = Config::FFT::FFT_DISPLAY_MAX_DB;
-      float y = (dB - dB_min) / (dB_max - dB_min) * audioData.windowHeight;
+      float y = (dB - fft_display_min_db) / (fft_display_max_db - fft_display_min_db) * audioData.windowHeight;
       fftPoints.push_back({x, y});
     }
 
@@ -479,7 +511,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       // Now draw overlay text on top of everything
       const auto& textColor = Theme::ThemeManager::getText();
       float textColorArray[4] = {textColor.r, textColor.g, textColor.b, textColor.a};
-      Graphics::drawText(overlay, overlayX, overlayY, 14.0f, textColorArray);
+      Graphics::drawText(overlay, overlayX, overlayY, 14.0f, textColorArray, font.c_str());
     }
   }
 }

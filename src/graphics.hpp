@@ -18,6 +18,5 @@ void drawAntialiasedLines(const std::vector<std::pair<float, float>>& points, co
 void drawFilledRect(float x, float y, float width, float height, const float color[4]);
 
 // Draw text using a TTF font (JetBrains Mono)
-void drawText(const char* text, float x, float y, float size, const float color[4],
-              const char* fontPath = Config::Font::DEFAULT_FONT);
+void drawText(const char* text, float x, float y, float size, const float color[4], const char* fontPath = nullptr);
 } // namespace Graphics

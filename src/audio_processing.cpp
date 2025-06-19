@@ -98,10 +98,16 @@ void applyBandpass(const std::vector<float>& input, std::vector<float>& output, 
 
 // Helper function to convert frequency to note
 void freqToNote(float freq, std::string& noteName, int& octave, int& cents) {
+  static std::string note_key_mode = "sharp";
   static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
   static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
-
-  const char* const* noteNames = Config::FFT::NOTE_KEY_MODE == Config::FFT::SHARP ? noteNamesSharp : noteNamesFlat;
+  static const char* const* noteNames = noteNamesSharp;
+  static size_t lastConfigVersion = 0;
+  if (Config::getVersion() != lastConfigVersion) {
+    note_key_mode = Config::getString("fft.note_key_mode");
+    noteNames = (note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
+    lastConfigVersion = Config::getVersion();
+  }
 
   if (freq <= 0.0f) {
     noteName = "-";
@@ -137,8 +143,14 @@ void audioThread(AudioData* audioData) {
 
   pa_buffer_attr attr = {.maxlength = 4096, .tlength = 1024, .prebuf = 512, .minreq = 512, .fragsize = 1024};
 
-  pa = pa_simple_new(nullptr, "Audio Visualizer", PA_STREAM_RECORD, Config::PulseAudio::DEFAULT_SOURCE,
-                     "Audio Visualization", &ss, nullptr, &attr, &error);
+  std::string source = Config::getString("pulseaudio.default_source");
+  if (source.empty()) {
+    fprintf(stderr, "No default source found in config. Using default.\n");
+    source = "default";
+  }
+
+  pa = pa_simple_new(nullptr, "Audio Visualizer", PA_STREAM_RECORD, source.c_str(), "Audio Visualization", &ss, nullptr,
+                     &attr, &error);
 
   if (!pa) {
     fprintf(stderr, "Failed to create PulseAudio stream: %s\n", pa_strerror(error));
@@ -146,9 +158,9 @@ void audioThread(AudioData* audioData) {
   }
 
   // Pre-allocate all buffers to avoid reallocations
-  audioData->bufferMid.resize(audioData->BUFFER_SIZE, 0.0f);
-  audioData->bufferSide.resize(audioData->BUFFER_SIZE, 0.0f);
-  audioData->bandpassedMid.resize(audioData->BUFFER_SIZE, 0.0f);
+  audioData->bufferMid.resize(audioData->bufferSize, 0.0f);
+  audioData->bufferSide.resize(audioData->bufferSize, 0.0f);
+  audioData->bandpassedMid.resize(audioData->bufferSize, 0.0f);
 
   const int READ_SIZE = 512;
   float readBuffer[READ_SIZE];
@@ -176,6 +188,23 @@ void audioThread(AudioData* audioData) {
   static float prevPeakFreq = 0.0f;
   static float prevPeakDb = -100.0f;
 
+  static int lissajous_points = 500;
+  static float fft_min_freq = 10.0f;
+  static float fft_max_freq = 20000.0f;
+  static float fft_smoothing_factor = 0.2f;
+  static float fft_rise_speed = 500.0f;
+  static float fft_fall_speed = 50.0f;
+  static size_t lastConfigVersion = 0;
+  if (Config::getVersion() != lastConfigVersion) {
+    lissajous_points = Config::getInt("lissajous.points");
+    fft_min_freq = Config::getFloat("fft.fft_min_freq");
+    fft_max_freq = Config::getFloat("fft.fft_max_freq");
+    fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
+    fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
+    fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
+    lastConfigVersion = Config::getVersion();
+  }
+
   while (audioData->running) {
     if (pa_simple_read(pa, readBuffer, sizeof(readBuffer), &error) < 0) {
       fprintf(stderr, "Failed to read from PulseAudio stream: %s\n", pa_strerror(error));
@@ -191,7 +220,7 @@ void audioThread(AudioData* audioData) {
       // Store Lissajous points (using left and right channels)
       if (i + 1 < READ_SIZE) {
         audioData->lissajousPoints.push_back({sampleLeft, sampleRight});
-        if (audioData->lissajousPoints.size() > ::LISSAJOUS_POINTS) {
+        if (audioData->lissajousPoints.size() > lissajous_points) {
           audioData->lissajousPoints.pop_front();
         }
       }
@@ -199,7 +228,7 @@ void audioThread(AudioData* audioData) {
       // Write to circular buffer
       audioData->bufferMid[audioData->writePos] = (sampleLeft + sampleRight) / 2.0f;
       audioData->bufferSide[audioData->writePos] = (sampleLeft - sampleRight) / 2.0f;
-      audioData->writePos = (audioData->writePos + 1) % audioData->BUFFER_SIZE;
+      audioData->writePos = (audioData->writePos + 1) % audioData->bufferSize;
       audioData->availableSamples++;
     }
 
@@ -212,11 +241,11 @@ void audioThread(AudioData* audioData) {
 
     if (audioData->availableSamples > 0) {
       // Copy and window the input data from circular buffer (mid channel)
-      size_t startPos = (audioData->writePos + audioData->BUFFER_SIZE - FFT_SIZE) % audioData->BUFFER_SIZE;
+      size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
       for (int i = 0; i < FFT_SIZE; i++) {
         // Apply Hanning window
         float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % audioData->BUFFER_SIZE;
+        size_t pos = (startPos + i) % audioData->bufferSize;
         in[i] = audioData->bufferMid[pos] * window;
       }
 
@@ -240,7 +269,7 @@ void audioThread(AudioData* audioData) {
       for (int i = 0; i < FFT_SIZE; i++) {
         // Apply Hanning window
         float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % audioData->BUFFER_SIZE;
+        size_t pos = (startPos + i) % audioData->bufferSize;
         in[i] = audioData->bufferSide[pos] * window;
       }
 
@@ -332,8 +361,8 @@ void audioThread(AudioData* audioData) {
       float peakDb = -100.0f;
       float peakFreq = 0.0f;
       peakBin = 0;
-      const float minFreq = Config::FFT::FFT_MIN_FREQ;
-      const float maxFreq = Config::FFT::FFT_MAX_FREQ;
+      const float minFreq = fft_min_freq;
+      const float maxFreq = fft_max_freq;
       const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
 
       for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
@@ -384,8 +413,7 @@ void audioThread(AudioData* audioData) {
       if (audioData->fftUpdateInterval > 0.0f) {
         float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
         float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
-        fftInterpolation =
-            fftInterpolation + (targetInterpolation - fftInterpolation) * Config::FFT::FFT_SMOOTHING_FACTOR;
+        fftInterpolation = fftInterpolation + (targetInterpolation - fftInterpolation) * fft_smoothing_factor;
         fftInterpolation = std::min(1.0f, fftInterpolation);
       }
 
@@ -416,7 +444,7 @@ void audioThread(AudioData* audioData) {
 
         // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? Config::FFT::FFT_RISE_SPEED : Config::FFT::FFT_FALL_SPEED;
+        float speed = (diff > 0) ? fft_rise_speed : fft_fall_speed;
 
         // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;
@@ -443,7 +471,7 @@ void audioThread(AudioData* audioData) {
 
         // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? Config::FFT::FFT_RISE_SPEED : Config::FFT::FFT_FALL_SPEED;
+        float speed = (diff > 0) ? fft_rise_speed : fft_fall_speed;
 
         // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;

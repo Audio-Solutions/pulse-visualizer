@@ -20,6 +20,11 @@ int main() {
     return 1;
   }
 
+  // Load config
+  Config::load();
+
+  bool drawFPS = Config::getBool("debug.log_fps");
+
   // Initialize the theme system
   Theme::ThemeManager::initialize();
 
@@ -28,9 +33,9 @@ int main() {
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-  SDL_Window* win =
-      SDL_CreateWindow("Audio Visualizer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, Config::DEFAULT_WINDOW_WIDTH,
-                       Config::DEFAULT_WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  SDL_Window* win = SDL_CreateWindow("Audio Visualizer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                     Config::getInt("window.default_width"), Config::getInt("window.default_height"),
+                                     SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!win) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
@@ -139,6 +144,9 @@ int main() {
     frameCount++;
     Uint32 currentTime = SDL_GetTicks();
     if (currentTime - lastFpsUpdate >= 1000) {
+      if (drawFPS) {
+        std::cerr << "FPS: " << frameCount << std::endl;
+      }
       frameCount = 0;
       lastFpsUpdate = currentTime;
     }

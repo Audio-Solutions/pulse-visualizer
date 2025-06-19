@@ -54,3 +54,9 @@ target_link_libraries(Pulse PRIVATE
   PkgConfig::FREETYPE
   OpenGL::GL
 )
+
+# Ensure config file exists in ~/.config/pulse/config.json
+execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{HOME}/.config/pulse-visualizer)
+if(NOT EXISTS "$ENV{HOME}/.config/pulse-visualizer/config.json")
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/src/config.json.template" DESTINATION "$ENV{HOME}/.config/pulse-visualizer/")
+endif()

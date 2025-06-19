@@ -10,7 +10,6 @@
 #include <vector>
 
 struct AudioData {
-  static const size_t BUFFER_SIZE = Config::Audio::BUFFER_SIZE;
   std::vector<float> bufferMid;     // Mid channel
   std::vector<float> bufferSide;    // Side channel
   std::vector<float> bandpassedMid; // Mid channel (filtered)
@@ -18,16 +17,17 @@ struct AudioData {
   size_t readPos = 0;
   std::mutex mutex;
   std::atomic<bool> running {true};
-  static const size_t DISPLAY_SAMPLES = Config::Audio::DISPLAY_SAMPLES;
+  size_t bufferSize;
+  size_t displaySamples;
+  int windowWidth;
+  int windowHeight;
   float currentPitch = 0.0f;
   float pitchConfidence = 0.0f;
   float samplesPerCycle = 0.0f;
   size_t cycleCount = 2;
-  std::atomic<size_t> availableSamples {0};         // Number of samples available for reading
-  float lastCycleOffset = 0.0f;                     // Track partial cycle offset for smooth transitions
-  float lastPhaseOffset = 0.0f;                     // Track phase offset for synchronization
-  int windowWidth = Config::DEFAULT_WINDOW_WIDTH;   // Current window width
-  int windowHeight = Config::DEFAULT_WINDOW_HEIGHT; // Current window height
+  std::atomic<size_t> availableSamples {0}; // Number of samples available for reading
+  float lastCycleOffset = 0.0f;             // Track partial cycle offset for smooth transitions
+  float lastPhaseOffset = 0.0f;             // Track phase offset for synchronization
 
   // Pre-allocated FFT data to avoid reallocations
   std::vector<float> fftMagnitudesMid;
@@ -52,4 +52,8 @@ struct AudioData {
   int peakOctave = 0;
   int peakCents = 0;
   bool hasValidPeak = false;
+
+  AudioData()
+      : bufferSize(Config::getInt("audio.buffer_size")), displaySamples(Config::getInt("audio.display_samples")),
+        windowWidth(Config::getInt("window.default_width")), windowHeight(Config::getInt("window.default_height")) {}
 };

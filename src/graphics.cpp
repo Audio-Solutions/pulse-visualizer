@@ -1,5 +1,7 @@
 #include "graphics.hpp"
 
+#include "config.hpp"
+
 #include <GL/gl.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H

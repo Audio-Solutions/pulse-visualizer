@@ -72,5 +72,5 @@ deps/
 *.tmp
 *.temp 
 
-# Config files (temporary)
-src/config.hpp
+# Config file symlink
+config.json

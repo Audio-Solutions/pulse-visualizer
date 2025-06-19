@@ -6,11 +6,9 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- Font configuration is hardcoded (update [config.hpp line 75](src/config.hpp.template#L75))
-- PulseAudio source is hardcoded (get the name via `pactl list sources | grep Name` and update [config.hpp line 70](src/config.hpp.template#L70))
 - **Phosphor effect is incompatible with light themes or themes that have a white or near-white background.** The effect relies on additive blending, which is only visible on dark backgrounds.
 - No settings menu or source selection yet
-- Configuration is minimal and handled through a header file
+- Configuration is handled through a config file (see [Building](#building) for more details)
 - Performance may vary depending on your system's framerate
 - Bugs and quirks are to be expected
 
@@ -62,10 +60,21 @@ Pulse is confirmed to work on:
 First, copy the configuration template to create your config file:
 
 ```bash
-cp src/config.hpp.template src/config.hpp
+cp src/config.json.template ~/.config/pulse-visualizer/config.json
 ```
 
-Then edit `src/config.hpp` to set your PulseAudio source and font path.
+Additionally, if you want to keep your config in the project root for testing, you can symlink it:
+
+```bash
+ln -sf ~/.config/pulse-visualizer/config.json ./config.json
+```
+
+Then edit `~/.config/pulse-visualizer/config.json` (or `./config.json` if you symlinked) to set your PulseAudio source and font path.
+
+> **Note:** Font configuration and PulseAudio source are still hardcoded by path/name. You must set the correct values in your config file:
+>
+> - For the font, set the `"default_font"` field to the full path of your font file.
+> - For the PulseAudio source, set the `"default_source"` field to the correct source name (get it via `pactl list sources | grep Name`).
 
 
 ### Themeing 
