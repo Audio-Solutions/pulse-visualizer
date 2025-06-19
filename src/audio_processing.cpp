@@ -76,6 +76,19 @@ void processBiquad(const std::vector<float>& in, std::vector<float>& out, Biquad
   }
 }
 
+// Process a circular buffer through a single biquad section in temporal order
+void processBiquadCircular(const std::vector<float>& in, std::vector<float>& out, Biquad& bq, size_t writePos) {
+  size_t bufferSize = in.size();
+
+  // Process samples in temporal order starting from the oldest sample
+  // The oldest sample is at writePos, newest is at (writePos - 1 + bufferSize) % bufferSize
+  for (size_t i = 0; i < bufferSize; ++i) {
+    size_t readPos = (writePos + i) % bufferSize;
+    size_t outPos = (writePos + i) % bufferSize;
+    out[outPos] = bq.process(in[readPos]);
+  }
+}
+
 // Apply cascaded biquads to the signal
 void applyBandpass(const std::vector<float>& input, std::vector<float>& output, float centerFreq, float sampleRate,
                    float bandwidth, int order = 8) {
@@ -89,6 +102,30 @@ void applyBandpass(const std::vector<float>& input, std::vector<float>& output, 
 
   for (auto& bq : biquads) {
     processBiquad(temp1, temp2, bq);
+    std::swap(temp1, temp2);
+  }
+  output = temp1;
+}
+
+// Apply cascaded biquads to a circular buffer in temporal order
+void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
+                           float sampleRate, size_t writePos, float bandwidth, int order) {
+  if (input.empty()) {
+    output.clear();
+    return;
+  }
+
+  // Ensure output buffer is the same size as input
+  if (output.size() != input.size()) {
+    output.resize(input.size());
+  }
+
+  std::vector<Biquad> biquads = designButterworthBandpass(order, centerFreq, sampleRate, bandwidth);
+  std::vector<float> temp1 = input;
+  std::vector<float> temp2(input.size());
+
+  for (auto& bq : biquads) {
+    processBiquadCircular(temp1, temp2, bq, writePos);
     std::swap(temp1, temp2);
   }
   output = temp1;
@@ -347,9 +384,10 @@ void audioThread(AudioData* audioData) {
         audioData->pitchConfidence = 1.0f;
         audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
 
-        // Apply bandpass filter to the buffer
-        Butterworth::applyBandpass(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
-                                   100.0f); // 100Hz bandwidth
+        // Apply bandpass filter to the buffer using circular-buffer-aware processing
+        Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
+                                           (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
+                                           100.0f); // 100Hz bandwidth
       } else {
         audioData->pitchConfidence *= 0.95f;
       }

@@ -9,6 +9,12 @@ namespace AudioProcessing {
 void applyBandpass(const std::vector<float>& input, std::vector<float>& output, float centerFreq, float sampleRate,
                    float bandwidth = 10.0f);
 
+namespace Butterworth {
+// Apply bandpass filter to circular buffer in temporal order
+void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
+                           float sampleRate, size_t writePos, float bandwidth = 10.0f, int order = 8);
+} // namespace Butterworth
+
 // Audio thread function
 void audioThread(AudioData* audioData);
 } // namespace AudioProcessing
