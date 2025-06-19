@@ -89,24 +89,6 @@ void processBiquadCircular(const std::vector<float>& in, std::vector<float>& out
   }
 }
 
-// Apply cascaded biquads to the signal
-void applyBandpass(const std::vector<float>& input, std::vector<float>& output, float centerFreq, float sampleRate,
-                   float bandwidth, int order = 8) {
-  if (input.empty()) {
-    output.clear();
-    return;
-  }
-  std::vector<Biquad> biquads = designButterworthBandpass(order, centerFreq, sampleRate, bandwidth);
-  std::vector<float> temp1 = input;
-  std::vector<float> temp2(input.size());
-
-  for (auto& bq : biquads) {
-    processBiquad(temp1, temp2, bq);
-    std::swap(temp1, temp2);
-  }
-  output = temp1;
-}
-
 // Apply cascaded biquads to a circular buffer in temporal order
 void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
                            float sampleRate, size_t writePos, float bandwidth, int order) {
