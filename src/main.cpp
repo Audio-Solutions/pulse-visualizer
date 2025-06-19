@@ -2,6 +2,7 @@
 #include "audio_processing.hpp"
 #include "config.hpp"
 #include "graphics.hpp"
+#include "splitter.hpp"
 #include "theme.hpp"
 #include "visualizers.hpp"
 
@@ -49,11 +50,40 @@ int main() {
 
   AudioData audioData;
 
+  // Instantiate visualizer objects
+  LissajousVisualizer lissajousVis;
+  OscilloscopeVisualizer oscilloscopeVis;
+  FFTVisualizer fftVis;
+
+  // Create splitters
+  Splitter fftScopeSplitter(&oscilloscopeVis, &fftVis, nullptr, true);
+  Splitter lissajousScopeSplitter(&lissajousVis, &oscilloscopeVis, &fftScopeSplitter, false);
+
+  // Set initial splitter positions
+  int lissajousSplitterPos = audioData.windowHeight; // Lissajous is always square
+  lissajousScopeSplitter.setPosition(lissajousSplitterPos);
+
+  constexpr int MIN_SCOPE_WIDTH = 80;
+  constexpr int MIN_FFT_WIDTH = 80;
+  int lissajousWidth = audioData.windowHeight;
+  int availableWidth = audioData.windowWidth - lissajousWidth;
+  int minSplitterPos = lissajousWidth + MIN_SCOPE_WIDTH;
+  int maxSplitterPos = audioData.windowWidth - MIN_FFT_WIDTH;
+  int defaultOscilloscopeWidth =
+      static_cast<int>(std::max(static_cast<float>(availableWidth) * 2 / 3, static_cast<float>(MIN_SCOPE_WIDTH)));
+  int initialSplitterPos = lissajousWidth + defaultOscilloscopeWidth;
+  if (initialSplitterPos < minSplitterPos)
+    initialSplitterPos = minSplitterPos;
+  if (initialSplitterPos > maxSplitterPos)
+    initialSplitterPos = maxSplitterPos;
+  fftScopeSplitter.setPosition(initialSplitterPos);
+
+  // Initial layout
+  lissajousScopeSplitter.update(audioData);
+
   std::thread audioThreadHandle(AudioProcessing::audioThread, &audioData);
 
   bool running = true;
-  bool draggingSplitter = false;
-  int mouseX = 0;
 
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
@@ -61,6 +91,8 @@ int main() {
   while (running) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+      fftScopeSplitter.handleEvent(event, audioData);
+      lissajousScopeSplitter.handleEvent(event, audioData);
       switch (event.type) {
       case SDL_QUIT:
         running = false;
@@ -71,59 +103,36 @@ int main() {
           audioData.windowWidth = event.window.data1;
           audioData.windowHeight = event.window.data2;
           glViewport(0, 0, audioData.windowWidth, audioData.windowHeight);
-        }
-        break;
-
-      case SDL_MOUSEBUTTONDOWN:
-        if (event.button.button == SDL_BUTTON_LEFT) {
-          mouseX = event.button.x;
-          int splitterX = static_cast<int>(audioData.windowWidth * audioData.splitterPos);
-          if (abs(mouseX - splitterX) < 10) {
-            draggingSplitter = true;
-          }
-        }
-        break;
-
-      case SDL_MOUSEBUTTONUP:
-        if (event.button.button == SDL_BUTTON_LEFT) {
-          draggingSplitter = false;
-        }
-        break;
-
-      case SDL_MOUSEMOTION:
-        if (draggingSplitter) {
-          float newPos = static_cast<float>(event.motion.x) / audioData.windowWidth;
-          audioData.splitterPos = std::max(0.2f, std::min(0.8f, newPos));
+          // Update splitter for Lissajous to keep it square
+          lissajousScopeSplitter.setPosition(audioData.windowHeight);
+          // Update layout on resize
+          lissajousScopeSplitter.update(audioData);
         }
         break;
       }
     }
+
+    // Always update layout before drawing
+    lissajousScopeSplitter.update(audioData);
 
     const auto& background = Theme::ThemeManager::getBackground();
     glClearColor(background.r, background.g, background.b, background.a);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    int lissajousSize = audioData.windowHeight;
-
-    int splitterX = static_cast<int>(audioData.windowWidth * audioData.splitterPos);
-    int scopeWidth = splitterX - lissajousSize;
-    int fftWidth = audioData.windowWidth - splitterX;
-
     {
       std::lock_guard<std::mutex> lock(audioData.mutex);
 
-      Visualizers::drawLissajous(audioData, lissajousSize);
-
-      if (scopeWidth > 0) {
-        Visualizers::drawOscilloscope(audioData, scopeWidth);
+      lissajousVis.draw(audioData, 0);
+      if (oscilloscopeVis.getWidth() > 0) {
+        oscilloscopeVis.draw(audioData, 0);
       }
-
-      if (fftWidth > 0) {
-        Visualizers::drawFFT(audioData, fftWidth);
+      if (fftVis.getWidth() > 0) {
+        fftVis.draw(audioData, 0);
       }
-
-      Visualizers::drawSplitter(audioData, splitterX);
     }
+
+    lissajousScopeSplitter.draw(audioData);
+    fftScopeSplitter.draw(audioData);
 
     SDL_GL_SwapWindow(win);
 

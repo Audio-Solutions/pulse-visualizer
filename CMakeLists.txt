@@ -43,13 +43,8 @@ find_package(OpenGL REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
 
 # Add executable
-add_executable(Pulse
-  src/main.cpp
-  src/graphics.cpp
-  src/audio_processing.cpp
-  src/visualizers.cpp
-  src/theme.cpp
-)
+file(GLOB SRC_FILES src/*.cpp)
+add_executable(Pulse ${SRC_FILES})
 
 # Link libraries
 target_link_libraries(Pulse PRIVATE

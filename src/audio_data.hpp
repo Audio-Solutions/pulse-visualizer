@@ -39,8 +39,6 @@ struct AudioData {
   std::vector<float> smoothedMagnitudesSide;
   std::vector<float> interpolatedValuesSide;
 
-  float splitterPos = Config::DEFAULT_SPLITTER_POS;
-  bool draggingSplitter = false;
   std::chrono::steady_clock::time_point lastFftUpdate;
   float fftUpdateInterval = 0.0f; // Time between FFT updates in seconds
   std::deque<std::pair<float, float>> lissajousPoints;

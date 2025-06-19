@@ -15,13 +15,14 @@
 // Define to use raw signal instead of bandpassed signal for oscilloscope display (bandpassed signal is for debugging)
 #define SCOPE_USE_RAW_SIGNAL
 
-namespace Visualizers {
-
+// Lissajous visualizer with spline helpers
 // Catmull-Rom spline interpolation
-std::vector<std::pair<float, float>> generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
-                                                              int segmentsPerSegment) {
+std::vector<std::pair<float, float>>
+LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
+                                              int segmentsPerSegment) {
+  // Not enough points for spline
   if (controlPoints.size() < 4) {
-    return controlPoints; // Not enough points for spline
+    return controlPoints;
   }
 
   std::vector<std::pair<float, float>> splinePoints;
@@ -58,7 +59,8 @@ std::vector<std::pair<float, float>> generateCatmullRomSpline(const std::vector<
 }
 
 // Calculate cumulative distance along a path of points
-std::vector<float> calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points) {
+std::vector<float>
+LissajousVisualizer::calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points) {
   std::vector<float> distances;
   distances.reserve(points.size());
 
@@ -78,8 +80,10 @@ std::vector<float> calculateCumulativeDistances(const std::vector<std::pair<floa
   return distances;
 }
 
-void drawLissajous(const AudioData& audioData, int lissajousSize) {
-  Graphics::setupViewport(0, 0, lissajousSize, lissajousSize, audioData.windowHeight);
+void LissajousVisualizer::draw(const AudioData& audioData, int) {
+  // width is set by splitter/layout logic
+  // Set up the viewport for the Lissajous visualizer
+  Graphics::setupViewport(position, 0, width, width, audioData.windowHeight);
 
   if (!audioData.lissajousPoints.empty() && audioData.hasValidPeak) {
     std::vector<std::pair<float, float>> points;
@@ -87,8 +91,8 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
 
     // Convert points to screen coordinates (fixed scaling)
     for (const auto& point : audioData.lissajousPoints) {
-      float x = (point.first + 1.0f) * lissajousSize / 2;
-      float y = (point.second + 1.0f) * lissajousSize / 2;
+      float x = position + (point.first + 1.0f) * width / 2;
+      float y = (point.second + 1.0f) * width / 2;
       points.push_back({x, y});
     }
 
@@ -147,6 +151,7 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
       // Reset blending
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
+      // Draw the Lissajous curve as antialiased lines
       const auto& lissajousColor = Theme::ThemeManager::getLissajous();
       float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, 1.0f};
       Graphics::drawAntialiasedLines(displayPoints, color, 2.0f);
@@ -154,9 +159,9 @@ void drawLissajous(const AudioData& audioData, int lissajousSize) {
   }
 }
 
-void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
-  int lissajousSize = audioData.windowHeight;
-  Graphics::setupViewport(lissajousSize, 0, scopeWidth, audioData.windowHeight, audioData.windowHeight);
+void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
+  // Set up the viewport for the oscilloscope
+  Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
   if (audioData.availableSamples > 0) {
     // Calculate the target position for phase correction
@@ -198,7 +203,7 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
     float amplitudeScale = audioData.windowHeight * Config::Oscilloscope::AMPLITUDE_SCALE;
     for (size_t i = 0; i < audioData.DISPLAY_SAMPLES; i++) {
       size_t pos = (startPos + i) % audioData.BUFFER_SIZE;
-      float x = (static_cast<float>(i) * scopeWidth) / audioData.DISPLAY_SAMPLES;
+      float x = (static_cast<float>(i) * width) / audioData.DISPLAY_SAMPLES;
 #ifdef SCOPE_USE_RAW_SIGNAL
       float y = audioData.windowHeight / 2 + audioData.bufferMid[pos] * amplitudeScale;
 #else
@@ -302,9 +307,9 @@ void drawOscilloscope(const AudioData& audioData, int scopeWidth) {
   }
 }
 
-void drawFFT(const AudioData& audioData, int fftWidth) {
-  Graphics::setupViewport(audioData.windowWidth - fftWidth, 0, fftWidth, audioData.windowHeight,
-                          audioData.windowHeight);
+void FFTVisualizer::draw(const AudioData& audioData, int) {
+  // Set up the viewport for the FFT visualizer
+  Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
   if (!audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty()) {
     const float minFreq = Config::FFT::FFT_MIN_FREQ;
@@ -317,7 +322,7 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       if (freq < minFreq || freq > maxFreq)
         return;
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
-      float x = logX * fftWidth;
+      float x = logX * width;
       const auto& gridColor = Theme::ThemeManager::getGrid();
       float gridColorArray[4] = {gridColor.r, gridColor.g, gridColor.b, gridColor.a};
       Graphics::drawAntialiasedLine(x, 0, x, audioData.windowHeight, gridColorArray, 1.0f);
@@ -344,7 +349,7 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
     // Draw frequency labels for 100Hz, 1kHz, 10kHz
     auto drawFreqLabel = [&](float freq, const char* label) {
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
-      float x = logX * fftWidth;
+      float x = logX * width;
       float y = 8.0f;
 
       // Draw background rectangle
@@ -406,7 +411,7 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       if (freq < minFreq || freq > maxFreq)
         continue;
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
-      float x = logX * fftWidth;
+      float x = logX * width;
       float magnitude = (*alternateMagnitudes)[bin];
 
       // Apply slope correction
@@ -442,7 +447,7 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
       if (freq < minFreq || freq > maxFreq)
         continue;
       float logX = (log(freq) - log(minFreq)) / (log(maxFreq) - log(minFreq));
-      float x = logX * fftWidth;
+      float x = logX * width;
       float magnitude = (*mainMagnitudes)[bin];
 
       // Apply slope correction
@@ -479,15 +484,20 @@ void drawFFT(const AudioData& audioData, int fftWidth) {
   }
 }
 
-void drawSplitter(const AudioData& audioData, int splitterX) {
-  Graphics::setupViewport(0, 0, audioData.windowWidth, audioData.windowHeight, audioData.windowHeight);
+int LissajousVisualizer::getPosition() const { return position; }
+void LissajousVisualizer::setPosition(int pos) { position = pos; }
+int LissajousVisualizer::getWidth() const { return width; }
+void LissajousVisualizer::setWidth(int w) { width = w; }
+int LissajousVisualizer::getRightEdge(const AudioData&) const { return position + width; }
 
-  // Draw splitter using OpenGL
-  const auto& splitterColor = Theme::ThemeManager::getSplitter();
-  float splitterColorArray[4] = {splitterColor.r, splitterColor.g, splitterColor.b, splitterColor.a};
+int OscilloscopeVisualizer::getPosition() const { return position; }
+void OscilloscopeVisualizer::setPosition(int pos) { position = pos; }
+int OscilloscopeVisualizer::getWidth() const { return width; }
+void OscilloscopeVisualizer::setWidth(int w) { width = w; }
+int OscilloscopeVisualizer::getRightEdge(const AudioData&) const { return position + width; }
 
-  Graphics::drawAntialiasedLine(static_cast<float>(splitterX), 0, static_cast<float>(splitterX),
-                                static_cast<float>(audioData.windowHeight), splitterColorArray, 2.0f);
-}
-
-} // namespace Visualizers
+int FFTVisualizer::getPosition() const { return position; }
+void FFTVisualizer::setPosition(int pos) { position = pos; }
+int FFTVisualizer::getWidth() const { return width; }
+void FFTVisualizer::setWidth(int w) { width = w; }
+int FFTVisualizer::getRightEdge(const AudioData&) const { return position + width; }
