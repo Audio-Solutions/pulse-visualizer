@@ -8,6 +8,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 - Font configuration is hardcoded (update [config.hpp line 75](src/config.hpp.template#L75))
 - PulseAudio source is hardcoded (get the name via `pactl list sources | grep Name` and update [config.hpp line 70](src/config.hpp.template#L70))
+- **Phosphor effect is incompatible with light themes or themes that have a white or near-white background.** The effect relies on additive blending, which is only visible on dark backgrounds.
 - No settings menu or source selection yet
 - Configuration is minimal and handled through a header file
 - Performance may vary depending on your system's framerate
