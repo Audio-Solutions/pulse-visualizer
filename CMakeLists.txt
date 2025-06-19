@@ -90,7 +90,7 @@ install(CODE "
   
   # Copy config template to user config
   execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
-    \"${CMAKE_CURRENT_SOURCE_DIR}/src/config.json.template\"
+    \"${CMAKE_CURRENT_SOURCE_DIR}/config.json.template\"
     \"\${USER_HOME}/.config/pulse-visualizer/config.json\"
   )
   
