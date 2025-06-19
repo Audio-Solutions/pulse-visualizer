@@ -46,6 +46,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - FFTW3
 - FreeType2
 - OpenGL
+- Nlohmann JSON
 
 ## Platform Support
 
