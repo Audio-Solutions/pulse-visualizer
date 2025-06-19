@@ -121,6 +121,9 @@ int main() {
     // Check for theme changes every second
     Uint32 currentTime = SDL_GetTicks();
     if (currentTime - lastThemeCheck >= 1000) {
+      // Check for config changes first (theme system will handle theme reloading if config changes)
+      Config::reloadIfChanged();
+      // Then check for direct theme file changes
       Theme::ThemeManager::reloadIfChanged();
       lastThemeCheck = currentTime;
     }

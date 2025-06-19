@@ -29,11 +29,13 @@ ThemeDefinition ThemeManager::currentTheme;
 std::unordered_map<std::string, ThemeDefinition> ThemeManager::availableThemes;
 std::string ThemeManager::currentThemePath;
 time_t ThemeManager::lastThemeMTime = 0;
+size_t ThemeManager::lastConfigVersion = 0;
 
 void ThemeManager::initialize() {
   if (availableThemes.empty()) {
     // Load theme from config instead of loading all theme files
     loadThemeFromConfig();
+    lastConfigVersion = Config::getVersion();
   }
 }
 
@@ -61,6 +63,19 @@ bool ThemeManager::loadThemeFromConfig() {
 }
 
 bool ThemeManager::reloadIfChanged() {
+  // First check if config has changed
+  size_t currentConfigVersion = Config::getVersion();
+  if (currentConfigVersion != lastConfigVersion) {
+    // Config has changed, reload theme from config
+    bool success = loadThemeFromConfig();
+    if (success) {
+      lastConfigVersion = currentConfigVersion;
+      std::cerr << "Theme reloaded due to config change" << std::endl;
+    }
+    return success;
+  }
+
+  // Then check if theme file has changed
   if (currentThemePath.empty()) {
     return false;
   }

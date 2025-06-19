@@ -157,5 +157,6 @@ private:
   static std::unordered_map<std::string, ThemeDefinition> availableThemes;
   static std::string currentThemePath;
   static time_t lastThemeMTime;
+  static size_t lastConfigVersion;
 };
 } // namespace Theme
