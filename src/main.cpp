@@ -55,6 +55,22 @@ int main() {
 
   AudioData audioData;
 
+  // Pre-allocate all buffers
+  audioData.bufferMid.resize(audioData.bufferSize, 0.0f);
+  audioData.bufferSide.resize(audioData.bufferSize, 0.0f);
+  audioData.bandpassedMid.resize(audioData.bufferSize, 0.0f);
+
+  // Pre-allocate all FFT-related vectors
+  const int FFT_SIZE = 4096;
+  audioData.fftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.prevFftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.smoothedMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.interpolatedValuesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.fftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.prevFftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.smoothedMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+  audioData.interpolatedValuesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
+
   // Instantiate visualizer objects
   LissajousVisualizer lissajousVis;
   OscilloscopeVisualizer oscilloscopeVis;

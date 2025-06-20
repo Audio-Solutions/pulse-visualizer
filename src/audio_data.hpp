@@ -14,7 +14,6 @@ struct AudioData {
   std::vector<float> bufferSide;    // Side channel
   std::vector<float> bandpassedMid; // Mid channel (filtered)
   size_t writePos = 0;
-  size_t readPos = 0;
   std::mutex mutex;
   std::atomic<bool> running {true};
   size_t bufferSize;
@@ -25,9 +24,8 @@ struct AudioData {
   float pitchConfidence = 0.0f;
   float samplesPerCycle = 0.0f;
   size_t cycleCount = 2;
-  std::atomic<size_t> availableSamples {0}; // Number of samples available for reading
-  float lastCycleOffset = 0.0f;             // Track partial cycle offset for smooth transitions
-  float lastPhaseOffset = 0.0f;             // Track phase offset for synchronization
+  float lastCycleOffset = 0.0f; // Track partial cycle offset for smooth transitions
+  float lastPhaseOffset = 0.0f; // Track phase offset for synchronization
 
   // Pre-allocated FFT data to avoid reallocations
   std::vector<float> fftMagnitudesMid;
@@ -41,7 +39,6 @@ struct AudioData {
 
   std::chrono::steady_clock::time_point lastFftUpdate;
   float fftUpdateInterval = 0.0f; // Time between FFT updates in seconds
-  std::deque<std::pair<float, float>> lissajousPoints;
 
   // Pre-computed FFT display data
 

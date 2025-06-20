@@ -185,11 +185,6 @@ void audioThread(AudioData* audioData) {
     return;
   }
 
-  // Pre-allocate all buffers to avoid reallocations
-  audioData->bufferMid.resize(audioData->bufferSize, 0.0f);
-  audioData->bufferSide.resize(audioData->bufferSize, 0.0f);
-  audioData->bandpassedMid.resize(audioData->bufferSize, 0.0f);
-
   const int READ_SIZE = 512;
   float readBuffer[READ_SIZE];
 
@@ -197,16 +192,6 @@ void audioThread(AudioData* audioData) {
   fftwf_complex* out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
   float* in = fftwf_alloc_real(FFT_SIZE);
   fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
-
-  // Pre-allocate all FFT-related vectors
-  audioData->fftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->prevFftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->smoothedMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->interpolatedValuesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->fftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->prevFftMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->smoothedMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
-  audioData->interpolatedValuesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
 
   // FFT processing control
   int fftSkipCount = 0;
@@ -230,19 +215,10 @@ void audioThread(AudioData* audioData) {
       float sampleLeft = readBuffer[i];
       float sampleRight = readBuffer[i + 1];
 
-      // Store Lissajous points (using left and right channels)
-      if (i + 1 < READ_SIZE) {
-        audioData->lissajousPoints.push_back({sampleLeft, sampleRight});
-        if (audioData->lissajousPoints.size() > state.lissajous_points) {
-          audioData->lissajousPoints.pop_front();
-        }
-      }
-
       // Write to circular buffer
       audioData->bufferMid[audioData->writePos] = (sampleLeft + sampleRight) / 2.0f;
       audioData->bufferSide[audioData->writePos] = (sampleLeft - sampleRight) / 2.0f;
       audioData->writePos = (audioData->writePos + 1) % audioData->bufferSize;
-      audioData->availableSamples++;
     }
 
     // Control FFT processing frequency
@@ -252,241 +228,239 @@ void audioThread(AudioData* audioData) {
     }
     fftSkipCount = 0;
 
-    if (audioData->availableSamples > 0) {
-      // Copy and window the input data from circular buffer (mid channel)
-      size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
-      for (int i = 0; i < FFT_SIZE; i++) {
-        // Apply Hanning window
-        float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % audioData->bufferSize;
-        in[i] = audioData->bufferMid[pos] * window;
+    // Copy and window the input data from circular buffer (mid channel)
+    size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
+    for (int i = 0; i < FFT_SIZE; i++) {
+      // Apply Hanning window
+      float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+      size_t pos = (startPos + i) % audioData->bufferSize;
+      in[i] = audioData->bufferMid[pos] * window;
+    }
+
+    // Execute FFT (mid channel)
+    fftwf_execute(plan);
+
+    // Store previous frame for interpolation
+    audioData->prevFftMagnitudesMid = audioData->fftMagnitudesMid;
+
+    // Calculate new magnitudes with proper FFTW3 scaling
+    const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
+    for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
+      float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
+      // Double all bins except DC and Nyquist
+      if (i != 0 && i != FFT_SIZE / 2)
+        mag *= 2.0f;
+      audioData->fftMagnitudesMid[i] = mag;
+    }
+
+    // Copy and window the input data from circular buffer (side channel)
+    for (int i = 0; i < FFT_SIZE; i++) {
+      // Apply Hanning window
+      float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+      size_t pos = (startPos + i) % audioData->bufferSize;
+      in[i] = audioData->bufferSide[pos] * window;
+    }
+
+    // Execute FFT (side channel)
+    fftwf_execute(plan);
+
+    // Store previous frame for interpolation
+    audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
+
+    // Calculate new magnitudes with proper FFTW3 scaling
+    for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
+      float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
+      // Double all bins except DC and Nyquist
+      if (i != 0 && i != FFT_SIZE / 2)
+        mag *= 2.0f;
+      audioData->fftMagnitudesSide[i] = mag;
+    }
+
+    // Update FFT timing
+    auto now = std::chrono::steady_clock::now();
+    if (audioData->lastFftUpdate != std::chrono::steady_clock::time_point()) {
+      audioData->fftUpdateInterval = std::chrono::duration<float>(now - audioData->lastFftUpdate).count();
+    }
+    audioData->lastFftUpdate = now;
+
+    // Pitch detection logic
+    const int MIN_FREQ = 10;
+    const int MAX_FREQ = 5000;
+    int sampleRate = ss.rate;
+
+    float maxMagnitude = 0.0f;
+    int peakBin = 0;
+
+    int minBin = static_cast<int>(MIN_FREQ * FFT_SIZE / sampleRate);
+    int maxBin = static_cast<int>(MAX_FREQ * FFT_SIZE / sampleRate);
+
+    // Find the bin with maximum magnitude
+    for (int i = minBin; i <= maxBin; i++) {
+      float magnitude = audioData->fftMagnitudesMid[i];
+      if (magnitude > maxMagnitude) {
+        maxMagnitude = magnitude;
+        peakBin = i;
       }
+    }
 
-      // Execute FFT (mid channel)
-      fftwf_execute(plan);
+    float avgMagnitude = 0.0f;
+    for (int i = minBin; i <= maxBin; i++) {
+      avgMagnitude += audioData->fftMagnitudesMid[i];
+    }
+    avgMagnitude /= (maxBin - minBin + 1);
 
-      // Store previous frame for interpolation
-      audioData->prevFftMagnitudesMid = audioData->fftMagnitudesMid;
+    float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
+    float pitch = 0.0f;
 
-      // Calculate new magnitudes with proper FFTW3 scaling
-      const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
-      for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
-        // Double all bins except DC and Nyquist
-        if (i != 0 && i != FFT_SIZE / 2)
-          mag *= 2.0f;
-        audioData->fftMagnitudesMid[i] = mag;
-      }
+    if (peakBin > 0 && peakBin < FFT_SIZE / 2 - 1) {
+      // Get magnitudes of surrounding bins
+      float m0 = audioData->fftMagnitudesMid[peakBin - 1];
+      float m1 = audioData->fftMagnitudesMid[peakBin];
+      float m2 = audioData->fftMagnitudesMid[peakBin + 1];
 
-      // Copy and window the input data from circular buffer (side channel)
-      for (int i = 0; i < FFT_SIZE; i++) {
-        // Apply Hanning window
-        float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % audioData->bufferSize;
-        in[i] = audioData->bufferSide[pos] * window;
-      }
+      // Calculate weighted average of bin positions
+      float totalWeight = m0 + m1 + m2;
+      if (totalWeight > 0) {
+        float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
+        float frequency = static_cast<float>(weightedPos * sampleRate) / FFT_SIZE;
 
-      // Execute FFT (side channel)
-      fftwf_execute(plan);
-
-      // Store previous frame for interpolation
-      audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
-
-      // Calculate new magnitudes with proper FFTW3 scaling
-      for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
-        // Double all bins except DC and Nyquist
-        if (i != 0 && i != FFT_SIZE / 2)
-          mag *= 2.0f;
-        audioData->fftMagnitudesSide[i] = mag;
-      }
-
-      // Update FFT timing
-      auto now = std::chrono::steady_clock::now();
-      if (audioData->lastFftUpdate != std::chrono::steady_clock::time_point()) {
-        audioData->fftUpdateInterval = std::chrono::duration<float>(now - audioData->lastFftUpdate).count();
-      }
-      audioData->lastFftUpdate = now;
-
-      // Pitch detection logic
-      const int MIN_FREQ = 10;
-      const int MAX_FREQ = 5000;
-      int sampleRate = ss.rate;
-
-      float maxMagnitude = 0.0f;
-      int peakBin = 0;
-
-      int minBin = static_cast<int>(MIN_FREQ * FFT_SIZE / sampleRate);
-      int maxBin = static_cast<int>(MAX_FREQ * FFT_SIZE / sampleRate);
-
-      // Find the bin with maximum magnitude
-      for (int i = minBin; i <= maxBin; i++) {
-        float magnitude = audioData->fftMagnitudesMid[i];
-        if (magnitude > maxMagnitude) {
-          maxMagnitude = magnitude;
-          peakBin = i;
+        if (confidence > 1.5f) {
+          pitch = frequency;
         }
       }
+    }
 
-      float avgMagnitude = 0.0f;
-      for (int i = minBin; i <= maxBin; i++) {
-        avgMagnitude += audioData->fftMagnitudesMid[i];
+    if (pitch > 0) {
+      audioData->currentPitch = pitch;
+      audioData->pitchConfidence = 1.0f;
+      audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
+
+      // Apply bandpass filter to the buffer using circular-buffer-aware processing
+      Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
+                                         (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
+                                         100.0f); // 100Hz bandwidth
+    } else {
+      audioData->pitchConfidence *= 0.95f;
+    }
+
+    // Pre-compute FFT display data
+    float peakDb = -100.0f;
+    float peakFreq = 0.0f;
+    peakBin = 0;
+    const float minFreq = state.fft_min_freq;
+    const float maxFreq = state.fft_max_freq;
+    const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
+
+    for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
+      float freq = (float)i * sampleRate / fftSize;
+      if (freq < minFreq || freq > maxFreq)
+        continue;
+      float mag = audioData->fftMagnitudesMid[i];
+      float dB = 20.0f * log10f(mag + 1e-9f);
+      if (dB > peakDb) {
+        peakDb = dB;
+        peakFreq = freq;
+        peakBin = i;
       }
-      avgMagnitude /= (maxBin - minBin + 1);
+    }
 
-      float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
-      float pitch = 0.0f;
+    // Refine peak frequency using weighted average
+    if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
+      float m0 = audioData->fftMagnitudesMid[peakBin - 1];
+      float m1 = audioData->fftMagnitudesMid[peakBin];
+      float m2 = audioData->fftMagnitudesMid[peakBin + 1];
 
-      if (peakBin > 0 && peakBin < FFT_SIZE / 2 - 1) {
-        // Get magnitudes of surrounding bins
-        float m0 = audioData->fftMagnitudesMid[peakBin - 1];
-        float m1 = audioData->fftMagnitudesMid[peakBin];
-        float m2 = audioData->fftMagnitudesMid[peakBin + 1];
-
-        // Calculate weighted average of bin positions
-        float totalWeight = m0 + m1 + m2;
-        if (totalWeight > 0) {
-          float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
-          float frequency = static_cast<float>(weightedPos * sampleRate) / FFT_SIZE;
-
-          if (confidence > 1.5f) {
-            pitch = frequency;
-          }
-        }
+      float totalWeight = m0 + m1 + m2;
+      if (totalWeight > 0) {
+        float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
+        peakFreq = static_cast<float>(weightedPos * sampleRate) / fftSize;
       }
+    }
 
-      if (pitch > 0) {
-        audioData->currentPitch = pitch;
-        audioData->pitchConfidence = 1.0f;
-        audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
+    // Store computed values
+    audioData->peakFreq = peakFreq;
+    audioData->peakDb = peakDb;
 
-        // Apply bandpass filter to the buffer using circular-buffer-aware processing
-        Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
-                                           (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
-                                           100.0f); // 100Hz bandwidth
-      } else {
-        audioData->pitchConfidence *= 0.95f;
-      }
+    // Convert to note
+    freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, state);
 
-      // Pre-compute FFT display data
-      float peakDb = -100.0f;
-      float peakFreq = 0.0f;
-      peakBin = 0;
-      const float minFreq = state.fft_min_freq;
-      const float maxFreq = state.fft_max_freq;
-      const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
+    // Check if we have a valid peak (above silence threshold)
+    audioData->hasValidPeak = (peakDb > state.silence_threshold);
 
-      for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
-        float freq = (float)i * sampleRate / fftSize;
-        if (freq < minFreq || freq > maxFreq)
-          continue;
-        float mag = audioData->fftMagnitudesMid[i];
-        float dB = 20.0f * log10f(mag + 1e-9f);
-        if (dB > peakDb) {
-          peakDb = dB;
-          peakFreq = freq;
-          peakBin = i;
-        }
-      }
+    // Pre-compute smoothed FFT values for display
+    auto currentFrameTime = std::chrono::steady_clock::now();
+    float dt = std::chrono::duration<float>(currentFrameTime - state.lastFrameTime).count();
+    state.lastFrameTime = currentFrameTime;
 
-      // Refine peak frequency using weighted average
-      if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
-        float m0 = audioData->fftMagnitudesMid[peakBin - 1];
-        float m1 = audioData->fftMagnitudesMid[peakBin];
-        float m2 = audioData->fftMagnitudesMid[peakBin + 1];
+    // Update interpolation factor
+    if (audioData->fftUpdateInterval > 0.0f) {
+      float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
+      float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
+      state.fftInterpolation =
+          state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * state.fft_smoothing_factor;
+      state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
+    }
 
-        float totalWeight = m0 + m1 + m2;
-        if (totalWeight > 0) {
-          float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
-          peakFreq = static_cast<float>(weightedPos * sampleRate) / fftSize;
-        }
-      }
+    // Apply linear interpolation for both channels
+    for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
+      audioData->interpolatedValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
+                                            state.fftInterpolation * audioData->fftMagnitudesMid[i];
+      audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
+                                             state.fftInterpolation * audioData->fftMagnitudesSide[i];
+    }
 
-      // Store computed values
-      audioData->peakFreq = peakFreq;
-      audioData->peakDb = peakDb;
+    // Apply temporal smoothing with asymmetric speeds (mid channel)
+    for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
+      float current = audioData->interpolatedValuesMid[i];
+      float previous = audioData->smoothedMagnitudesMid[i];
 
-      // Convert to note
-      freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, state);
+      // Calculate frequency for this bin
+      float freq = (float)i * sampleRate / fftSize;
+      if (freq < minFreq || freq > maxFreq)
+        continue;
 
-      // Check if we have a valid peak (above silence threshold)
-      audioData->hasValidPeak = (peakDb > state.silence_threshold);
+      // Convert to dB for consistent speed calculation
+      float currentDb = 20.0f * log10f(current + 1e-9f);
+      float previousDb = 20.0f * log10f(previous + 1e-9f);
 
-      // Pre-compute smoothed FFT values for display
-      auto currentFrameTime = std::chrono::steady_clock::now();
-      float dt = std::chrono::duration<float>(currentFrameTime - state.lastFrameTime).count();
-      state.lastFrameTime = currentFrameTime;
+      // Calculate the difference and determine if we're rising or falling
+      float diff = currentDb - previousDb;
+      float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
 
-      // Update interpolation factor
-      if (audioData->fftUpdateInterval > 0.0f) {
-        float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
-        float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
-        state.fftInterpolation =
-            state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * state.fft_smoothing_factor;
-        state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
-      }
+      // Apply speed-based smoothing in dB space
+      float maxChange = speed * dt;
+      float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+      float newDb = previousDb + change;
 
-      // Apply linear interpolation for both channels
-      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
-        audioData->interpolatedValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
-                                              state.fftInterpolation * audioData->fftMagnitudesMid[i];
-        audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
-                                               state.fftInterpolation * audioData->fftMagnitudesSide[i];
-      }
+      // Convert back to linear space
+      audioData->smoothedMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+    }
 
-      // Apply temporal smoothing with asymmetric speeds (mid channel)
-      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
-        float current = audioData->interpolatedValuesMid[i];
-        float previous = audioData->smoothedMagnitudesMid[i];
+    // Apply temporal smoothing with asymmetric speeds (side channel)
+    for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
+      float current = audioData->interpolatedValuesSide[i];
+      float previous = audioData->smoothedMagnitudesSide[i];
 
-        // Calculate frequency for this bin
-        float freq = (float)i * sampleRate / fftSize;
-        if (freq < minFreq || freq > maxFreq)
-          continue;
+      // Calculate frequency for this bin
+      float freq = (float)i * sampleRate / fftSize;
+      if (freq < minFreq || freq > maxFreq)
+        continue;
 
-        // Convert to dB for consistent speed calculation
-        float currentDb = 20.0f * log10f(current + 1e-9f);
-        float previousDb = 20.0f * log10f(previous + 1e-9f);
+      // Convert to dB for consistent speed calculation
+      float currentDb = 20.0f * log10f(current + 1e-9f);
+      float previousDb = 20.0f * log10f(previous + 1e-9f);
 
-        // Calculate the difference and determine if we're rising or falling
-        float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
+      // Calculate the difference and determine if we're rising or falling
+      float diff = currentDb - previousDb;
+      float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
 
-        // Apply speed-based smoothing in dB space
-        float maxChange = speed * dt;
-        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
-        float newDb = previousDb + change;
+      // Apply speed-based smoothing in dB space
+      float maxChange = speed * dt;
+      float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+      float newDb = previousDb + change;
 
-        // Convert back to linear space
-        audioData->smoothedMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
-      }
-
-      // Apply temporal smoothing with asymmetric speeds (side channel)
-      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
-        float current = audioData->interpolatedValuesSide[i];
-        float previous = audioData->smoothedMagnitudesSide[i];
-
-        // Calculate frequency for this bin
-        float freq = (float)i * sampleRate / fftSize;
-        if (freq < minFreq || freq > maxFreq)
-          continue;
-
-        // Convert to dB for consistent speed calculation
-        float currentDb = 20.0f * log10f(current + 1e-9f);
-        float previousDb = 20.0f * log10f(previous + 1e-9f);
-
-        // Calculate the difference and determine if we're rising or falling
-        float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
-
-        // Apply speed-based smoothing in dB space
-        float maxChange = speed * dt;
-        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
-        float newDb = previousDb + change;
-
-        // Convert back to linear space
-        audioData->smoothedMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
-      }
+      // Convert back to linear space
+      audioData->smoothedMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
     }
     lock.unlock();
   }

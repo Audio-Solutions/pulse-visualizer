@@ -12,6 +12,7 @@
 #include <vector>
 
 // Initialize static members
+int LissajousVisualizer::lissajous_points = 0;
 float LissajousVisualizer::phosphor_tension = 0.0f;
 bool LissajousVisualizer::enable_splines = false;
 int LissajousVisualizer::spline_segments = 0;
@@ -24,12 +25,16 @@ float LissajousVisualizer::phosphor_intensity_scale = 0.0f;
 size_t LissajousVisualizer::lastConfigVersion = 0;
 float LissajousVisualizer::cachedLissajousColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 size_t LissajousVisualizer::lastThemeVersion = 0;
+std::vector<std::pair<float, float>> LissajousVisualizer::points;
+std::vector<std::pair<float, float>> LissajousVisualizer::densePath;
+std::vector<float> LissajousVisualizer::originalDistances;
 
 void LissajousVisualizer::updateCachedValues() {
   bool configChanged = Config::getVersion() != lastConfigVersion;
   bool themeChanged = Theme::ThemeManager::getVersion() != lastThemeVersion;
 
   if (configChanged) {
+    lissajous_points = Config::getInt("lissajous.points");
     phosphor_tension = Config::getFloat("lissajous.phosphor_tension");
     enable_splines = Config::getBool("lissajous.enable_splines");
     spline_segments = Config::getInt("lissajous.spline_segments");
@@ -126,25 +131,33 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
   // Update cached values if needed
   updateCachedValues();
 
-  if (!audioData.lissajousPoints.empty() && audioData.hasValidPeak) {
-    std::vector<std::pair<float, float>> points;
-    points.reserve(audioData.lissajousPoints.size());
+  if (audioData.hasValidPeak && !audioData.bufferMid.empty() && !audioData.bufferSide.empty()) {
+    // Resize cached vector to exact size needed (avoids reallocations if already large enough)
+    points.resize(lissajous_points);
 
     // Pre-compute scaling factors
     const float halfWidth = width * 0.5f;
     const float offsetX = position + halfWidth;
 
-    // Convert points to screen coordinates (fixed scaling)
-    for (const auto& point : audioData.lissajousPoints) {
-      float x = offsetX + point.first * halfWidth;
-      float y = (point.second + 1.0f) * halfWidth;
-      points.push_back({x, y});
+    // Read from circular buffers and reconstruct left/right channels
+    for (size_t i = 0; i < lissajous_points; ++i) {
+      // Calculate position in circular buffer
+      size_t readPos = (audioData.writePos + audioData.bufferSize - lissajous_points + i) % audioData.bufferSize;
+
+      // Reconstruct left/right from mid/side
+      float mid = audioData.bufferMid[readPos];
+      float side = audioData.bufferSide[readPos];
+      float sampleLeft = mid + side;
+      float sampleRight = mid - side;
+
+      // Convert to screen coordinates (fixed scaling)
+      float x = offsetX + sampleLeft * halfWidth;
+      float y = (sampleRight + 1.0f) * halfWidth;
+      points[i] = {x, y};
     }
 
     if (enable_phosphor) {
       // Generate high-density spline points for phosphor simulation
-      std::vector<std::pair<float, float>> densePath;
-
       if (enable_splines && points.size() >= 4) {
         // Calculate segments per original segment based on density
         int segmentsPerSegment = std::max(10, phosphor_spline_density / static_cast<int>(points.size()));
@@ -152,7 +165,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       } else if (points.size() >= 2) {
         // Linear interpolation with high density for non-spline mode
         int totalSegments = std::max(1, phosphor_spline_density / static_cast<int>(points.size()));
-        densePath.reserve(points.size() * totalSegments);
+        densePath.resize(points.size() * totalSegments);
 
         for (size_t i = 1; i < points.size(); ++i) {
           const auto& p1 = points[i - 1];
@@ -164,23 +177,22 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
             float t = static_cast<float>(j) * segmentScale;
             float x = p1.first + t * (p2.first - p1.first);
             float y = p1.second + t * (p2.second - p1.second);
-            densePath.push_back({x, y});
+            densePath[i * totalSegments + j] = {x, y};
           }
         }
       }
 
       if (!densePath.empty()) {
         // Pre-calculate original point distances for intensity mapping
-        std::vector<float> originalDistances;
         if (enable_splines && points.size() >= 4) {
-          originalDistances.reserve(points.size() - 1);
+          originalDistances.resize(points.size() - 1);
           const float invWidth = 1.0f / width;
 
           for (size_t i = 1; i < points.size(); ++i) {
             float dx = points[i].first - points[i - 1].first;
             float dy = points[i].second - points[i - 1].second;
             float dist = sqrtf(dx * dx + dy * dy) * invWidth;
-            originalDistances.push_back(dist);
+            originalDistances[i - 1] = dist;
           }
         }
 

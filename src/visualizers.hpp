@@ -41,6 +41,7 @@ private:
   int width = 0;
 
   // Cached config values
+  static int lissajous_points;
   static float phosphor_tension;
   static bool enable_splines;
   static int spline_segments;
@@ -55,6 +56,11 @@ private:
   // Cached theme colors
   static float cachedLissajousColor[4];
   static size_t lastThemeVersion;
+
+  // Cached vectors
+  static std::vector<std::pair<float, float>> points;
+  static std::vector<std::pair<float, float>> densePath;
+  static std::vector<float> originalDistances;
 
   // Helper methods
   void updateCachedValues();
