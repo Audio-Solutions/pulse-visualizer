@@ -2,6 +2,7 @@
 
 #include "audio_data.hpp"
 
+#include <GL/gl.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,6 +25,26 @@ public:
   virtual void setPosition(int) {}
   virtual int getWidth() const { return 0; }
   virtual void setWidth(int) {}
+
+  // Aspect ratio constraint methods
+  void setAspectRatioConstraint(float ratio, bool enforce = true) {
+    aspectRatio = ratio;
+    enforceAspectRatio = enforce;
+  }
+
+  float getAspectRatio() const { return aspectRatio; }
+  bool shouldEnforceAspectRatio() const { return enforceAspectRatio; }
+
+  // Calculate required width based on height and aspect ratio
+  int getRequiredWidth(int height) const {
+    if (!enforceAspectRatio)
+      return 0;
+    return static_cast<int>(height * aspectRatio);
+  }
+
+protected:
+  float aspectRatio = 1.0f;        // Default 1:1 aspect ratio
+  bool enforceAspectRatio = false; // Default: no enforcement
 };
 
 // Lissajous visualizer with spline helpers
@@ -158,4 +179,57 @@ private:
   void updateCachedValues();
   void calculateFrequencyAndDB(float x, float y, float windowHeight, float& frequency, float& actualDB) const;
   void freqToNote(float freq, std::string& noteName, int& octave, int& cents) const;
+};
+
+// Spectrogram visualizer (normal + high quality reassigned)
+class SpectrogramVisualizer : public VisualizerBase {
+public:
+  SpectrogramVisualizer() = default;
+  ~SpectrogramVisualizer() = default;
+
+  void draw(const AudioData& audioData, int ignored) override;
+  int getRightEdge(const AudioData& audioData) const override;
+  int getPosition() const override;
+  void setPosition(int pos) override;
+  int getWidth() const override;
+  void setWidth(int w) override;
+
+private:
+  int position = 0;
+  int width = 0;
+
+  // OpenGL texture
+  GLuint spectrogramTexture = 0;
+  int textureWidth = 0;
+  int textureHeight = 0;
+  int currentColumn = 0;
+
+  // Cached config values
+  static float time_window;
+  static float min_db;
+  static float max_db;
+  static bool interpolation;
+  static std::string frequency_scale;
+  static float min_freq;
+  static float max_freq;
+  static size_t lastConfigVersion;
+
+  // Cached theme colors
+  static float cachedSpectrogramColor[4];
+  static float cachedSpectrogramLowColor[4];
+  static float cachedSpectrogramHighColor[4];
+  static float cachedBackgroundColor[4];
+  static size_t lastThemeVersion;
+
+  // Internal helpers
+  void updateCachedValues();
+  void initializeTexture(int targetWidth, int targetHeight);
+  void updateSpectrogramColumn(const AudioData& audioData);
+  void mapFrequencyToSpectrum(const std::vector<float>& fftMagnitudes, std::vector<float>& spectrum,
+                              float sampleRate) const;
+
+  // Color conversion helpers
+  float dbToColor(float db) const;
+  void rgbToHsv(float r, float g, float b, float& h, float& s, float& v) const;
+  void hsvToRgb(float h, float s, float v, float& r, float& g, float& b) const;
 };

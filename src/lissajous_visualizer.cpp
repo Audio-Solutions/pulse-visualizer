@@ -137,7 +137,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
     // Pre-compute scaling factors
     const float halfWidth = width * 0.5f;
-    const float offsetX = position + halfWidth;
+    const float offsetX = halfWidth;
 
     // Read from circular buffers and reconstruct left/right channels
     for (size_t i = 0; i < lissajous_points; ++i) {

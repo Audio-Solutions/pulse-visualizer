@@ -149,6 +149,8 @@ public:
   static const Color& getOscilloscope();
   static const Color& getWaveform();
   static const Color& getSpectrum();
+  static const Color& getSpectrogramLow();
+  static const Color& getSpectrogramHigh();
   static const bool invertNoiseBrightness();
 
 private:

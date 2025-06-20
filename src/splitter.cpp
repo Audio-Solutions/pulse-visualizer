@@ -48,12 +48,28 @@ void Splitter::update(AudioData& audioData) {
   constexpr int MIN_RIGHT_WIDTH = 80;
   int leftEdge = leftVisualizer ? leftVisualizer->getPosition() : 0;
   int rightEdge = nextSplitter ? nextSplitter->getPosition() : audioData.windowWidth;
+
+  // Check if we need to enforce aspect ratio for non-draggable splitters
+  if (nextSplitter && !nextSplitter->draggable && rightVisualizer && rightVisualizer->shouldEnforceAspectRatio()) {
+    int requiredWidth = rightVisualizer->getRequiredWidth(audioData.windowHeight);
+    if (requiredWidth > 0) {
+      int desiredPosition = position + requiredWidth;
+      nextSplitter->setPosition(desiredPosition);
+      nextSplitter->update(audioData);
+      // compare set position to current position and move self back by the difference
+      // This handles cascading collisions with the 2nd next splitter.
+      int difference = desiredPosition - nextSplitter->getPosition();
+      position -= difference;
+    }
+  }
+
   int minPos = leftEdge + MIN_LEFT_WIDTH;
   int maxPos = rightEdge - MIN_RIGHT_WIDTH;
   if (position < minPos)
     position = minPos;
   if (position > maxPos)
     position = maxPos;
+
   if (leftVisualizer) {
     leftVisualizer->setPosition(leftEdge);
     leftVisualizer->setWidth(position - leftEdge);

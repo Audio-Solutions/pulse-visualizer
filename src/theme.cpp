@@ -227,6 +227,8 @@ const Color& ThemeManager::getLissajous() { return currentTheme.color; }
 const Color& ThemeManager::getOscilloscope() { return currentTheme.oscilloscopeMain; }
 const Color& ThemeManager::getWaveform() { return currentTheme.waveform; }
 const Color& ThemeManager::getSpectrum() { return currentTheme.spectrumAnalyzerMain; }
+const Color& ThemeManager::getSpectrogramLow() { return currentTheme.spectrogramLow; }
+const Color& ThemeManager::getSpectrogramHigh() { return currentTheme.spectrogramHigh; }
 const bool ThemeManager::invertNoiseBrightness() { return currentTheme.waveformInvertNoiseBrightness == 1; }
 
 void ThemeManager::applyFallbacks(ThemeDefinition& theme) {
@@ -265,6 +267,14 @@ void ThemeManager::applyFallbacks(ThemeDefinition& theme) {
 
   if (!theme.hasSpectrogramMain) {
     theme.spectrogramMain = theme.color;
+  }
+
+  if (!theme.hasSpectrogramLow) {
+    theme.spectrogramLow = theme.bg;
+  }
+
+  if (!theme.hasSpectrogramHigh) {
+    theme.spectrogramHigh = theme.color;
   }
 
   if (!theme.hasColorBarsMain) {

@@ -21,6 +21,7 @@ struct AudioData {
   size_t displaySamples;
   int windowWidth;
   int windowHeight;
+  float sampleRate = 44100.0f;
   float currentPitch = 0.0f;
   float pitchConfidence = 0.0f;
   float samplesPerCycle = 0.0f;

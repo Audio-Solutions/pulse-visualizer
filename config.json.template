@@ -5,6 +5,12 @@
     "default_splitter_pos": 0.65,
     "default_theme": "mocha.txt"
   },
+  "visualizers": {
+    "spectrogram_order": 0,
+    "lissajous_order": 1,
+    "oscilloscope_order": 2,
+    "fft_order": 3
+  },
   "audio": {
     "sample_rate": 44100,
     "channels": 2,
@@ -39,6 +45,16 @@
     "phosphor_persistence_time": 0.5,
     "phosphor_decay_rate": 7.0,
     "phosphor_intensity_scale": 5.0
+  },
+  "spectrogram": {
+    "time_window": 2,
+    "enable_reassignment": true,
+    "min_db": -80.0,
+    "max_db": -10.0,
+    "interpolation": true,
+    "frequency_scale": "log",
+    "min_freq": 20.0,
+    "max_freq": 20000.0
   },
   "oscilloscope": {
     "amplitude_scale": 0.5,

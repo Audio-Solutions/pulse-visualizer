@@ -126,6 +126,8 @@ void AudioThreadState::updateConfigCache() {
     fft_hover_fall_speed = Config::getFloat("fft.fft_hover_fall_speed");
     silence_threshold = Config::getFloat("audio.silence_threshold");
     note_key_mode = Config::getString("fft.note_key_mode");
+    sampleRate = Config::getFloat("audio.sample_rate");
+    fft_size = Config::getInt("fft.fft_size");
 
     static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
@@ -189,7 +191,11 @@ void audioThread(AudioData* audioData) {
   const int READ_SIZE = 512;
   float readBuffer[READ_SIZE];
 
-  const int FFT_SIZE = 4096;
+  // Initialize state first to get FFT size
+  state.lastFrameTime = std::chrono::steady_clock::now();
+  state.updateConfigCache();
+
+  const int FFT_SIZE = state.fft_size;
   fftwf_complex* out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
   float* in = fftwf_alloc_real(FFT_SIZE);
   fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
@@ -198,12 +204,9 @@ void audioThread(AudioData* audioData) {
   int fftSkipCount = 0;
   const int FFT_SKIP_FRAMES = 2;
 
-  // Initialize state
-  state.lastFrameTime = std::chrono::steady_clock::now();
-  state.updateConfigCache();
-
   while (audioData->running) {
     state.updateConfigCache();
+    audioData->sampleRate = state.sampleRate;
 
     if (pa_simple_read(pa, readBuffer, sizeof(readBuffer), &error) < 0) {
       fprintf(stderr, "Failed to read from PulseAudio stream: %s\n", pa_strerror(error));
@@ -231,6 +234,7 @@ void audioThread(AudioData* audioData) {
 
     // Copy and window the input data from circular buffer (mid channel)
     size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
+
     for (int i = 0; i < FFT_SIZE; i++) {
       // Apply Hanning window
       float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
@@ -246,35 +250,13 @@ void audioThread(AudioData* audioData) {
 
     // Calculate new magnitudes with proper FFTW3 scaling
     const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
+
     for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
       float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
       // Double all bins except DC and Nyquist
       if (i != 0 && i != FFT_SIZE / 2)
         mag *= 2.0f;
       audioData->fftMagnitudesMid[i] = mag;
-    }
-
-    // Copy and window the input data from circular buffer (side channel)
-    for (int i = 0; i < FFT_SIZE; i++) {
-      // Apply Hanning window
-      float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-      size_t pos = (startPos + i) % audioData->bufferSize;
-      in[i] = audioData->bufferSide[pos] * window;
-    }
-
-    // Execute FFT (side channel)
-    fftwf_execute(plan);
-
-    // Store previous frame for interpolation
-    audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
-
-    // Calculate new magnitudes with proper FFTW3 scaling
-    for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-      float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
-      // Double all bins except DC and Nyquist
-      if (i != 0 && i != FFT_SIZE / 2)
-        mag *= 2.0f;
-      audioData->fftMagnitudesSide[i] = mag;
     }
 
     // Update FFT timing

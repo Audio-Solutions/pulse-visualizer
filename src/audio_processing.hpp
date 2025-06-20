@@ -33,6 +33,8 @@ struct AudioThreadState {
   float fft_fall_speed = 50.0f;
   float fft_hover_fall_speed = 10.0f;
   float silence_threshold = -100.0f;
+  float sampleRate = 44100.0f;
+  int fft_size = -1;
   size_t lastConfigVersion = 0;
 
   // Note conversion cache
