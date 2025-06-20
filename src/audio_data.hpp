@@ -16,6 +16,7 @@ struct AudioData {
   size_t writePos = 0;
   std::mutex mutex;
   std::atomic<bool> running {true};
+  std::atomic<bool> fftHovering {false};
   size_t bufferSize;
   size_t displaySamples;
   int windowWidth;

@@ -105,6 +105,7 @@ int main() {
   std::thread audioThreadHandle(AudioProcessing::audioThread, &audioData);
 
   bool running = true;
+  bool windowHasFocus = true;
 
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
@@ -120,6 +121,28 @@ int main() {
         running = false;
         break;
 
+      case SDL_MOUSEMOTION: {
+        // Update FFT visualizer mouse position
+        int mouseX = event.motion.x;
+        int mouseY = event.motion.y;
+
+        // Check if mouse is over FFT visualizer area
+        int fftPosition = fftVis.getPosition();
+        int fftWidth = fftVis.getWidth();
+        bool isOverFFT = (mouseX >= fftPosition && mouseX < fftPosition + fftWidth && mouseY >= 0 &&
+                          mouseY < audioData.windowHeight);
+
+        if (isOverFFT) {
+          // Convert to FFT visualizer local coordinates
+          float localX = static_cast<float>(mouseX - fftPosition);
+          float localY = static_cast<float>(audioData.windowHeight - mouseY); // Flip Y coordinate
+          fftVis.updateMousePosition(localX, localY);
+          fftVis.setHovering(true);
+        } else {
+          fftVis.setHovering(false);
+        }
+      } break;
+
       case SDL_WINDOWEVENT:
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
           audioData.windowWidth = event.window.data1;
@@ -129,10 +152,24 @@ int main() {
           lissajousScopeSplitter.setPosition(audioData.windowHeight);
           // Update layout on resize
           lissajousScopeSplitter.update(audioData);
+        } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+          windowHasFocus = false;
+        } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+          windowHasFocus = true;
         }
         break;
       }
     }
+
+    // Reset hover states when window loses focus
+    if (!windowHasFocus) {
+      fftVis.setHovering(false);
+      fftScopeSplitter.setHovering(false);
+      lissajousScopeSplitter.setHovering(false);
+    }
+
+    // Update audio data hover state
+    audioData.fftHovering = fftVis.isHovering();
 
     // Check for theme changes every second
     Uint32 currentTime = SDL_GetTicks();

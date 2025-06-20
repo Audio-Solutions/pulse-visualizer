@@ -22,6 +22,7 @@
     "fft_slope_correction_db": 4.5,
     "fft_rise_speed": 500.0,
     "fft_fall_speed": 50.0,
+    "fft_hover_fall_speed": 10.0,
     "fft_display_min_db": -60.0,
     "fft_display_max_db": -10.0,
     "stereo_mode": "midside",

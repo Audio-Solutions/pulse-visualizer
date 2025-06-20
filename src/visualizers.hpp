@@ -114,9 +114,19 @@ public:
   int getWidth() const override;
   void setWidth(int width) override;
 
+  // Mouse tracking methods
+  void updateMousePosition(float mouseX, float mouseY);
+  void setHovering(bool hovering);
+  bool isHovering() const;
+
 private:
   int position = 0;
   int width = 0;
+
+  // Mouse tracking
+  float mouseX = 0.0f;
+  float mouseY = 0.0f;
+  bool hovering = false;
 
   // Cached config values
   static std::string font;
@@ -127,6 +137,8 @@ private:
   static float fft_display_min_db;
   static float fft_display_max_db;
   static std::string stereo_mode;
+  static std::string note_key_mode;
+  static const char** noteNames;
   static size_t lastConfigVersion;
 
   // Cached theme colors
@@ -144,4 +156,6 @@ private:
 
   // Helper methods
   void updateCachedValues();
+  void calculateFrequencyAndDB(float x, float y, float windowHeight, float& frequency, float& actualDB) const;
+  void freqToNote(float freq, std::string& noteName, int& octave, int& cents) const;
 };

@@ -15,6 +15,7 @@ public:
   int getPosition() const;
   void setPosition(int pos);
   void setWidth(int width);
+  void setHovering(bool hovering);
 
 private:
   bool dragging = false;

@@ -123,6 +123,7 @@ void AudioThreadState::updateConfigCache() {
     fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
     fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
     fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
+    fft_hover_fall_speed = Config::getFloat("fft.fft_hover_fall_speed");
     silence_threshold = Config::getFloat("audio.silence_threshold");
     note_key_mode = Config::getString("fft.note_key_mode");
 
@@ -408,7 +409,8 @@ void audioThread(AudioData* audioData) {
 
       // Calculate the difference and determine if we're rising or falling
       float diff = currentDb - previousDb;
-      float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
+      float fallSpeed = audioData->fftHovering ? state.fft_hover_fall_speed : state.fft_fall_speed;
+      float speed = (diff > 0) ? state.fft_rise_speed : fallSpeed;
 
       // Apply speed-based smoothing in dB space
       float maxChange = speed * dt;
@@ -435,7 +437,8 @@ void audioThread(AudioData* audioData) {
 
       // Calculate the difference and determine if we're rising or falling
       float diff = currentDb - previousDb;
-      float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
+      float fallSpeed = audioData->fftHovering ? state.fft_hover_fall_speed : state.fft_fall_speed;
+      float speed = (diff > 0) ? state.fft_rise_speed : fallSpeed;
 
       // Apply speed-based smoothing in dB space
       float maxChange = speed * dt;

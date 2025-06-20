@@ -20,6 +20,8 @@ float FFTVisualizer::slope_k = 0.0f;
 float FFTVisualizer::fft_display_min_db = 0.0f;
 float FFTVisualizer::fft_display_max_db = 0.0f;
 std::string FFTVisualizer::stereo_mode;
+std::string FFTVisualizer::note_key_mode;
+const char** FFTVisualizer::noteNames = nullptr;
 size_t FFTVisualizer::lastConfigVersion = 0;
 float FFTVisualizer::cachedSpectrumColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 float FFTVisualizer::cachedBackgroundColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -44,6 +46,13 @@ void FFTVisualizer::updateCachedValues() {
     fft_display_min_db = Config::getFloat("fft.fft_display_min_db");
     fft_display_max_db = Config::getFloat("fft.fft_display_max_db");
     stereo_mode = Config::getString("fft.stereo_mode");
+    note_key_mode = Config::getString("fft.note_key_mode");
+
+    // Set note names based on key mode
+    static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+    noteNames = (note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
+
     lastConfigVersion = Config::getVersion();
 
     // Pre-compute logarithmic values
@@ -234,8 +243,31 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     // Draw the Main FFT curve using cached colors
     Graphics::drawAntialiasedLines(fftPoints, cachedSpectrumColor, 2.0f);
 
-    // Only show note text if we have a valid peak
-    if (audioData.hasValidPeak) {
+    // Draw crosshair and show mouse position info when hovering
+    if (hovering) {
+      // Draw crosshair lines
+      Graphics::drawAntialiasedLine(mouseX, 0, mouseX, audioData.windowHeight, cachedSpectrumColor, 2.0f);
+      Graphics::drawAntialiasedLine(0, mouseY, width, mouseY, cachedSpectrumColor, 2.0f);
+
+      // Calculate frequency and dB from mouse position
+      float frequency, actualDB;
+      calculateFrequencyAndDB(mouseX, mouseY, audioData.windowHeight, frequency, actualDB);
+
+      // Convert frequency to note
+      std::string noteName;
+      int octave, cents;
+      freqToNote(frequency, noteName, octave, cents);
+
+      char overlay[128];
+      snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", actualDB, frequency,
+               noteName.c_str(), octave, cents);
+      float overlayX = 10.0f;
+      float overlayY = audioData.windowHeight - 20.0f;
+
+      // Draw overlay text using cached colors
+      Graphics::drawText(overlay, overlayX, overlayY, 14.0f, cachedTextColor, font.c_str());
+    } else if (audioData.hasValidPeak) {
+      // Show pitch detector data when not hovering
       char overlay[128];
       snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", audioData.peakDb,
                audioData.peakFreq, audioData.peakNote.c_str(), audioData.peakOctave, audioData.peakCents);
@@ -253,3 +285,54 @@ void FFTVisualizer::setPosition(int pos) { position = pos; }
 int FFTVisualizer::getWidth() const { return width; }
 void FFTVisualizer::setWidth(int w) { width = w; }
 int FFTVisualizer::getRightEdge(const AudioData&) const { return position + width; }
+
+// Mouse tracking methods
+void FFTVisualizer::updateMousePosition(float mouseX, float mouseY) {
+  this->mouseX = mouseX;
+  this->mouseY = mouseY;
+}
+
+void FFTVisualizer::setHovering(bool hovering) { this->hovering = hovering; }
+
+bool FFTVisualizer::isHovering() const { return hovering; }
+
+void FFTVisualizer::calculateFrequencyAndDB(float x, float y, float windowHeight, float& frequency,
+                                            float& actualDB) const {
+  // Convert X coordinate to frequency
+  float logX = x / width;
+  frequency = exp(logX * logFreqRange + logMinFreq);
+
+  // Convert Y coordinate to displayed dB (slope-corrected)
+  float displayed_dB = (y / windowHeight) * dbRange + fft_display_min_db;
+
+  // Remove slope correction to get actual dB
+  const float gainBase = 1.0f / (440.0f * 2.0f);
+  float slope_correction_dB = 20.0f * slope_k * log10f(frequency * gainBase);
+  actualDB = displayed_dB - slope_correction_dB;
+}
+
+void FFTVisualizer::freqToNote(float freq, std::string& noteName, int& octave, int& cents) const {
+  if (freq <= 0.0f || !noteNames) {
+    noteName = "-";
+    octave = 0;
+    cents = 0;
+    return;
+  }
+
+  // Calculate MIDI note number (A4 = 440Hz = MIDI 69)
+  float midi = 69.0f + 12.0f * log2f(freq / 440.0f);
+
+  // Handle out of range values
+  if (midi < 0.0f || midi > 127.0f) {
+    noteName = "-";
+    octave = 0;
+    cents = 0;
+    return;
+  }
+
+  int midiInt = (int)roundf(midi);
+  int noteIdx = (midiInt + 1200) % 12; // +1200 for negative safety
+  octave = midiInt / 12 - 1;
+  noteName = noteNames[noteIdx];
+  cents = (int)roundf((midi - midiInt) * 100.0f);
+}

@@ -96,3 +96,10 @@ int Splitter::getPosition() const { return position; }
 void Splitter::setPosition(int pos) { position = pos; }
 
 void Splitter::setWidth(int w) { width = w; }
+
+void Splitter::setHovering(bool hover) {
+  hovering = hover;
+  if (!hover) {
+    dragging = false;
+  }
+}
