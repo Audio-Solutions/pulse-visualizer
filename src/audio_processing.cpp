@@ -283,57 +283,80 @@ void audioThread(AudioData* audioData) {
     }
     audioData->lastFftUpdate = now;
 
-    // Pitch detection logic
-    const int MIN_FREQ = 10;
-    const int MAX_FREQ = 5000;
+    // Unified pitch/peak detection using configurable frequency range
     int sampleRate = ss.rate;
+    const float minFreq = state.fft_min_freq;
+    const float maxFreq = state.fft_max_freq;
+    const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
+
+    int minBin = static_cast<int>(minFreq * fftSize / sampleRate);
+    int maxBin = static_cast<int>(maxFreq * fftSize / sampleRate);
+
+    // Clamp to valid bin range
+    minBin = std::max(1, minBin);
+    maxBin = std::min((int)audioData->fftMagnitudesMid.size() - 1, maxBin);
 
     float maxMagnitude = 0.0f;
+    float peakDb = -100.0f;
+    float peakFreq = 0.0f;
     int peakBin = 0;
+    float avgMagnitude = 0.0f;
 
-    int minBin = static_cast<int>(MIN_FREQ * FFT_SIZE / sampleRate);
-    int maxBin = static_cast<int>(MAX_FREQ * FFT_SIZE / sampleRate);
-
-    // Find the bin with maximum magnitude
+    // find peak, calculate dB, and accumulate average
     for (int i = minBin; i <= maxBin; i++) {
       float magnitude = audioData->fftMagnitudesMid[i];
+      float dB = 20.0f * log10f(magnitude + 1e-9f);
+
+      // Track peak magnitude and bin
       if (magnitude > maxMagnitude) {
         maxMagnitude = magnitude;
         peakBin = i;
       }
-    }
 
-    float avgMagnitude = 0.0f;
-    for (int i = minBin; i <= maxBin; i++) {
-      avgMagnitude += audioData->fftMagnitudesMid[i];
+      // Track peak dB
+      if (dB > peakDb) {
+        peakDb = dB;
+      }
+
+      // Accumulate for average
+      avgMagnitude += magnitude;
     }
     avgMagnitude /= (maxBin - minBin + 1);
 
     float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
     float pitch = 0.0f;
 
-    if (peakBin > 0 && peakBin < FFT_SIZE / 2 - 1) {
-      // Get magnitudes of surrounding bins
-      float m0 = audioData->fftMagnitudesMid[peakBin - 1];
-      float m1 = audioData->fftMagnitudesMid[peakBin];
-      float m2 = audioData->fftMagnitudesMid[peakBin + 1];
+    // Apply parabolic interpolation for precise frequency estimation
+    if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
+      float y1 = audioData->fftMagnitudesMid[peakBin - 1];
+      float y2 = audioData->fftMagnitudesMid[peakBin];
+      float y3 = audioData->fftMagnitudesMid[peakBin + 1];
 
-      // Calculate weighted average of bin positions
-      float totalWeight = m0 + m1 + m2;
-      if (totalWeight > 0) {
-        float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
-        float frequency = static_cast<float>(weightedPos * sampleRate) / FFT_SIZE;
+      // Parabolic interpolation to find precise peak location
+      float denominator = y1 - 2.0f * y2 + y3;
+      if (std::abs(denominator) > 1e-9f) { // Avoid division by zero
+        float offset = 0.5f * (y1 - y3) / denominator;
+        // Clamp offset to reasonable range
+        offset = std::max(-0.5f, std::min(0.5f, offset));
 
-        if (confidence > 1.5f) {
-          pitch = frequency;
-        }
+        float interpolatedBin = peakBin + offset;
+        peakFreq = interpolatedBin * sampleRate / fftSize;
+      } else {
+        // Fallback to bin center if parabolic interpolation fails
+        peakFreq = static_cast<float>(peakBin * sampleRate) / fftSize;
+      }
+
+      // Use the refined frequency as pitch if confidence is high enough
+      if (confidence > 1.5f) {
+        pitch = peakFreq;
       }
     }
 
+    // Update pitch-related data
     if (pitch > 0) {
       audioData->currentPitch = pitch;
       audioData->pitchConfidence = 1.0f;
-      audioData->samplesPerCycle = static_cast<float>(ss.rate) / pitch;
+      audioData->samplesPerCycle = static_cast<float>(sampleRate) / pitch;
 
       // Apply bandpass filter to the buffer using circular-buffer-aware processing
       Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
@@ -341,40 +364,6 @@ void audioThread(AudioData* audioData) {
                                          100.0f); // 100Hz bandwidth
     } else {
       audioData->pitchConfidence *= 0.95f;
-    }
-
-    // Pre-compute FFT display data
-    float peakDb = -100.0f;
-    float peakFreq = 0.0f;
-    peakBin = 0;
-    const float minFreq = state.fft_min_freq;
-    const float maxFreq = state.fft_max_freq;
-    const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
-
-    for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
-      float freq = (float)i * sampleRate / fftSize;
-      if (freq < minFreq || freq > maxFreq)
-        continue;
-      float mag = audioData->fftMagnitudesMid[i];
-      float dB = 20.0f * log10f(mag + 1e-9f);
-      if (dB > peakDb) {
-        peakDb = dB;
-        peakFreq = freq;
-        peakBin = i;
-      }
-    }
-
-    // Refine peak frequency using weighted average
-    if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
-      float m0 = audioData->fftMagnitudesMid[peakBin - 1];
-      float m1 = audioData->fftMagnitudesMid[peakBin];
-      float m2 = audioData->fftMagnitudesMid[peakBin + 1];
-
-      float totalWeight = m0 + m1 + m2;
-      if (totalWeight > 0) {
-        float weightedPos = (m0 * (peakBin - 1) + m1 * peakBin + m2 * (peakBin + 1)) / totalWeight;
-        peakFreq = static_cast<float>(weightedPos * sampleRate) / fftSize;
-      }
     }
 
     // Store computed values
