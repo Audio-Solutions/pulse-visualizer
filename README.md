@@ -63,7 +63,7 @@ Build and install the project:
 ```bash
 mkdir build
 cd build
-cmake -G Ninja ..
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
 ninja
 sudo ninja install
 ```
