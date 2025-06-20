@@ -2,6 +2,7 @@
 
 #include "audio_data.hpp"
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -38,6 +39,26 @@ public:
 private:
   int position = 0;
   int width = 0;
+
+  // Cached config values
+  static float phosphor_tension;
+  static bool enable_splines;
+  static int spline_segments;
+  static bool enable_phosphor;
+  static int phosphor_spline_density;
+  static float phosphor_max_beam_speed;
+  static float phosphor_persistence_time;
+  static float phosphor_decay_rate;
+  static float phosphor_intensity_scale;
+  static size_t lastConfigVersion;
+
+  // Cached theme colors
+  static float cachedLissajousColor[4];
+  static size_t lastThemeVersion;
+
+  // Helper methods
+  void updateCachedValues();
+
   // Catmull-Rom spline interpolation
   std::vector<std::pair<float, float>>
   generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints, int segmentsPerSegment = 10);
@@ -58,6 +79,23 @@ public:
 private:
   int position = 0;
   int width = 0;
+
+  // Cached config values
+  static float amplitude_scale;
+  static std::string gradient_mode;
+  static bool enable_phosphor;
+  static int phosphor_spline_density;
+  static float phosphor_max_beam_speed;
+  static float phosphor_intensity_scale;
+  static size_t lastConfigVersion;
+
+  // Cached theme colors
+  static float cachedOscilloscopeColor[4];
+  static float cachedBackgroundColor[4];
+  static size_t lastThemeVersion;
+
+  // Helper methods
+  void updateCachedValues();
 };
 
 // FFT visualizer
@@ -73,4 +111,31 @@ public:
 private:
   int position = 0;
   int width = 0;
+
+  // Cached config values
+  static std::string font;
+  static float minFreq;
+  static float maxFreq;
+  static float sampleRate;
+  static float slope_k;
+  static float fft_display_min_db;
+  static float fft_display_max_db;
+  static std::string stereo_mode;
+  static size_t lastConfigVersion;
+
+  // Cached theme colors
+  static float cachedSpectrumColor[4];
+  static float cachedBackgroundColor[4];
+  static float cachedGridColor[4];
+  static float cachedTextColor[4];
+  static size_t lastThemeVersion;
+
+  // Cached calculations
+  static float logMinFreq;
+  static float logMaxFreq;
+  static float logFreqRange;
+  static float dbRange;
+
+  // Helper methods
+  void updateCachedValues();
 };

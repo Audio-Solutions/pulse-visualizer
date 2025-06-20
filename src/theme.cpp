@@ -30,6 +30,7 @@ std::unordered_map<std::string, ThemeDefinition> ThemeManager::availableThemes;
 std::string ThemeManager::currentThemePath;
 time_t ThemeManager::lastThemeMTime = 0;
 size_t ThemeManager::lastConfigVersion = 0;
+size_t ThemeManager::themeVersion = 0;
 
 void ThemeManager::initialize() {
   if (availableThemes.empty()) {
@@ -43,6 +44,7 @@ void ThemeManager::setTheme(const std::string& name) {
   auto it = availableThemes.find(name);
   if (it != availableThemes.end()) {
     currentTheme = it->second;
+    themeVersion++; // Increment version when theme changes
   }
 }
 
@@ -51,6 +53,8 @@ const ThemeDefinition& ThemeManager::getCurrentTheme() { return currentTheme; }
 void ThemeManager::registerTheme(const std::string& name, const ThemeDefinition& theme) {
   availableThemes[name] = theme;
 }
+
+size_t ThemeManager::getVersion() { return themeVersion; }
 
 bool ThemeManager::loadThemeFromConfig() {
   try {
@@ -70,6 +74,7 @@ bool ThemeManager::reloadIfChanged() {
     bool success = loadThemeFromConfig();
     if (success) {
       lastConfigVersion = currentConfigVersion;
+      themeVersion++; // Increment version on successful reload
       std::cerr << "Theme reloaded due to config change" << std::endl;
     }
     return success;
@@ -94,6 +99,7 @@ bool ThemeManager::reloadIfChanged() {
     }
     bool success = loadThemeFromFile(themeName);
     if (success) {
+      themeVersion++; // Increment version on successful reload
       std::cerr << "Theme reloaded: " << themeName << std::endl;
     }
     return success;
@@ -162,6 +168,7 @@ bool ThemeManager::loadThemeFromFile(const std::string& filename) {
 
   // Set as current theme
   currentTheme = theme;
+  themeVersion++; // Increment version when theme is loaded
 
   return true;
 }

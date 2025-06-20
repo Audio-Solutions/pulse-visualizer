@@ -11,7 +11,48 @@
 #include <string>
 #include <vector>
 
-// Lissajous visualizer with spline helpers
+// Initialize static members
+float LissajousVisualizer::phosphor_tension = 0.0f;
+bool LissajousVisualizer::enable_splines = false;
+int LissajousVisualizer::spline_segments = 0;
+bool LissajousVisualizer::enable_phosphor = false;
+int LissajousVisualizer::phosphor_spline_density = 0;
+float LissajousVisualizer::phosphor_max_beam_speed = 0.0f;
+float LissajousVisualizer::phosphor_persistence_time = 0.0f;
+float LissajousVisualizer::phosphor_decay_rate = 0.0f;
+float LissajousVisualizer::phosphor_intensity_scale = 0.0f;
+size_t LissajousVisualizer::lastConfigVersion = 0;
+float LissajousVisualizer::cachedLissajousColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+size_t LissajousVisualizer::lastThemeVersion = 0;
+
+void LissajousVisualizer::updateCachedValues() {
+  bool configChanged = Config::getVersion() != lastConfigVersion;
+  bool themeChanged = Theme::ThemeManager::getVersion() != lastThemeVersion;
+
+  if (configChanged) {
+    phosphor_tension = Config::getFloat("lissajous.phosphor_tension");
+    enable_splines = Config::getBool("lissajous.enable_splines");
+    spline_segments = Config::getInt("lissajous.spline_segments");
+    enable_phosphor = Config::getBool("lissajous.enable_phosphor");
+    phosphor_spline_density = Config::getInt("lissajous.phosphor_spline_density");
+    phosphor_max_beam_speed = Config::getFloat("lissajous.phosphor_max_beam_speed");
+    phosphor_persistence_time = Config::getFloat("lissajous.phosphor_persistence_time");
+    phosphor_decay_rate = Config::getFloat("lissajous.phosphor_decay_rate");
+    phosphor_intensity_scale = Config::getFloat("lissajous.phosphor_intensity_scale");
+    lastConfigVersion = Config::getVersion();
+  }
+
+  if (themeChanged) {
+    const auto& lissajousColor = Theme::ThemeManager::getLissajous();
+    cachedLissajousColor[0] = lissajousColor.r;
+    cachedLissajousColor[1] = lissajousColor.g;
+    cachedLissajousColor[2] = lissajousColor.b;
+    cachedLissajousColor[3] = lissajousColor.a;
+
+    lastThemeVersion = Theme::ThemeManager::getVersion();
+  }
+}
+
 // Catmull-Rom spline interpolation
 std::vector<std::pair<float, float>>
 LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
@@ -22,9 +63,11 @@ LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float,
   }
 
   std::vector<std::pair<float, float>> splinePoints;
+  splinePoints.reserve((controlPoints.size() - 3) * (segmentsPerSegment + 1));
 
-  // Catmull-Rom matrix coefficients using configurable tension
-  const float t = Config::getFloat("lissajous.phosphor_tension");
+  // Pre-compute tension value and segment scale
+  const float t = phosphor_tension;
+  const float segmentScale = 1.0f / segmentsPerSegment;
 
   for (size_t i = 1; i < controlPoints.size() - 2; ++i) {
     const auto& p0 = controlPoints[i - 1];
@@ -34,7 +77,7 @@ LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float,
 
     // Generate segments between p1 and p2
     for (int j = 0; j <= segmentsPerSegment; ++j) {
-      float u = static_cast<float>(j) / segmentsPerSegment;
+      float u = static_cast<float>(j) * segmentScale;
       float u2 = u * u;
       float u3 = u2 * u;
 
@@ -77,43 +120,24 @@ LissajousVisualizer::calculateCumulativeDistances(const std::vector<std::pair<fl
 }
 
 void LissajousVisualizer::draw(const AudioData& audioData, int) {
-  // width is set by splitter/layout logic
   // Set up the viewport for the Lissajous visualizer
   Graphics::setupViewport(position, 0, width, width, audioData.windowHeight);
 
-  // --- Local static config cache ---
-  static float phosphor_tension;
-  static bool enable_splines;
-  static int spline_segments;
-  static bool enable_phosphor;
-  static int phosphor_spline_density;
-  static float phosphor_max_beam_speed;
-  static float phosphor_persistence_time;
-  static float phosphor_decay_rate;
-  static float phosphor_intensity_scale;
-  static size_t lastConfigVersion;
-
-  if (Config::getVersion() != lastConfigVersion) {
-    phosphor_tension = Config::getFloat("lissajous.phosphor_tension");
-    enable_splines = Config::getBool("lissajous.enable_splines");
-    spline_segments = Config::getInt("lissajous.spline_segments");
-    enable_phosphor = Config::getBool("lissajous.enable_phosphor");
-    phosphor_spline_density = Config::getInt("lissajous.phosphor_spline_density");
-    phosphor_max_beam_speed = Config::getFloat("lissajous.phosphor_max_beam_speed");
-    phosphor_persistence_time = Config::getFloat("lissajous.phosphor_persistence_time");
-    phosphor_decay_rate = Config::getFloat("lissajous.phosphor_decay_rate");
-    phosphor_intensity_scale = Config::getFloat("lissajous.phosphor_intensity_scale");
-    lastConfigVersion = Config::getVersion();
-  }
+  // Update cached values if needed
+  updateCachedValues();
 
   if (!audioData.lissajousPoints.empty() && audioData.hasValidPeak) {
     std::vector<std::pair<float, float>> points;
     points.reserve(audioData.lissajousPoints.size());
 
+    // Pre-compute scaling factors
+    const float halfWidth = width * 0.5f;
+    const float offsetX = position + halfWidth;
+
     // Convert points to screen coordinates (fixed scaling)
     for (const auto& point : audioData.lissajousPoints) {
-      float x = position + (point.first + 1.0f) * width / 2;
-      float y = (point.second + 1.0f) * width / 2;
+      float x = offsetX + point.first * halfWidth;
+      float y = (point.second + 1.0f) * halfWidth;
       points.push_back({x, y});
     }
 
@@ -127,15 +151,17 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         densePath = generateCatmullRomSpline(points, segmentsPerSegment);
       } else if (points.size() >= 2) {
         // Linear interpolation with high density for non-spline mode
-        densePath.reserve(phosphor_spline_density);
+        int totalSegments = std::max(1, phosphor_spline_density / static_cast<int>(points.size()));
+        densePath.reserve(points.size() * totalSegments);
+
         for (size_t i = 1; i < points.size(); ++i) {
           const auto& p1 = points[i - 1];
           const auto& p2 = points[i];
 
           // Interpolate with high density
-          int segmentPoints = std::max(1, phosphor_spline_density / static_cast<int>(points.size()));
-          for (int j = 0; j < segmentPoints; ++j) {
-            float t = static_cast<float>(j) / segmentPoints;
+          const float segmentScale = 1.0f / totalSegments;
+          for (int j = 0; j < totalSegments; ++j) {
+            float t = static_cast<float>(j) * segmentScale;
             float x = p1.first + t * (p2.first - p1.first);
             float y = p1.second + t * (p2.second - p1.second);
             densePath.push_back({x, y});
@@ -148,10 +174,12 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         std::vector<float> originalDistances;
         if (enable_splines && points.size() >= 4) {
           originalDistances.reserve(points.size() - 1);
+          const float invWidth = 1.0f / width;
+
           for (size_t i = 1; i < points.size(); ++i) {
             float dx = points[i].first - points[i - 1].first;
             float dy = points[i].second - points[i - 1].second;
-            float dist = sqrtf(dx * dx + dy * dy) / width; // Normalized distance
+            float dist = sqrtf(dx * dx + dy * dy) * invWidth;
             originalDistances.push_back(dist);
           }
         }
@@ -164,12 +192,13 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           glBlendFunc(GL_ONE, GL_ONE);
         }
 
-        // Get the Lissajous color
-        const auto& lissajousColor = Theme::ThemeManager::getLissajous();
-
-        // Render lines based on accumulated intensity
-        std::vector<std::pair<float, float>> renderPath;
-        renderPath.reserve(densePath.size());
+        // Pre-compute constants for phosphor calculations
+        const float referenceWidth = 200.0f;
+        const float sizeScale = static_cast<float>(width) / referenceWidth;
+        const float scaledMaxBeamSpeed = phosphor_max_beam_speed * sizeScale;
+        const float invWidth = 1.0f / width;
+        const float invDensePathSize = 1.0f / densePath.size();
+        const float decayTimeProduct = phosphor_decay_rate * phosphor_persistence_time;
 
         for (size_t i = 1; i < densePath.size(); ++i) {
           const auto& p1 = densePath[i - 1];
@@ -179,21 +208,14 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
           float segmentLength = sqrtf(dx * dx + dy * dy);
-          float beamSpeed = segmentLength / width; // Normalized to screen width
+          float beamSpeed = segmentLength * invWidth;
 
-          // Scale max beam speed with screen size for consistent behavior
-          // Use a reference size for normalization
-          const float referenceWidth = 200.0f;
-          float sizeScale = static_cast<float>(width) / referenceWidth;
-          float scaledMaxBeamSpeed = phosphor_max_beam_speed * sizeScale;
-
-          // Skip segments where beam moves too fast (like real oscilloscope)
+          // Skip segments where beam moves too fast
           if (beamSpeed > scaledMaxBeamSpeed) {
             continue;
           }
 
           // Calculate intensity based on local point density around this segment
-          // This gives more consistent brightness along smooth curves
           float intensity = phosphor_intensity_scale;
 
           // Scale intensity based on spline density
@@ -203,13 +225,13 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
             intensity *= densityScale;
 
             // Map this spline segment back to original curve region for speed-based intensity
-            float normalizedSplinePos = static_cast<float>(i) / densePath.size();
+            float normalizedSplinePos = static_cast<float>(i) * invDensePathSize;
             size_t originalSegmentIndex = static_cast<size_t>(normalizedSplinePos * (originalDistances.size() - 1));
             originalSegmentIndex = std::min(originalSegmentIndex, originalDistances.size() - 1);
 
             // Use the original curve speed for intensity modulation
             float originalSpeed = originalDistances[originalSegmentIndex];
-            float speedIntensity = 1.0f / (1.0f + originalSpeed * 50.0f); // Higher multiplier for more effect
+            float speedIntensity = 1.0f / (1.0f + originalSpeed * 50.0f);
             intensity *= speedIntensity;
           } else {
             // For non-spline mode, use direct segment speed
@@ -218,8 +240,8 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           }
 
           // Apply phosphor persistence decay based on position along path
-          float normalizedPosition = static_cast<float>(i) / densePath.size();
-          float timeFactor = expf(-phosphor_decay_rate * normalizedPosition * phosphor_persistence_time);
+          float normalizedPosition = static_cast<float>(i) * invDensePathSize;
+          float timeFactor = expf(-decayTimeProduct * normalizedPosition);
           intensity *= timeFactor;
 
           // Clamp intensity
@@ -227,8 +249,8 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
           if (intensity > 0.001f) {
             // Calculate color with intensity
-            float color[4] = {lissajousColor.r * intensity, lissajousColor.g * intensity, lissajousColor.b * intensity,
-                              intensity};
+            float color[4] = {cachedLissajousColor[0] * intensity, cachedLissajousColor[1] * intensity,
+                              cachedLissajousColor[2] * intensity, intensity};
 
             // Draw antialiased line segment
             Graphics::drawAntialiasedLine(p1.first, p1.second, p2.first, p2.second, color, 2.0f);
@@ -246,9 +268,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       }
 
       // Draw the Lissajous curve as antialiased lines
-      const auto& lissajousColor = Theme::ThemeManager::getLissajous();
-      float color[4] = {lissajousColor.r, lissajousColor.g, lissajousColor.b, 1.0f};
-      Graphics::drawAntialiasedLines(displayPoints, color, 2.0f);
+      Graphics::drawAntialiasedLines(displayPoints, cachedLissajousColor, 2.0f);
     }
   }
 }

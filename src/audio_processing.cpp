@@ -115,19 +115,27 @@ void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& 
 
 } // namespace Butterworth
 
-// Helper function to convert frequency to note
-void freqToNote(float freq, std::string& noteName, int& octave, int& cents) {
-  static std::string note_key_mode = "sharp";
-  static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-  static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
-  static const char* const* noteNames = noteNamesSharp;
-  static size_t lastConfigVersion = 0;
+void AudioThreadState::updateConfigCache() {
   if (Config::getVersion() != lastConfigVersion) {
+    lissajous_points = Config::getInt("lissajous.points");
+    fft_min_freq = Config::getFloat("fft.fft_min_freq");
+    fft_max_freq = Config::getFloat("fft.fft_max_freq");
+    fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
+    fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
+    fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
+    silence_threshold = Config::getFloat("audio.silence_threshold");
     note_key_mode = Config::getString("fft.note_key_mode");
+
+    static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
     noteNames = (note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
+
     lastConfigVersion = Config::getVersion();
   }
+}
 
+// Helper function to convert frequency to note
+void freqToNote(float freq, std::string& noteName, int& octave, int& cents, AudioThreadState& state) {
   if (freq <= 0.0f) {
     noteName = "-";
     octave = 0;
@@ -149,13 +157,14 @@ void freqToNote(float freq, std::string& noteName, int& octave, int& cents) {
   int midiInt = (int)roundf(midi);
   int noteIdx = (midiInt + 1200) % 12; // +1200 for negative safety
   octave = midiInt / 12 - 1;
-  noteName = noteNames[noteIdx];
+  noteName = state.noteNames[noteIdx];
   cents = (int)roundf((midi - midiInt) * 100.0f);
 }
 
 void audioThread(AudioData* audioData) {
   pa_simple* pa = nullptr;
   int error;
+  AudioThreadState state;
 
   // Create a new playback stream
   pa_sample_spec ss = {.format = PA_SAMPLE_FLOAT32, .rate = 44100, .channels = 2};
@@ -199,34 +208,17 @@ void audioThread(AudioData* audioData) {
   audioData->smoothedMagnitudesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
   audioData->interpolatedValuesSide.resize(FFT_SIZE / 2 + 1, 0.0f);
 
-  // FFT processing control - reduce frequency to save CPU
+  // FFT processing control
   int fftSkipCount = 0;
-  const int FFT_SKIP_FRAMES = 2; // Process FFT every 3rd frame to reduce CPU load
+  const int FFT_SKIP_FRAMES = 2;
 
-  // Previous values for smoothing
-  static float prevPeakFreq = 0.0f;
-  static float prevPeakDb = -100.0f;
-
-  static int lissajous_points = 500;
-  static float fft_min_freq = 10.0f;
-  static float fft_max_freq = 20000.0f;
-  static float fft_smoothing_factor = 0.2f;
-  static float fft_rise_speed = 500.0f;
-  static float fft_fall_speed = 50.0f;
-  static float silence_threshold = -100.0f;
-  static size_t lastConfigVersion = 0;
-  if (Config::getVersion() != lastConfigVersion) {
-    lissajous_points = Config::getInt("lissajous.points");
-    fft_min_freq = Config::getFloat("fft.fft_min_freq");
-    fft_max_freq = Config::getFloat("fft.fft_max_freq");
-    fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
-    fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
-    fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
-    silence_threshold = Config::getFloat("audio.silence_threshold");
-    lastConfigVersion = Config::getVersion();
-  }
+  // Initialize state
+  state.lastFrameTime = std::chrono::steady_clock::now();
+  state.updateConfigCache();
 
   while (audioData->running) {
+    state.updateConfigCache();
+
     if (pa_simple_read(pa, readBuffer, sizeof(readBuffer), &error) < 0) {
       fprintf(stderr, "Failed to read from PulseAudio stream: %s\n", pa_strerror(error));
       break;
@@ -241,7 +233,7 @@ void audioThread(AudioData* audioData) {
       // Store Lissajous points (using left and right channels)
       if (i + 1 < READ_SIZE) {
         audioData->lissajousPoints.push_back({sampleLeft, sampleRight});
-        if (audioData->lissajousPoints.size() > lissajous_points) {
+        if (audioData->lissajousPoints.size() > state.lissajous_points) {
           audioData->lissajousPoints.pop_front();
         }
       }
@@ -253,7 +245,7 @@ void audioThread(AudioData* audioData) {
       audioData->availableSamples++;
     }
 
-    // Reduce FFT processing frequency to save CPU
+    // Control FFT processing frequency
     if (++fftSkipCount <= FFT_SKIP_FRAMES) {
       lock.unlock();
       continue;
@@ -376,15 +368,12 @@ void audioThread(AudioData* audioData) {
         audioData->pitchConfidence *= 0.95f;
       }
 
-      // PRE-COMPUTE FFT DISPLAY DATA (moved from render thread)
-      // This eliminates heavy computation in the render thread
-
-      // Find peak frequency for display
+      // Pre-compute FFT display data
       float peakDb = -100.0f;
       float peakFreq = 0.0f;
       peakBin = 0;
-      const float minFreq = fft_min_freq;
-      const float maxFreq = fft_max_freq;
+      const float minFreq = state.fft_min_freq;
+      const float maxFreq = state.fft_max_freq;
       const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
 
       for (size_t i = 1; i < audioData->fftMagnitudesMid.size(); ++i) {
@@ -418,35 +407,31 @@ void audioThread(AudioData* audioData) {
       audioData->peakDb = peakDb;
 
       // Convert to note
-      freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents);
+      freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, state);
 
       // Check if we have a valid peak (above silence threshold)
-      audioData->hasValidPeak = (peakDb > silence_threshold);
+      audioData->hasValidPeak = (peakDb > state.silence_threshold);
 
       // Pre-compute smoothed FFT values for display
-      static auto lastFrameTime = std::chrono::steady_clock::now();
       auto currentFrameTime = std::chrono::steady_clock::now();
-      float dt = std::chrono::duration<float>(currentFrameTime - lastFrameTime).count();
-      lastFrameTime = currentFrameTime;
+      float dt = std::chrono::duration<float>(currentFrameTime - state.lastFrameTime).count();
+      state.lastFrameTime = currentFrameTime;
 
       // Update interpolation factor
-      static float fftInterpolation = 0.0f;
       if (audioData->fftUpdateInterval > 0.0f) {
         float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
         float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
-        fftInterpolation = fftInterpolation + (targetInterpolation - fftInterpolation) * fft_smoothing_factor;
-        fftInterpolation = std::min(1.0f, fftInterpolation);
+        state.fftInterpolation =
+            state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * state.fft_smoothing_factor;
+        state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
       }
 
-      // Apply linear interpolation
+      // Apply linear interpolation for both channels
       for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
-        audioData->interpolatedValuesMid[i] = (1.0f - fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
-                                              fftInterpolation * audioData->fftMagnitudesMid[i];
-      }
-
-      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
-        audioData->interpolatedValuesSide[i] = (1.0f - fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
-                                               fftInterpolation * audioData->fftMagnitudesSide[i];
+        audioData->interpolatedValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
+                                              state.fftInterpolation * audioData->fftMagnitudesMid[i];
+        audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
+                                               state.fftInterpolation * audioData->fftMagnitudesSide[i];
       }
 
       // Apply temporal smoothing with asymmetric speeds (mid channel)
@@ -465,7 +450,7 @@ void audioThread(AudioData* audioData) {
 
         // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? fft_rise_speed : fft_fall_speed;
+        float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
 
         // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;
@@ -492,7 +477,7 @@ void audioThread(AudioData* audioData) {
 
         // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
-        float speed = (diff > 0) ? fft_rise_speed : fft_fall_speed;
+        float speed = (diff > 0) ? state.fft_rise_speed : state.fft_fall_speed;
 
         // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;

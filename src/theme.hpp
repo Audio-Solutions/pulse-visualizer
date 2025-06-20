@@ -132,6 +132,9 @@ public:
   // Theme file change detection
   static bool reloadIfChanged();
 
+  // Version tracking
+  static size_t getVersion();
+
   // Convenience methods to access current theme colors
   static const Color& getBackground();
   static const Color& getGrid();
@@ -159,5 +162,6 @@ private:
   static std::string currentThemePath;
   static time_t lastThemeMTime;
   static size_t lastConfigVersion;
+  static size_t themeVersion;
 };
 } // namespace Theme
