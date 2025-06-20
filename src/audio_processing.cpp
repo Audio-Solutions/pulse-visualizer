@@ -323,9 +323,6 @@ void audioThread(AudioData* audioData) {
     }
     avgMagnitude /= (maxBin - minBin + 1);
 
-    float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
-    float pitch = 0.0f;
-
     // Apply parabolic interpolation for precise frequency estimation
     if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
       float y1 = audioData->fftMagnitudesMid[peakBin - 1];
@@ -345,36 +342,33 @@ void audioThread(AudioData* audioData) {
         // Fallback to bin center if parabolic interpolation fails
         peakFreq = static_cast<float>(peakBin * sampleRate) / fftSize;
       }
-
-      // Use the refined frequency as pitch if confidence is high enough
-      if (confidence > 1.5f) {
-        pitch = peakFreq;
-      }
-    }
-
-    // Update pitch-related data
-    if (pitch > 0) {
-      audioData->currentPitch = pitch;
-      audioData->pitchConfidence = 1.0f;
-      audioData->samplesPerCycle = static_cast<float>(sampleRate) / pitch;
-
-      // Apply bandpass filter to the buffer using circular-buffer-aware processing
-      Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, 44100.0f,
-                                         (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
-                                         100.0f); // 100Hz bandwidth
-    } else {
-      audioData->pitchConfidence *= 0.95f;
     }
 
     // Store computed values
     audioData->peakFreq = peakFreq;
     audioData->peakDb = peakDb;
 
+    // Check if we have a valid peak (above silence threshold)
+    audioData->hasValidPeak = (peakDb > state.silence_threshold);
+
     // Convert to note
     freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, state);
 
-    // Check if we have a valid peak (above silence threshold)
-    audioData->hasValidPeak = (peakDb > state.silence_threshold);
+    // Update pitch-related data based on validity
+    if (audioData->hasValidPeak) {
+      audioData->currentPitch = peakFreq;
+      // Use confidence ratio (peak vs average) scaled to 0-1 range
+      float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
+      audioData->pitchConfidence = std::min(1.0f, confidence / 3.0f);
+      audioData->samplesPerCycle = static_cast<float>(sampleRate) / peakFreq;
+
+      // Apply bandpass filter to the buffer using circular-buffer-aware processing
+      Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, peakFreq, 44100.0f,
+                                         (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
+                                         100.0f); // 100Hz bandwidth
+    } else {
+      audioData->pitchConfidence *= 0.9f; // Decay confidence when no valid peak
+    }
 
     // Pre-compute smoothed FFT values for display
     auto currentFrameTime = std::chrono::steady_clock::now();
