@@ -5,6 +5,7 @@
 #include "splitter.hpp"
 #include "theme.hpp"
 #include "visualizers.hpp"
+#include "window_manager.hpp"
 
 #include <GL/gl.h>
 #include <SDL2/SDL.h>
@@ -18,13 +19,19 @@
 // Structure to hold the current visualizer configuration
 struct VisualizerConfig {
   int spectrogramOrder = -1; // -1 = disabled, >= 0 = position order
+  bool spectrogramPopout = false;
   int lissajousOrder = -1;
+  bool lissajousPopout = false;
   int oscilloscopeOrder = -1;
+  bool oscilloscopePopout = false;
   int fftOrder = -1;
+  bool fftPopout = false;
 
   bool operator!=(const VisualizerConfig& other) const {
-    return spectrogramOrder != other.spectrogramOrder || lissajousOrder != other.lissajousOrder ||
-           oscilloscopeOrder != other.oscilloscopeOrder || fftOrder != other.fftOrder;
+    return spectrogramOrder != other.spectrogramOrder || spectrogramPopout != other.spectrogramPopout ||
+           lissajousOrder != other.lissajousOrder || lissajousPopout != other.lissajousPopout ||
+           oscilloscopeOrder != other.oscilloscopeOrder || oscilloscopePopout != other.oscilloscopePopout ||
+           fftOrder != other.fftOrder || fftPopout != other.fftPopout;
   }
 };
 
@@ -32,9 +39,13 @@ struct VisualizerConfig {
 VisualizerConfig readVisualizerConfig() {
   VisualizerConfig config;
   config.spectrogramOrder = Config::getInt("visualizers.spectrogram_order");
+  config.spectrogramPopout = Config::getBool("visualizers.spectrogram_popout");
   config.lissajousOrder = Config::getInt("visualizers.lissajous_order");
+  config.lissajousPopout = Config::getBool("visualizers.lissajous_popout");
   config.oscilloscopeOrder = Config::getInt("visualizers.oscilloscope_order");
+  config.oscilloscopePopout = Config::getBool("visualizers.oscilloscope_popout");
   config.fftOrder = Config::getInt("visualizers.fft_order");
+  config.fftPopout = Config::getBool("visualizers.fft_popout");
   return config;
 }
 
@@ -44,7 +55,8 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
                              std::vector<VisualizerBase*>& visualizerPtrs,
                              std::vector<std::unique_ptr<Splitter>>& splitters, Splitter*& rootSplitter,
                              SpectrogramVisualizer*& spectrogramVis, LissajousVisualizer*& lissajousVis,
-                             OscilloscopeVisualizer*& oscilloscopeVis, FFTVisualizer*& fftVis) {
+                             OscilloscopeVisualizer*& oscilloscopeVis, FFTVisualizer*& fftVis,
+                             WindowManager& windowManager) {
 
   // Clear existing objects
   visualizers.clear();
@@ -103,12 +115,40 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
     visualizers.push_back(std::move(pair.visualizer));
   }
 
-  // Create splitters dynamically based on ordered visualizers
-  if (visualizerPtrs.size() >= 2) {
+  // Create popout flags vector based on config
+  std::vector<bool> popoutFlags;
+  popoutFlags.reserve(visualizerPtrs.size());
+
+  for (const auto* viz : visualizerPtrs) {
+    bool shouldPopout = false;
+    if (viz == spectrogramVis)
+      shouldPopout = config.spectrogramPopout;
+    else if (viz == lissajousVis)
+      shouldPopout = config.lissajousPopout;
+    else if (viz == oscilloscopeVis)
+      shouldPopout = config.oscilloscopePopout;
+    else if (viz == fftVis)
+      shouldPopout = config.fftPopout;
+    popoutFlags.push_back(shouldPopout);
+  }
+
+  // Update window manager with popout windows
+  windowManager.updateWindows(visualizerPtrs, popoutFlags, audioData);
+
+  // Filter out popped-out visualizers for main window splitter system
+  std::vector<VisualizerBase*> mainWindowVisualizers;
+  for (size_t i = 0; i < visualizerPtrs.size(); ++i) {
+    if (!popoutFlags[i]) {
+      mainWindowVisualizers.push_back(visualizerPtrs[i]);
+    }
+  }
+
+  // Create splitters dynamically based on main window visualizers (non-popped-out)
+  if (mainWindowVisualizers.size() >= 2) {
     // Create splitters from right to left
-    for (size_t i = visualizerPtrs.size() - 1; i > 0; --i) {
-      VisualizerBase* leftVis = visualizerPtrs[i - 1];
-      VisualizerBase* rightVis = visualizerPtrs[i];
+    for (size_t i = mainWindowVisualizers.size() - 1; i > 0; --i) {
+      VisualizerBase* leftVis = mainWindowVisualizers[i - 1];
+      VisualizerBase* rightVis = mainWindowVisualizers[i];
 
       // Determine if this splitter should be draggable
       // The lissajous visualizer should have a non-draggable splitter to its right
@@ -117,7 +157,7 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
         isDraggable = false; // Make splitter to the right of lissajous non-draggable
       }
 
-      Splitter* nextSplitter = (i == visualizerPtrs.size() - 1) ? nullptr : splitters.back().get();
+      Splitter* nextSplitter = (i == mainWindowVisualizers.size() - 1) ? nullptr : splitters.back().get();
       auto splitter = std::make_unique<Splitter>(leftVis, rightVis, nextSplitter, isDraggable);
 
       if (i == 1) {
@@ -138,16 +178,16 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
   constexpr int MIN_VIS_WIDTH = 80;
   int availableWidth = audioData.windowWidth;
 
-  if (rootSplitter && !visualizerPtrs.empty()) {
+  if (rootSplitter && !mainWindowVisualizers.empty()) {
     // Calculate proportional widths
-    int widthPerVisualizer = std::max(MIN_VIS_WIDTH, availableWidth / static_cast<int>(visualizerPtrs.size()));
+    int widthPerVisualizer = std::max(MIN_VIS_WIDTH, availableWidth / static_cast<int>(mainWindowVisualizers.size()));
 
     // Set splitter positions
     for (size_t i = 0; i < splitters.size(); ++i) {
       int position = (i + 1) * widthPerVisualizer;
 
       // Special handling for lissajous aspect ratio
-      if (i < visualizerPtrs.size() - 1 && visualizerPtrs[i] == lissajousVis) {
+      if (i < mainWindowVisualizers.size() - 1 && mainWindowVisualizers[i] == lissajousVis) {
         int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
         if (requiredWidth > 0) {
           int lissajousStart = (i == 0) ? 0 : splitters[i - 1]->getPosition();
@@ -156,10 +196,10 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
       }
 
       // Special handling when lissajous is the first (leftmost) visualizer
-      if (i == 0 && visualizerPtrs[0] == lissajousVis) {
+      if (i == 0 && !mainWindowVisualizers.empty() && mainWindowVisualizers[0] == lissajousVis) {
         int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
         if (requiredWidth > 0) {
-          int maxWidth = audioData.windowWidth - (visualizerPtrs.size() - 1) * MIN_VIS_WIDTH;
+          int maxWidth = audioData.windowWidth - (mainWindowVisualizers.size() - 1) * MIN_VIS_WIDTH;
           position = std::min(requiredWidth, maxWidth);
         }
       }
@@ -215,6 +255,16 @@ int main() {
 
   Graphics::initialize();
 
+  // Initialize window manager
+  WindowManager windowManager;
+  if (!windowManager.initialize(win, glContext)) {
+    std::cerr << "Failed to initialize window manager" << std::endl;
+    SDL_GL_DeleteContext(glContext);
+    SDL_DestroyWindow(win);
+    SDL_Quit();
+    return 1;
+  }
+
   AudioData audioData;
 
   // Pre-allocate all buffers
@@ -248,9 +298,30 @@ int main() {
   OscilloscopeVisualizer* oscilloscopeVis = nullptr;
   FFTVisualizer* fftVis = nullptr;
 
+  // Set up callback for when popout windows are closed
+  windowManager.setPopoutClosedCallback([&](VisualizerBase* visualizer) {
+    // Update config to pop the visualizer back into main window
+    std::cerr << "Popping visualizer back into main window..." << std::endl;
+
+    // Determine which visualizer was closed and update config
+    if (visualizer == spectrogramVis) {
+      currentConfig.spectrogramPopout = false;
+    } else if (visualizer == lissajousVis) {
+      currentConfig.lissajousPopout = false;
+    } else if (visualizer == oscilloscopeVis) {
+      currentConfig.oscilloscopePopout = false;
+    } else if (visualizer == fftVis) {
+      currentConfig.fftPopout = false;
+    }
+
+    // Trigger layout rebuild
+    rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
+                            spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
+  });
+
   // Build initial layout
   rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
-                          spectrogramVis, lissajousVis, oscilloscopeVis, fftVis);
+                          spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
 
   std::thread audioThreadHandle(AudioProcessing::audioThread, &audioData);
 
@@ -261,62 +332,60 @@ int main() {
   Uint32 lastFpsUpdate = SDL_GetTicks();
   Uint32 lastThemeCheck = SDL_GetTicks();
 
-  while (running) {
+  while (running && windowManager.isRunning()) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-      // Handle splitter events
+      // Let window manager handle events first
+      windowManager.handleEvents(event, audioData);
+
+      // If window manager processed quit event, update local running state
+      if (!windowManager.isRunning()) {
+        running = false;
+        break;
+      }
+
+      // Handle splitter events for main window
       for (auto& splitter : splitters) {
         splitter->handleEvent(event, audioData);
       }
 
-      switch (event.type) {
-      case SDL_QUIT:
-        running = false;
-        break;
-
-      case SDL_MOUSEMOTION: {
-        // Update FFT visualizer mouse position if enabled
-        if (fftVis) {
-          int mouseX = event.motion.x;
-          int mouseY = event.motion.y;
-
-          // Check if mouse is over FFT visualizer area
-          int fftPosition = fftVis->getPosition();
-          int fftWidth = fftVis->getWidth();
-          bool isOverFFT = (mouseX >= fftPosition && mouseX < fftPosition + fftWidth && mouseY >= 0 &&
-                            mouseY < audioData.windowHeight);
-
-          if (isOverFFT) {
-            // Convert to FFT visualizer local coordinates
-            float localX = static_cast<float>(mouseX - fftPosition);
-            float localY = static_cast<float>(audioData.windowHeight - mouseY); // Flip Y coordinate
-            fftVis->updateMousePosition(localX, localY);
-            fftVis->setHovering(true);
-          } else {
-            fftVis->setHovering(false);
-          }
-        }
-      } break;
-
-      case SDL_WINDOWEVENT:
+      // Handle main window specific events
+      if (event.type == SDL_WINDOWEVENT && SDL_GetWindowID(win) == event.window.windowID) {
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-          audioData.windowWidth = event.window.data1;
-          audioData.windowHeight = event.window.data2;
-          glViewport(0, 0, audioData.windowWidth, audioData.windowHeight);
+          // Handle aspect ratio for leftmost lissajous visualizer in main window
+          // Read mainWindowVisualizers from current config to avoid scope issues
+          std::vector<VisualizerBase*> currentMainVis;
 
-          // Handle aspect ratio for leftmost lissajous visualizer
-          if (lissajousVis && !visualizerPtrs.empty() && visualizerPtrs[0] == lissajousVis) {
+          // Rebuild mainWindowVisualizers based on current config and popout state
+          for (const auto* viz : visualizerPtrs) {
+            bool isPopout = false;
+            if (viz == spectrogramVis)
+              isPopout = currentConfig.spectrogramPopout;
+            else if (viz == lissajousVis)
+              isPopout = currentConfig.lissajousPopout;
+            else if (viz == oscilloscopeVis)
+              isPopout = currentConfig.oscilloscopePopout;
+            else if (viz == fftVis)
+              isPopout = currentConfig.fftPopout;
+
+            if (!isPopout) {
+              currentMainVis.push_back(const_cast<VisualizerBase*>(viz));
+            }
+          }
+
+          if (lissajousVis && !currentConfig.lissajousPopout && !currentMainVis.empty() &&
+              currentMainVis[0] == lissajousVis) {
             int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
             if (requiredWidth > 0 && !splitters.empty()) {
               // Adjust the first splitter position to maintain lissajous aspect ratio
               constexpr int MIN_VIS_WIDTH = 80;
-              int maxWidth = audioData.windowWidth - (visualizerPtrs.size() - 1) * MIN_VIS_WIDTH;
+              int maxWidth = audioData.windowWidth - (currentMainVis.size() - 1) * MIN_VIS_WIDTH;
               int newPosition = std::min(requiredWidth, maxWidth);
               splitters[0]->setPosition(newPosition);
             }
           }
 
-          // Update layout
+          // Update layout only for non-popped-out visualizers
           if (rootSplitter) {
             rootSplitter->update(audioData);
           }
@@ -325,22 +394,21 @@ int main() {
         } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
           windowHasFocus = true;
         }
-        break;
       }
     }
 
-    // Reset hover states when window loses focus
+    // Reset hover states when main window loses focus
     if (!windowHasFocus) {
-      if (fftVis) {
-        fftVis->setHovering(false);
-      }
       for (auto& splitter : splitters) {
         splitter->setHovering(false);
       }
     }
 
-    // Update audio data hover state
-    audioData.fftHovering = fftVis ? fftVis->isHovering() : false;
+    // Update audio data hover state (check all FFT visualizers)
+    audioData.fftHovering = false;
+    if (fftVis) {
+      audioData.fftHovering = fftVis->isHovering();
+    }
 
     // Check for theme and config changes every second
     Uint32 currentTime = SDL_GetTicks();
@@ -355,7 +423,7 @@ int main() {
           std::cerr << "Visualizer configuration changed, rebuilding layout..." << std::endl;
           currentConfig = newConfig;
           rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
-                                  spectrogramVis, lissajousVis, oscilloscopeVis, fftVis);
+                                  spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
         }
       }
 
@@ -369,6 +437,9 @@ int main() {
       rootSplitter->update(audioData);
     }
 
+    // Make main window context current for main window drawing
+    SDL_GL_MakeCurrent(win, glContext);
+
     const auto& background = Theme::ThemeManager::getBackground();
     glClearColor(background.r, background.g, background.b, background.a);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -376,22 +447,27 @@ int main() {
     {
       std::lock_guard<std::mutex> lock(audioData.mutex);
 
-      // Draw enabled visualizers
-      if (spectrogramVis) {
+      // Draw popout windows using window manager
+      windowManager.drawAll(audioData);
+
+      // Draw main window visualizers that are not popped out
+      SDL_GL_MakeCurrent(win, glContext);
+      if (spectrogramVis && !currentConfig.spectrogramPopout) {
         spectrogramVis->draw(audioData, 0);
       }
-      if (lissajousVis) {
+      if (lissajousVis && !currentConfig.lissajousPopout) {
         lissajousVis->draw(audioData, 0);
       }
-      if (oscilloscopeVis && oscilloscopeVis->getWidth() > 0) {
+      if (oscilloscopeVis && !currentConfig.oscilloscopePopout && oscilloscopeVis->getWidth() > 0) {
         oscilloscopeVis->draw(audioData, 0);
       }
-      if (fftVis && fftVis->getWidth() > 0) {
+      if (fftVis && !currentConfig.fftPopout && fftVis->getWidth() > 0) {
         fftVis->draw(audioData, 0);
       }
     }
 
-    // Draw splitters
+    // Draw splitters on main window
+    SDL_GL_MakeCurrent(win, glContext);
     for (auto& splitter : splitters) {
       splitter->draw(audioData);
     }

@@ -2,14 +2,17 @@
   "window": {
     "default_width": 1080,
     "default_height": 200,
-    "default_splitter_pos": 0.65,
     "default_theme": "mocha.txt"
   },
   "visualizers": {
     "spectrogram_order": 0,
+    "spectrogram_popout": false,
     "lissajous_order": 1,
+    "lissajous_popout": false,
     "oscilloscope_order": 2,
-    "fft_order": 3
+    "oscilloscope_popout": false,
+    "fft_order": 3,
+    "fft_popout": false
   },
   "audio": {
     "sample_rate": 44100,
