@@ -74,21 +74,36 @@ int currentTexIdx = 0;
 int texWidth = 0;
 int texHeight = 0;
 
-// Shader for HSV-based decay toward background colour
-GLuint fadeProgram = 0;
+// Shaders for separate fade and glow effects
+GLuint fadeOnlyProgram = 0;
+GLuint glowProgram = 0;
 
-void ensureFadeProgram() {
-  if (fadeProgram)
+void ensureFadeOnlyProgram() {
+  if (fadeOnlyProgram)
     return;
 
-  fadeProgram = Graphics::createShaderProgram("shaders/fade.vert", "shaders/fade.frag");
-  if (fadeProgram == 0) {
-    std::cerr << "Failed to create fade shader program" << std::endl;
+  fadeOnlyProgram = Graphics::createShaderProgram("shaders/fade_only.vert", "shaders/fade_only.frag");
+  if (fadeOnlyProgram == 0) {
+    std::cerr << "Failed to create fade-only shader program" << std::endl;
     return;
   }
 
   // Set vertex attribute location
-  glBindAttribLocation(fadeProgram, 0, "pos");
+  glBindAttribLocation(fadeOnlyProgram, 0, "pos");
+}
+
+void ensureGlowProgram() {
+  if (glowProgram)
+    return;
+
+  glowProgram = Graphics::createShaderProgram("shaders/glow.vert", "shaders/glow.frag");
+  if (glowProgram == 0) {
+    std::cerr << "Failed to create glow shader program" << std::endl;
+    return;
+  }
+
+  // Set vertex attribute location
+  glBindAttribLocation(glowProgram, 0, "pos");
 }
 
 void createPersistenceResources(int w, int h, const float* bgColor) {
@@ -395,16 +410,17 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           colorsRGBA.push_back(intensity);
         }
 
-        // --- Texture-based persistence ---
-        // Ensure resources sized to current viewport
+        // --- Texture-based persistence with separate fade and glow passes ---
+        // Ensure resources sized to current viewport (need additional texture for glow pass)
         createPersistenceResources(width, width, colors.background);
 
         int srcIdx = currentTexIdx;
-        int dstIdx = 1 - currentTexIdx;
+        int tempIdx = 1 - currentTexIdx;
+        int finalIdx = currentTexIdx; // We'll swap at the end
 
-        // Bind FBO and attach destination texture
+        // PASS 1: Apply fade-only to previous frame
         glBindFramebuffer(GL_FRAMEBUFFER, persistenceFBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[dstIdx], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[tempIdx], 0);
 
         // Set viewport for FBO
         glViewport(0, 0, width, width);
@@ -414,33 +430,51 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        // Step A: decay previous frame
-        ensureFadeProgram();
+        ensureFadeOnlyProgram();
         float dtDecay = std::clamp(Config::values().lissajous.texture_decay, 0.0f, 1.0f);
 
-        glUseProgram(fadeProgram);
-        glUniform1f(glGetUniformLocation(fadeProgram, "decay"), dtDecay);
-        glUniform3f(glGetUniformLocation(fadeProgram, "bgColor"), colors.background[0], colors.background[1],
+        glUseProgram(fadeOnlyProgram);
+        glUniform1f(glGetUniformLocation(fadeOnlyProgram, "decay"), dtDecay);
+        glUniform3f(glGetUniformLocation(fadeOnlyProgram, "bgColor"), colors.background[0], colors.background[1],
                     colors.background[2]);
-        glUniform3f(glGetUniformLocation(fadeProgram, "targetRGB"), colors.lissajous[0], colors.lissajous[1],
-                    colors.lissajous[2]);
-        glUniform2f(glGetUniformLocation(fadeProgram, "texSize"), static_cast<float>(width), static_cast<float>(width));
+        glUniform2f(glGetUniformLocation(fadeOnlyProgram, "texSize"), static_cast<float>(width),
+                    static_cast<float>(width));
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
-        glUniform1i(glGetUniformLocation(fadeProgram, "texPrev"), 0);
+        glUniform1i(glGetUniformLocation(fadeOnlyProgram, "texPrev"), 0);
 
         glDisable(GL_BLEND);
         drawFullscreenTexturedQuad(width, width);
         glUseProgram(0);
 
-        // Step B: draw current beam additive
+        // PASS 2: Draw current beam additively onto faded frame
         if (!vertices.empty()) {
           glEnable(GL_BLEND);
-          glBlendFunc(GL_ONE, GL_ONE);
+          if (Theme::ThemeManager::invertNoiseBrightness()) {
+            glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+          } else {
+            glBlendFunc(GL_ONE, GL_ONE);
+          }
           Graphics::drawColoredLineSegments(vertices, colorsRGBA, 2.0f);
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
+
+        // PASS 3: Apply glow effect to the combined result
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[srcIdx], 0);
+
+        ensureGlowProgram();
+        glUseProgram(glowProgram);
+        glUniform2f(glGetUniformLocation(glowProgram, "texSize"), static_cast<float>(width), static_cast<float>(width));
+        glUniform1f(glGetUniformLocation(glowProgram, "glowIntensity"), 1.0f); // TODO: make configurable
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, persistenceTex[tempIdx]);
+        glUniform1i(glGetUniformLocation(glowProgram, "texInput"), 0);
+
+        glDisable(GL_BLEND);
+        drawFullscreenTexturedQuad(width, width);
+        glUseProgram(0);
 
         // Unbind FBO
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -448,15 +482,15 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         // Restore original viewport and projection for main buffer
         Graphics::setupViewport(position, 0, width, width, audioData.windowHeight);
 
-        // Draw persistence texture to screen
+        // Draw final glowed texture to screen
         glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, persistenceTex[dstIdx]);
+        glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
         glColor4f(1.f, 1.f, 1.f, 1.f);
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
         drawFullscreenTexturedQuad(width, width);
         glDisable(GL_TEXTURE_2D);
 
-        currentTexIdx = dstIdx;
+        currentTexIdx = srcIdx;
       }
     } else {
       // Standard non-phosphor rendering

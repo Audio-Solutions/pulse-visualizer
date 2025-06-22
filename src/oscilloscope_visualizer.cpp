@@ -25,21 +25,36 @@ int currentTexIdx = 0;
 int texWidth = 0;
 int texHeight = 0;
 
-// Simple fade shader reused from lissajous implementation
-GLuint fadeProgram = 0;
+// Separate fade and glow shaders
+GLuint fadeOnlyProgram = 0;
+GLuint glowProgram = 0;
 
-void ensureFadeProgram() {
-  if (fadeProgram)
+void ensureFadeOnlyProgram() {
+  if (fadeOnlyProgram)
     return;
 
-  fadeProgram = Graphics::createShaderProgram("shaders/fade.vert", "shaders/fade.frag");
-  if (fadeProgram == 0) {
-    std::cerr << "Failed to create fade shader program" << std::endl;
+  fadeOnlyProgram = Graphics::createShaderProgram("shaders/fade_only.vert", "shaders/fade_only.frag");
+  if (fadeOnlyProgram == 0) {
+    std::cerr << "Failed to create fade-only shader program" << std::endl;
     return;
   }
 
   // Set vertex attribute location
-  glBindAttribLocation(fadeProgram, 0, "pos");
+  glBindAttribLocation(fadeOnlyProgram, 0, "pos");
+}
+
+void ensureGlowProgram() {
+  if (glowProgram)
+    return;
+
+  glowProgram = Graphics::createShaderProgram("shaders/glow.vert", "shaders/glow.frag");
+  if (glowProgram == 0) {
+    std::cerr << "Failed to create glow shader program" << std::endl;
+    return;
+  }
+
+  // Set vertex attribute location
+  glBindAttribLocation(glowProgram, 0, "pos");
 }
 
 void createPersistenceResources(int w, int h, const float* bgColor) {
@@ -209,14 +224,14 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           colorsRGBA.push_back(intensity);
         }
 
-        // Prepare persistence resources
+        // Prepare persistence resources with separate fade and glow passes
         createPersistenceResources(width, audioData.windowHeight, colors.background);
         int srcIdx = currentTexIdx;
-        int dstIdx = 1 - currentTexIdx;
+        int tempIdx = 1 - currentTexIdx;
 
-        // Render decay pass to FBO
+        // PASS 1: Apply fade-only to previous frame
         glBindFramebuffer(GL_FRAMEBUFFER, persistenceFBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[dstIdx], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[tempIdx], 0);
         glViewport(0, 0, width, audioData.windowHeight);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
@@ -224,26 +239,24 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        ensureFadeProgram();
+        ensureFadeOnlyProgram();
         float dtDecay = std::clamp(Config::values().oscilloscope.texture_decay, 0.0f, 1.0f);
-        glUseProgram(fadeProgram);
-        glUniform1f(glGetUniformLocation(fadeProgram, "decay"), dtDecay);
-        glUniform3f(glGetUniformLocation(fadeProgram, "bgColor"), colors.background[0], colors.background[1],
+        glUseProgram(fadeOnlyProgram);
+        glUniform1f(glGetUniformLocation(fadeOnlyProgram, "decay"), dtDecay);
+        glUniform3f(glGetUniformLocation(fadeOnlyProgram, "bgColor"), colors.background[0], colors.background[1],
                     colors.background[2]);
-        glUniform3f(glGetUniformLocation(fadeProgram, "targetRGB"), colors.oscilloscope[0], colors.oscilloscope[1],
-                    colors.oscilloscope[2]);
-        glUniform2f(glGetUniformLocation(fadeProgram, "texSize"), static_cast<float>(width),
+        glUniform2f(glGetUniformLocation(fadeOnlyProgram, "texSize"), static_cast<float>(width),
                     static_cast<float>(audioData.windowHeight));
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
-        glUniform1i(glGetUniformLocation(fadeProgram, "texPrev"), 0);
+        glUniform1i(glGetUniformLocation(fadeOnlyProgram, "texPrev"), 0);
 
         glDisable(GL_BLEND);
         drawFullscreenTexturedQuad(width, audioData.windowHeight);
         glUseProgram(0);
 
-        // Draw current beam
+        // PASS 2: Draw current beam additively onto faded frame
         if (!vertices.empty()) {
           glEnable(GL_BLEND);
           if (Theme::ThemeManager::invertNoiseBrightness()) {
@@ -255,13 +268,30 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
 
+        // PASS 3: Apply glow effect to the combined result
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[srcIdx], 0);
+
+        ensureGlowProgram();
+        glUseProgram(glowProgram);
+        glUniform2f(glGetUniformLocation(glowProgram, "texSize"), static_cast<float>(width),
+                    static_cast<float>(audioData.windowHeight));
+        glUniform1f(glGetUniformLocation(glowProgram, "glowIntensity"), 1.0f); // TODO: make configurable
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, persistenceTex[tempIdx]);
+        glUniform1i(glGetUniformLocation(glowProgram, "texInput"), 0);
+
+        glDisable(GL_BLEND);
+        drawFullscreenTexturedQuad(width, audioData.windowHeight);
+        glUseProgram(0);
+
         // Restore default framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
-        // Present persistence texture
+        // Present final glowed texture
         glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, persistenceTex[dstIdx]);
+        glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
         glColor4f(1.f, 1.f, 1.f, 1.f);
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
         drawFullscreenTexturedQuad(width, audioData.windowHeight);
@@ -348,7 +378,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
 
-        currentTexIdx = dstIdx;
+        currentTexIdx = srcIdx;
       }
     } else {
       // Standard non-phosphor rendering
