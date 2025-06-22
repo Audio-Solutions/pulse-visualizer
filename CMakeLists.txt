@@ -34,8 +34,35 @@ find_package(PkgConfig REQUIRED)
 # Find SDL2 package
 find_package(SDL2 REQUIRED)
 
-# Find PulseAudio
-pkg_check_modules(PULSE REQUIRED IMPORTED_TARGET libpulse-simple)
+# Find audio backends - check for both PulseAudio and PipeWire
+set(AUDIO_BACKENDS_FOUND FALSE)
+
+# Find PulseAudio (optional)
+pkg_check_modules(PULSE libpulse-simple)
+if(PULSE_FOUND)
+  message(STATUS "Found PulseAudio: ${PULSE_VERSION}")
+  set(AUDIO_BACKENDS_FOUND TRUE)
+  add_compile_definitions(HAVE_PULSEAUDIO=1)
+else()
+  message(STATUS "PulseAudio not found")
+  add_compile_definitions(HAVE_PULSEAUDIO=0)
+endif()
+
+# Find PipeWire (optional)
+pkg_check_modules(PIPEWIRE libpipewire-0.3)
+if(PIPEWIRE_FOUND)
+  message(STATUS "Found PipeWire: ${PIPEWIRE_VERSION}")
+  set(AUDIO_BACKENDS_FOUND TRUE)
+  add_compile_definitions(HAVE_PIPEWIRE=1)
+else()
+  message(STATUS "PipeWire not found")
+  add_compile_definitions(HAVE_PIPEWIRE=0)
+endif()
+
+# Ensure at least one audio backend is available
+if(NOT AUDIO_BACKENDS_FOUND)
+  message(FATAL_ERROR "No audio backends found! Please install either PulseAudio (libpulse-simple-dev) or PipeWire (libpipewire-0.3-dev)")
+endif()
 
 # Find FFTW
 pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3f)
@@ -56,11 +83,23 @@ add_executable(Pulse ${SRC_FILES})
 # Link libraries
 target_link_libraries(Pulse PRIVATE
   ${SDL2_LIBRARIES}
-  PkgConfig::PULSE
   PkgConfig::FFTW
   PkgConfig::FREETYPE
   OpenGL::GL
 )
+
+# Link audio backends conditionally
+if(PULSE_FOUND)
+  target_link_libraries(Pulse PRIVATE ${PULSE_LIBRARIES})
+  target_include_directories(Pulse PRIVATE ${PULSE_INCLUDE_DIRS})
+  target_compile_options(Pulse PRIVATE ${PULSE_CFLAGS_OTHER})
+endif()
+
+if(PIPEWIRE_FOUND)
+  target_link_libraries(Pulse PRIVATE ${PIPEWIRE_LIBRARIES})
+  target_include_directories(Pulse PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
+  target_compile_options(Pulse PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
+endif()
 
 # Installation targets
 include(GNUInstallDirs)

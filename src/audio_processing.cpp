@@ -1,5 +1,6 @@
 #include "audio_processing.hpp"
 
+#include "audio_engine.hpp"
 #include "config.hpp"
 
 #include <algorithm>
@@ -7,9 +8,7 @@
 #include <complex>
 #include <cstdio>
 #include <fftw3.h>
-#include <pulse/error.h>
-#include <pulse/gccmacro.h>
-#include <pulse/simple.h>
+#include <iostream>
 
 namespace AudioProcessing {
 
@@ -165,31 +164,46 @@ void freqToNote(float freq, std::string& noteName, int& octave, int& cents, Audi
 }
 
 void audioThread(AudioData* audioData) {
-  pa_simple* pa = nullptr;
-  int error;
   AudioThreadState state;
 
-  // Create a new playback stream
-  pa_sample_spec ss = {.format = PA_SAMPLE_FLOAT32, .rate = 44100, .channels = 2};
+  // Initialize audio engine
+  auto preferredEngineStr = Config::getString("audio.engine");
+  auto preferredEngine = AudioEngine::stringToType(preferredEngineStr);
 
-  pa_buffer_attr attr = {.maxlength = 4096, .tlength = 1024, .prebuf = 512, .minreq = 512, .fragsize = 1024};
-
-  std::string source = Config::getString("pulseaudio.default_source");
-  if (source.empty()) {
-    fprintf(stderr, "No default source found in config. Using default.\n");
-    source = "default";
-  }
-
-  pa = pa_simple_new(nullptr, "Audio Visualizer", PA_STREAM_RECORD, source.c_str(), "Audio Visualization", &ss, nullptr,
-                     &attr, &error);
-
-  if (!pa) {
-    fprintf(stderr, "Failed to create PulseAudio stream: %s\n", pa_strerror(error));
+  auto audioEngine = AudioEngine::createBestAvailableEngine(preferredEngine);
+  if (!audioEngine) {
+    std::cerr << "Failed to create audio engine!" << std::endl;
     return;
   }
 
-  const int READ_SIZE = 512;
-  float readBuffer[READ_SIZE];
+  // Get engine-specific device name
+  std::string deviceName;
+  if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
+    deviceName = Config::getString("pulseaudio.default_source");
+  } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
+    deviceName = Config::getString("pipewire.default_source");
+  }
+
+  if (!audioEngine->initialize(deviceName)) {
+    std::cerr << "Failed to initialize audio engine: " << audioEngine->getLastError() << std::endl;
+    return;
+  }
+
+  std::cout << "Using audio engine: " << AudioEngine::typeToString(audioEngine->getType()) << std::endl;
+
+  // Determine read size based on engine-specific buffer_size (frames per channel)
+  int bufferFrames = 0;
+  if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
+    bufferFrames = Config::getInt("pulseaudio.buffer_size");
+  } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
+    bufferFrames = Config::getInt("pipewire.buffer_size");
+  }
+  if (bufferFrames <= 0) {
+    bufferFrames = 512; // fallback
+  }
+
+  const int READ_SAMPLES = bufferFrames * audioEngine->getChannels();
+  std::vector<float> readBuffer(READ_SAMPLES);
 
   // Initialize state first to get FFT size
   state.lastFrameTime = std::chrono::steady_clock::now();
@@ -204,18 +218,18 @@ void audioThread(AudioData* audioData) {
   int fftSkipCount = 0;
   const int FFT_SKIP_FRAMES = 2;
 
-  while (audioData->running) {
+  while (audioData->running && audioEngine->isRunning()) {
     state.updateConfigCache();
     audioData->sampleRate = state.sampleRate;
 
-    if (pa_simple_read(pa, readBuffer, sizeof(readBuffer), &error) < 0) {
-      fprintf(stderr, "Failed to read from PulseAudio stream: %s\n", pa_strerror(error));
+    if (!audioEngine->readAudio(readBuffer.data(), bufferFrames)) {
+      std::cerr << "Failed to read from audio engine: " << audioEngine->getLastError() << std::endl;
       break;
     }
 
     // Write to circular buffer
     std::unique_lock<std::mutex> lock(audioData->mutex);
-    for (int i = 0; i < READ_SIZE; i += 2) {
+    for (int i = 0; i < READ_SAMPLES; i += 2) {
       float sampleLeft = readBuffer[i];
       float sampleRight = readBuffer[i + 1];
 
@@ -267,7 +281,7 @@ void audioThread(AudioData* audioData) {
     audioData->lastFftUpdate = now;
 
     // Unified pitch/peak detection using configurable frequency range
-    int sampleRate = ss.rate;
+    int sampleRate = audioEngine->getSampleRate();
     const float minFreq = state.fft_min_freq;
     const float maxFreq = state.fft_max_freq;
     const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
@@ -437,7 +451,7 @@ void audioThread(AudioData* audioData) {
   fftwf_free(in);
   fftwf_free(out);
 
-  pa_simple_free(pa);
+  audioEngine->cleanup();
 }
 
 } // namespace AudioProcessing

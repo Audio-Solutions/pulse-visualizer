@@ -75,7 +75,6 @@ bool ThemeManager::reloadIfChanged() {
     if (success) {
       lastConfigVersion = currentConfigVersion;
       themeVersion++; // Increment version on successful reload
-      std::cerr << "Theme reloaded due to config change" << std::endl;
     }
     return success;
   }
@@ -100,7 +99,6 @@ bool ThemeManager::reloadIfChanged() {
     bool success = loadThemeFromFile(themeName);
     if (success) {
       themeVersion++; // Increment version on successful reload
-      std::cerr << "Theme reloaded: " << themeName << std::endl;
     }
     return success;
   }

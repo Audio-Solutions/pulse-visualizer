@@ -19,7 +19,8 @@
     "channels": 2,
     "buffer_size": 32768,
     "display_samples": 2000,
-    "silence_threshold": -100.0
+    "silence_threshold": -100.0,
+    "engine": "auto"
   },
   "fft": {
     "fft_size": 4096,
@@ -65,14 +66,17 @@
     "enable_phosphor": false,
     "phosphor_spline_density": 2000,
     "phosphor_max_beam_speed": 0.001,
-    "phosphor_intensity_scale": 0.5
+    "phosphor_intensity_scale": 0.5,
+    "follow_pitch": true
   },
   "pulseaudio": {
-    "max_length": 2048,
-    "target_length": 512,
-    "min_req": 128,
-    "fragment_size": 512,
-    "default_source": "@DEFAULT_SOURCE@"
+    "default_source": "your-audio-device.monitor",
+    "buffer_size": 512
+  },
+  "pipewire": {
+    "default_source": "your-audio-device",
+    "buffer_size": 512,
+    "ring_multiplier": 4
   },
   "font": {
     "default_font": "/path/to/font.ttf"

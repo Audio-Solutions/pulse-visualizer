@@ -115,6 +115,7 @@ private:
   static float phosphor_max_beam_speed;
   static float phosphor_intensity_scale;
   static size_t lastConfigVersion;
+  static bool follow_pitch;
 
   // Cached theme colors
   static float cachedOscilloscopeColor[4];

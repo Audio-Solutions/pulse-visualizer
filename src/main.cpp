@@ -301,7 +301,6 @@ int main() {
   // Set up callback for when popout windows are closed
   windowManager.setPopoutClosedCallback([&](VisualizerBase* visualizer) {
     // Update config to pop the visualizer back into main window
-    std::cerr << "Popping visualizer back into main window..." << std::endl;
 
     // Determine which visualizer was closed and update config
     if (visualizer == spectrogramVis) {
@@ -420,7 +419,6 @@ int main() {
       if (configChanged) {
         VisualizerConfig newConfig = readVisualizerConfig();
         if (newConfig != currentConfig) {
-          std::cerr << "Visualizer configuration changed, rebuilding layout..." << std::endl;
           currentConfig = newConfig;
           rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
                                   spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);

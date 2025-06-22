@@ -26,6 +26,7 @@ size_t OscilloscopeVisualizer::lastConfigVersion = 0;
 float OscilloscopeVisualizer::cachedOscilloscopeColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 float OscilloscopeVisualizer::cachedBackgroundColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 size_t OscilloscopeVisualizer::lastThemeVersion = 0;
+bool OscilloscopeVisualizer::follow_pitch = false;
 
 void OscilloscopeVisualizer::updateCachedValues() {
   bool configChanged = Config::getVersion() != lastConfigVersion;
@@ -38,6 +39,7 @@ void OscilloscopeVisualizer::updateCachedValues() {
     phosphor_spline_density = Config::getInt("oscilloscope.phosphor_spline_density");
     phosphor_max_beam_speed = Config::getFloat("oscilloscope.phosphor_max_beam_speed");
     phosphor_intensity_scale = Config::getFloat("oscilloscope.phosphor_intensity_scale");
+    follow_pitch = Config::getBool("oscilloscope.follow_pitch");
     lastConfigVersion = Config::getVersion();
   }
 
@@ -71,7 +73,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Use pre-computed bandpassed data for zero crossing detection
   size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle);
   size_t zeroCrossPos = targetPos;
-  if (!audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
+  if (follow_pitch && !audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
     // Search backward for the nearest positive zero crossing in bandpassed signal
     for (size_t i = 1; i < searchRange && i < audioData.bandpassedMid.size(); i++) {
       size_t pos = (targetPos + audioData.bufferSize - i) % audioData.bufferSize;
@@ -92,7 +94,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
   // Calculate the start position for reading samples, adjusted for phase
   size_t startPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
-  if (audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f) {
+  if (follow_pitch && audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f) {
     // Move backward by the phase offset
     startPos = (startPos + audioData.bufferSize - static_cast<size_t>(phaseOffset)) % audioData.bufferSize;
   }

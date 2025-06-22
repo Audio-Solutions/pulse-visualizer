@@ -22,31 +22,17 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 	- Spectrogram
 - Popout windows for visualizers (fixed aspect ratio visualizers are a little janky when resizing)
 - Configurable visualizer order
-- Low-latency audio processing
+- Low-latency audio processing (PulseAudio **and** PipeWire backends)
 - Hardware-accelerated graphics
 - Cross-platform support
-- Included themes:
-	- Mocha (Catppuccin)
-	- Macchiato (Catppuccin)
-	- Frappe (Catppuccin)
-	- Latte (Catppuccin)
-	- Windows Light
-	- Windows Dark
-	- Breeze Light
-	- Breeze Dark
-	- AMOLED
-	- CMYK Printer
-	- Monochrome Printer
-	- Carbonfox (AMOLED Dark)
-	- Nightfox
-	- All MiniMeters themes
+- Includes a collection of ready-made themes (see the `themes/` folder).
 
 ## Dependencies
 
 - C++17 compatible compiler
 - CMake 3.10 or newer
 - SDL2
-- PulseAudio
+- PulseAudio **or** PipeWire (0.3+)
 - FFTW3
 - FreeType2
 - OpenGL
@@ -55,8 +41,8 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 ## Platform Support
 
 Pulse is confirmed to work on:
-- Linux (with PulseAudio)
-- BSD (with PulseAudio)
+- Linux (PulseAudio **or** PipeWire)
+- BSD (PulseAudio)
 
 
 ## Building
@@ -77,10 +63,12 @@ The installation will automatically:
 - Install themes to `~/.config/pulse-visualizer/themes/`
 - Create desktop integration and man page
 
-> **Note:** Font configuration and PulseAudio source are still hardcoded by path/name. You must set the correct values in your config file:
->
-> - For the font, set the `"default_font"` field to the full path of your font file.
-> - For the PulseAudio source, set the `"default_source"` field to the correct source name (get it via `pactl list sources | grep Name`).
+> **Note:**
+> 1. Select the audio backend in your config: `"audio.engine": "pulseaudio" | "pipewire" | "auto"` (default `auto`).
+> 2. Set the input device for the chosen backend:
+>    - PulseAudio: `"pulseaudio.default_source"`
+>    - PipeWire  : `"pipewire.default_source"`
+> 3. Set `"default_font"` to the full path of your font file.
 
 ### Themeing 
 To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
@@ -89,21 +77,7 @@ To choose a theme, edit the `"default_theme"` field in your config file (`~/.con
 "default_theme": "mocha.txt"
 ```
 
-Replace `"mocha.txt"` with the name of the theme file you wish to apply. Available themes:
-- `mocha.txt` (Catppuccin Mocha)
-- `macchiato.txt` (Catppuccin Macchiato)
-- `frappe.txt` (Catppuccin Frappe)
-- `latte.txt` (Catppuccin Latte)
-- `windows-light.txt` (Windows Light)
-- `windows-dark.txt` (Windows Dark)
-- `breeze-light.txt` (Breeze Light)
-- `breeze-dark.txt` (Breeze Dark)
-- `amoled.txt` (AMOLED)
-- `cmyk.txt` (CMYK Printer)
-- `carbonfox.txt` (Carbonfox AMOLED Dark)
-- `nightfox.txt` (Nightfox)
-- `dayfox.txt` (Dayfox)
-- `tokyo-night.txt` (Tokyo Night)
+Replace `"mocha.txt"` with any theme file from the `themes/` directory. All files in that directory are installed to `~/.config/pulse-visualizer/themes/` when you run `sudo ninja install`.
 
 ## Usage
 
