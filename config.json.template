@@ -17,6 +17,7 @@
   "audio": {
     "sample_rate": 44100,
     "channels": 2,
+    "fft_skip_frames": 2,
     "buffer_size": 32768,
     "display_samples": 2000,
     "silence_threshold": -100.0,

@@ -48,5 +48,5 @@ struct AudioThreadState {
 void audioThread(AudioData* audioData);
 
 // Helper function to convert frequency to note
-void freqToNote(float freq, std::string& noteName, int& octave, int& cents, AudioThreadState& state);
+void freqToNote(float freq, std::string& noteName, int& octave, int& cents, const char* const* noteNames);
 } // namespace AudioProcessing

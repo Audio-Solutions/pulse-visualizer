@@ -37,16 +37,15 @@ struct VisualizerConfig {
 
 // Function to read current visualizer config
 VisualizerConfig readVisualizerConfig() {
-  VisualizerConfig config;
-  config.spectrogramOrder = Config::getInt("visualizers.spectrogram_order");
-  config.spectrogramPopout = Config::getBool("visualizers.spectrogram_popout");
-  config.lissajousOrder = Config::getInt("visualizers.lissajous_order");
-  config.lissajousPopout = Config::getBool("visualizers.lissajous_popout");
-  config.oscilloscopeOrder = Config::getInt("visualizers.oscilloscope_order");
-  config.oscilloscopePopout = Config::getBool("visualizers.oscilloscope_popout");
-  config.fftOrder = Config::getInt("visualizers.fft_order");
-  config.fftPopout = Config::getBool("visualizers.fft_popout");
-  return config;
+  // Use centralized config access
+  return {.spectrogramOrder = Config::values().visualizers.spectrogram_order,
+          .spectrogramPopout = Config::values().visualizers.spectrogram_popout,
+          .lissajousOrder = Config::values().visualizers.lissajous_order,
+          .lissajousPopout = Config::values().visualizers.lissajous_popout,
+          .oscilloscopeOrder = Config::values().visualizers.oscilloscope_order,
+          .oscilloscopePopout = Config::values().visualizers.oscilloscope_popout,
+          .fftOrder = Config::values().visualizers.fft_order,
+          .fftPopout = Config::values().visualizers.fft_popout};
 }
 
 // Function to rebuild visualizers and splitters
@@ -225,8 +224,6 @@ int main() {
   // Load config
   Config::load();
 
-  bool drawFPS = Config::getBool("debug.log_fps");
-
   // Initialize the theme system
   Theme::ThemeManager::initialize();
 
@@ -236,7 +233,7 @@ int main() {
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
   SDL_Window* win = SDL_CreateWindow("Audio Visualizer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                     Config::getInt("window.default_width"), Config::getInt("window.default_height"),
+                                     Config::values().window.default_width, Config::values().window.default_height,
                                      SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!win) {
@@ -272,8 +269,8 @@ int main() {
   audioData.bufferSide.resize(audioData.bufferSize, 0.0f);
   audioData.bandpassedMid.resize(audioData.bufferSize, 0.0f);
 
-  // Pre-allocate all FFT-related vectors
-  const int FFT_SIZE = 4096;
+  // Pre-allocate all FFT-related vectors using config FFT size
+  const int FFT_SIZE = Config::values().audio.fft_size;
   audioData.fftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
   audioData.prevFftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
   audioData.smoothedMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
@@ -438,8 +435,8 @@ int main() {
     // Make main window context current for main window drawing
     SDL_GL_MakeCurrent(win, glContext);
 
-    const auto& background = Theme::ThemeManager::getBackground();
-    glClearColor(background.r, background.g, background.b, background.a);
+    const auto& colors = Theme::ThemeManager::colors();
+    glClearColor(colors.background[0], colors.background[1], colors.background[2], colors.background[3]);
     glClear(GL_COLOR_BUFFER_BIT);
 
     {
@@ -475,7 +472,7 @@ int main() {
     frameCount++;
     currentTime = SDL_GetTicks();
     if (currentTime - lastFpsUpdate >= 1000) {
-      if (drawFPS) {
+      if (Config::values().debug.log_fps) {
         std::cerr << "FPS: " << frameCount << std::endl;
       }
       frameCount = 0;

@@ -114,60 +114,11 @@ void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& 
 
 } // namespace Butterworth
 
-void AudioThreadState::updateConfigCache() {
-  if (Config::getVersion() != lastConfigVersion) {
-    lissajous_points = Config::getInt("lissajous.points");
-    fft_min_freq = Config::getFloat("fft.fft_min_freq");
-    fft_max_freq = Config::getFloat("fft.fft_max_freq");
-    fft_smoothing_factor = Config::getFloat("fft.fft_smoothing_factor");
-    fft_rise_speed = Config::getFloat("fft.fft_rise_speed");
-    fft_fall_speed = Config::getFloat("fft.fft_fall_speed");
-    fft_hover_fall_speed = Config::getFloat("fft.fft_hover_fall_speed");
-    silence_threshold = Config::getFloat("audio.silence_threshold");
-    note_key_mode = Config::getString("fft.note_key_mode");
-    sampleRate = Config::getFloat("audio.sample_rate");
-    fft_size = Config::getInt("fft.fft_size");
-
-    static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
-    noteNames = (note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
-
-    lastConfigVersion = Config::getVersion();
-  }
-}
-
-// Helper function to convert frequency to note
-void freqToNote(float freq, std::string& noteName, int& octave, int& cents, AudioThreadState& state) {
-  if (freq <= 0.0f) {
-    noteName = "-";
-    octave = 0;
-    cents = 0;
-    return;
-  }
-
-  // Calculate MIDI note number (A4 = 440Hz = MIDI 69)
-  float midi = 69.0f + 12.0f * log2f(freq / 440.0f);
-
-  // Handle out of range values
-  if (midi < 0.0f || midi > 127.0f) {
-    noteName = "-";
-    octave = 0;
-    cents = 0;
-    return;
-  }
-
-  int midiInt = (int)roundf(midi);
-  int noteIdx = (midiInt + 1200) % 12; // +1200 for negative safety
-  octave = midiInt / 12 - 1;
-  noteName = state.noteNames[noteIdx];
-  cents = (int)roundf((midi - midiInt) * 100.0f);
-}
-
 void audioThread(AudioData* audioData) {
   AudioThreadState state;
 
   // Initialize audio engine
-  auto preferredEngineStr = Config::getString("audio.engine");
+  auto preferredEngineStr = Config::values().audio.engine;
   auto preferredEngine = AudioEngine::stringToType(preferredEngineStr);
 
   auto audioEngine = AudioEngine::createBestAvailableEngine(preferredEngine);
@@ -179,9 +130,9 @@ void audioThread(AudioData* audioData) {
   // Get engine-specific device name
   std::string deviceName;
   if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
-    deviceName = Config::getString("pulseaudio.default_source");
+    deviceName = Config::values().pulseaudio.default_source;
   } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
-    deviceName = Config::getString("pipewire.default_source");
+    deviceName = Config::values().pipewire.default_source;
   }
 
   if (!audioEngine->initialize(deviceName)) {
@@ -191,36 +142,186 @@ void audioThread(AudioData* audioData) {
 
   std::cout << "Using audio engine: " << AudioEngine::typeToString(audioEngine->getType()) << std::endl;
 
+  // Track config version for live updates
+  size_t lastConfigVersion = Config::getVersion();
+  std::string lastEngineTypeStr = preferredEngineStr;
+  std::string lastDeviceName = deviceName;
+  uint32_t lastSampleRate = Config::values().audio.sample_rate;
+  uint32_t lastChannels = Config::values().audio.channels;
+
   // Determine read size based on engine-specific buffer_size (frames per channel)
   int bufferFrames = 0;
   if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
-    bufferFrames = Config::getInt("pulseaudio.buffer_size");
+    bufferFrames = Config::values().pulseaudio.buffer_size;
   } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
-    bufferFrames = Config::getInt("pipewire.buffer_size");
+    bufferFrames = Config::values().pipewire.buffer_size;
   }
   if (bufferFrames <= 0) {
     bufferFrames = 512; // fallback
   }
+  uint32_t lastBufferSize = bufferFrames;
 
   const int READ_SAMPLES = bufferFrames * audioEngine->getChannels();
   std::vector<float> readBuffer(READ_SAMPLES);
 
   // Initialize state first to get FFT size
   state.lastFrameTime = std::chrono::steady_clock::now();
-  state.updateConfigCache();
-
-  const int FFT_SIZE = state.fft_size;
+  int FFT_SIZE = Config::values().audio.fft_size;
   fftwf_complex* out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
   float* in = fftwf_alloc_real(FFT_SIZE);
   fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
+  int lastFftSize = FFT_SIZE;
 
   // FFT processing control
   int fftSkipCount = 0;
-  const int FFT_SKIP_FRAMES = 2;
+  int FFT_SKIP_FRAMES = Config::values().audio.fft_skip_frames;
+  int lastFftSkipFrames = FFT_SKIP_FRAMES;
 
   while (audioData->running && audioEngine->isRunning()) {
-    state.updateConfigCache();
-    audioData->sampleRate = state.sampleRate;
+    const auto& audio_cfg = Config::values().audio;
+    const auto& fft_cfg = Config::values().fft;
+    audioData->sampleRate = audio_cfg.sample_rate;
+
+    // Check for config changes that require audio engine reconfiguration
+    size_t currentConfigVersion = Config::getVersion();
+    if (currentConfigVersion != lastConfigVersion) {
+      lastConfigVersion = currentConfigVersion;
+
+      // Check if audio engine type has changed
+      std::string currentEngineStr = Config::values().audio.engine;
+      auto currentEngine = AudioEngine::stringToType(currentEngineStr);
+
+      // Get current device name
+      std::string currentDeviceName;
+      if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
+        currentDeviceName = Config::values().pulseaudio.default_source;
+      } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
+        currentDeviceName = Config::values().pipewire.default_source;
+      }
+
+      // Get current audio settings
+      uint32_t currentSampleRate = Config::values().audio.sample_rate;
+      uint32_t currentChannels = Config::values().audio.channels;
+
+      // Get current buffer size
+      uint32_t currentBufferSize = 0;
+      if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
+        currentBufferSize = Config::values().pulseaudio.buffer_size;
+      } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
+        currentBufferSize = Config::values().pipewire.buffer_size;
+      }
+      if (currentBufferSize <= 0) {
+        currentBufferSize = 512;
+      }
+
+      bool engineTypeChanged = (currentEngine != audioEngine->getType());
+      bool needsReconfiguration =
+          audioEngine->needsReconfiguration(currentDeviceName, currentSampleRate, currentChannels, currentBufferSize);
+
+      if (engineTypeChanged || needsReconfiguration) {
+        // Clean up current engine
+        audioEngine->cleanup();
+
+        if (engineTypeChanged) {
+          // Create new engine if type changed
+          audioEngine = AudioEngine::createBestAvailableEngine(currentEngine);
+          if (!audioEngine) {
+            std::cerr << "Failed to create new audio engine!" << std::endl;
+            return;
+          }
+
+          // Update device name for new engine type
+          if (audioEngine->getType() == AudioEngine::Type::PULSEAUDIO) {
+            currentDeviceName = Config::values().pulseaudio.default_source;
+          } else if (audioEngine->getType() == AudioEngine::Type::PIPEWIRE) {
+            currentDeviceName = Config::values().pipewire.default_source;
+          }
+        }
+
+        // Initialize with new configuration
+        if (!audioEngine->initialize(currentDeviceName)) {
+          std::cerr << "Failed to reinitialize audio engine: " << audioEngine->getLastError() << std::endl;
+          return;
+        }
+
+        // Update buffer sizes if they changed
+        if (currentBufferSize != lastBufferSize || currentChannels != lastChannels) {
+          bufferFrames = currentBufferSize;
+          const int newReadSamples = bufferFrames * audioEngine->getChannels();
+          readBuffer.resize(newReadSamples);
+        }
+
+        // Update tracking variables
+        lastEngineTypeStr = currentEngineStr;
+        lastDeviceName = currentDeviceName;
+        lastSampleRate = currentSampleRate;
+        lastChannels = currentChannels;
+        lastBufferSize = currentBufferSize;
+      }
+
+      // Check if FFT size has changed
+      int currentFftSize = Config::values().audio.fft_size;
+      if (currentFftSize != lastFftSize) {
+
+        // Clean up old FFTW resources
+        fftwf_destroy_plan(plan);
+        fftwf_free(in);
+        fftwf_free(out);
+
+        // Create new FFTW resources
+        FFT_SIZE = currentFftSize;
+        out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
+        in = fftwf_alloc_real(FFT_SIZE);
+        plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
+        lastFftSize = FFT_SIZE;
+
+        // Resize AudioData FFT vectors to match new FFT size
+        std::unique_lock<std::mutex> lock(audioData->mutex);
+        const size_t fftBins = FFT_SIZE / 2 + 1;
+        audioData->fftMagnitudesMid.resize(fftBins, 0.0f);
+        audioData->prevFftMagnitudesMid.resize(fftBins, 0.0f);
+        audioData->smoothedMagnitudesMid.resize(fftBins, 0.0f);
+        audioData->interpolatedValuesMid.resize(fftBins, 0.0f);
+        audioData->fftMagnitudesSide.resize(fftBins, 0.0f);
+        audioData->prevFftMagnitudesSide.resize(fftBins, 0.0f);
+        audioData->smoothedMagnitudesSide.resize(fftBins, 0.0f);
+        audioData->interpolatedValuesSide.resize(fftBins, 0.0f);
+        lock.unlock();
+      }
+
+      // Check if FFT skip frames has changed
+      int currentFftSkipFrames = Config::values().audio.fft_skip_frames;
+      if (currentFftSkipFrames != lastFftSkipFrames) {
+        FFT_SKIP_FRAMES = currentFftSkipFrames;
+        lastFftSkipFrames = currentFftSkipFrames;
+      }
+
+      // Check if audio buffer size has changed (this affects the circular buffer in AudioData)
+      size_t currentAudioBufferSize = Config::values().audio.buffer_size;
+      size_t currentDisplaySamples = Config::values().audio.display_samples;
+      if (currentAudioBufferSize != audioData->bufferSize || currentDisplaySamples != audioData->displaySamples) {
+
+        // Lock mutex to safely resize buffers
+        std::unique_lock<std::mutex> lock(audioData->mutex);
+
+        // Update AudioData buffer sizes
+        audioData->bufferSize = currentAudioBufferSize;
+        audioData->displaySamples = currentDisplaySamples;
+
+        // Resize circular buffers
+        audioData->bufferMid.resize(audioData->bufferSize, 0.0f);
+        audioData->bufferSide.resize(audioData->bufferSize, 0.0f);
+        audioData->bandpassedMid.resize(audioData->bufferSize, 0.0f);
+
+        // Reset write position to avoid out-of-bounds access
+        audioData->writePos = 0;
+
+        lock.unlock();
+      }
+    }
+
+    // Update READ_SAMPLES based on current engine
+    const int READ_SAMPLES = bufferFrames * audioEngine->getChannels();
 
     if (!audioEngine->readAudio(readBuffer.data(), bufferFrames)) {
       std::cerr << "Failed to read from audio engine: " << audioEngine->getLastError() << std::endl;
@@ -282,8 +383,8 @@ void audioThread(AudioData* audioData) {
 
     // Unified pitch/peak detection using configurable frequency range
     int sampleRate = audioEngine->getSampleRate();
-    const float minFreq = state.fft_min_freq;
-    const float maxFreq = state.fft_max_freq;
+    const float minFreq = fft_cfg.min_freq;
+    const float maxFreq = fft_cfg.max_freq;
     const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
 
     int minBin = static_cast<int>(minFreq * fftSize / sampleRate);
@@ -346,10 +447,13 @@ void audioThread(AudioData* audioData) {
     audioData->peakDb = peakDb;
 
     // Check if we have a valid peak (above silence threshold)
-    audioData->hasValidPeak = (peakDb > state.silence_threshold);
+    audioData->hasValidPeak = (peakDb > audio_cfg.silence_threshold);
 
     // Convert to note
-    freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, state);
+    static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+    const char* const* noteNames = (fft_cfg.note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
+    freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, noteNames);
 
     // Update pitch-related data based on validity
     if (audioData->hasValidPeak) {
@@ -377,7 +481,7 @@ void audioThread(AudioData* audioData) {
       float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
       float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
       state.fftInterpolation =
-          state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * state.fft_smoothing_factor;
+          state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * audio_cfg.smoothing_factor;
       state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
     }
 
@@ -405,8 +509,8 @@ void audioThread(AudioData* audioData) {
 
       // Calculate the difference and determine if we're rising or falling
       float diff = currentDb - previousDb;
-      float fallSpeed = audioData->fftHovering ? state.fft_hover_fall_speed : state.fft_fall_speed;
-      float speed = (diff > 0) ? state.fft_rise_speed : fallSpeed;
+      float fallSpeed = audioData->fftHovering ? audio_cfg.hover_fall_speed : audio_cfg.fall_speed;
+      float speed = (diff > 0) ? audio_cfg.rise_speed : fallSpeed;
 
       // Apply speed-based smoothing in dB space
       float maxChange = speed * dt;
@@ -433,8 +537,8 @@ void audioThread(AudioData* audioData) {
 
       // Calculate the difference and determine if we're rising or falling
       float diff = currentDb - previousDb;
-      float fallSpeed = audioData->fftHovering ? state.fft_hover_fall_speed : state.fft_fall_speed;
-      float speed = (diff > 0) ? state.fft_rise_speed : fallSpeed;
+      float fallSpeed = audioData->fftHovering ? audio_cfg.hover_fall_speed : audio_cfg.fall_speed;
+      float speed = (diff > 0) ? audio_cfg.rise_speed : fallSpeed;
 
       // Apply speed-based smoothing in dB space
       float maxChange = speed * dt;
@@ -452,6 +556,32 @@ void audioThread(AudioData* audioData) {
   fftwf_free(out);
 
   audioEngine->cleanup();
+}
+
+void freqToNote(float freq, std::string& noteName, int& octave, int& cents, const char* const* noteNames) {
+  if (freq <= 0.0f) {
+    noteName = "-";
+    octave = 0;
+    cents = 0;
+    return;
+  }
+
+  // Calculate MIDI note number (A4 = 440Hz = MIDI 69)
+  float midi = 69.0f + 12.0f * log2f(freq / 440.0f);
+
+  // Handle out of range values
+  if (midi < 0.0f || midi > 127.0f) {
+    noteName = "-";
+    octave = 0;
+    cents = 0;
+    return;
+  }
+
+  int midiInt = (int)roundf(midi);
+  int noteIdx = (midiInt + 1200) % 12; // +1200 for negative safety
+  octave = midiInt / 12 - 1;
+  noteName = noteNames[noteIdx];
+  cents = (int)roundf((midi - midiInt) * 100.0f);
 }
 
 } // namespace AudioProcessing

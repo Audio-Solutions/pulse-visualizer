@@ -25,8 +25,8 @@ std::string expandUserPath(const std::string& path) {
 }
 
 // Define static members
-ThemeDefinition ThemeManager::currentTheme;
-std::unordered_map<std::string, ThemeDefinition> ThemeManager::availableThemes;
+ThemeColors ThemeManager::currentTheme;
+std::unordered_map<std::string, ThemeColors> ThemeManager::availableThemes;
 std::string ThemeManager::currentThemePath;
 time_t ThemeManager::lastThemeMTime = 0;
 size_t ThemeManager::lastConfigVersion = 0;
@@ -34,8 +34,9 @@ size_t ThemeManager::themeVersion = 0;
 
 void ThemeManager::initialize() {
   if (availableThemes.empty()) {
-    // Load theme from config instead of loading all theme files
-    loadThemeFromConfig();
+    // Initialize with defaults and load theme from config
+    currentTheme.initializeDefaults();
+    bool success = loadThemeFromConfig();
     lastConfigVersion = Config::getVersion();
   }
 }
@@ -48,17 +49,11 @@ void ThemeManager::setTheme(const std::string& name) {
   }
 }
 
-const ThemeDefinition& ThemeManager::getCurrentTheme() { return currentTheme; }
-
-void ThemeManager::registerTheme(const std::string& name, const ThemeDefinition& theme) {
-  availableThemes[name] = theme;
-}
-
 size_t ThemeManager::getVersion() { return themeVersion; }
 
 bool ThemeManager::loadThemeFromConfig() {
   try {
-    std::string themeName = Config::getString("window.default_theme");
+    std::string themeName = Config::values().window.default_theme;
     return loadThemeFromFile(themeName);
   } catch (...) {
     // Fallback to mocha theme if config fails
@@ -126,7 +121,8 @@ bool ThemeManager::loadThemeFromFile(const std::string& filename) {
     lastThemeMTime = st.st_mtime;
   }
 
-  ThemeDefinition theme;
+  ThemeColors theme;
+  theme.initializeDefaults();
   std::string line;
 
   while (std::getline(file, line)) {
@@ -171,26 +167,26 @@ bool ThemeManager::loadThemeFromFile(const std::string& filename) {
   return true;
 }
 
-bool ThemeManager::validatePrimaryColors(const ThemeDefinition& theme, const std::string& filename) {
+bool ThemeManager::validatePrimaryColors(const ThemeColors& theme, const std::string& filename) {
   std::vector<std::string> missingColors;
 
-  // Check if primary colors were parsed
-  if (!theme.hasColor) {
+  // Check if primary colors were set (not still black/default)
+  if (theme.visualizer[0] == 0.0f && theme.visualizer[1] == 0.0f && theme.visualizer[2] == 0.0f) {
     missingColors.push_back("color");
   }
-  if (!theme.hasSelection) {
+  if (theme.selection[0] == 0.0f && theme.selection[1] == 0.0f && theme.selection[2] == 0.0f) {
     missingColors.push_back("selection");
   }
-  if (!theme.hasText) {
+  if (theme.text[0] == 0.0f && theme.text[1] == 0.0f && theme.text[2] == 0.0f) {
     missingColors.push_back("text");
   }
-  if (!theme.hasAccent) {
+  if (theme.accent[0] == 0.0f && theme.accent[1] == 0.0f && theme.accent[2] == 0.0f) {
     missingColors.push_back("accent");
   }
-  if (!theme.hasBg) {
+  if (theme.background[0] == 0.0f && theme.background[1] == 0.0f && theme.background[2] == 0.0f) {
     missingColors.push_back("bg");
   }
-  if (!theme.hasBgaccent) {
+  if (theme.bgaccent[0] == 0.0f && theme.bgaccent[1] == 0.0f && theme.bgaccent[2] == 0.0f) {
     missingColors.push_back("bgaccent");
   }
 
@@ -206,261 +202,198 @@ bool ThemeManager::validatePrimaryColors(const ThemeDefinition& theme, const std
   return true;
 }
 
-const ThemeDefinition* ThemeManager::getExtendedTheme(const std::string& name) {
-  auto it = availableThemes.find(name);
-  return it != availableThemes.end() ? &it->second : nullptr;
+// Convenience methods to access current theme colors (returning Color objects for compatibility)
+Color ThemeManager::getBackground() {
+  return Color(currentTheme.background[0], currentTheme.background[1], currentTheme.background[2],
+               currentTheme.background[3]);
+}
+Color ThemeManager::getGrid() {
+  return Color(currentTheme.grid[0], currentTheme.grid[1], currentTheme.grid[2], currentTheme.grid[3]);
+}
+Color ThemeManager::getVisualizer() {
+  return Color(currentTheme.visualizer[0], currentTheme.visualizer[1], currentTheme.visualizer[2],
+               currentTheme.visualizer[3]);
+}
+Color ThemeManager::getSplitter() {
+  return Color(currentTheme.splitter[0], currentTheme.splitter[1], currentTheme.splitter[2], currentTheme.splitter[3]);
+}
+Color ThemeManager::getText() {
+  return Color(currentTheme.text[0], currentTheme.text[1], currentTheme.text[2], currentTheme.text[3]);
+}
+Color ThemeManager::getAccent() {
+  return Color(currentTheme.accent[0], currentTheme.accent[1], currentTheme.accent[2], currentTheme.accent[3]);
+}
+Color ThemeManager::getWarning() {
+  return Color(currentTheme.visualizer[0], currentTheme.visualizer[1], currentTheme.visualizer[2],
+               currentTheme.visualizer[3]);
+}
+Color ThemeManager::getError() {
+  return Color(currentTheme.visualizer[0], currentTheme.visualizer[1], currentTheme.visualizer[2],
+               currentTheme.visualizer[3]);
+}
+Color ThemeManager::getSuccess() {
+  return Color(currentTheme.visualizer[0], currentTheme.visualizer[1], currentTheme.visualizer[2],
+               currentTheme.visualizer[3]);
+}
+Color ThemeManager::getLissajous() {
+  return Color(currentTheme.lissajous[0], currentTheme.lissajous[1], currentTheme.lissajous[2],
+               currentTheme.lissajous[3]);
+}
+Color ThemeManager::getOscilloscope() {
+  return Color(currentTheme.oscilloscope[0], currentTheme.oscilloscope[1], currentTheme.oscilloscope[2],
+               currentTheme.oscilloscope[3]);
+}
+Color ThemeManager::getWaveform() {
+  return Color(currentTheme.waveform[0], currentTheme.waveform[1], currentTheme.waveform[2], currentTheme.waveform[3]);
+}
+Color ThemeManager::getSpectrum() {
+  return Color(currentTheme.spectrum[0], currentTheme.spectrum[1], currentTheme.spectrum[2], currentTheme.spectrum[3]);
+}
+Color ThemeManager::getSpectrogramLow() {
+  return Color(currentTheme.spectrogramLow[0], currentTheme.spectrogramLow[1], currentTheme.spectrogramLow[2],
+               currentTheme.spectrogramLow[3]);
+}
+Color ThemeManager::getSpectrogramHigh() {
+  return Color(currentTheme.spectrogramHigh[0], currentTheme.spectrogramHigh[1], currentTheme.spectrogramHigh[2],
+               currentTheme.spectrogramHigh[3]);
+}
+bool ThemeManager::invertNoiseBrightness() { return currentTheme.invertNoiseBrightness; }
+
+const ThemeColors& ThemeManager::colors() { return currentTheme; }
+
+void ThemeManager::setColorFromArray(float dest[4], const Color& src) {
+  dest[0] = src.r;
+  dest[1] = src.g;
+  dest[2] = src.b;
+  dest[3] = src.a;
 }
 
-// Convenience methods to access current theme colors with proper mapping
-const Color& ThemeManager::getBackground() { return currentTheme.bg; }
-const Color& ThemeManager::getGrid() { return currentTheme.accent; }
-const Color& ThemeManager::getVisualizer() { return currentTheme.color; }
-const Color& ThemeManager::getSplitter() { return currentTheme.accent; }
-const Color& ThemeManager::getText() { return currentTheme.text; }
-const Color& ThemeManager::getAccent() { return currentTheme.accent; }
-const Color& ThemeManager::getWarning() { return currentTheme.color; }
-const Color& ThemeManager::getError() { return currentTheme.color; }
-const Color& ThemeManager::getSuccess() { return currentTheme.color; }
-const Color& ThemeManager::getLissajous() { return currentTheme.color; }
-const Color& ThemeManager::getOscilloscope() { return currentTheme.oscilloscopeMain; }
-const Color& ThemeManager::getWaveform() { return currentTheme.waveform; }
-const Color& ThemeManager::getSpectrum() { return currentTheme.spectrumAnalyzerMain; }
-const Color& ThemeManager::getSpectrogramLow() { return currentTheme.spectrogramLow; }
-const Color& ThemeManager::getSpectrogramHigh() { return currentTheme.spectrogramHigh; }
-const bool ThemeManager::invertNoiseBrightness() { return currentTheme.waveformInvertNoiseBrightness == 1; }
+void ThemeManager::applyFallbacks(ThemeColors& theme) {
+  // Apply fallbacks: copy from primary visualizer color to oscilloscope/lissajous
+  // These were set during parsing, so if they're still (0,0,0,1), apply fallbacks
 
-void ThemeManager::applyFallbacks(ThemeDefinition& theme) {
-  // Apply fallbacks for optional colors based on primary colors only if they weren't parsed
-  if (!theme.hasWaveform) {
-    theme.waveform = theme.color;
-  }
-
-  if (!theme.hasOscilloscopeMain) {
-    theme.oscilloscopeMain = theme.color;
-  }
-
-  if (!theme.hasOscilloscopeBg) {
-    theme.oscilloscopeBg = theme.bgaccent;
-  }
-
-  if (!theme.hasSpectrumAnalyzerMain) {
-    theme.spectrumAnalyzerMain = theme.color;
-  }
-
-  if (!theme.hasSpectrumAnalyzerSecondary) {
-    theme.spectrumAnalyzerSecondary = theme.accent;
-  }
-
-  if (!theme.hasSpectrumAnalyzerFrequencyLines) {
-    theme.spectrumAnalyzerFrequencyLines = theme.accent;
-  }
-
-  if (!theme.hasSpectrumAnalyzerReferenceLine) {
-    theme.spectrumAnalyzerReferenceLine = theme.accent;
-  }
-
-  if (!theme.hasSpectrumAnalyzerThresholdLine) {
-    theme.spectrumAnalyzerThresholdLine = theme.color;
-  }
-
-  if (!theme.hasSpectrogramMain) {
-    theme.spectrogramMain = theme.color;
-  }
-
-  if (!theme.hasSpectrogramLow) {
-    theme.spectrogramLow = theme.bg;
-  }
-
-  if (!theme.hasSpectrogramHigh) {
-    theme.spectrogramHigh = theme.color;
-  }
-
-  if (!theme.hasColorBarsMain) {
-    theme.colorBarsMain = theme.color;
-  }
-
-  if (!theme.hasErrorBar) {
-    theme.errorBar = theme.color;
-  }
-}
-
-void ThemeManager::parseThemeValue(const std::string& key, const std::string& value, ThemeDefinition& theme) {
-  if (key == "credit") {
-    // Remove quotes if present
-    if (value.length() >= 2 && value[0] == '"' && value[value.length() - 1] == '"') {
-      theme.credit = value.substr(1, value.length() - 2);
-    } else {
-      theme.credit = value;
+  // Check if oscilloscope color is still default black, use visualizer color
+  if (theme.oscilloscope[0] == 0.0f && theme.oscilloscope[1] == 0.0f && theme.oscilloscope[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.oscilloscope[i] = theme.visualizer[i];
     }
-  } else if (key == "color") {
+  }
+
+  // Check if lissajous color is still default black, use visualizer color
+  if (theme.lissajous[0] == 0.0f && theme.lissajous[1] == 0.0f && theme.lissajous[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.lissajous[i] = theme.visualizer[i];
+    }
+  }
+
+  // Apply other fallbacks as needed
+  if (theme.waveform[0] == 0.0f && theme.waveform[1] == 0.0f && theme.waveform[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.waveform[i] = theme.visualizer[i];
+    }
+  }
+
+  if (theme.spectrum[0] == 0.0f && theme.spectrum[1] == 0.0f && theme.spectrum[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.spectrum[i] = theme.visualizer[i];
+    }
+  }
+
+  if (theme.spectrogramLow[0] == 0.0f && theme.spectrogramLow[1] == 0.0f && theme.spectrogramLow[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.spectrogramLow[i] = theme.background[i];
+    }
+  }
+
+  if (theme.spectrogramHigh[0] == 0.0f && theme.spectrogramHigh[1] == 0.0f && theme.spectrogramHigh[2] == 0.0f) {
+    for (int i = 0; i < 4; ++i) {
+      theme.spectrogramHigh[i] = theme.visualizer[i];
+    }
+  }
+}
+
+void ThemeManager::parseThemeValue(const std::string& key, const std::string& value, ThemeColors& theme) {
+  // Parse a color and store it in the destination array
+  auto setColorIfValid = [&](float dest[4]) {
     auto color = parseColor(value);
     if (color.has_value()) {
-      theme.color = color.value();
-      theme.hasColor = true;
+      theme.setColor(dest, color.value());
     }
+  };
+
+  // Primary colors
+  if (key == "color") {
+    setColorIfValid(theme.visualizer);
   } else if (key == "selection") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.selection = color.value();
-      theme.hasSelection = true;
-    }
+    setColorIfValid(theme.selection);
   } else if (key == "text") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.text = color.value();
-      theme.hasText = true;
-    }
+    setColorIfValid(theme.text);
   } else if (key == "accent") {
+    setColorIfValid(theme.accent);
+    // Also set grid and splitter to accent
     auto color = parseColor(value);
     if (color.has_value()) {
-      theme.accent = color.value();
-      theme.hasAccent = true;
+      theme.setColor(theme.grid, color.value());
+      theme.setColor(theme.splitter, color.value());
     }
   } else if (key == "bg") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.bg = color.value();
-      theme.hasBg = true;
-    }
+    setColorIfValid(theme.background);
   } else if (key == "bgaccent") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.bgaccent = color.value();
-      theme.hasBgaccent = true;
-    }
-  } else if (key == "waveform") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.waveform = color.value();
-      theme.hasWaveform = true;
-    }
-  } else if (key == "waveform_low") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.waveformLow = color.value();
-      theme.hasWaveformLow = true;
-    }
-  } else if (key == "waveform_mid") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.waveformMid = color.value();
-      theme.hasWaveformMid = true;
-    }
-  } else if (key == "waveform_high") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.waveformHigh = color.value();
-      theme.hasWaveformHigh = true;
-    }
-  } else if (key == "oscilloscope_main") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.oscilloscopeMain = color.value();
-      theme.hasOscilloscopeMain = true;
-    }
+    setColorIfValid(theme.bgaccent);
+  }
+
+  // Visualizer-specific colors
+  else if (key == "oscilloscope_main") {
+    setColorIfValid(theme.oscilloscope);
   } else if (key == "oscilloscope_bg") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.oscilloscopeBg = color.value();
-      theme.hasOscilloscopeBg = true;
-    }
-  } else if (key == "stereometer") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.stereometer = color.value();
-      theme.hasStereometer = true;
-    }
-  } else if (key == "stereometer_low") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.stereometerLow = color.value();
-      theme.hasStereometerLow = true;
-    }
-  } else if (key == "stereometer_mid") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.stereometerMid = color.value();
-      theme.hasStereometerMid = true;
-    }
-  } else if (key == "stereometer_high") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.stereometerHigh = color.value();
-      theme.hasStereometerHigh = true;
-    }
+    setColorIfValid(theme.oscilloscopeBg);
+  } else if (key == "waveform") {
+    setColorIfValid(theme.waveform);
+  } else if (key == "waveform_low") {
+    setColorIfValid(theme.waveformLow);
+  } else if (key == "waveform_mid") {
+    setColorIfValid(theme.waveformMid);
+  } else if (key == "waveform_high") {
+    setColorIfValid(theme.waveformHigh);
   } else if (key == "spectrum_analyzer_main") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrumAnalyzerMain = color.value();
-      theme.hasSpectrumAnalyzerMain = true;
-    }
+    setColorIfValid(theme.spectrum);
   } else if (key == "spectrum_analyzer_secondary") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrumAnalyzerSecondary = color.value();
-      theme.hasSpectrumAnalyzerSecondary = true;
-    }
+    setColorIfValid(theme.spectrumAnalyzerSecondary);
   } else if (key == "spectrum_analyzer_frequency_lines") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrumAnalyzerFrequencyLines = color.value();
-      theme.hasSpectrumAnalyzerFrequencyLines = true;
-    }
+    setColorIfValid(theme.spectrumAnalyzerFrequencyLines);
   } else if (key == "spectrum_analyzer_reference_line") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrumAnalyzerReferenceLine = color.value();
-      theme.hasSpectrumAnalyzerReferenceLine = true;
-    }
+    setColorIfValid(theme.spectrumAnalyzerReferenceLine);
   } else if (key == "spectrum_analyzer_threshold_line") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrumAnalyzerThresholdLine = color.value();
-      theme.hasSpectrumAnalyzerThresholdLine = true;
-    }
+    setColorIfValid(theme.spectrumAnalyzerThresholdLine);
   } else if (key == "spectrogram_low") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrogramLow = color.value();
-      theme.hasSpectrogramLow = true;
-    }
+    setColorIfValid(theme.spectrogramLow);
   } else if (key == "spectrogram_high") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrogramHigh = color.value();
-      theme.hasSpectrogramHigh = true;
-    }
-  } else if (key == "color_bars_low") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.colorBarsLow = color.value();
-      theme.hasColorBarsLow = true;
-    }
-  } else if (key == "color_bars_high") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.colorBarsHigh = color.value();
-      theme.hasColorBarsHigh = true;
-    }
+    setColorIfValid(theme.spectrogramHigh);
   } else if (key == "spectrogram_main") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.spectrogramMain = color.value();
-      theme.hasSpectrogramMain = true;
-    }
+    setColorIfValid(theme.spectrogramMain);
+  }
+
+  // Extended colors
+  else if (key == "stereometer") {
+    setColorIfValid(theme.stereometer);
+  } else if (key == "stereometer_low") {
+    setColorIfValid(theme.stereometerLow);
+  } else if (key == "stereometer_mid") {
+    setColorIfValid(theme.stereometerMid);
+  } else if (key == "stereometer_high") {
+    setColorIfValid(theme.stereometerHigh);
+  } else if (key == "color_bars_low") {
+    setColorIfValid(theme.colorBarsLow);
+  } else if (key == "color_bars_high") {
+    setColorIfValid(theme.colorBarsHigh);
   } else if (key == "color_bars_main") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.colorBarsMain = color.value();
-      theme.hasColorBarsMain = true;
-    }
+    setColorIfValid(theme.colorBarsMain);
   } else if (key == "error_bar") {
-    auto color = parseColor(value);
-    if (color.has_value()) {
-      theme.errorBar = color.value();
-      theme.hasErrorBar = true;
-    }
-  } else if (key == "rgb_waveform_opacity_with_history") {
+    setColorIfValid(theme.errorBar);
+  }
+
+  // Properties
+  else if (key == "rgb_waveform_opacity_with_history") {
     try {
       theme.rgbWaveformOpacityWithHistory = std::stoi(value);
     } catch (...) {
@@ -477,7 +410,7 @@ void ThemeManager::parseThemeValue(const std::string& key, const std::string& va
     }
   } else if (key == "waveform_invert_noise_brightness") {
     try {
-      theme.waveformInvertNoiseBrightness = std::stoi(value);
+      theme.invertNoiseBrightness = (std::stoi(value) == 1);
     } catch (...) {
     }
   } else if (key == "color_bars_opacity") {

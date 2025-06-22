@@ -15,6 +15,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 ## Features
 
 - Real-time audio visualization
+- Live configuration updates
 - Multiple visualization styles:
 	- Lissajous curve with toggleable phosphor-like effect and Catmull-Rom spline interpolation
 	- Oscilloscope with configurable gradient modes, Catmull-Rom spline interpolation and toggleable phosphor-like effect

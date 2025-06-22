@@ -51,6 +51,13 @@ public:
 
   // Get last error message
   virtual std::string getLastError() const = 0;
+
+  // Check if current config matches desired config
+  virtual bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100,
+                                    uint32_t channels = 2, uint32_t bufferSize = 512) const = 0;
+
+  // Get current device name
+  virtual std::string getCurrentDevice() const = 0;
 };
 
 // Factory function to create audio engines

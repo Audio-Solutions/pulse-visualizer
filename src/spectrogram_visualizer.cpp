@@ -10,65 +10,6 @@
 #include <complex>
 #include <vector>
 
-// Initialize static members
-float SpectrogramVisualizer::time_window = 0.0f;
-float SpectrogramVisualizer::min_db = 0.0f;
-float SpectrogramVisualizer::max_db = 0.0f;
-bool SpectrogramVisualizer::interpolation = false;
-std::string SpectrogramVisualizer::frequency_scale = "";
-float SpectrogramVisualizer::min_freq = 0.0f;
-float SpectrogramVisualizer::max_freq = 0.0f;
-size_t SpectrogramVisualizer::lastConfigVersion = 0;
-float SpectrogramVisualizer::cachedSpectrogramColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-float SpectrogramVisualizer::cachedSpectrogramLowColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-float SpectrogramVisualizer::cachedSpectrogramHighColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-float SpectrogramVisualizer::cachedBackgroundColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-size_t SpectrogramVisualizer::lastThemeVersion = 0;
-
-void SpectrogramVisualizer::updateCachedValues() {
-  bool configChanged = Config::getVersion() != lastConfigVersion;
-  bool themeChanged = Theme::ThemeManager::getVersion() != lastThemeVersion;
-
-  if (configChanged) {
-    time_window = Config::getFloat("spectrogram.time_window");
-    min_db = Config::getFloat("spectrogram.min_db");
-    max_db = Config::getFloat("spectrogram.max_db");
-    interpolation = Config::getBool("spectrogram.interpolation");
-    frequency_scale = Config::getString("spectrogram.frequency_scale");
-    min_freq = Config::getFloat("spectrogram.min_freq");
-    max_freq = Config::getFloat("spectrogram.max_freq");
-    lastConfigVersion = Config::getVersion();
-  }
-
-  if (themeChanged) {
-    const auto& spectrogramColor = Theme::ThemeManager::getSpectrum();
-    cachedSpectrogramColor[0] = spectrogramColor.r;
-    cachedSpectrogramColor[1] = spectrogramColor.g;
-    cachedSpectrogramColor[2] = spectrogramColor.b;
-    cachedSpectrogramColor[3] = spectrogramColor.a;
-
-    const auto& spectrogramLowColor = Theme::ThemeManager::getSpectrogramLow();
-    cachedSpectrogramLowColor[0] = spectrogramLowColor.r;
-    cachedSpectrogramLowColor[1] = spectrogramLowColor.g;
-    cachedSpectrogramLowColor[2] = spectrogramLowColor.b;
-    cachedSpectrogramLowColor[3] = spectrogramLowColor.a;
-
-    const auto& spectrogramHighColor = Theme::ThemeManager::getSpectrogramHigh();
-    cachedSpectrogramHighColor[0] = spectrogramHighColor.r;
-    cachedSpectrogramHighColor[1] = spectrogramHighColor.g;
-    cachedSpectrogramHighColor[2] = spectrogramHighColor.b;
-    cachedSpectrogramHighColor[3] = spectrogramHighColor.a;
-
-    const auto& backgroundColor = Theme::ThemeManager::getBackground();
-    cachedBackgroundColor[0] = backgroundColor.r;
-    cachedBackgroundColor[1] = backgroundColor.g;
-    cachedBackgroundColor[2] = backgroundColor.b;
-    cachedBackgroundColor[3] = backgroundColor.a;
-
-    lastThemeVersion = Theme::ThemeManager::getVersion();
-  }
-}
-
 void SpectrogramVisualizer::initializeTexture(int targetWidth, int targetHeight) {
   if (spectrogramTexture == 0) {
     glGenTextures(1, &spectrogramTexture);
@@ -93,11 +34,12 @@ void SpectrogramVisualizer::initializeTexture(int targetWidth, int targetHeight)
     textureHeight = targetHeight;
 
     // Create new texture data filled with background color
+    const auto& colors = Theme::ThemeManager::colors();
     std::vector<float> backgroundData(textureWidth * textureHeight * 3);
     for (size_t i = 0; i < backgroundData.size(); i += 3) {
-      backgroundData[i] = cachedBackgroundColor[0];     // R
-      backgroundData[i + 1] = cachedBackgroundColor[1]; // G
-      backgroundData[i + 2] = cachedBackgroundColor[2]; // B
+      backgroundData[i] = colors.background[0];     // R
+      backgroundData[i + 1] = colors.background[1]; // G
+      backgroundData[i + 2] = colors.background[2]; // B
     }
 
     // Copy old data to new texture if it exists
@@ -129,18 +71,20 @@ void SpectrogramVisualizer::initializeTexture(int targetWidth, int targetHeight)
       currentColumn = 0;
     }
 
+    const auto& scfg = Config::values().spectrogram;
     glBindTexture(GL_TEXTURE_2D, spectrogramTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, backgroundData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, interpolation ? GL_LINEAR : GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, interpolation ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, scfg.interpolation ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, scfg.interpolation ? GL_LINEAR : GL_NEAREST);
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 }
 
 float SpectrogramVisualizer::dbToColor(float db) const {
-  float normalized = (db - min_db) / (max_db - min_db);
+  const auto& scfg = Config::values().spectrogram;
+  float normalized = (db - scfg.min_db) / (scfg.max_db - scfg.min_db);
   return std::max(0.0f, std::min(1.0f, normalized));
 }
 
@@ -211,13 +155,14 @@ void SpectrogramVisualizer::mapFrequencyToSpectrum(const std::vector<float>& fft
   if (fftMagnitudes.empty())
     return;
 
+  const auto& scfg = Config::values().spectrogram;
   float nyquist = sampleRate * 0.5f;
   float binWidth = nyquist / (fftMagnitudes.size() - 1);
 
-  if (frequency_scale == "log") {
+  if (scfg.frequency_scale == "log") {
     // Logarithmic frequency mapping
-    float logMinFreq = log10f(std::max(min_freq, 1.0f));
-    float logMaxFreq = log10f(std::min(max_freq, nyquist));
+    float logMinFreq = log10f(std::max(scfg.min_freq, 1.0f));
+    float logMaxFreq = log10f(std::min(scfg.max_freq, nyquist));
     float logRange = logMaxFreq - logMinFreq;
 
     for (size_t i = 0; i < spectrum.size(); ++i) {
@@ -243,12 +188,12 @@ void SpectrogramVisualizer::mapFrequencyToSpectrum(const std::vector<float>& fft
     }
   } else {
     // Linear frequency mapping
-    float freqRange = std::min(max_freq, nyquist) - min_freq;
+    float freqRange = std::min(scfg.max_freq, nyquist) - scfg.min_freq;
 
     for (size_t i = 0; i < spectrum.size(); ++i) {
       // Map display bin to frequency
       float normalizedPos = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
-      float targetFreq = min_freq + normalizedPos * freqRange;
+      float targetFreq = scfg.min_freq + normalizedPos * freqRange;
 
       // Find corresponding FFT bin
       float exactBin = targetFreq / binWidth;
@@ -281,13 +226,14 @@ void SpectrogramVisualizer::updateSpectrogramColumn(const AudioData& audioData) 
   mapFrequencyToSpectrum(audioData.fftMagnitudesMid, spectrum, audioData.sampleRate);
 
   // Prepare column data for texture update - start with background color
+  const auto& colors = Theme::ThemeManager::colors();
   std::vector<float> columnData(textureHeight * 3);
 
   // Fill with background color first
   for (size_t i = 0; i < columnData.size(); i += 3) {
-    columnData[i] = cachedBackgroundColor[0];     // R
-    columnData[i + 1] = cachedBackgroundColor[1]; // G
-    columnData[i + 2] = cachedBackgroundColor[2]; // B
+    columnData[i] = colors.background[0];     // R
+    columnData[i + 1] = colors.background[1]; // G
+    columnData[i + 2] = colors.background[2]; // B
   }
 
   // Then overlay spectrum data
@@ -304,10 +250,8 @@ void SpectrogramVisualizer::updateSpectrogramColumn(const AudioData& audioData) 
         // Convert low and high colors to HSV
         float lowH, lowS, lowV;
         float highH, highS, highV;
-        rgbToHsv(cachedSpectrogramLowColor[0], cachedSpectrogramLowColor[1], cachedSpectrogramLowColor[2], lowH, lowS,
-                 lowV);
-        rgbToHsv(cachedSpectrogramHighColor[0], cachedSpectrogramHighColor[1], cachedSpectrogramHighColor[2], highH,
-                 highS, highV);
+        rgbToHsv(colors.spectrogramLow[0], colors.spectrogramLow[1], colors.spectrogramLow[2], lowH, lowS, lowV);
+        rgbToHsv(colors.spectrogramHigh[0], colors.spectrogramHigh[1], colors.spectrogramHigh[2], highH, highS, highV);
 
         // Interpolate hue - force going through the warmer colors (reds/oranges)
         // For purple (~270°) to yellow (~60°), we want: purple → red → orange → yellow
@@ -342,9 +286,9 @@ void SpectrogramVisualizer::updateSpectrogramColumn(const AudioData& audioData) 
 
         // Blend interpolated color over background
         size_t pixelOffset = i * 3;
-        columnData[pixelOffset] = cachedBackgroundColor[0] * (1.0f - intensity) + r * intensity;
-        columnData[pixelOffset + 1] = cachedBackgroundColor[1] * (1.0f - intensity) + g * intensity;
-        columnData[pixelOffset + 2] = cachedBackgroundColor[2] * (1.0f - intensity) + b * intensity;
+        columnData[pixelOffset] = colors.background[0] * (1.0f - intensity) + r * intensity;
+        columnData[pixelOffset + 1] = colors.background[1] * (1.0f - intensity) + g * intensity;
+        columnData[pixelOffset + 2] = colors.background[2] * (1.0f - intensity) + b * intensity;
       }
     }
   }
@@ -362,20 +306,18 @@ void SpectrogramVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the spectrogram
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
-  // Update cached values if needed
-  updateCachedValues();
-
   // Initialize texture if needed
   initializeTexture(width, audioData.windowHeight);
 
   // Update spectrogram data based on time window
+  const auto& scfg = Config::values().spectrogram;
   static auto lastUpdate = std::chrono::steady_clock::now();
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count();
 
   // Calculate update interval based on time window and texture width
   // time_window (seconds) should represent the total time span of the texture width
-  float updateIntervalMs = (time_window * 1000.0f) / static_cast<float>(textureWidth);
+  float updateIntervalMs = (scfg.time_window * 1000.0f) / static_cast<float>(textureWidth);
 
   if (elapsed >= static_cast<long>(updateIntervalMs)) {
     updateSpectrogramColumn(audioData);

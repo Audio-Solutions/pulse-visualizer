@@ -269,13 +269,13 @@ public:
     enumerateDevices();
 
     // Set sample spec according to config
-    sample_spec.rate = Config::getInt("audio.sample_rate");
-    sample_spec.channels = Config::getInt("audio.channels");
+    sample_spec.rate = Config::values().audio.sample_rate;
+    sample_spec.channels = Config::values().audio.channels;
 
     // Derive PulseAudio buffer attributes from configurable frame count
     uint32_t buffer_frames = 0;
     try {
-      buffer_frames = static_cast<uint32_t>(Config::getInt("pulseaudio.buffer_size"));
+      buffer_frames = static_cast<uint32_t>(Config::values().pulseaudio.buffer_size);
     } catch (...) {
       buffer_frames = 512; // sensible default if the key is missing
     }
@@ -302,7 +302,7 @@ public:
 
     int error = 0;
 
-    std::string target_device = deviceName.empty() ? Config::getString("pulseaudio.default_source") : deviceName;
+    std::string target_device = deviceName.empty() ? Config::values().pulseaudio.default_source : deviceName;
     std::string source = findBestDevice(target_device);
 
     pa_stream = pa_simple_new(nullptr,               // server
@@ -371,6 +371,35 @@ public:
   bool isRunning() const override { return running; }
 
   std::string getLastError() const override { return last_error; }
+
+  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100, uint32_t channels = 2,
+                            uint32_t bufferSize = 512) const override {
+    // Check if engine parameters have changed
+    if (sample_spec.rate != sampleRate || sample_spec.channels != channels) {
+      return true;
+    }
+
+    // Check if device has changed
+    std::string targetDevice = deviceName.empty() ? Config::values().pulseaudio.default_source : deviceName;
+    if (connected_device_name != targetDevice && !connected_device_name.empty()) {
+      return true;
+    }
+
+    // Check if buffer size has changed
+    uint32_t currentBufferSize = 0;
+    try {
+      currentBufferSize = static_cast<uint32_t>(Config::values().pulseaudio.buffer_size);
+    } catch (...) {
+      currentBufferSize = 512;
+    }
+    if (currentBufferSize != bufferSize) {
+      return true;
+    }
+
+    return false;
+  }
+
+  std::string getCurrentDevice() const override { return connected_device_name; }
 };
 #endif
 
@@ -558,7 +587,7 @@ public:
     // Resize circular buffer: configurable "pipewire.buffer_size" frames (per channel)
     size_t cfg_frames = 0;
     try {
-      cfg_frames = static_cast<size_t>(Config::getInt("pipewire.buffer_size"));
+      cfg_frames = static_cast<size_t>(Config::values().pipewire.buffer_size);
     } catch (...) {
       cfg_frames = 512; // Fallback if key missing / invalid
     }
@@ -569,7 +598,7 @@ public:
     // Size the ring-buffer to N periods where N is configurable (pipewire.ring_multiplier, default 4).
     size_t ring_mult = 4;
     try {
-      ring_mult = static_cast<size_t>(Config::getInt("pipewire.ring_multiplier"));
+      ring_mult = static_cast<size_t>(Config::values().pipewire.ring_multiplier);
     } catch (...) {
     }
     ring_mult = std::clamp<size_t>(ring_mult, 2, 16); // reasonable bounds
@@ -634,13 +663,13 @@ public:
       }
     }
 
-    sample_rate = Config::getInt("audio.sample_rate");
-    channels = Config::getInt("audio.channels");
+    sample_rate = Config::values().audio.sample_rate;
+    channels = Config::values().audio.channels;
 
     // Resize circular buffer: configurable "pipewire.buffer_size" frames (per channel)
     size_t cfg_frames = 0;
     try {
-      cfg_frames = static_cast<size_t>(Config::getInt("pipewire.buffer_size"));
+      cfg_frames = static_cast<size_t>(Config::values().pipewire.buffer_size);
     } catch (...) {
       cfg_frames = 512; // Fallback if key missing / invalid
     }
@@ -651,7 +680,7 @@ public:
     // Size the ring-buffer to N periods where N is configurable (pipewire.ring_multiplier, default 4).
     size_t ring_mult = 4;
     try {
-      ring_mult = static_cast<size_t>(Config::getInt("pipewire.ring_multiplier"));
+      ring_mult = static_cast<size_t>(Config::values().pipewire.ring_multiplier);
     } catch (...) {
     }
     ring_mult = std::clamp<size_t>(ring_mult, 2, 16);
@@ -828,6 +857,35 @@ public:
   bool isRunning() const override { return running; }
 
   std::string getLastError() const override { return last_error; }
+
+  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100, uint32_t channels = 2,
+                            uint32_t bufferSize = 512) const override {
+    // Check if engine parameters have changed
+    if (sample_rate != sampleRate || this->channels != channels) {
+      return true;
+    }
+
+    // Check if device has changed
+    std::string targetDevice = deviceName.empty() ? Config::values().pipewire.default_source : deviceName;
+    if (connected_device_name != targetDevice && !connected_device_name.empty()) {
+      return true;
+    }
+
+    // Check if buffer size has changed
+    uint32_t currentBufferSize = 0;
+    try {
+      currentBufferSize = static_cast<uint32_t>(Config::values().pipewire.buffer_size);
+    } catch (...) {
+      currentBufferSize = 512;
+    }
+    if (currentBufferSize != bufferSize) {
+      return true;
+    }
+
+    return false;
+  }
+
+  std::string getCurrentDevice() const override { return connected_device_name; }
 };
 #endif
 

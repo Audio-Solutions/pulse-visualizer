@@ -5,6 +5,7 @@
 
 #include <GL/gl.h>
 #include <algorithm>
+#include <unordered_set>
 
 Splitter::Splitter(VisualizerBase* leftVisualizer, VisualizerBase* rightVisualizer, Splitter* nextSplitter,
                    bool draggable)
@@ -44,6 +45,15 @@ void Splitter::handleEvent(const SDL_Event& event, AudioData& audioData) {
 }
 
 void Splitter::update(AudioData& audioData) {
+  // Guard against accidental cycles in the splitter chain.  This is cheap and
+  // avoids a potential infinite recursion if a programming error links
+  // splitters in a loop.
+  static thread_local std::unordered_set<const Splitter*> visitGuard;
+  if (!visitGuard.insert(this).second) {
+    // Already visiting this splitter in the current call-stack – bail out.
+    return;
+  }
+
   constexpr int MIN_LEFT_WIDTH = 80;
   constexpr int MIN_RIGHT_WIDTH = 80;
   int leftEdge = leftVisualizer ? leftVisualizer->getPosition() : 0;
@@ -81,6 +91,9 @@ void Splitter::update(AudioData& audioData) {
   if (nextSplitter) {
     nextSplitter->update(audioData);
   }
+
+  // Pop from guard set on the way out so nested independent calls can run.
+  visitGuard.erase(this);
 }
 
 void Splitter::draw(const AudioData& audioData) {

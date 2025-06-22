@@ -53,6 +53,6 @@ struct AudioData {
   bool hasValidPeak = false;
 
   AudioData()
-      : bufferSize(Config::getInt("audio.buffer_size")), displaySamples(Config::getInt("audio.display_samples")),
-        windowWidth(Config::getInt("window.default_width")), windowHeight(Config::getInt("window.default_height")) {}
+      : bufferSize(Config::values().audio.buffer_size), displaySamples(Config::values().audio.display_samples),
+        windowWidth(Config::values().window.default_width), windowHeight(Config::values().window.default_height) {}
 };

@@ -15,57 +15,12 @@
 // Define to use raw signal instead of bandpassed signal for oscilloscope display (bandpassed signal is for debugging)
 #define SCOPE_USE_RAW_SIGNAL
 
-// Initialize static members
-float OscilloscopeVisualizer::amplitude_scale = 0.0f;
-std::string OscilloscopeVisualizer::gradient_mode;
-bool OscilloscopeVisualizer::enable_phosphor = false;
-int OscilloscopeVisualizer::phosphor_spline_density = 0;
-float OscilloscopeVisualizer::phosphor_max_beam_speed = 0.0f;
-float OscilloscopeVisualizer::phosphor_intensity_scale = 0.0f;
-size_t OscilloscopeVisualizer::lastConfigVersion = 0;
-float OscilloscopeVisualizer::cachedOscilloscopeColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-float OscilloscopeVisualizer::cachedBackgroundColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-size_t OscilloscopeVisualizer::lastThemeVersion = 0;
-bool OscilloscopeVisualizer::follow_pitch = false;
-
-void OscilloscopeVisualizer::updateCachedValues() {
-  bool configChanged = Config::getVersion() != lastConfigVersion;
-  bool themeChanged = Theme::ThemeManager::getVersion() != lastThemeVersion;
-
-  if (configChanged) {
-    amplitude_scale = Config::getFloat("oscilloscope.amplitude_scale");
-    gradient_mode = Config::getString("oscilloscope.gradient_mode");
-    enable_phosphor = Config::getBool("oscilloscope.enable_phosphor");
-    phosphor_spline_density = Config::getInt("oscilloscope.phosphor_spline_density");
-    phosphor_max_beam_speed = Config::getFloat("oscilloscope.phosphor_max_beam_speed");
-    phosphor_intensity_scale = Config::getFloat("oscilloscope.phosphor_intensity_scale");
-    follow_pitch = Config::getBool("oscilloscope.follow_pitch");
-    lastConfigVersion = Config::getVersion();
-  }
-
-  if (themeChanged) {
-    const auto& oscilloscopeColor = Theme::ThemeManager::getOscilloscope();
-    cachedOscilloscopeColor[0] = oscilloscopeColor.r;
-    cachedOscilloscopeColor[1] = oscilloscopeColor.g;
-    cachedOscilloscopeColor[2] = oscilloscopeColor.b;
-    cachedOscilloscopeColor[3] = oscilloscopeColor.a;
-
-    const auto& backgroundColor = Theme::ThemeManager::getBackground();
-    cachedBackgroundColor[0] = backgroundColor.r;
-    cachedBackgroundColor[1] = backgroundColor.g;
-    cachedBackgroundColor[2] = backgroundColor.b;
-    cachedBackgroundColor[3] = backgroundColor.a;
-
-    lastThemeVersion = Theme::ThemeManager::getVersion();
-  }
-}
-
 void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the oscilloscope
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
-  // Update cached values if needed
-  updateCachedValues();
+  const auto& osc = Config::values().oscilloscope;
+  const auto& colors = Theme::ThemeManager::colors();
 
   // Calculate the target position for phase correction
   size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
@@ -73,7 +28,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Use pre-computed bandpassed data for zero crossing detection
   size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle);
   size_t zeroCrossPos = targetPos;
-  if (follow_pitch && !audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
+  if (osc.follow_pitch && !audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f) {
     // Search backward for the nearest positive zero crossing in bandpassed signal
     for (size_t i = 1; i < searchRange && i < audioData.bandpassedMid.size(); i++) {
       size_t pos = (targetPos + audioData.bufferSize - i) % audioData.bufferSize;
@@ -94,17 +49,19 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
   // Calculate the start position for reading samples, adjusted for phase
   size_t startPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
-  if (follow_pitch && audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f) {
+  if (osc.follow_pitch && audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f) {
     // Move backward by the phase offset
     startPos = (startPos + audioData.bufferSize - static_cast<size_t>(phaseOffset)) % audioData.bufferSize;
   }
 
-  // Create waveform points
-  std::vector<std::pair<float, float>> waveformPoints;
+  // Re-use a static vector so we don't allocate every frame.  Capacity grows to
+  // the maximum seen and is retained for future calls.
+  static thread_local std::vector<std::pair<float, float>> waveformPoints;
+  waveformPoints.clear();
   waveformPoints.reserve(audioData.displaySamples);
 
   // Pre-compute scale factors
-  const float amplitudeScale = audioData.windowHeight * amplitude_scale;
+  const float amplitudeScale = audioData.windowHeight * osc.amplitude_scale;
   const float widthScale = static_cast<float>(width) / audioData.displaySamples;
   const float centerY = audioData.windowHeight * 0.5f;
 
@@ -121,9 +78,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
   // Draw the waveform line using OpenGL only if there's a valid peak
   if (audioData.hasValidPeak) {
-    if (enable_phosphor) {
+    if (osc.enable_phosphor) {
       // First draw the gradient background (same as non-phosphor mode)
-      if (gradient_mode == "horizontal") {
+      if (osc.gradient_mode == "horizontal") {
         // Pre-compute gradient constants
         const float invCenterY = 1.0f / centerY;
         const float gradientScale = 0.3f;
@@ -139,27 +96,27 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           distance1 = std::min(distance1, 1.0f);
           float gradientIntensity1 = distance1 * gradientScale;
           float fillColor1[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity1 + cachedBackgroundColor[0] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[1] * gradientIntensity1 + cachedBackgroundColor[1] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[2] * gradientIntensity1 + cachedBackgroundColor[2] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[3] * gradientIntensity1 + cachedBackgroundColor[3] * (1.0f - gradientIntensity1)};
+              colors.oscilloscope[0] * gradientIntensity1 + colors.background[0] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[1] * gradientIntensity1 + colors.background[1] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[2] * gradientIntensity1 + colors.background[2] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[3] * gradientIntensity1 + colors.background[3] * (1.0f - gradientIntensity1)};
 
           // Calculate gradient for p2
           float distance2 = std::abs(p2.second - centerY) * invCenterY;
           distance2 = std::min(distance2, 1.0f);
           float gradientIntensity2 = distance2 * gradientScale;
           float fillColor2[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity2 + cachedBackgroundColor[0] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[1] * gradientIntensity2 + cachedBackgroundColor[1] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[2] * gradientIntensity2 + cachedBackgroundColor[2] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[3] * gradientIntensity2 + cachedBackgroundColor[3] * (1.0f - gradientIntensity2)};
+              colors.oscilloscope[0] * gradientIntensity2 + colors.background[0] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[1] * gradientIntensity2 + colors.background[1] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[2] * gradientIntensity2 + colors.background[2] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[3] * gradientIntensity2 + colors.background[3] * (1.0f - gradientIntensity2)};
 
           // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p1.first, centerY);
           glColor4fv(fillColor1);
           glVertex2f(p1.first, p1.second);
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p2.first, centerY);
 
           // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
@@ -167,11 +124,11 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glVertex2f(p1.first, p1.second);
           glColor4fv(fillColor2);
           glVertex2f(p2.first, p2.second);
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p2.first, centerY);
         }
         glEnd();
-      } else if (gradient_mode == "vertical") {
+      } else if (osc.gradient_mode == "vertical") {
         // Pre-compute gradient constants
         const float invCenterY = 1.0f / centerY;
         const float gradientScale = 0.15f;
@@ -186,10 +143,10 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           // Create gradient color based on distance
           float gradientIntensity = distanceFromCenter * gradientScale;
           float fillColor[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity + cachedBackgroundColor[0] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[1] * gradientIntensity + cachedBackgroundColor[1] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[2] * gradientIntensity + cachedBackgroundColor[2] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[3] * gradientIntensity + cachedBackgroundColor[3] * (1.0f - gradientIntensity)};
+              colors.oscilloscope[0] * gradientIntensity + colors.background[0] * (1.0f - gradientIntensity),
+              colors.oscilloscope[1] * gradientIntensity + colors.background[1] * (1.0f - gradientIntensity),
+              colors.oscilloscope[2] * gradientIntensity + colors.background[2] * (1.0f - gradientIntensity),
+              colors.oscilloscope[3] * gradientIntensity + colors.background[3] * (1.0f - gradientIntensity)};
 
           glColor4fv(fillColor);
           glVertex2f(point.first, point.second);
@@ -223,7 +180,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         // Pre-compute constants for phosphor calculations
         const float referenceWidth = 200.0f;
         const float sizeScale = static_cast<float>(width) / referenceWidth;
-        const float scaledMaxBeamSpeed = phosphor_max_beam_speed * sizeScale;
+        const float scaledMaxBeamSpeed = osc.phosphor_max_beam_speed * sizeScale;
 
         for (size_t i = 1; i < waveformPoints.size(); ++i) {
           const auto& p1 = waveformPoints[i - 1];
@@ -241,7 +198,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           }
 
           // Calculate intensity based on beam speed and signal change rate
-          float intensity = phosphor_intensity_scale;
+          float intensity = osc.phosphor_intensity_scale;
           float segmentSpeed = segmentDistances[i - 1];
           float speedIntensity = 1.0f / (1.0f + segmentSpeed * 50.0f);
           intensity *= speedIntensity;
@@ -251,8 +208,8 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
           if (intensity > 0.001f) {
             // Calculate color with intensity
-            float color[4] = {cachedOscilloscopeColor[0] * intensity, cachedOscilloscopeColor[1] * intensity,
-                              cachedOscilloscopeColor[2] * intensity, intensity};
+            float color[4] = {colors.oscilloscope[0] * intensity, colors.oscilloscope[1] * intensity,
+                              colors.oscilloscope[2] * intensity, intensity};
 
             // Draw antialiased line segment
             Graphics::drawAntialiasedLine(p1.first, p1.second, p2.first, p2.second, color, 2.0f);
@@ -264,7 +221,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
       }
     } else {
       // Standard non-phosphor rendering
-      if (gradient_mode == "horizontal") {
+      if (osc.gradient_mode == "horizontal") {
         // Pre-compute gradient constants
         const float invCenterY = 1.0f / centerY;
         const float gradientScale = 0.3f;
@@ -280,27 +237,27 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           distance1 = std::min(distance1, 1.0f);
           float gradientIntensity1 = distance1 * gradientScale;
           float fillColor1[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity1 + cachedBackgroundColor[0] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[1] * gradientIntensity1 + cachedBackgroundColor[1] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[2] * gradientIntensity1 + cachedBackgroundColor[2] * (1.0f - gradientIntensity1),
-              cachedOscilloscopeColor[3] * gradientIntensity1 + cachedBackgroundColor[3] * (1.0f - gradientIntensity1)};
+              colors.oscilloscope[0] * gradientIntensity1 + colors.background[0] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[1] * gradientIntensity1 + colors.background[1] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[2] * gradientIntensity1 + colors.background[2] * (1.0f - gradientIntensity1),
+              colors.oscilloscope[3] * gradientIntensity1 + colors.background[3] * (1.0f - gradientIntensity1)};
 
           // Calculate gradient for p2
           float distance2 = std::abs(p2.second - centerY) * invCenterY;
           distance2 = std::min(distance2, 1.0f);
           float gradientIntensity2 = distance2 * gradientScale;
           float fillColor2[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity2 + cachedBackgroundColor[0] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[1] * gradientIntensity2 + cachedBackgroundColor[1] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[2] * gradientIntensity2 + cachedBackgroundColor[2] * (1.0f - gradientIntensity2),
-              cachedOscilloscopeColor[3] * gradientIntensity2 + cachedBackgroundColor[3] * (1.0f - gradientIntensity2)};
+              colors.oscilloscope[0] * gradientIntensity2 + colors.background[0] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[1] * gradientIntensity2 + colors.background[1] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[2] * gradientIntensity2 + colors.background[2] * (1.0f - gradientIntensity2),
+              colors.oscilloscope[3] * gradientIntensity2 + colors.background[3] * (1.0f - gradientIntensity2)};
 
           // Triangle 1: (p1.x, center) -> (p1.x, p1.y) -> (p2.x, center)
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p1.first, centerY);
           glColor4fv(fillColor1);
           glVertex2f(p1.first, p1.second);
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p2.first, centerY);
 
           // Triangle 2: (p1.x, p1.y) -> (p2.x, p2.y) -> (p2.x, center)
@@ -308,11 +265,11 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           glVertex2f(p1.first, p1.second);
           glColor4fv(fillColor2);
           glVertex2f(p2.first, p2.second);
-          glColor4fv(cachedBackgroundColor);
+          glColor4fv(colors.background);
           glVertex2f(p2.first, centerY);
         }
         glEnd();
-      } else if (gradient_mode == "vertical") {
+      } else if (osc.gradient_mode == "vertical") {
         // Pre-compute gradient constants
         const float invCenterY = 1.0f / centerY;
         const float gradientScale = 0.15f;
@@ -327,10 +284,10 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           // Create gradient color based on distance
           float gradientIntensity = distanceFromCenter * gradientScale;
           float fillColor[4] = {
-              cachedOscilloscopeColor[0] * gradientIntensity + cachedBackgroundColor[0] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[1] * gradientIntensity + cachedBackgroundColor[1] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[2] * gradientIntensity + cachedBackgroundColor[2] * (1.0f - gradientIntensity),
-              cachedOscilloscopeColor[3] * gradientIntensity + cachedBackgroundColor[3] * (1.0f - gradientIntensity)};
+              colors.oscilloscope[0] * gradientIntensity + colors.background[0] * (1.0f - gradientIntensity),
+              colors.oscilloscope[1] * gradientIntensity + colors.background[1] * (1.0f - gradientIntensity),
+              colors.oscilloscope[2] * gradientIntensity + colors.background[2] * (1.0f - gradientIntensity),
+              colors.oscilloscope[3] * gradientIntensity + colors.background[3] * (1.0f - gradientIntensity)};
 
           glColor4fv(fillColor);
           glVertex2f(point.first, point.second);
@@ -339,7 +296,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         glEnd();
       }
 
-      Graphics::drawAntialiasedLines(waveformPoints, cachedOscilloscopeColor, 2.0f);
+      Graphics::drawAntialiasedLines(waveformPoints, colors.oscilloscope, 2.0f);
     }
   }
 }

@@ -5,6 +5,7 @@
 
 #include <GL/gl.h>
 #include <iostream>
+#include <mutex>
 
 bool WindowManager::initialize(SDL_Window* sdlMainWindow, SDL_GLContext mainContext) {
   // Create main window wrapper
@@ -183,40 +184,45 @@ void WindowManager::drawAll(const AudioData& audioData) {
     if (!window->visualizer || !window->isPopout)
       continue;
 
-    // Make this window's context current
-    SDL_GL_MakeCurrent(window->window, window->glContext);
+    {
+      // Lock the shared audio buffer while we read from it to avoid data races
+      std::lock_guard<std::mutex> lock(const_cast<AudioData&>(audioData).mutex);
 
-    // Set up viewport
-    glViewport(0, 0, window->width, window->height);
+      // Make this window's context current
+      SDL_GL_MakeCurrent(window->window, window->glContext);
 
-    // Clear background
-    const auto& background = Theme::ThemeManager::getBackground();
-    glClearColor(background.r, background.g, background.b, background.a);
-    glClear(GL_COLOR_BUFFER_BIT);
+      // Set up viewport
+      glViewport(0, 0, window->width, window->height);
 
-    // Set up graphics for this window
-    Graphics::setupViewport(0, 0, window->width, window->height, window->height);
+      // Clear background
+      const auto& background = Theme::ThemeManager::getBackground();
+      glClearColor(background.r, background.g, background.b, background.a);
+      glClear(GL_COLOR_BUFFER_BIT);
 
-    // Update visualizer dimensions for popout windows
-    window->visualizer->setPosition(0);
-    window->visualizer->setWidth(window->width);
+      // Set up graphics for this window
+      Graphics::setupViewport(0, 0, window->width, window->height, window->height);
 
-    // Temporarily modify audioData dimensions for this popout window
-    AudioData& mutableAudioData = const_cast<AudioData&>(audioData);
-    int originalWidth = mutableAudioData.windowWidth;
-    int originalHeight = mutableAudioData.windowHeight;
+      // Update visualizer dimensions for popout windows
+      window->visualizer->setPosition(0);
+      window->visualizer->setWidth(window->width);
 
-    mutableAudioData.windowWidth = window->width;
-    mutableAudioData.windowHeight = window->height;
+      // Temporarily modify audioData dimensions for this popout window
+      AudioData& mutableAudioData = const_cast<AudioData&>(audioData);
+      int originalWidth = mutableAudioData.windowWidth;
+      int originalHeight = mutableAudioData.windowHeight;
 
-    // Draw the visualizer with popout window dimensions
-    window->visualizer->draw(audioData, 0);
+      mutableAudioData.windowWidth = window->width;
+      mutableAudioData.windowHeight = window->height;
 
-    // Restore original dimensions
-    mutableAudioData.windowWidth = originalWidth;
-    mutableAudioData.windowHeight = originalHeight;
+      // Draw the visualizer with popout window dimensions
+      window->visualizer->draw(audioData, 0);
 
-    // Swap buffers
+      // Restore original dimensions
+      mutableAudioData.windowWidth = originalWidth;
+      mutableAudioData.windowHeight = originalHeight;
+    }
+
+    // Swap buffers after releasing the lock so other threads can proceed
     SDL_GL_SwapWindow(window->window);
   }
 }

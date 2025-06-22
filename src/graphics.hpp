@@ -1,8 +1,6 @@
 #include <cstddef>
 #pragma once
 
-#include "config.hpp"
-
 #include <utility>
 #include <vector>
 
