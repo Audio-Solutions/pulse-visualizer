@@ -15,6 +15,7 @@ struct ConfigValues {
     int phosphor_spline_density = 2000;
     float phosphor_max_beam_speed = 0.001f;
     float phosphor_intensity_scale = 0.5f;
+    float texture_decay = 0.96f;
     bool follow_pitch = true;
   } oscilloscope;
 
@@ -29,6 +30,10 @@ struct ConfigValues {
     float phosphor_persistence_time = 0.5f;
     float phosphor_decay_rate = 7.0f;
     float phosphor_intensity_scale = 5.0f;
+    float texture_decay = 0.96f;
+    float beam_speed_brightness_curve = 2.0f;
+    float beam_speed_brightness_scale = 1.0f;
+    float min_beam_brightness = 0.1f;
   } lissajous;
 
   struct FFT {
@@ -37,8 +42,8 @@ struct ConfigValues {
     float max_freq = 20000.0f;
     float sample_rate = 44100.0f;
     float slope_correction_db = 4.5f;
-    float display_min_db = -60.0f;
-    float display_max_db = -10.0f;
+    float min_db = -60.0f;
+    float max_db = 10.0f;
     std::string stereo_mode = "midside";
     std::string note_key_mode = "sharp";
   } fft;

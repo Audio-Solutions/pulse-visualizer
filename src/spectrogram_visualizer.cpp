@@ -3,7 +3,7 @@
 #include "theme.hpp"
 #include "visualizers.hpp"
 
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>

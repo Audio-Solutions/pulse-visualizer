@@ -2,7 +2,7 @@
 
 #include "audio_data.hpp"
 
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <string>
 #include <utility>
 #include <vector>

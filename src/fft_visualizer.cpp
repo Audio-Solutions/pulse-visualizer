@@ -4,7 +4,7 @@
 #include "theme.hpp"
 #include "visualizers.hpp"
 
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -36,7 +36,7 @@ void FFTVisualizer::updateCaches() {
     logMinFreq = log(fcfg.min_freq);
     logMaxFreq = log(fcfg.max_freq);
     logFreqRange = logMaxFreq - logMinFreq;
-    dbRange = fcfg.display_max_db - fcfg.display_min_db;
+    dbRange = fcfg.max_db - fcfg.min_db;
   }
 }
 
@@ -163,7 +163,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       float dB = 20.0f * log10f(magnitude + 1e-9f);
 
       // Map dB to screen coordinates using cached display limits
-      float y = (dB - fcfg.display_min_db) * invDbRange * audioData.windowHeight;
+      float y = (dB - fcfg.min_db) * invDbRange * audioData.windowHeight;
       alternateFFTPoints.push_back({x, y});
     }
 
@@ -194,7 +194,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       float dB = 20.0f * log10f(magnitude + 1e-9f);
 
       // Map dB to screen coordinates using cached display limits
-      float y = (dB - fcfg.display_min_db) * invDbRange * audioData.windowHeight;
+      float y = (dB - fcfg.min_db) * invDbRange * audioData.windowHeight;
       fftPoints.push_back({x, y});
     }
 
@@ -263,7 +263,7 @@ void FFTVisualizer::calculateFrequencyAndDB(float x, float y, float windowHeight
   frequency = exp(logX * logFreqRange + logMinFreq);
 
   // Convert Y coordinate to displayed dB (slope-corrected)
-  float displayed_dB = (y / windowHeight) * dbRange + fcfg.display_min_db;
+  float displayed_dB = (y / windowHeight) * dbRange + fcfg.min_db;
 
   // Remove slope correction to get actual dB
   const float gainBase = 1.0f / (440.0f * 2.0f);

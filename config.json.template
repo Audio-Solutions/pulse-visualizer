@@ -1,88 +1,90 @@
 {
-  "window": {
-    "default_width": 1080,
-    "default_height": 200,
-    "default_theme": "mocha.txt"
-  },
-  "visualizers": {
-    "spectrogram_order": 0,
-    "spectrogram_popout": false,
-    "lissajous_order": 1,
-    "lissajous_popout": false,
-    "oscilloscope_order": 2,
-    "oscilloscope_popout": false,
-    "fft_order": 3,
-    "fft_popout": false
-  },
   "audio": {
-    "sample_rate": 44100,
-    "channels": 2,
-    "fft_skip_frames": 2,
     "buffer_size": 32768,
+    "channels": 2,
     "display_samples": 2000,
+    "sample_rate": 44100,
+    "fft_skip_frames": 0,
     "silence_threshold": -100.0,
-    "engine": "auto"
-  },
-  "fft": {
-    "fft_size": 4096,
-    "fft_smoothing_factor": 0.2,
-    "fft_min_db": -60.0,
-    "fft_max_db": 10.0,
-    "fft_min_freq": 10.0,
-    "fft_max_freq": 20000.0,
-    "fft_slope_correction_db": 4.5,
-    "fft_rise_speed": 500.0,
-    "fft_fall_speed": 50.0,
-    "fft_hover_fall_speed": 10.0,
-    "fft_display_min_db": -60.0,
-    "fft_display_max_db": -10.0,
-    "stereo_mode": "midside",
-    "note_key_mode": "sharp"
-  },
-  "lissajous": {
-    "points": 1000,
-    "spline_segments": 8,
-    "enable_splines": true,
-    "enable_phosphor": true,
-    "phosphor_tension": 0.5,
-    "phosphor_spline_density": 20,
-    "phosphor_max_beam_speed": 0.05,
-    "phosphor_persistence_time": 0.5,
-    "phosphor_decay_rate": 7.0,
-    "phosphor_intensity_scale": 5.0
-  },
-  "spectrogram": {
-    "time_window": 2,
-    "enable_reassignment": true,
-    "min_db": -80.0,
-    "max_db": -10.0,
-    "interpolation": true,
-    "frequency_scale": "log",
-    "min_freq": 20.0,
-    "max_freq": 20000.0
-  },
-  "oscilloscope": {
-    "amplitude_scale": 0.5,
-    "gradient_mode": "horizontal",
-    "enable_phosphor": false,
-    "phosphor_spline_density": 2000,
-    "phosphor_max_beam_speed": 0.001,
-    "phosphor_intensity_scale": 0.5,
-    "follow_pitch": true
-  },
-  "pulseaudio": {
-    "default_source": "your-audio-device.monitor",
-    "buffer_size": 512
-  },
-  "pipewire": {
-    "default_source": "your-audio-device",
-    "buffer_size": 512,
-    "ring_multiplier": 4
-  },
-  "font": {
-    "default_font": "/path/to/font.ttf"
+    "engine": "pipewire"
   },
   "debug": {
     "log_fps": false
+  },
+  "fft": {
+    "fft_fall_speed": 50.0,
+    "fft_hover_fall_speed": 10.0,
+    "fft_max_db": 10.0,
+    "fft_max_freq": 20000.0,
+    "fft_min_db": -60.0,
+    "fft_min_freq": 10.0,
+    "fft_rise_speed": 500.0,
+    "fft_size": 4096,
+    "fft_slope_correction_db": 4.5,
+    "fft_smoothing_factor": 0.2,
+    "note_key_mode": "sharp",
+    "stereo_mode": "midside"
+  },
+  "font": {
+    "default_font": "/path/to/freetype-font.ttf"
+  },
+  "lissajous": {
+    "enable_phosphor": true,
+    "enable_splines": true,
+    "phosphor_decay_rate": 2.0,
+    "phosphor_intensity_scale": 1.0,
+    "phosphor_max_beam_speed": 0.002,
+    "phosphor_persistence_time": 1,
+    "phosphor_spline_density": 8,
+    "phosphor_tension": 0.5,
+    "points": 2048,
+    "spline_segments": 8,
+    "texture_decay": 0.8,
+    "beam_speed_brightness_curve": 1.5,
+    "beam_speed_brightness_scale": 1.0,
+    "min_beam_brightness": 0.0
+  },
+  "oscilloscope": {
+    "amplitude_scale": 0.5,
+    "enable_phosphor": true,
+    "gradient_mode": "horizontal",
+    "phosphor_intensity_scale": 0.3,
+    "texture_decay": 0.4,
+    "phosphor_max_beam_speed": 0.99,
+    "phosphor_spline_density": 2000,
+    "follow_pitch": true
+  },
+  "pulseaudio": {
+    "default_source": "whatever.monitor",
+    "buffer_size": 256
+  },
+  "pipewire": {
+    "default_source": "whatever",
+    "buffer_size": 256,
+    "ring_multiplier": 4
+  },
+  "spectrogram": {
+    "frequency_scale": "log",
+    "interpolation": true,
+    "max_db": -10.0,
+    "max_freq": 20000.0,
+    "min_db": -80.0,
+    "min_freq": 20.0,
+    "time_window": 2.0
+  },
+  "visualizers": {
+    "fft_order": 2,
+    "fft_popout": false,
+    "lissajous_order": 0,
+    "lissajous_popout": false,
+    "oscilloscope_order": 1,
+    "oscilloscope_popout": false,
+    "spectrogram_order": -1,
+    "spectrogram_popout": false
+  },
+  "window": {
+    "default_height": 200,
+    "default_theme": "mocha.txt",
+    "default_width": 1080
   }
 }

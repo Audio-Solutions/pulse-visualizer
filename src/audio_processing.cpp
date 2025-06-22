@@ -374,6 +374,29 @@ void audioThread(AudioData* audioData) {
       audioData->fftMagnitudesMid[i] = mag;
     }
 
+    // Now process side channel FFT
+    audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
+
+    // Copy and window the input data from circular buffer (side channel)
+    for (int i = 0; i < FFT_SIZE; i++) {
+      // Apply Hanning window
+      float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+      size_t pos = (startPos + i) % audioData->bufferSize;
+      in[i] = audioData->bufferSide[pos] * window;
+    }
+
+    // Execute FFT (side channel)
+    fftwf_execute(plan);
+
+    // Calculate side channel magnitudes with proper FFTW3 scaling
+    for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
+      float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
+      // Double all bins except DC and Nyquist
+      if (i != 0 && i != FFT_SIZE / 2)
+        mag *= 2.0f;
+      audioData->fftMagnitudesSide[i] = mag;
+    }
+
     // Update FFT timing
     auto now = std::chrono::steady_clock::now();
     if (audioData->lastFftUpdate != std::chrono::steady_clock::time_point()) {

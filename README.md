@@ -26,7 +26,11 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Low-latency audio processing (PulseAudio **and** PipeWire backends)
 - Hardware-accelerated graphics
 - Cross-platform support
-- Includes a collection of ready-made themes (see the `themes/` folder).
+- Includes a collection of ready-made themes (see the `themes/` folder)
+
+### Screen-Space History (Phosphor Effect)
+
+The Lissajous and Oscilloscope visualizers include a **phosphor effect** that simulates vintage CRT oscilloscope screens, creating glowing traces that fade over time. This uses hardware-accelerated render-to-texture techniques with configurable persistence, decay rates, and beam speed sensitivity. Works best with dark themes for an authentic retro aesthetic.
 
 ## Dependencies
 
@@ -37,6 +41,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - FFTW3
 - FreeType2
 - OpenGL
+- GLEW
 - Nlohmann JSON
 
 ## Platform Support

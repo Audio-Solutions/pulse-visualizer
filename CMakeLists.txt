@@ -73,8 +73,14 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 # Find OpenGL
 find_package(OpenGL REQUIRED)
 
+# Find GLEW
+find_package(GLEW REQUIRED)
+
 # Include directories
-include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
+
+# Define data directory for shader loading
+add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visualizer")
 
 # Add executable
 file(GLOB SRC_FILES src/*.cpp)
@@ -86,6 +92,7 @@ target_link_libraries(Pulse PRIVATE
   PkgConfig::FFTW
   PkgConfig::FREETYPE
   OpenGL::GL
+  ${GLEW_LIBRARIES}
 )
 
 # Link audio backends conditionally
@@ -99,6 +106,7 @@ if(PIPEWIRE_FOUND)
   target_link_libraries(Pulse PRIVATE ${PIPEWIRE_LIBRARIES})
   target_include_directories(Pulse PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
   target_compile_options(Pulse PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
+  target_compile_options(Pulse PRIVATE -Wno-nan-infinity-disabled)
 endif()
 
 # Installation targets
@@ -112,6 +120,12 @@ install(TARGETS Pulse
 # Install README and LICENSE
 install(FILES README.md LICENSE
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+)
+
+# Install shaders directory
+install(DIRECTORY shaders/
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/shaders
+  FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag"
 )
 
 # Create a desktop entry

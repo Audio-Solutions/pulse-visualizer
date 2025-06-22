@@ -85,6 +85,7 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.phosphor_spline_density = getInt("oscilloscope.phosphor_spline_density");
     v.oscilloscope.phosphor_max_beam_speed = getFloat("oscilloscope.phosphor_max_beam_speed");
     v.oscilloscope.phosphor_intensity_scale = getFloat("oscilloscope.phosphor_intensity_scale");
+    v.oscilloscope.texture_decay = getFloat("oscilloscope.texture_decay");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
 
     v.lissajous.points = getInt("lissajous.points");
@@ -97,14 +98,18 @@ void Config::load(const std::string& filename) {
     v.lissajous.phosphor_persistence_time = getFloat("lissajous.phosphor_persistence_time");
     v.lissajous.phosphor_decay_rate = getFloat("lissajous.phosphor_decay_rate");
     v.lissajous.phosphor_intensity_scale = getFloat("lissajous.phosphor_intensity_scale");
+    v.lissajous.texture_decay = getFloat("lissajous.texture_decay");
+    v.lissajous.beam_speed_brightness_curve = getFloat("lissajous.beam_speed_brightness_curve");
+    v.lissajous.beam_speed_brightness_scale = getFloat("lissajous.beam_speed_brightness_scale");
+    v.lissajous.min_beam_brightness = getFloat("lissajous.min_beam_brightness");
 
     v.fft.font = getString("font.default_font");
     v.fft.min_freq = getFloat("fft.fft_min_freq");
     v.fft.max_freq = getFloat("fft.fft_max_freq");
     v.fft.sample_rate = getFloat("audio.sample_rate");
     v.fft.slope_correction_db = getFloat("fft.fft_slope_correction_db");
-    v.fft.display_min_db = getFloat("fft.fft_display_min_db");
-    v.fft.display_max_db = getFloat("fft.fft_display_max_db");
+    v.fft.min_db = getFloat("fft.fft_min_db");
+    v.fft.max_db = getFloat("fft.fft_max_db");
     v.fft.stereo_mode = getString("fft.stereo_mode");
     v.fft.note_key_mode = getString("fft.note_key_mode");
 

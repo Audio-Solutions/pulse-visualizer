@@ -3,7 +3,7 @@
 #include "graphics.hpp"
 #include "theme.hpp"
 
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <algorithm>
 #include <unordered_set>
 

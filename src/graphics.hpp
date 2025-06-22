@@ -1,6 +1,7 @@
 #include <cstddef>
 #pragma once
 
+#include <GL/glew.h>
 #include <utility>
 #include <vector>
 
@@ -17,4 +18,11 @@ void drawFilledRect(float x, float y, float width, float height, const float col
 
 // Draw text using a TTF font (JetBrains Mono)
 void drawText(const char* text, float x, float y, float size, const float color[4], const char* fontPath = nullptr);
+
+void drawColoredLineSegments(const std::vector<float>& vertices, const std::vector<float>& colors,
+                             float thickness = 2.0f);
+
+// Shader utilities
+GLuint loadShaderFromFile(const char* filepath, GLenum shaderType);
+GLuint createShaderProgram(const char* vertexShaderPath, const char* fragmentShaderPath);
 } // namespace Graphics

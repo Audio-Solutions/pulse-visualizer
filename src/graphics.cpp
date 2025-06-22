@@ -2,10 +2,11 @@
 
 #include "config.hpp"
 
-#include <GL/gl.h>
+#include <GL/glew.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <string>
@@ -87,6 +88,14 @@ Glyph& loadGlyph(FontCache& cache, unsigned long c) {
 } // namespace
 
 void initialize() {
+  static bool glewInitialized = false;
+  if (!glewInitialized) {
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+      std::cerr << "GLEW initialization failed: " << glewGetErrorString(err) << std::endl;
+    }
+    glewInitialized = true;
+  }
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_LINE_SMOOTH);
@@ -118,13 +127,39 @@ void drawAntialiasedLines(const std::vector<std::pair<float, float>>& points, co
   if (points.size() < 2)
     return;
 
+  // Build/expand a temporary vertex array (x,y pairs)
+  static thread_local std::vector<float> vertexData;
+  vertexData.clear();
+  vertexData.reserve(points.size() * 2);
+  for (const auto& p : points) {
+    vertexData.push_back(p.first);
+    vertexData.push_back(p.second);
+  }
+
+  // Create (or reuse) a VBO for the vertices
+  static GLuint vertexBuffer = 0;
+  if (vertexBuffer == 0) {
+    glGenBuffers(1, &vertexBuffer);
+  }
+
+  // Upload vertex data to GPU
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+
+  // Enable vertex array state and set pointer
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+
+  // Set uniform color and line width
   glColor4fv(color);
   glLineWidth(thickness);
-  glBegin(GL_LINE_STRIP);
-  for (const auto& point : points) {
-    glVertex2f(point.first, point.second);
-  }
-  glEnd();
+
+  // Draw the line strip
+  glDrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(points.size()));
+
+  // Disable client state and unbind VBO
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void drawFilledRect(float x, float y, float width, float height, const float color[4]) {
@@ -183,6 +218,130 @@ void drawText(const char* text, float x, float y, float size, const float color[
   }
   glBindTexture(GL_TEXTURE_2D, 0);
   glDisable(GL_TEXTURE_2D);
+}
+
+void drawColoredLineSegments(const std::vector<float>& vertices, const std::vector<float>& colors, float thickness) {
+  if (vertices.size() < 4 || colors.size() < 8 || vertices.size() / 2 != colors.size() / 4) {
+    return; // not enough data or mismatch
+  }
+
+  static GLuint vertexBuffer = 0;
+  static GLuint colorBuffer = 0;
+
+  if (vertexBuffer == 0) {
+    glGenBuffers(1, &vertexBuffer);
+  }
+  if (colorBuffer == 0) {
+    glGenBuffers(1, &colorBuffer);
+  }
+
+  // Upload vertex data
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+
+  // Upload color data
+  glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+  glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(float), colors.data(), GL_STREAM_DRAW);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glColorPointer(4, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+
+  // Draw lines
+  glLineWidth(thickness);
+  glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(vertices.size() / 2));
+
+  // Disable states and unbind
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+std::string loadTextFile(const char* filepath) {
+  // Try system installation path
+  std::string systemPath = std::string(PULSE_DATA_DIR) + "/" + filepath;
+  std::ifstream systemFile(systemPath);
+  if (systemFile.is_open()) {
+    std::string content;
+    std::string line;
+    while (std::getline(systemFile, line)) {
+      content += line + "\n";
+    }
+    return content;
+  }
+
+  std::cerr << "Failed to open shader file: " << filepath << std::endl;
+  return "";
+}
+
+GLuint loadShaderFromFile(const char* filepath, GLenum shaderType) {
+  std::string source = loadTextFile(filepath);
+  if (source.empty()) {
+    return 0;
+  }
+
+  GLuint shader = glCreateShader(shaderType);
+  const char* sourceCStr = source.c_str();
+  glShaderSource(shader, 1, &sourceCStr, nullptr);
+  glCompileShader(shader);
+
+  // Check compilation status
+  GLint compiled = 0;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+  if (compiled == GL_FALSE) {
+    GLint maxLength = 0;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
+
+    std::vector<char> errorLog(maxLength);
+    glGetShaderInfoLog(shader, maxLength, &maxLength, errorLog.data());
+
+    std::cerr << "Shader compilation failed (" << filepath << "): " << errorLog.data() << std::endl;
+
+    glDeleteShader(shader);
+    return 0;
+  }
+
+  return shader;
+}
+
+GLuint createShaderProgram(const char* vertexShaderPath, const char* fragmentShaderPath) {
+  GLuint vertexShader = loadShaderFromFile(vertexShaderPath, GL_VERTEX_SHADER);
+  GLuint fragmentShader = loadShaderFromFile(fragmentShaderPath, GL_FRAGMENT_SHADER);
+
+  if (vertexShader == 0 || fragmentShader == 0) {
+    if (vertexShader != 0)
+      glDeleteShader(vertexShader);
+    if (fragmentShader != 0)
+      glDeleteShader(fragmentShader);
+    return 0;
+  }
+
+  GLuint program = glCreateProgram();
+  glAttachShader(program, vertexShader);
+  glAttachShader(program, fragmentShader);
+  glLinkProgram(program);
+
+  // Check link status
+  GLint linked = 0;
+  glGetProgramiv(program, GL_LINK_STATUS, &linked);
+  if (linked == GL_FALSE) {
+    GLint maxLength = 0;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
+
+    std::vector<char> errorLog(maxLength);
+    glGetProgramInfoLog(program, maxLength, &maxLength, errorLog.data());
+
+    std::cerr << "Shader program linking failed: " << errorLog.data() << std::endl;
+
+    glDeleteProgram(program);
+    program = 0;
+  }
+
+  // Clean up individual shaders (they're now part of the program)
+  glDeleteShader(vertexShader);
+  glDeleteShader(fragmentShader);
+
+  return program;
 }
 
 } // namespace Graphics
