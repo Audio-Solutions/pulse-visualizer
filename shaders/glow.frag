@@ -28,7 +28,7 @@ void main() {
   float downBright   = dot(down,   luminanceWeights);
   
   // Simulate phosphor light dispersion/bloom effect
-  float dispersionRate = 0.25 * glowIntensity;
+  float dispersionRate = 0.20 * glowIntensity;
   vec3 dispersed = center;
   
   // Add neighboring brightness that exceeds center brightness
