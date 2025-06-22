@@ -529,9 +529,9 @@ private:
         audio_buffer[buffer_write_pos] = samples[i];
         buffer_write_pos = (buffer_write_pos + 1) % audio_buffer.size();
 
-        // Prevent buffer overrun
+        // Prevent buffer overrun - advance read position by channels to maintain alignment
         if (buffer_write_pos == buffer_read_pos) {
-          buffer_read_pos = (buffer_read_pos + 1) % audio_buffer.size();
+          buffer_read_pos = (buffer_read_pos + channels) % audio_buffer.size();
         }
       }
       // Notify any waiting consumer that new data is available
