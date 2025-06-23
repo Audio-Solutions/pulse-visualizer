@@ -23,7 +23,17 @@
     "fft_slope_correction_db": 4.5,
     "fft_smoothing_factor": 0.2,
     "note_key_mode": "sharp",
-    "stereo_mode": "midside"
+    "stereo_mode": "midside",
+    "enable_phosphor": true,
+    "phosphor_beam_energy": 1.0,
+    "phosphor_db_lower_bound": -80.0,
+    "phosphor_db_mid_point": -50.0,
+    "phosphor_db_upper_bound": -30.0,
+    "phosphor_decay_constant": 75.0,
+    "phosphor_beam_size": 1.0,
+    "phosphor_line_blur_spread": 0.25,
+    "phosphor_line_width": 1.0,
+    "phosphor_beam_speed_multiplier": 10.0
   },
   "font": {
     "default_font": "/path/to/freetype-font.ttf"

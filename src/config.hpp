@@ -52,6 +52,16 @@ struct ConfigValues {
     float max_db = 10.0f;
     std::string stereo_mode = "midside";
     std::string note_key_mode = "sharp";
+    bool enable_phosphor = false;
+    float phosphor_beam_energy = 1.0f;
+    float phosphor_db_lower_bound = -60.0f;
+    float phosphor_db_mid_point = -50.0f;
+    float phosphor_db_upper_bound = -40.0f;
+    float phosphor_decay_constant = 50.0f;
+    float phosphor_beam_size = 2.0f;
+    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_width = 2.0f;
+    float phosphor_beam_speed_multiplier = 1.0f;
   } fft;
 
   struct Spectrogram {

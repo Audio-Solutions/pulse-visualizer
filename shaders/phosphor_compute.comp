@@ -33,12 +33,6 @@ void main() {
   // Convert world coordinates to texture coordinates
   ivec2 texCoord = ivec2(pos);
 
-  // Check if position is within texture bounds
-  if (texCoord.x < 0 || texCoord.x >= texSize.x ||
-      texCoord.y < 0 || texCoord.y >= texSize.y) {
-    return;
-  }
-
   // For next vertex interpolation (if available)
   if (index + 1 < vertices.length()) {
     vec4 nextVertex = vertices[index + 1];
@@ -75,43 +69,38 @@ void main() {
         vec2 interpPos = pos + stepSize * float(i);
         ivec2 interpTexCoord = ivec2(interpPos);
 
-        // Check bounds for interpolated position
-        if (interpTexCoord.x >= 0 && interpTexCoord.x < texSize.x &&
-            interpTexCoord.y >= 0 && interpTexCoord.y < texSize.y) {
+        // Single pass: deposit energy with Gaussian falloff
+        for (int dx = -beamRadiusInt; dx <= beamRadiusInt; ++dx) {
+          for (int dy = -beamRadiusInt; dy <= beamRadiusInt; ++dy) {
+            ivec2 beamTexCoord = interpTexCoord + ivec2(dx, dy);
 
-          // Single pass: deposit energy with Gaussian falloff
-          for (int dx = -beamRadiusInt; dx <= beamRadiusInt; ++dx) {
-            for (int dy = -beamRadiusInt; dy <= beamRadiusInt; ++dy) {
-              ivec2 beamTexCoord = interpTexCoord + ivec2(dx, dy);
-
-              // Early bounds check
-              if (beamTexCoord.x < 0 || beamTexCoord.x >= texSize.x ||
-                  beamTexCoord.y < 0 || beamTexCoord.y >= texSize.y) {
-                continue;
-              }
-
-              // Calculate squared distance (avoid sqrt)
-              float distanceSquared = float(dx * dx + dy * dy);
-
-              // Early exit if outside beam radius
-              if (distanceSquared > beamRadiusSquared) {
-                continue;
-              }
-
-              // Calculate Gaussian factor using squared distance
-              float gaussianFactor = exp(-distanceSquared / twoSigmaSquared);
-              
-              // Apply normalization factor
-              float normalizedGaussianFactor = gaussianFactor * normalizationFactor;
-              
-              // Scale energy by normalized Gaussian factor
-              float scaledEnergyLinear = energyDepositLinear * normalizedGaussianFactor;
-
-              // Accumulate energy at this pixel (linear space)
-              float current = imageLoad(energyTex, beamTexCoord).r;
-              float total = current + scaledEnergyLinear;
-              imageStore(energyTex, beamTexCoord, vec4(total, 0, 0, 0));
+            // Skip pixels outside texture bounds (but continue processing the segment)
+            if (beamTexCoord.x < 0 || beamTexCoord.x >= texSize.x ||
+                beamTexCoord.y < 0 || beamTexCoord.y >= texSize.y) {
+              continue;
             }
+
+            // Calculate squared distance (avoid sqrt)
+            float distanceSquared = float(dx * dx + dy * dy);
+
+            // Early exit if outside beam radius
+            if (distanceSquared > beamRadiusSquared) {
+              continue;
+            }
+
+            // Calculate Gaussian factor using squared distance
+            float gaussianFactor = exp(-distanceSquared / twoSigmaSquared);
+            
+            // Apply normalization factor
+            float normalizedGaussianFactor = gaussianFactor * normalizationFactor;
+            
+            // Scale energy by normalized Gaussian factor
+            float scaledEnergyLinear = energyDepositLinear * normalizedGaussianFactor;
+
+            // Accumulate energy at this pixel (linear space)
+            float current = imageLoad(energyTex, beamTexCoord).r;
+            float total = current + scaledEnergyLinear;
+            imageStore(energyTex, beamTexCoord, vec4(total, 0, 0, 0));
           }
         }
       }

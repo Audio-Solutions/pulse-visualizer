@@ -13,6 +13,9 @@
 
 // Computed caches (no theme colors needed - using centralized access)
 
+// Static working buffers and phosphor context
+static Graphics::Phosphor::PhosphorContext* fftPhosphorContext = nullptr;
+
 // Computed values from config (cached for performance)
 float FFTVisualizer::logMinFreq = 0.0f;
 float FFTVisualizer::logMaxFreq = 0.0f;
@@ -50,56 +53,16 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
   const auto& fcfg = Config::values().fft;
   const auto& colors = Theme::ThemeManager::colors();
 
+  // Initialize phosphor context if needed
+  if (fcfg.enable_phosphor && !fftPhosphorContext) {
+    fftPhosphorContext = Graphics::Phosphor::createPhosphorContext("fft");
+  } else if (!fcfg.enable_phosphor && fftPhosphorContext) {
+    Graphics::Phosphor::destroyPhosphorContext(fftPhosphorContext);
+    fftPhosphorContext = nullptr;
+  }
+
   if (!audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty()) {
     const int fftSize = (audioData.fftMagnitudesMid.size() - 1) * 2;
-
-    // Draw frequency scale lines using OpenGL
-    auto drawFreqLine = [&](float freq) {
-      if (freq < fcfg.min_freq || freq > fcfg.max_freq)
-        return;
-      float logX = (log(freq) - logMinFreq) / logFreqRange;
-      float x = logX * width;
-      Graphics::drawAntialiasedLine(x, 0, x, audioData.windowHeight, colors.grid, 1.0f);
-    };
-
-    // Draw log-decade lines: 1,2,3,...9,10 per decade, from 100Hz up to maxFreq
-    // Add 10-100Hz decade
-    for (int mult = 1; mult < 10; ++mult) {
-      float freq = 10.0f * mult;
-      drawFreqLine(freq);
-    }
-    drawFreqLine(100.0f);
-    for (int decade = 2; decade <= 5; ++decade) {
-      float base = powf(10.0f, decade);
-      for (int mult = 1; mult < 10; ++mult) {
-        float freq = base * mult;
-        drawFreqLine(freq);
-      }
-    }
-    for (float freq = 10000.0f; freq <= fcfg.max_freq; freq *= 10.0f) {
-      drawFreqLine(freq);
-    }
-
-    // Draw frequency labels for 100Hz, 1kHz, 10kHz
-    auto drawFreqLabel = [&](float freq, const char* label) {
-      float logX = (log(freq) - logMinFreq) / logFreqRange;
-      float x = logX * width;
-      float y = 8.0f;
-
-      // Draw background rectangle
-      float textWidth = 40.0f;
-      float textHeight = 12.0f;
-      float padding = 4.0f;
-
-      Graphics::drawFilledRect(x - textWidth / 2 - padding, y - textHeight / 2 - padding, textWidth + padding * 2,
-                               textHeight + padding * 2, colors.background);
-
-      // Draw the text
-      Graphics::drawText(label, x - textWidth / 2, y, 10.0f, colors.grid, fcfg.font.c_str());
-    };
-    drawFreqLabel(100.0f, "100 Hz");
-    drawFreqLabel(1000.0f, "1 kHz");
-    drawFreqLabel(10000.0f, "10 kHz");
 
     // Determine which data to use based on FFT mode
     const std::vector<float>* mainMagnitudes = nullptr;
@@ -108,8 +71,9 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     // Temporary vectors for computed LEFTRIGHT mode data
     std::vector<float> leftMagnitudes, rightMagnitudes;
 
-    // Pre-compute mode comparison for performance
-    bool isLeftRightMode = (fcfg.stereo_mode == "leftright");
+    // Force mono mode when phosphor is enabled
+    bool isLeftRightMode = (fcfg.stereo_mode == "leftright") && !fcfg.enable_phosphor;
+    bool showAlternate = !fcfg.enable_phosphor; // Hide alternate channel in phosphor mode
 
     if (isLeftRightMode) {
       // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
@@ -124,7 +88,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       mainMagnitudes = &leftMagnitudes;
       alternateMagnitudes = &rightMagnitudes;
     } else {
-      // MIDSIDE mode: Main = Mid, Alternate = Side
+      // MIDSIDE mode: Main = Mid, Alternate = Side (or mono when phosphor enabled)
       mainMagnitudes = &audioData.smoothedMagnitudesMid;
       alternateMagnitudes = &audioData.smoothedMagnitudesSide;
     }
@@ -143,38 +107,34 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     alternateFFTPoints.clear();
     fftPoints.clear();
 
-    alternateFFTPoints.reserve(alternateMagnitudes->size());
+    if (showAlternate) {
+      alternateFFTPoints.reserve(alternateMagnitudes->size());
+    }
     fftPoints.reserve(mainMagnitudes->size());
 
-    for (size_t bin = 1; bin < alternateMagnitudes->size(); ++bin) {
-      float freq = static_cast<float>(bin) * freqScale;
-      if (freq < fcfg.min_freq || freq > fcfg.max_freq)
-        continue;
-      float logX = (log(freq) - logMinFreq) * invLogFreqRange;
-      float x = logX * width;
-      float magnitude = (*alternateMagnitudes)[bin];
+    // Generate alternate FFT points only when showing alternate channel
+    if (showAlternate) {
+      for (size_t bin = 1; bin < alternateMagnitudes->size(); ++bin) {
+        float freq = static_cast<float>(bin) * freqScale;
+        if (freq < fcfg.min_freq || freq > fcfg.max_freq)
+          continue;
+        float logX = (log(freq) - logMinFreq) * invLogFreqRange;
+        float x = logX * width;
+        float magnitude = (*alternateMagnitudes)[bin];
 
-      // Apply slope correction with pre-computed values
-      float slope_k = fcfg.slope_correction_db / 20.0f / log10f(2.0f);
-      float gain = powf(freq * gainBase, slope_k);
-      magnitude *= gain;
+        // Apply slope correction with pre-computed values
+        float slope_k = fcfg.slope_correction_db / 20.0f / log10f(2.0f);
+        float gain = powf(freq * gainBase, slope_k);
+        magnitude *= gain;
 
-      // Convert to dB using proper scaling
-      float dB = 20.0f * log10f(magnitude + 1e-9f);
+        // Convert to dB using proper scaling
+        float dB = 20.0f * log10f(magnitude + 1e-9f);
 
-      // Map dB to screen coordinates using cached display limits
-      float y = (dB - fcfg.min_db) * invDbRange * audioData.windowHeight;
-      alternateFFTPoints.push_back({x, y});
+        // Map dB to screen coordinates using cached display limits
+        float y = (dB - fcfg.min_db) * invDbRange * audioData.windowHeight;
+        alternateFFTPoints.push_back({x, y});
+      }
     }
-
-    // Draw the Alternate FFT curve using centralized colors
-    constexpr float alternateFFTAlpha = 0.3f;
-    float alternateFFTColorArray[4] = {
-        colors.spectrum[0] * alternateFFTAlpha + colors.background[0] * (1.0f - alternateFFTAlpha),
-        colors.spectrum[1] * alternateFFTAlpha + colors.background[1] * (1.0f - alternateFFTAlpha),
-        colors.spectrum[2] * alternateFFTAlpha + colors.background[2] * (1.0f - alternateFFTAlpha),
-        colors.spectrum[3] * alternateFFTAlpha + colors.background[3] * (1.0f - alternateFFTAlpha)};
-    Graphics::drawAntialiasedLines(alternateFFTPoints, alternateFFTColorArray, 2.0f);
 
     // Draw Main FFT using pre-computed smoothed values
     for (size_t bin = 1; bin < mainMagnitudes->size(); ++bin) {
@@ -198,8 +158,153 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       fftPoints.push_back({x, y});
     }
 
-    // Draw the Main FFT curve using centralized colors
-    Graphics::drawAntialiasedLines(fftPoints, colors.spectrum, 2.0f);
+    if (fcfg.enable_phosphor && fftPhosphorContext && !fftPoints.empty()) {
+      // --- Phosphor rendering using Graphics::Phosphor high-level interface ---
+
+      // Prepare intensity and dwell time data for FFT spectrum
+      std::vector<float> intensityLinear;
+      std::vector<float> dwellTimes;
+
+      intensityLinear.reserve(fftPoints.size());
+      dwellTimes.reserve(fftPoints.size());
+
+      // Calculate beam parameters for FFT spectrum
+      const float invHeight = 1.0f / audioData.windowHeight;
+      const float referenceHeight = 200.0f;
+      const float sizeScale = static_cast<float>(audioData.windowHeight) / referenceHeight;
+
+      for (size_t i = 1; i < fftPoints.size(); ++i) {
+        const auto& p1 = fftPoints[i - 1];
+        const auto& p2 = fftPoints[i];
+
+        float dx = p2.first - p1.first;
+        float dy = p2.second - p1.second;
+        float segLen = sqrtf(dx * dx + dy * dy);
+        float beamSpeed = segLen * invHeight * fcfg.phosphor_beam_speed_multiplier;
+
+        // Calculate beam dwell time and intensity for FFT
+        // More moderate speed-based intensity reduction for spectrum display
+        float speedFactor = 1.0f / (1.0f + beamSpeed * 50.0f);
+        float intensity = speedFactor;
+
+        // Calculate dwell time based on frequency density (like a real scope)
+        // Higher frequency density (smaller dx) = shorter dwell time to prevent over-brightening
+        float baseDwellTime = segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / 1000.0f);
+        float baseFrequencySpacing = 2.0f;                                        // Reference spacing for normalization
+        float frequencyDensityFactor = std::max(dx, 0.1f) / baseFrequencySpacing; // Direct relationship
+        float dwelltime = baseDwellTime * frequencyDensityFactor;
+
+        // Beam energy modulated by signal magnitude
+        float beamEnergy = fcfg.phosphor_beam_energy * intensity;
+        float totalSegmentEnergy = beamEnergy * dwelltime;
+
+        intensityLinear.push_back(totalSegmentEnergy);
+        dwellTimes.push_back(dwelltime);
+      }
+
+      // Calculate frame time for decay based on actual audio buffer timing
+      static size_t lastWritePos = 0;
+      static bool firstCall = true;
+
+      size_t readCount;
+      if (firstCall) {
+        readCount = audioData.displaySamples; // On first call, assume we need full display samples
+        firstCall = false;
+      } else {
+        readCount = (audioData.writePos + audioData.bufferSize - lastWritePos) % audioData.bufferSize;
+      }
+      lastWritePos = audioData.writePos;
+
+      // Use actual audio timing for phosphor decay
+      float deltaTime = static_cast<float>(readCount) / audioData.sampleRate;
+      float pixelWidth = 1.0f;
+
+      // Render phosphor splines using high-level interface
+      GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
+          fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight, deltaTime,
+          pixelWidth, colors.background, colors.spectrum, colors.text, fcfg.phosphor_beam_size,
+          fcfg.phosphor_db_lower_bound, fcfg.phosphor_db_mid_point, fcfg.phosphor_db_upper_bound,
+          fcfg.phosphor_decay_constant, fcfg.phosphor_line_blur_spread, fcfg.phosphor_line_width);
+
+      // Draw the phosphor result
+      if (phosphorTexture) {
+        Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
+      }
+
+      // Draw the Alternate FFT curve with reduced opacity for phosphor mode
+      if (!alternateFFTPoints.empty()) {
+        constexpr float alternateFFTAlpha = 0.15f; // Reduced for phosphor mode
+        float alternateFFTColorArray[4] = {
+            colors.spectrum[0] * alternateFFTAlpha + colors.background[0] * (1.0f - alternateFFTAlpha),
+            colors.spectrum[1] * alternateFFTAlpha + colors.background[1] * (1.0f - alternateFFTAlpha),
+            colors.spectrum[2] * alternateFFTAlpha + colors.background[2] * (1.0f - alternateFFTAlpha),
+            colors.spectrum[3] * alternateFFTAlpha + colors.background[3] * (1.0f - alternateFFTAlpha)};
+        Graphics::drawAntialiasedLines(alternateFFTPoints, alternateFFTColorArray, 1.0f);
+      }
+    } else {
+      // Standard non-phosphor rendering
+      // Draw the Alternate FFT curve using centralized colors
+      constexpr float alternateFFTAlpha = 0.3f;
+      float alternateFFTColorArray[4] = {
+          colors.spectrum[0] * alternateFFTAlpha + colors.background[0] * (1.0f - alternateFFTAlpha),
+          colors.spectrum[1] * alternateFFTAlpha + colors.background[1] * (1.0f - alternateFFTAlpha),
+          colors.spectrum[2] * alternateFFTAlpha + colors.background[2] * (1.0f - alternateFFTAlpha),
+          colors.spectrum[3] * alternateFFTAlpha + colors.background[3] * (1.0f - alternateFFTAlpha)};
+      Graphics::drawAntialiasedLines(alternateFFTPoints, alternateFFTColorArray, 2.0f);
+
+      // Draw the Main FFT curve using centralized colors
+      Graphics::drawAntialiasedLines(fftPoints, colors.spectrum, 2.0f);
+    }
+
+    // Draw frequency scale lines and labels (only in non-phosphor mode)
+    if (!fcfg.enable_phosphor) {
+      auto drawFreqLine = [&](float freq) {
+        if (freq < fcfg.min_freq || freq > fcfg.max_freq)
+          return;
+        float logX = (log(freq) - logMinFreq) / logFreqRange;
+        float x = logX * width;
+        Graphics::drawAntialiasedLine(x, -audioData.windowHeight, x, audioData.windowHeight * 2, colors.grid, 1.0f);
+      };
+
+      // Draw log-decade lines: 1,2,3,...9,10 per decade, from 100Hz up to maxFreq
+      // Add 10-100Hz decade
+      for (int mult = 1; mult < 10; ++mult) {
+        float freq = 10.0f * mult;
+        drawFreqLine(freq);
+      }
+      drawFreqLine(100.0f);
+      for (int decade = 2; decade <= 5; ++decade) {
+        float base = powf(10.0f, decade);
+        for (int mult = 1; mult < 10; ++mult) {
+          float freq = base * mult;
+          drawFreqLine(freq);
+        }
+      }
+      for (float freq = 10000.0f; freq <= fcfg.max_freq; freq *= 10.0f) {
+        drawFreqLine(freq);
+      }
+
+      // Draw frequency labels for 100Hz, 1kHz, 10kHz
+      auto drawFreqLabel = [&](float freq, const char* label) {
+        float logX = (log(freq) - logMinFreq) / logFreqRange;
+        float x = logX * width;
+        float y = 8.0f;
+
+        // Draw background rectangle
+        float textWidth = 40.0f;
+        float textHeight = 12.0f;
+        float padding = 4.0f;
+
+        Graphics::drawFilledRect(x - textWidth / 2 - padding, y - textHeight / 2 - padding, textWidth + padding * 2,
+                                 textHeight + padding * 2, colors.background);
+
+        // Draw the text
+        Graphics::drawText(label, x - textWidth / 2, y, 10.0f, colors.grid, fcfg.font.c_str());
+      };
+      drawFreqLabel(100.0f, "100 Hz");
+      drawFreqLabel(1000.0f, "1 kHz");
+      drawFreqLabel(10000.0f, "10 kHz");
+    }
 
     // Draw crosshair and show mouse position info when hovering
     if (hovering) {

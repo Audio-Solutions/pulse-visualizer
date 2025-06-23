@@ -135,6 +135,16 @@ void Config::load(const std::string& filename) {
     v.fft.max_db = getFloat("fft.fft_max_db");
     v.fft.stereo_mode = getString("fft.stereo_mode");
     v.fft.note_key_mode = getString("fft.note_key_mode");
+    v.fft.enable_phosphor = getBool("fft.enable_phosphor");
+    v.fft.phosphor_beam_energy = getFloat("fft.phosphor_beam_energy");
+    v.fft.phosphor_db_lower_bound = getFloat("fft.phosphor_db_lower_bound");
+    v.fft.phosphor_db_mid_point = getFloat("fft.phosphor_db_mid_point");
+    v.fft.phosphor_db_upper_bound = getFloat("fft.phosphor_db_upper_bound");
+    v.fft.phosphor_decay_constant = getFloat("fft.phosphor_decay_constant");
+    v.fft.phosphor_beam_size = getFloat("fft.phosphor_beam_size");
+    v.fft.phosphor_line_blur_spread = getFloat("fft.phosphor_line_blur_spread");
+    v.fft.phosphor_line_width = getFloat("fft.phosphor_line_width");
+    v.fft.phosphor_beam_speed_multiplier = getFloat("fft.phosphor_beam_speed_multiplier");
 
     v.spectrogram.time_window = getFloat("spectrogram.time_window");
     v.spectrogram.min_db = getFloat("spectrogram.min_db");
