@@ -1,0 +1,61 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 0, r32f) uniform image2D energyTex;
+layout(binding = 1, rgba8) uniform image2D colorTex;
+
+uniform float dbLowerBound;
+uniform float dbMidPoint;
+uniform float dbUpperBound;
+uniform vec3 blackColor;
+uniform vec3 lissajousColor;
+uniform vec3 whiteColor;
+
+// Precomputed constants
+const float INV_LOG10 = 1.0 / log(10.0);
+
+vec3 lerp(vec3 a, vec3 b, float t) {
+  return a + t * (b - a);
+}
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 texSize = imageSize(energyTex);
+
+  // Check bounds
+  if (coord.x >= texSize.x || coord.y >= texSize.y) {
+    return;
+  }
+
+  // Sample linear energy value
+  float energyLinear = imageLoad(energyTex, coord).r;
+
+  // Early exit for negligible energy values
+  if (energyLinear <= 1e-9) {
+    imageStore(colorTex, coord, vec4(blackColor, 1.0));
+    return;
+  }
+
+  // Convert linear energy to dB using precomputed constant (faster than division)
+  float energyDB = 10.0 * log(energyLinear) * INV_LOG10;
+
+  vec3 outColor;
+
+  if (energyDB <= dbLowerBound) {
+    outColor = blackColor;
+  } else if (energyDB < dbMidPoint) {
+    float t = (energyDB - dbLowerBound) / (dbMidPoint - dbLowerBound);
+    // Apply exponential curve to favor black color longer
+    t = t * t * t * t * t; // Quintic curve - stays near black longer, then transitions more rapidly
+    outColor = lerp(blackColor, lissajousColor, clamp(t, 0.0, 1.0));
+  } else if (energyDB < dbUpperBound) {
+    float t = (energyDB - dbMidPoint) / (dbUpperBound - dbMidPoint);
+    outColor = lerp(lissajousColor, whiteColor, clamp(t, 0.0, 1.0));
+  } else {
+    outColor = whiteColor;
+  }
+
+  // Write result to color texture
+  imageStore(colorTex, coord, vec4(outColor, 1.0));
+}

@@ -16,100 +16,9 @@
 // Define to use raw signal instead of bandpassed signal for oscilloscope display (bandpassed signal is for debugging)
 #define SCOPE_USE_RAW_SIGNAL
 
-// --- Texture-based persistence resources and helpers (local to this TU) ---
-namespace {
-// GL resources
-GLuint persistenceFBO = 0;
-GLuint persistenceTex[2] = {0, 0};
-int currentTexIdx = 0;
-int texWidth = 0;
-int texHeight = 0;
-
-// Separate fade and glow shaders
-GLuint fadeOnlyProgram = 0;
-GLuint glowProgram = 0;
-
-void ensureFadeOnlyProgram() {
-  if (fadeOnlyProgram)
-    return;
-
-  fadeOnlyProgram = Graphics::createShaderProgram("shaders/fade_only.vert", "shaders/fade_only.frag");
-  if (fadeOnlyProgram == 0) {
-    std::cerr << "Failed to create fade-only shader program" << std::endl;
-    return;
-  }
-
-  // Set vertex attribute location
-  glBindAttribLocation(fadeOnlyProgram, 0, "pos");
-}
-
-void ensureGlowProgram() {
-  if (glowProgram)
-    return;
-
-  glowProgram = Graphics::createShaderProgram("shaders/glow.vert", "shaders/glow.frag");
-  if (glowProgram == 0) {
-    std::cerr << "Failed to create glow shader program" << std::endl;
-    return;
-  }
-
-  // Set vertex attribute location
-  glBindAttribLocation(glowProgram, 0, "pos");
-}
-
-void createPersistenceResources(int w, int h, const float* bgColor) {
-  bool needsReinit = (w != texWidth || h != texHeight || !persistenceTex[0] || !persistenceTex[1] || !persistenceFBO);
-  if (!needsReinit)
-    return;
-
-  texWidth = w;
-  texHeight = h;
-
-  if (persistenceTex[0]) {
-    glDeleteTextures(2, persistenceTex);
-    persistenceTex[0] = persistenceTex[1] = 0;
-  }
-  if (persistenceFBO) {
-    glDeleteFramebuffers(1, &persistenceFBO);
-    persistenceFBO = 0;
-  }
-
-  glGenTextures(2, persistenceTex);
-  glGenFramebuffers(1, &persistenceFBO);
-
-  std::vector<unsigned char> pixels(texWidth * texHeight * 4);
-  for (int i = 0; i < texWidth * texHeight; ++i) {
-    pixels[i * 4 + 0] = static_cast<unsigned char>(bgColor[0] * 255);
-    pixels[i * 4 + 1] = static_cast<unsigned char>(bgColor[1] * 255);
-    pixels[i * 4 + 2] = static_cast<unsigned char>(bgColor[2] * 255);
-    pixels[i * 4 + 3] = 255;
-  }
-
-  for (int i = 0; i < 2; ++i) {
-    glBindTexture(GL_TEXTURE_2D, persistenceTex[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  }
-  glBindTexture(GL_TEXTURE_2D, 0);
-  currentTexIdx = 0;
-}
-
-void drawFullscreenTexturedQuad(int w, int h) {
-  glBegin(GL_QUADS);
-  glTexCoord2f(0.f, 0.f);
-  glVertex2f(0.f, 0.f);
-  glTexCoord2f(1.f, 0.f);
-  glVertex2f(static_cast<float>(w), 0.f);
-  glTexCoord2f(1.f, 1.f);
-  glVertex2f(static_cast<float>(w), static_cast<float>(h));
-  glTexCoord2f(0.f, 1.f);
-  glVertex2f(0.f, static_cast<float>(h));
-  glEnd();
-}
-} // namespace
+// Static working buffers and phosphor context
+static std::vector<std::pair<float, float>> scopePoints;
+static Graphics::Phosphor::PhosphorContext* scopePhosphorContext = nullptr;
 
 void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the oscilloscope
@@ -117,6 +26,14 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
   const auto& osc = Config::values().oscilloscope;
   const auto& colors = Theme::ThemeManager::colors();
+
+  // Initialize phosphor context if needed
+  if (osc.enable_phosphor && !scopePhosphorContext) {
+    scopePhosphorContext = Graphics::Phosphor::createPhosphorContext("oscilloscope");
+  } else if (!osc.enable_phosphor && scopePhosphorContext) {
+    Graphics::Phosphor::destroyPhosphorContext(scopePhosphorContext);
+    scopePhosphorContext = nullptr;
+  }
 
   // Calculate the target position for phase correction
   size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
@@ -150,11 +67,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     startPos = (startPos + audioData.bufferSize - static_cast<size_t>(phaseOffset)) % audioData.bufferSize;
   }
 
-  // Re-use a static vector so we don't allocate every frame.  Capacity grows to
-  // the maximum seen and is retained for future calls.
-  static thread_local std::vector<std::pair<float, float>> waveformPoints;
-  waveformPoints.clear();
-  waveformPoints.reserve(audioData.displaySamples);
+  // Re-use static vector for waveform points
+  scopePoints.clear();
+  scopePoints.reserve(audioData.displaySamples);
 
   // Pre-compute scale factors
   const float amplitudeScale = audioData.windowHeight * osc.amplitude_scale;
@@ -169,152 +84,90 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 #else
     float y = centerY + audioData.bandpassedMid[pos] * amplitudeScale;
 #endif
-    waveformPoints.push_back({x, y});
+    scopePoints.push_back({x, y});
   }
 
   // Draw the waveform line using OpenGL only if there's a valid peak
   if (audioData.hasValidPeak) {
-    if (osc.enable_phosphor) {
-      // --- VBO & texture persistence path ---
-      if (!waveformPoints.empty()) {
-        // Build VBO friendly buffers
-        std::vector<float> vertices;
-        std::vector<float> colorsRGBA;
-        vertices.reserve(waveformPoints.size() * 4);
-        colorsRGBA.reserve(waveformPoints.size() * 8);
+    if (osc.enable_phosphor && scopePhosphorContext) {
+      // --- Phosphor rendering using Graphics::Phosphor high-level interface ---
+      if (!scopePoints.empty()) {
+        // Prepare intensity and dwell time data for oscilloscope beam
+        std::vector<float> intensityLinear;
+        std::vector<float> dwellTimes;
 
-        const float invWidth = 1.0f / width;
-        const float referenceWidth = 200.0f;
-        const float sizeScale = static_cast<float>(width) / referenceWidth;
-        const float scaledMaxBeamSpeed = osc.phosphor_max_beam_speed * sizeScale;
+        intensityLinear.reserve(scopePoints.size());
+        dwellTimes.reserve(scopePoints.size());
 
-        for (size_t i = 1; i < waveformPoints.size(); ++i) {
-          const auto& p1 = waveformPoints[i - 1];
-          const auto& p2 = waveformPoints[i];
+        // Calculate beam parameters for oscilloscope
+        const float invHeight = 1.0f / audioData.windowHeight;
+        const float referenceHeight = 200.0f;
+        const float sizeScale = static_cast<float>(audioData.windowHeight) / referenceHeight;
+
+        for (size_t i = 1; i < scopePoints.size(); ++i) {
+          const auto& p1 = scopePoints[i - 1];
+          const auto& p2 = scopePoints[i];
 
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
           float segLen = sqrtf(dx * dx + dy * dy);
-          float beamSpeed = segLen * invWidth;
-          if (beamSpeed > scaledMaxBeamSpeed)
-            continue;
+          float beamSpeed = segLen * invHeight * osc.phosphor_beam_speed_multiplier;
 
-          float speedIntensity = 1.0f / (1.0f + beamSpeed * 50.0f);
-          float intensity = osc.phosphor_intensity_scale * speedIntensity;
-          intensity = std::min(intensity, 1.0f);
-          if (intensity < 0.001f)
-            continue;
+          // Calculate beam dwell time and intensity
+          // Aggressive speed-based intensity reduction for realistic CRT behavior
+          float speedFactor = 1.0f / (1.0f + beamSpeed * 200.0f);
+          float speedSquaredFactor = speedFactor * speedFactor;
 
-          float r = colors.oscilloscope[0] * intensity;
-          float g = colors.oscilloscope[1] * intensity;
-          float b = colors.oscilloscope[2] * intensity;
+          // Apply exponential falloff for extremely fast movements
+          float exponentialSpeedFactor = expf(-beamSpeed * 10.0f);
 
-          vertices.push_back(p1.first);
-          vertices.push_back(p1.second);
-          colorsRGBA.push_back(r);
-          colorsRGBA.push_back(g);
-          colorsRGBA.push_back(b);
-          colorsRGBA.push_back(intensity);
+          // Combine factors for realistic "vanishing" effect
+          float combinedSpeedFactor = speedSquaredFactor * exponentialSpeedFactor;
 
-          vertices.push_back(p2.first);
-          vertices.push_back(p2.second);
-          colorsRGBA.push_back(r);
-          colorsRGBA.push_back(g);
-          colorsRGBA.push_back(b);
-          colorsRGBA.push_back(intensity);
+          float intensity = combinedSpeedFactor;
+
+          // Calculate dwell time based on segment length and sample rate
+          float dwelltime =
+              segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / audioData.displaySamples);
+
+          // Basic beam energy with much more dramatic speed dependency
+          float beamEnergy = osc.phosphor_beam_energy * intensity;
+          float totalSegmentEnergy = beamEnergy * dwelltime;
+
+          intensityLinear.push_back(totalSegmentEnergy);
+          dwellTimes.push_back(dwelltime);
         }
 
-        // Prepare persistence resources with separate fade and glow passes
-        createPersistenceResources(width, audioData.windowHeight, colors.background);
-        int srcIdx = currentTexIdx;
-        int tempIdx = 1 - currentTexIdx;
+        // Calculate frame time for decay
+        float deltaTime = static_cast<float>(audioData.displaySamples) / audioData.sampleRate;
+        float pixelWidth = 1.0f;
 
-        // PASS 1: Apply fade-only to previous frame
-        glBindFramebuffer(GL_FRAMEBUFFER, persistenceFBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[tempIdx], 0);
-        glViewport(0, 0, width, audioData.windowHeight);
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(0, width, 0, audioData.windowHeight, -1, 1);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
+        // Render phosphor splines using high-level interface
+        GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
+            scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, deltaTime,
+            pixelWidth, colors.background, colors.oscilloscope, colors.text, osc.phosphor_beam_size,
+            osc.phosphor_db_lower_bound, osc.phosphor_db_mid_point, osc.phosphor_db_upper_bound,
+            osc.phosphor_decay_constant, osc.phosphor_line_blur_spread, osc.phosphor_line_width);
 
-        ensureFadeOnlyProgram();
-        float dtDecay = std::clamp(Config::values().oscilloscope.texture_decay, 0.0f, 1.0f);
-        glUseProgram(fadeOnlyProgram);
-        glUniform1f(glGetUniformLocation(fadeOnlyProgram, "decay"), dtDecay);
-        glUniform3f(glGetUniformLocation(fadeOnlyProgram, "bgColor"), colors.background[0], colors.background[1],
-                    colors.background[2]);
-        glUniform2f(glGetUniformLocation(fadeOnlyProgram, "texSize"), static_cast<float>(width),
-                    static_cast<float>(audioData.windowHeight));
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
-        glUniform1i(glGetUniformLocation(fadeOnlyProgram, "texPrev"), 0);
-
-        glDisable(GL_BLEND);
-        drawFullscreenTexturedQuad(width, audioData.windowHeight);
-        glUseProgram(0);
-
-        // PASS 2: Draw current beam additively onto faded frame
-        if (!vertices.empty()) {
-          glEnable(GL_BLEND);
-          if (Theme::ThemeManager::invertNoiseBrightness()) {
-            glBlendFunc(GL_ZERO, GL_SRC_COLOR);
-          } else {
-            glBlendFunc(GL_ONE, GL_ONE);
-          }
-          Graphics::drawColoredLineSegments(vertices, colorsRGBA, 2.0f);
-          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // Draw the phosphor result
+        if (phosphorTexture) {
+          Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
         }
 
-        // PASS 3: Apply glow effect to the combined result
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, persistenceTex[srcIdx], 0);
-
-        ensureGlowProgram();
-        glUseProgram(glowProgram);
-        glUniform2f(glGetUniformLocation(glowProgram, "texSize"), static_cast<float>(width),
-                    static_cast<float>(audioData.windowHeight));
-        glUniform1f(glGetUniformLocation(glowProgram, "glowIntensity"), 1.0f); // TODO: make configurable
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, persistenceTex[tempIdx]);
-        glUniform1i(glGetUniformLocation(glowProgram, "texInput"), 0);
-
-        glDisable(GL_BLEND);
-        drawFullscreenTexturedQuad(width, audioData.windowHeight);
-        glUseProgram(0);
-
-        // Restore default framebuffer
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
-
-        // Present final glowed texture
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, persistenceTex[srcIdx]);
-        glColor4f(1.f, 1.f, 1.f, 1.f);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-        drawFullscreenTexturedQuad(width, audioData.windowHeight);
-        glDisable(GL_TEXTURE_2D);
-
-        // --- Draw gradient inside persistence FBO, scaled so it blends without bleaching ---
+        // --- Draw gradient overlays directly on screen (preserve current gradient functionality) ---
         if (osc.gradient_mode == "horizontal" || osc.gradient_mode == "vertical") {
-          const float scaleFactor = 1.0f - dtDecay * (osc.gradient_mode == "horizontal" ? 1.0f : 0.5f);
-
-          // Use standard alpha blending for gradient fill so colors properly interpolate toward the (already
-          // decayed) background contained in the persistence texture.  Additive blending made the gradient
-          // accumulate brightness instead of fading toward the background, resulting in a washed-out look.
+          // Use standard alpha blending for gradient fill
           glEnable(GL_BLEND);
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
           if (osc.gradient_mode == "horizontal") {
             const float invCenterY = 1.0f / centerY;
-            const float gradientScale = 1.0f;
+            const float gradientScale = 0.3f; // Reduced scale for overlay
 
             glBegin(GL_TRIANGLES);
-            for (size_t i = 1; i < waveformPoints.size(); ++i) {
-              const auto& p1 = waveformPoints[i - 1];
-              const auto& p2 = waveformPoints[i];
+            for (size_t i = 1; i < scopePoints.size(); ++i) {
+              const auto& p1 = scopePoints[i - 1];
+              const auto& p2 = scopePoints[i];
 
               // Gradient factors
               float dist1 = std::min(std::abs(p1.second - centerY) * invCenterY, 1.0f);
@@ -322,25 +175,20 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
               float grad1 = dist1 * gradientScale;
               float grad2 = dist2 * gradientScale;
 
-              float fill1[4] = {(colors.oscilloscope[0] * grad1 + colors.background[0]) * scaleFactor,
-                                (colors.oscilloscope[1] * grad1 + colors.background[1]) * scaleFactor,
-                                (colors.oscilloscope[2] * grad1 + colors.background[2]) * scaleFactor,
-                                grad1 * scaleFactor};
+              float fill1[4] = {colors.oscilloscope[0] * grad1, colors.oscilloscope[1] * grad1,
+                                colors.oscilloscope[2] * grad1, grad1 * 0.5f}; // Reduced alpha
 
-              float fill2[4] = {(colors.oscilloscope[0] * grad2 + colors.background[0]) * scaleFactor,
-                                (colors.oscilloscope[1] * grad2 + colors.background[1]) * scaleFactor,
-                                (colors.oscilloscope[2] * grad2 + colors.background[2]) * scaleFactor,
-                                grad2 * scaleFactor};
+              float fill2[4] = {colors.oscilloscope[0] * grad2, colors.oscilloscope[1] * grad2,
+                                colors.oscilloscope[2] * grad2, grad2 * 0.5f}; // Reduced alpha
 
-              float bgScaled[4] = {colors.background[0] * scaleFactor, colors.background[1] * scaleFactor,
-                                   colors.background[2] * scaleFactor, 0.0f};
+              float bgTransparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
               // Triangle 1
-              glColor4fv(bgScaled);
+              glColor4fv(bgTransparent);
               glVertex2f(p1.first, centerY);
               glColor4fv(fill1);
               glVertex2f(p1.first, p1.second);
-              glColor4fv(bgScaled);
+              glColor4fv(bgTransparent);
               glVertex2f(p2.first, centerY);
 
               // Triangle 2
@@ -348,26 +196,21 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
               glVertex2f(p1.first, p1.second);
               glColor4fv(fill2);
               glVertex2f(p2.first, p2.second);
-              glColor4fv(bgScaled);
+              glColor4fv(bgTransparent);
               glVertex2f(p2.first, centerY);
             }
             glEnd();
           } else { // vertical
             const float invCenterY = 1.0f / centerY;
-            const float gradientScale = 0.5f;
+            const float gradientScale = 0.15f; // Reduced scale for overlay
 
             glBegin(GL_QUAD_STRIP);
-            for (const auto& point : waveformPoints) {
+            for (const auto& point : scopePoints) {
               float dist = std::min(std::abs(point.second - centerY) * invCenterY, 1.0f);
               float grad = dist * gradientScale;
 
-              float fill[4] = {(colors.oscilloscope[0] * grad + colors.background[0] * (1.0f - grad)) * scaleFactor,
-                               (colors.oscilloscope[1] * grad + colors.background[1] * (1.0f - grad)) * scaleFactor,
-                               (colors.oscilloscope[2] * grad + colors.background[2] * (1.0f - grad)) * scaleFactor,
-                               grad * scaleFactor};
-
-              float bgScaled[4] = {colors.background[0] * scaleFactor, colors.background[1] * scaleFactor,
-                                   colors.background[2] * scaleFactor, 0.0f};
+              float fill[4] = {colors.oscilloscope[0] * grad, colors.oscilloscope[1] * grad,
+                               colors.oscilloscope[2] * grad, grad * 0.5f}; // Reduced alpha
 
               glColor4fv(fill);
               glVertex2f(point.first, point.second);
@@ -377,10 +220,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           }
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
-
-        currentTexIdx = srcIdx;
       }
     } else {
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
       // Standard non-phosphor rendering
       if (osc.gradient_mode == "horizontal") {
         // Pre-compute gradient constants
@@ -389,9 +231,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
         // Horizontal gradient: intensity based on distance from center line outward
         glBegin(GL_TRIANGLES);
-        for (size_t i = 1; i < waveformPoints.size(); ++i) {
-          const auto& p1 = waveformPoints[i - 1];
-          const auto& p2 = waveformPoints[i];
+        for (size_t i = 1; i < scopePoints.size(); ++i) {
+          const auto& p1 = scopePoints[i - 1];
+          const auto& p2 = scopePoints[i];
 
           // Calculate gradient for p1
           float distance1 = std::abs(p1.second - centerY) * invCenterY;
@@ -437,7 +279,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
         // Vertical gradient: intensity based on distance from center line
         glBegin(GL_QUAD_STRIP);
-        for (const auto& point : waveformPoints) {
+        for (const auto& point : scopePoints) {
           // Calculate distance from center line
           float distanceFromCenter = std::abs(point.second - centerY) * invCenterY;
           distanceFromCenter = std::min(distanceFromCenter, 1.0f);
@@ -457,7 +299,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         glEnd();
       }
 
-      Graphics::drawAntialiasedLines(waveformPoints, colors.oscilloscope, 2.0f);
+      Graphics::drawAntialiasedLines(scopePoints, colors.oscilloscope, 2.0f);
     }
   }
 }

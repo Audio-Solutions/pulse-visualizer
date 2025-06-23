@@ -1,0 +1,21 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Catppuccin Mocha Glow - Enhanced contrast for oscilloscope and lissajous"
+color: 166, 227, 161
+selection: 250, 179, 135
+text: 205, 214, 244
+accent: 49, 50, 68
+bg: 24, 24, 37
+bgaccent: 17, 17, 27
+
+## Optional Colors:
+## Enhanced contrast versions of oscilloscope and lissajous colors
+
+waveform: 250, 179, 135, 255
+oscilloscope_main: 250, 200, 255
+oscilloscope_bg: 24, 24, 37
+lissajous: 255, 255, 150
+spectrum_analyzer_main: 137, 180, 250
+spectrum_analyzer_secondary: 166, 227, 161

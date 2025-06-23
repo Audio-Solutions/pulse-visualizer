@@ -25,4 +25,49 @@ void drawColoredLineSegments(const std::vector<float>& vertices, const std::vect
 // Shader utilities
 GLuint loadShaderFromFile(const char* filepath, GLenum shaderType);
 GLuint createShaderProgram(const char* vertexShaderPath, const char* fragmentShaderPath);
+
+// Phosphor compute shader management
+namespace Phosphor {
+// Low-level compute shader functions (for advanced use)
+void ensureComputeProgram();
+void ensureDecayProgram();
+void ensureBlurProgram();
+void ensureColormapProgram();
+
+void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWidth, GLuint splineVertexBuffer,
+                     GLuint energyTex, float beamSize, float dbLowerBound, float dbMidPoint, float dbUpperBound);
+void dispatchDecay(int texWidth, int texHeight, float deltaTime, GLuint inputTex, GLuint outputTex,
+                   float decayConstant);
+void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread,
+                  float lineWidth);
+void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor,
+                      const float* whiteColor, GLuint energyTex, GLuint colorTex, float dbLowerBound, float dbMidPoint,
+                      float dbUpperBound);
+
+// High-level phosphor rendering functions
+struct PhosphorContext;
+
+// Create a phosphor rendering context for a visualizer
+PhosphorContext* createPhosphorContext(const char* contextName);
+
+// Render splines with phosphor effect and return final color texture
+GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pair<float, float>>& splinePoints,
+                             const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
+                             int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
+                             const float* lineColor, const float* whiteColor, float beamSize, float dbLowerBound,
+                             float dbMidPoint, float dbUpperBound, float decayConstant, float lineBlurSpread,
+                             float lineWidth);
+
+// Draw current phosphor state without processing (just colormap existing energy)
+GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int renderHeight, const float* bgColor,
+                                const float* lineColor, const float* whiteColor, float dbLowerBound, float dbMidPoint,
+                                float dbUpperBound);
+
+// Draw the phosphor result as a fullscreen textured quad
+void drawPhosphorResult(GLuint colorTexture, int width, int height);
+
+// Cleanup phosphor context
+void destroyPhosphorContext(PhosphorContext* context);
+
+} // namespace Phosphor
 } // namespace Graphics

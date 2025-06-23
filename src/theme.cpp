@@ -170,23 +170,24 @@ bool ThemeManager::loadThemeFromFile(const std::string& filename) {
 bool ThemeManager::validatePrimaryColors(const ThemeColors& theme, const std::string& filename) {
   std::vector<std::string> missingColors;
 
-  // Check if primary colors were set (not still black/default)
-  if (theme.visualizer[0] == 0.0f && theme.visualizer[1] == 0.0f && theme.visualizer[2] == 0.0f) {
+  // Check if primary colors were set (not still at default values with alpha == 0.0f)
+  // We check alpha channel instead of RGB since black is a valid color choice
+  if (theme.visualizer[3] == 0.0f) {
     missingColors.push_back("color");
   }
-  if (theme.selection[0] == 0.0f && theme.selection[1] == 0.0f && theme.selection[2] == 0.0f) {
+  if (theme.selection[3] == 0.0f) {
     missingColors.push_back("selection");
   }
-  if (theme.text[0] == 0.0f && theme.text[1] == 0.0f && theme.text[2] == 0.0f) {
+  if (theme.text[3] == 0.0f) {
     missingColors.push_back("text");
   }
-  if (theme.accent[0] == 0.0f && theme.accent[1] == 0.0f && theme.accent[2] == 0.0f) {
+  if (theme.accent[3] == 0.0f) {
     missingColors.push_back("accent");
   }
-  if (theme.background[0] == 0.0f && theme.background[1] == 0.0f && theme.background[2] == 0.0f) {
+  if (theme.background[3] == 0.0f) {
     missingColors.push_back("bg");
   }
-  if (theme.bgaccent[0] == 0.0f && theme.bgaccent[1] == 0.0f && theme.bgaccent[2] == 0.0f) {
+  if (theme.bgaccent[3] == 0.0f) {
     missingColors.push_back("bgaccent");
   }
 
@@ -273,39 +274,39 @@ void ThemeManager::applyFallbacks(ThemeColors& theme) {
   // These were set during parsing, so if they're still (0,0,0,1), apply fallbacks
 
   // Check if oscilloscope color is still default black, use visualizer color
-  if (theme.oscilloscope[0] == 0.0f && theme.oscilloscope[1] == 0.0f && theme.oscilloscope[2] == 0.0f) {
+  if (theme.oscilloscope[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.oscilloscope[i] = theme.visualizer[i];
     }
   }
 
   // Check if lissajous color is still default black, use visualizer color
-  if (theme.lissajous[0] == 0.0f && theme.lissajous[1] == 0.0f && theme.lissajous[2] == 0.0f) {
+  if (theme.lissajous[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.lissajous[i] = theme.visualizer[i];
     }
   }
 
   // Apply other fallbacks as needed
-  if (theme.waveform[0] == 0.0f && theme.waveform[1] == 0.0f && theme.waveform[2] == 0.0f) {
+  if (theme.waveform[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.waveform[i] = theme.visualizer[i];
     }
   }
 
-  if (theme.spectrum[0] == 0.0f && theme.spectrum[1] == 0.0f && theme.spectrum[2] == 0.0f) {
+  if (theme.spectrum[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.spectrum[i] = theme.visualizer[i];
     }
   }
 
-  if (theme.spectrogramLow[0] == 0.0f && theme.spectrogramLow[1] == 0.0f && theme.spectrogramLow[2] == 0.0f) {
+  if (theme.spectrogramLow[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.spectrogramLow[i] = theme.background[i];
     }
   }
 
-  if (theme.spectrogramHigh[0] == 0.0f && theme.spectrogramHigh[1] == 0.0f && theme.spectrogramHigh[2] == 0.0f) {
+  if (theme.spectrogramHigh[3] == 0.0f) {
     for (int i = 0; i < 4; ++i) {
       theme.spectrogramHigh[i] = theme.visualizer[i];
     }
@@ -371,6 +372,8 @@ void ThemeManager::parseThemeValue(const std::string& key, const std::string& va
     setColorIfValid(theme.spectrogramHigh);
   } else if (key == "spectrogram_main") {
     setColorIfValid(theme.spectrogramMain);
+  } else if (key == "lissajous") {
+    setColorIfValid(theme.lissajous);
   }
 
   // Extended colors

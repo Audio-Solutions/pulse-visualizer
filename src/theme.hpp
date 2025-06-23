@@ -77,7 +77,8 @@ struct ThemeColors {
 
   // Initialize with default colors
   void initializeDefaults() {
-    // Initialize all colors to black/transparent
+    // Initialize all colors to black with alpha = 0.0f for proper tracking
+    // Alpha = 0.0f indicates the color hasn't been set yet
     for (int i = 0; i < 4; ++i) {
       background[i] = visualizer[i] = grid[i] = splitter[i] = text[i] = accent[i] = 0.0f;
       lissajous[i] = oscilloscope[i] = waveform[i] = spectrum[i] = 0.0f;
@@ -89,15 +90,8 @@ struct ThemeColors {
       spectrogramMain[i] = colorBarsLow[i] = colorBarsHigh[i] = colorBarsMain[i] = errorBar[i] = 0.0f;
     }
 
-    // Set alpha to 1.0 for all colors
-    background[3] = visualizer[3] = grid[3] = splitter[3] = text[3] = accent[3] = 1.0f;
-    lissajous[3] = oscilloscope[3] = waveform[3] = spectrum[3] = 1.0f;
-    spectrogramLow[3] = spectrogramHigh[3] = selection[3] = bgaccent[3] = 1.0f;
-    waveformLow[3] = waveformMid[3] = waveformHigh[3] = oscilloscopeBg[3] = 1.0f;
-    stereometer[3] = stereometerLow[3] = stereometerMid[3] = stereometerHigh[3] = 1.0f;
-    spectrumAnalyzerSecondary[3] = spectrumAnalyzerFrequencyLines[3] = 1.0f;
-    spectrumAnalyzerReferenceLine[3] = spectrumAnalyzerThresholdLine[3] = 1.0f;
-    spectrogramMain[3] = colorBarsLow[3] = colorBarsHigh[3] = colorBarsMain[3] = errorBar[3] = 1.0f;
+    // Alpha channels remain 0.0f to indicate colors haven't been set yet
+    // This allows the validation and fallback logic to work properly
 
     // Initialize properties
     rgbWaveformOpacityWithHistory = 170;

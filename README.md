@@ -6,34 +6,29 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- **Phosphor effect may need configuration for light themes.** The effect relies on additive blending, which is most visible on dark backgrounds. For light themes, you may need to set `waveform_invert_noise_brightness: 1` in your config file to invert the lissajous phosphor blending for better visibility.
-- No settings menu or source selection yet
-- Configuration is handled through a config file (see [Building](#building) for more details)
-- Performance may vary depending on your system's framerate
-- Bugs and quirks are to be expected
+- **Phosphor brightness varies slightly with screen size.** Currently, the phosphor effect brightness is not perfectly normalized across different window sizes - larger windows may appear dimmer than smaller ones.
+- No settings menu or source selection yet.
+- Configuration is handled through a config file (see [Building](#building) for more details).
+- Performance may vary depending on your system's framerate.
+- Bugs and quirks are to be expected.
 
 ## Features
 
-- Real-time audio visualization
-- Live configuration updates
+- Real-time audio visualization with low-latency processing
+- Almost-perfect analog CRT phosphor emulation with GPU compute shaders for realistic glow and persistence effects
 - Multiple visualization styles:
-	- Lissajous curve with toggleable phosphor-like effect and Catmull-Rom spline interpolation
-	- Oscilloscope with configurable gradient modes, Catmull-Rom spline interpolation and toggleable phosphor-like effect
+	- Lissajous curve with Catmull-Rom spline interpolation
+	- Oscilloscope with configurable gradient modes
 	- FFT with mid/side and right/left modes and sharp/flat note key mode
 	- Spectrogram
-- Popout windows for visualizers (fixed aspect ratio visualizers are a little janky when resizing)
-- Configurable visualizer order
-- Low-latency audio processing (PulseAudio **and** PipeWire backends)
-- Hardware-accelerated graphics
-- Cross-platform support
-- Includes a collection of ready-made themes (see the `themes/` folder)
+- Live configuration updates and popout windows for visualizers
+- Cross-platform support (PulseAudio **and** PipeWire backends)
+- Hardware-accelerated graphics with OpenGL
+- Collection of ready-made themes, including MiniMeters's native themes (see the `themes/` folder)
 
-### Screen-Space History (Phosphor Effect)
+## Dependencies & Platform Support
 
-The Lissajous and Oscilloscope visualizers include a **phosphor effect** that simulates vintage CRT oscilloscope screens, creating glowing traces that fade over time. This uses hardware-accelerated render-to-texture techniques with configurable persistence, decay rates, and beam speed sensitivity. Works best with dark themes for an authentic retro aesthetic.
-
-## Dependencies
-
+**Dependencies:**
 - C++17 compatible compiler
 - CMake 3.10 or newer
 - SDL2
@@ -44,12 +39,9 @@ The Lissajous and Oscilloscope visualizers include a **phosphor effect** that si
 - GLEW
 - Nlohmann JSON
 
-## Platform Support
-
-Pulse is confirmed to work on:
+**Supported Platforms:**
 - Linux (PulseAudio **or** PipeWire)
 - BSD (PulseAudio)
-
 
 ## Building
 
@@ -76,8 +68,7 @@ The installation will automatically:
 >    - PipeWire  : `"pipewire.default_source"`
 > 3. Set `"default_font"` to the full path of your font file.
 
-### Themeing 
-To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
+**Themeing:** To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
 
 ```json
 "default_theme": "mocha.txt"
@@ -92,23 +83,21 @@ After installation, you can run the visualizer from anywhere:
 ```bash
 Pulse
 ```
-## Contributing
+## Contributing & Support
 
-Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request.
+Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request. Apologies in advance for my chaotic coding style.
+
+If you find Pulse useful and want to support its development in other ways, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Support
-
-If you find Pulse useful and want to support its development, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
 ## Acknowledgments
 
 - [MiniMeters](https://minimeters.app/) for inspiration in audio visualization design
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
 - SDL2 for cross-platform graphics and input
-- PulseAudio for audio capture
+- PulseAudio and PipeWire for audio capture
 - FFTW for fast Fourier transforms
 - FreeType for text rendering

@@ -67,7 +67,24 @@ void Config::load(const std::string& filename) {
     clearCache();
     return;
   }
-  in >> configData;
+
+  try {
+    in >> configData;
+  } catch (const nlohmann::json::exception& e) {
+    // If JSON parsing fails, warn and fall back to defaults
+    std::cerr << "Warning: JSON parsing error in config file " << expanded << ": " << e.what() << " (using defaults)"
+              << std::endl;
+    configData = nlohmann::json::object();
+    clearCache();
+    return;
+  } catch (const std::exception& e) {
+    // Catch any other parsing errors
+    std::cerr << "Warning: Error parsing config file " << expanded << ": " << e.what() << " (using defaults)"
+              << std::endl;
+    configData = nlohmann::json::object();
+    clearCache();
+    return;
+  }
   clearCache();
   // Update last modification time
   struct stat st;
@@ -82,26 +99,32 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.amplitude_scale = getFloat("oscilloscope.amplitude_scale");
     v.oscilloscope.gradient_mode = getString("oscilloscope.gradient_mode");
     v.oscilloscope.enable_phosphor = getBool("oscilloscope.enable_phosphor");
-    v.oscilloscope.phosphor_spline_density = getInt("oscilloscope.phosphor_spline_density");
-    v.oscilloscope.phosphor_max_beam_speed = getFloat("oscilloscope.phosphor_max_beam_speed");
-    v.oscilloscope.phosphor_intensity_scale = getFloat("oscilloscope.phosphor_intensity_scale");
-    v.oscilloscope.texture_decay = getFloat("oscilloscope.texture_decay");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
+    v.oscilloscope.phosphor_beam_energy = getFloat("oscilloscope.phosphor_beam_energy");
+    v.oscilloscope.phosphor_db_lower_bound = getFloat("oscilloscope.phosphor_db_lower_bound");
+    v.oscilloscope.phosphor_db_mid_point = getFloat("oscilloscope.phosphor_db_mid_point");
+    v.oscilloscope.phosphor_db_upper_bound = getFloat("oscilloscope.phosphor_db_upper_bound");
+    v.oscilloscope.phosphor_decay_constant = getFloat("oscilloscope.phosphor_decay_constant");
+    v.oscilloscope.phosphor_beam_size = getFloat("oscilloscope.phosphor_beam_size");
+    v.oscilloscope.phosphor_line_blur_spread = getFloat("oscilloscope.phosphor_line_blur_spread");
+    v.oscilloscope.phosphor_line_width = getFloat("oscilloscope.phosphor_line_width");
+    v.oscilloscope.phosphor_beam_speed_multiplier = getFloat("oscilloscope.phosphor_beam_speed_multiplier");
 
-    v.lissajous.points = getInt("lissajous.points");
+    v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.phosphor_tension = getFloat("lissajous.phosphor_tension");
     v.lissajous.enable_splines = getBool("lissajous.enable_splines");
     v.lissajous.spline_segments = getInt("lissajous.spline_segments");
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
     v.lissajous.phosphor_spline_density = getInt("lissajous.phosphor_spline_density");
-    v.lissajous.phosphor_max_beam_speed = getFloat("lissajous.phosphor_max_beam_speed");
-    v.lissajous.phosphor_persistence_time = getFloat("lissajous.phosphor_persistence_time");
-    v.lissajous.phosphor_decay_rate = getFloat("lissajous.phosphor_decay_rate");
-    v.lissajous.phosphor_intensity_scale = getFloat("lissajous.phosphor_intensity_scale");
-    v.lissajous.texture_decay = getFloat("lissajous.texture_decay");
-    v.lissajous.beam_speed_brightness_curve = getFloat("lissajous.beam_speed_brightness_curve");
-    v.lissajous.beam_speed_brightness_scale = getFloat("lissajous.beam_speed_brightness_scale");
-    v.lissajous.min_beam_brightness = getFloat("lissajous.min_beam_brightness");
+    v.lissajous.phosphor_db_lower_bound = getFloat("lissajous.phosphor_db_lower_bound");
+    v.lissajous.phosphor_db_mid_point = getFloat("lissajous.phosphor_db_mid_point");
+    v.lissajous.phosphor_db_upper_bound = getFloat("lissajous.phosphor_db_upper_bound");
+    v.lissajous.phosphor_decay_constant = getFloat("lissajous.phosphor_decay_constant");
+    v.lissajous.phosphor_beam_size = getFloat("lissajous.phosphor_beam_size");
+    v.lissajous.phosphor_line_blur_spread = getFloat("lissajous.phosphor_line_blur_spread");
+    v.lissajous.phosphor_line_width = getFloat("lissajous.phosphor_line_width");
+    v.lissajous.phosphor_beam_energy = getFloat("lissajous.phosphor_beam_energy");
+    v.lissajous.phosphor_beam_speed_multiplier = getFloat("lissajous.phosphor_beam_speed_multiplier");
 
     v.fft.font = getString("font.default_font");
     v.fft.min_freq = getFloat("fft.fft_min_freq");
@@ -214,8 +237,9 @@ int Config::getInt(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
     if (!it->second.is_number_integer()) {
-      std::cerr << "Config error: key '" << key << "' is not an integer (cached)." << std::endl;
-      std::terminate();
+      std::cerr << "Warning: config key '" << key << "' is not an integer (cached), using 0" << std::endl;
+      configCache[key] = 0;
+      return 0;
     }
     return it->second.get<int>();
   }
@@ -233,14 +257,15 @@ float Config::getFloat(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
     if (!it->second.is_number()) {
-      std::cerr << "Config error: key '" << key << "' is not a number (cached)." << std::endl;
-      std::terminate();
+      std::cerr << "Warning: config key '" << key << "' is not a number (cached), using 0.0" << std::endl;
+      configCache[key] = 0.0f;
+      return 0.0f;
     }
     return it->second.get<float>();
   }
   nlohmann::json& val = getJsonRef(key);
   if (!val.is_number()) {
-    std::cerr << "Warning: config key '" << key << "' expected number, using 0" << std::endl;
+    std::cerr << "Warning: config key '" << key << "' expected number, using 0.0" << std::endl;
     configCache[key] = 0.0f;
     return 0.0f;
   }
@@ -252,8 +277,9 @@ bool Config::getBool(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
     if (!it->second.is_boolean()) {
-      std::cerr << "Config error: key '" << key << "' is not a boolean (cached)." << std::endl;
-      std::terminate();
+      std::cerr << "Warning: config key '" << key << "' is not a boolean (cached), using false" << std::endl;
+      configCache[key] = false;
+      return false;
     }
     return it->second.get<bool>();
   }
@@ -271,8 +297,9 @@ std::string Config::getString(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
     if (!it->second.is_string()) {
-      std::cerr << "Config error: key '" << key << "' is not a string (cached)." << std::endl;
-      std::terminate();
+      std::cerr << "Warning: config key '" << key << "' is not a string (cached), using empty string" << std::endl;
+      configCache[key] = "";
+      return "";
     }
     return it->second.get<std::string>();
   }

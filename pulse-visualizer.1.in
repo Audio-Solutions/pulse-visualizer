@@ -1,15 +1,18 @@
 .TH PULSE-VISUALIZER 1 "@CMAKE_PROJECT_VERSION@" "Pulse Visualizer"
 
 .SH NAME
-pulse-visualizer \- Real-time audio visualizer for PulseAudio
+pulse-visualizer \- Real-time audio visualizer with analog CRT phosphor emulation
 
 .SH SYNOPSIS
 .B Pulse
 [\fIOPTIONS\fR]
 
 .SH DESCRIPTION
-Pulse Visualizer is a real-time audio visualizer that displays audio from PulseAudio
-in various visual formats including bars, circles, and other effects.
+Pulse is a real-time audio visualizer that transforms system audio from PulseAudio or PipeWire
+into eye-catching visual effects. It features hardware-accelerated graphics with multiple
+visualization styles including Lissajous curves, oscilloscope displays, FFT spectrum analysis,
+and spectrograms. The application includes authentic analog CRT phosphor emulation powered by
+GPU compute shaders for realistic glow and persistence effects.
 
 .SH OPTIONS
 .TP
@@ -19,10 +22,14 @@ Show help message and exit
 .SH CONFIGURATION
 The application reads its configuration from \fI~/.config/pulse-visualizer/config.json\fR.
 If this file doesn't exist, it will be created from a template on first run.
+The configuration supports live updates and allows selection of audio backend
+(PulseAudio or PipeWire), visualization settings, phosphor effect parameters,
+and theme selection.
 
 .SH THEMES
 Themes are stored in \fI~/.config/pulse-visualizer/themes/\fR and can be selected
-through the configuration file.
+by editing the "default_theme" field in the configuration file. Multiple pre-made
+themes are included with the application.
 
 .SH FILES
 .TP
@@ -32,11 +39,30 @@ Configuration file
 .I ~/.config/pulse-visualizer/themes/
 Theme files directory
 
+.SH VISUALIZERS
+.TP
+.B Lissajous
+Displays stereo audio as X-Y plots with Catmull-Rom spline interpolation
+.TP
+.B Oscilloscope
+Shows waveform data with configurable gradient modes and phosphor effects
+.TP
+.B FFT Spectrum
+Frequency analysis with mid/side and left/right channel modes
+.TP
+.B Spectrogram
+Time-frequency visualization showing spectral content over time
+
+.SH REQUIREMENTS
+Requires OpenGL 4.3 or newer for phosphor effects. Works on Linux and BSD systems
+with PulseAudio or PipeWire (0.3+) for audio capture.
+
 .SH AUTHOR
 Written for the Pulse Visualizer project.
 
 .SH BUGS
-Report bugs to the project repository.
+Report bugs at the project repository. Note that phosphor effects can be
+resource-intensive and may vary in brightness with window size.
 
-.SH COPYRIGHT
-Copyright © 2024 Pulse Visualizer contributors. 
+.SH LICENSE
+This software is released under the MIT License. 

@@ -1,0 +1,104 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(binding = 0, r32f) uniform image2D inputTex;
+layout(binding = 1, r32f) uniform image2D outputTex;
+
+uniform float line_blur_spread;
+uniform float line_width;
+uniform vec2 texSize;
+uniform float viewport_scale; // Scale factor for different viewport sizes (relative to 2160x2160)
+
+// Constants for optimization
+const int MAX_KERNEL_SIZE = 16; // Cap maximum kernel size for performance
+const float MIN_WEIGHT_THRESHOLD = 0.001; // Skip samples below this weight
+const float INV_LOG10 = 1.0 / log(10.0);
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+
+  // Check bounds
+  if (coord.x >= int(texSize.x) || coord.y >= int(texSize.y)) {
+    return;
+  }
+
+  // Calculate filter size with performance cap
+  int range_filter = min(int(ceil(10.0 * line_blur_spread)) * 2 + 1, MAX_KERNEL_SIZE);
+  int half_range = range_filter / 2;
+
+  // Precompute squared radius for cheaper distance checks
+  float half_range_sq = float(half_range * half_range);
+
+  // Early exit for very small blur spreads
+  if (line_blur_spread < 0.01) {
+    float value = imageLoad(inputTex, coord).r;
+    imageStore(outputTex, coord, vec4(value, 0.0, 0.0, 0.0));
+    return;
+  }
+
+  float total_weight = 0.0;
+  float result = 0.0;
+
+  // Dot_intens weights
+  const float dot_intens_F = 0.8;
+  const float dot_intens_G = 1.0;
+
+  // Precompute constants to avoid repeated calculations
+  float f_factor = 1.0 / (line_blur_spread * 0.2);
+  float g_factor = 16.0 / float(range_filter);
+
+  // Pre-compute negative factors to avoid repeated unary minus inside the loop
+  float neg_f_factor = -f_factor;
+  float neg_g_factor = -g_factor;
+
+  // Iterate over filter kernel with optimizations
+  for (int dy = -half_range; dy <= half_range; dy++) {
+    for (int dx = -half_range; dx <= half_range; dx++) {
+      // Use squared distance for cheaper comparison first
+      float distanceSq = float(dx * dx + dy * dy);
+
+      // Discard samples outside the circular kernel
+      if (distanceSq > half_range_sq) continue;
+
+      // Compute actual distance only for accepted samples
+      float distance = sqrt(distanceSq);
+
+      ivec2 sample_coord = coord + ivec2(dx, dy);
+
+      // Clamp to texture bounds
+      sample_coord = clamp(sample_coord, ivec2(0), ivec2(texSize) - 1);
+
+      // Calculate the three filter components with optimized math
+
+      // F: Line widening - optimized exponential
+      float F = exp(distance * neg_f_factor);
+
+      // G: Blur around line - optimized exponential  
+      float G = exp(distance * neg_g_factor);
+
+      // Combine with weights: H = E*Dot_intens(1) + F*Dot_intens(2) + G*Dot_intens(3)
+      float H = F * dot_intens_F + G * dot_intens_G;
+
+      // Early exit for negligible weights
+      if (H < MIN_WEIGHT_THRESHOLD) continue;
+
+      // Sample input texture
+      float sample_value = imageLoad(inputTex, sample_coord).r;
+
+      result += sample_value * H;
+      total_weight += H;
+    }
+  }
+
+  // Normalize result
+  if (total_weight > MIN_WEIGHT_THRESHOLD) {
+    result /= total_weight;
+  } else {
+    // Fallback to original value if no significant contributions
+    result = imageLoad(inputTex, coord).r;
+  }
+
+  // Write result to output texture
+  imageStore(outputTex, coord, vec4(result, 0.0, 0.0, 0.0));
+}

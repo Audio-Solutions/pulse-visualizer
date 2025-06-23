@@ -12,28 +12,34 @@ struct ConfigValues {
     float amplitude_scale = 0.5f;
     std::string gradient_mode = "horizontal";
     bool enable_phosphor = false;
-    int phosphor_spline_density = 2000;
-    float phosphor_max_beam_speed = 0.001f;
-    float phosphor_intensity_scale = 0.5f;
-    float texture_decay = 0.96f;
     bool follow_pitch = true;
+    float phosphor_beam_energy = 1.0f;
+    float phosphor_db_lower_bound = -60.0f;
+    float phosphor_db_mid_point = -50.0f;
+    float phosphor_db_upper_bound = -40.0f;
+    float phosphor_decay_constant = 50.0f;
+    float phosphor_beam_size = 2.0f;
+    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_width = 2.0f;
+    float phosphor_beam_speed_multiplier = 1.0f;
   } oscilloscope;
 
   struct Lissajous {
-    int points = 1000;
+    int max_points = 1000;
     float phosphor_tension = 0.5f;
     bool enable_splines = true;
     int spline_segments = 8;
     bool enable_phosphor = true;
     int phosphor_spline_density = 20;
-    float phosphor_max_beam_speed = 0.05f;
-    float phosphor_persistence_time = 0.5f;
-    float phosphor_decay_rate = 7.0f;
-    float phosphor_intensity_scale = 5.0f;
-    float texture_decay = 0.96f;
-    float beam_speed_brightness_curve = 2.0f;
-    float beam_speed_brightness_scale = 1.0f;
-    float min_beam_brightness = 0.1f;
+    float phosphor_beam_energy = 1.0f;
+    float phosphor_db_lower_bound = -60.0f;
+    float phosphor_db_mid_point = -50.0f;
+    float phosphor_db_upper_bound = -40.0f;
+    float phosphor_decay_constant = 50.0f;
+    float phosphor_beam_size = 2.0f;
+    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_width = 2.0f;
+    float phosphor_beam_speed_multiplier = 1.0f;
   } lissajous;
 
   struct FFT {
