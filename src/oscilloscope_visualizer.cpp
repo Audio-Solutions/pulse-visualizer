@@ -35,6 +35,35 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     scopePhosphorContext = nullptr;
   }
 
+  // Calculate how much new data came from the buffer since last frame
+  static size_t lastWritePos = 0;
+  static bool firstCall = true;
+
+  size_t readCount;
+  if (firstCall) {
+    readCount = audioData.displaySamples; // On first call, assume we need to draw displaySamples
+    firstCall = false;
+  } else {
+    readCount = (audioData.writePos + audioData.bufferSize - lastWritePos) % audioData.bufferSize;
+  }
+  lastWritePos = audioData.writePos;
+
+  if (readCount == 0) {
+    // draw old data
+    if (osc.enable_phosphor && scopePhosphorContext) {
+      GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
+          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope, colors.text,
+          osc.phosphor_db_lower_bound, osc.phosphor_db_mid_point, osc.phosphor_db_upper_bound);
+
+      if (phosphorTexture) {
+        Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
+      }
+    } else {
+      Graphics::drawAntialiasedLines(scopePoints, colors.oscilloscope, 2.0f);
+    }
+    return;
+  }
+
   // Calculate the target position for phase correction
   size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
 
@@ -128,7 +157,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
           // Calculate dwell time based on segment length and sample rate
           float dwelltime =
-              segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / audioData.displaySamples);
+              segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / (1e-12f + readCount));
 
           // Basic beam energy with much more dramatic speed dependency
           float beamEnergy = osc.phosphor_beam_energy * intensity;
@@ -139,7 +168,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         }
 
         // Calculate frame time for decay
-        float deltaTime = static_cast<float>(audioData.displaySamples) / audioData.sampleRate;
+        float deltaTime = static_cast<float>(readCount) / audioData.sampleRate;
         float pixelWidth = 1.0f;
 
         // Render phosphor splines using high-level interface
