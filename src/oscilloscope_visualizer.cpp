@@ -48,7 +48,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   }
   lastWritePos = audioData.writePos;
 
-  if (readCount == 0) {
+  if (readCount == 0 && audioData.hasValidPeak) {
     // draw old data
     if (osc.enable_phosphor && scopePhosphorContext) {
       GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
