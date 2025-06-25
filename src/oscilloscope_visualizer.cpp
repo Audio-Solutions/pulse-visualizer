@@ -52,7 +52,8 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     // draw old data
     if (osc.enable_phosphor && scopePhosphorContext) {
       GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
-          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope, osc.enable_phosphor_grain);
+          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope,
+          osc.enable_phosphor_grain);
 
       if (phosphorTexture) {
         Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
@@ -133,7 +134,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
-          float segLen = sqrtf(dx * dx + dy * dy);
+          float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
           float deltaT = 1.0f / audioData.sampleRate;
           float intensity = osc.phosphor_beam_energy * deltaT / segLen;
 

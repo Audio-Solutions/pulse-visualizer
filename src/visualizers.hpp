@@ -65,9 +65,6 @@ private:
   static std::vector<std::pair<float, float>> points;
   static std::vector<std::pair<float, float>> densePath;
   static std::vector<float> originalDistances;
-
-  // Helper methods
-  void updateThemeCache();
 };
 
 // Oscilloscope visualizer
@@ -83,9 +80,6 @@ public:
 private:
   int position = 0;
   int width = 0;
-
-  // Helper methods
-  void updateThemeCache();
 };
 
 // FFT visualizer

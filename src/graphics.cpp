@@ -677,7 +677,8 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                              const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
                              int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
                              const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
-                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor, bool enablePhosphorGrain) {
+                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor,
+                             bool enablePhosphorGrain) {
   if (!context || splinePoints.empty()) {
     return 0;
   }
@@ -732,8 +733,8 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                rangeFactor);
 
   // 6. Convert energy to color using compute shader
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1], context->ageTex,
-                   context->colorTex);
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
+                   context->ageTex, context->colorTex);
 
   // Return the final color texture for drawing
   return context->colorTex;
@@ -750,8 +751,8 @@ GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int r
 
   // Just convert current energy (energyTex[1]) to color using compute shader
   // This mimics the original fallback behavior - no decay, no blur, just colormap
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1], context->ageTex,
-                   context->colorTex);
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
+                   context->ageTex, context->colorTex);
 
   // Return the color texture for drawing
   return context->colorTex;
@@ -879,8 +880,8 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
   glUseProgram(0);
 }
 
-void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor, bool enablePhosphorGrain, GLuint energyTex,
-                      GLuint ageTex, GLuint colorTex) {
+void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor,
+                      bool enablePhosphorGrain, GLuint energyTex, GLuint ageTex, GLuint colorTex) {
   ensureColormapProgram();
   if (!colormapProgram)
     return;

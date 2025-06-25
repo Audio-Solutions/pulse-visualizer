@@ -174,7 +174,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
 
         float dx = p2.first - p1.first;
         float dy = p2.second - p1.second;
-        float segLen = sqrtf(dx * dx + dy * dy);
+        float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
 
         float deltaT = audioData.dt / fftPoints.size();
         float intensity = fcfg.phosphor_beam_energy * deltaT * sqrtf(dx);

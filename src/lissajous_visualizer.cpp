@@ -117,8 +117,8 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
     if (newDataCount == 0) {
       if (lis.enable_phosphor && lissajousPhosphorContext) {
         // Draw current phosphor state without processing (just colormap existing energy)
-        GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(lissajousPhosphorContext, width, width,
-                                                                              colors.background, colors.lissajous, lis.enable_phosphor_grain);
+        GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
+            lissajousPhosphorContext, width, width, colors.background, colors.lissajous, lis.enable_phosphor_grain);
 
         if (phosphorTexture) {
           Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, width);
@@ -200,7 +200,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
-          float segLen = sqrtf(dx * dx + dy * dy);
+          float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
           float deltaT = (1.0f / audioData.sampleRate);
           float totalEnergy = lis.phosphor_beam_energy * deltaT / segLen / lis.phosphor_spline_density;
 
