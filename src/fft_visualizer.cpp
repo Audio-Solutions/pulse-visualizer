@@ -188,7 +188,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
           fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt, 1.0f,
           colors.background, colors.spectrum, fcfg.phosphor_beam_size, fcfg.phosphor_line_blur_spread,
           fcfg.phosphor_line_width, fcfg.phosphor_decay_slow, fcfg.phosphor_decay_fast, fcfg.phosphor_age_threshold,
-          fcfg.phosphor_range_factor);
+          fcfg.phosphor_range_factor, fcfg.enable_phosphor_grain);
 
       // Draw the phosphor result
       if (phosphorTexture) {

@@ -118,7 +118,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       if (lis.enable_phosphor && lissajousPhosphorContext) {
         // Draw current phosphor state without processing (just colormap existing energy)
         GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(lissajousPhosphorContext, width, width,
-                                                                              colors.background, colors.lissajous);
+                                                                              colors.background, colors.lissajous, lis.enable_phosphor_grain);
 
         if (phosphorTexture) {
           Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, width);
@@ -214,7 +214,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
             lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width, audioData.dt, 1.0f,
             colors.background, colors.lissajous, lis.phosphor_beam_size, lis.phosphor_line_blur_spread,
             lis.phosphor_line_width, lis.phosphor_decay_slow, lis.phosphor_decay_fast, lis.phosphor_age_threshold,
-            lis.phosphor_range_factor);
+            lis.phosphor_range_factor, lis.enable_phosphor_grain);
 
         // Draw the phosphor result
         if (phosphorTexture) {

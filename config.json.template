@@ -32,7 +32,8 @@
     "phosphor_line_blur_spread": 2,
     "phosphor_line_width": 1.0,
     "phosphor_age_threshold": 16,
-    "phosphor_range_factor": 5.0
+    "phosphor_range_factor": 5.0,
+    "enable_phosphor_grain": true
   },
   "font": {
     "default_font": "/path/to/freetype-font.ttf"
@@ -51,7 +52,8 @@
     "phosphor_line_blur_spread": 2,
     "phosphor_line_width": 1.0,
     "phosphor_age_threshold": 42,
-    "phosphor_range_factor": 5.0
+    "phosphor_range_factor": 5.0,
+    "enable_phosphor_grain": true
   },  
   "oscilloscope": {
     "amplitude_scale": 0.5,
@@ -65,7 +67,8 @@
     "phosphor_line_blur_spread": 2,
     "phosphor_line_width": 1.0,
     "phosphor_age_threshold": 42,
-    "phosphor_range_factor": 5.0
+    "phosphor_range_factor": 5.0,
+    "enable_phosphor_grain": true
   },
   "pulseaudio": {
     "default_source": "whatever.monitor",

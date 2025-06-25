@@ -74,3 +74,4 @@ deps/
 
 # Config file symlink
 config.json
+config

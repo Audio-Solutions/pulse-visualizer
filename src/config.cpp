@@ -108,6 +108,7 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.phosphor_line_width = getFloat("oscilloscope.phosphor_line_width");
     v.oscilloscope.phosphor_age_threshold = getInt("oscilloscope.phosphor_age_threshold");
     v.oscilloscope.phosphor_range_factor = getFloat("oscilloscope.phosphor_range_factor");
+    v.oscilloscope.enable_phosphor_grain = getBool("oscilloscope.enable_phosphor_grain");
 
     v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.phosphor_tension = getFloat("lissajous.phosphor_tension");
@@ -123,6 +124,7 @@ void Config::load(const std::string& filename) {
     v.lissajous.phosphor_beam_energy = getFloat("lissajous.phosphor_beam_energy");
     v.lissajous.phosphor_age_threshold = getInt("lissajous.phosphor_age_threshold");
     v.lissajous.phosphor_range_factor = getFloat("lissajous.phosphor_range_factor");
+    v.lissajous.enable_phosphor_grain = getBool("lissajous.enable_phosphor_grain");
 
     v.fft.font = getString("font.default_font");
     v.fft.min_freq = getFloat("fft.fft_min_freq");
@@ -142,6 +144,7 @@ void Config::load(const std::string& filename) {
     v.fft.phosphor_line_width = getFloat("fft.phosphor_line_width");
     v.fft.phosphor_age_threshold = getInt("fft.phosphor_age_threshold");
     v.fft.phosphor_range_factor = getFloat("fft.phosphor_range_factor");
+    v.fft.enable_phosphor_grain = getBool("fft.enable_phosphor_grain");
 
     v.spectrogram.time_window = getFloat("spectrogram.time_window");
     v.spectrogram.min_db = getFloat("spectrogram.min_db");

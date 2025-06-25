@@ -8,9 +8,32 @@ layout(binding = 2, r32ui) uniform uimage2D ageTex;
 
 uniform vec3 blackColor;
 uniform vec3 beamColor;
+uniform int enablePhosphorGrain;
 
 // Precomputed constants
-const float TANH_MULT_FACTOR = 100000.0; // Scale energy
+const float TANH_MULT_FACTOR = 100000.0;
+const float GRAIN_STRENGTH = 0.1;
+
+// Natural phosphor grain noise using multiple octaves
+float spatialGrain(vec2 coord) {
+  // Normalize coordinates to avoid large number artifacts
+  vec2 p = coord * 0.01;
+  
+  // Multiple octaves for more natural variation
+  float noise = 0.0;
+  float amplitude = 1.0;
+  float frequency = 1.0;
+  
+  // Add 3 octaves of noise
+  for (int i = 0; i < 3; i++) {
+    vec2 q = p * frequency;
+    noise += amplitude * (fract(sin(dot(q, vec2(127.1 + float(i) * 43.0, 311.7 + float(i) * 67.0))) * 43758.5453) - 0.5);
+    amplitude *= 0.5;
+    frequency *= 2.0;
+  }
+  
+  return noise * GRAIN_STRENGTH;
+}
 
 // Fast tanh approximation for better performance
 // Based on rational function approximation: tanh(x) ≈ x * (27 + x²) / (27 + 9*x²)
@@ -45,12 +68,21 @@ void main() {
   imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
 
   // Sample linear energy value
-  float energyLinear = imageLoad(energyTex, coord).r * TANH_MULT_FACTOR;
+  float energyLinear = imageLoad(energyTex, coord).r;
+  
+  // Scale energy for tanh mapping
+  energyLinear *= TANH_MULT_FACTOR;
   vec3 outColor = tanhColormap(energyLinear, beamColor);
 
   // add bg
   outColor = outColor + blackColor;
   outColor = clamp(outColor, 0.0, 1.0);
+
+  // Apply subtle spatial grain to the color
+  if (enablePhosphorGrain == 1) {
+    float grain = spatialGrain(vec2(coord));
+    outColor = outColor * (1.0 + grain);
+  }
 
   // Write result to color texture
   imageStore(colorTex, coord, vec4(outColor, 1.0));

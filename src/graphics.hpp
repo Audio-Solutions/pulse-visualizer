@@ -45,7 +45,7 @@ void dispatchDecay(int texWidth, int texHeight, float deltaTime, float decaySlow
                    uint32_t ageThreshold, GLuint inputTex, GLuint outputTex, GLuint ageTex);
 void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread, float lineWidth,
                   float rangeFactor);
-void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* beamColor, GLuint energyTex,
+void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* beamColor, bool enablePhosphorGrain, GLuint energyTex,
                       GLuint ageTex, GLuint colorTex);
 
 // High-level phosphor rendering functions
@@ -59,11 +59,11 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                              const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
                              int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
                              const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
-                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor);
+                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor, bool enablePhosphorGrain);
 
 // Draw current phosphor state without processing (just colormap existing energy)
 GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int renderHeight, const float* bgColor,
-                                const float* lineColor);
+                                const float* lineColor, bool enablePhosphorGrain);
 
 // Draw the phosphor result as a fullscreen textured quad
 void drawPhosphorResult(GLuint colorTexture, int width, int height);

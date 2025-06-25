@@ -258,18 +258,6 @@ void drawColoredLineSegments(const std::vector<float>& vertices, const std::vect
 }
 
 std::string loadTextFile(const char* filepath) {
-  // Try local path
-  std::string localPath = std::string("../") + filepath;
-  std::ifstream localFile(localPath);
-  if (localFile.is_open()) {
-    std::string content;
-    std::string line;
-    while (std::getline(localFile, line)) {
-      content += line + "\n";
-    }
-    return content;
-  }
-
   // Try system installation path
   std::string systemPath = std::string(PULSE_DATA_DIR) + "/" + filepath;
   std::ifstream systemFile(systemPath);
@@ -689,7 +677,7 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                              const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
                              int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
                              const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
-                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor) {
+                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor, bool enablePhosphorGrain) {
   if (!context || splinePoints.empty()) {
     return 0;
   }
@@ -744,7 +732,7 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                rangeFactor);
 
   // 6. Convert energy to color using compute shader
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, context->energyTex[1], context->ageTex,
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1], context->ageTex,
                    context->colorTex);
 
   // Return the final color texture for drawing
@@ -752,7 +740,7 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
 }
 
 GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int renderHeight, const float* bgColor,
-                                const float* lineColor) {
+                                const float* lineColor, bool enablePhosphorGrain) {
   if (!context) {
     return 0;
   }
@@ -762,7 +750,7 @@ GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int r
 
   // Just convert current energy (energyTex[1]) to color using compute shader
   // This mimics the original fallback behavior - no decay, no blur, just colormap
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, context->energyTex[1], context->ageTex,
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1], context->ageTex,
                    context->colorTex);
 
   // Return the color texture for drawing
@@ -891,7 +879,7 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
   glUseProgram(0);
 }
 
-void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor, GLuint energyTex,
+void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor, bool enablePhosphorGrain, GLuint energyTex,
                       GLuint ageTex, GLuint colorTex) {
   ensureColormapProgram();
   if (!colormapProgram)
@@ -904,6 +892,7 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUniform3f(glGetUniformLocation(colormapProgram, "blackColor"), bgColor[0], bgColor[1], bgColor[2]);
   glUniform3f(glGetUniformLocation(colormapProgram, "beamColor"), lissajousColor[0], lissajousColor[1],
               lissajousColor[2]);
+  glUniform1i(glGetUniformLocation(colormapProgram, "enablePhosphorGrain"), enablePhosphorGrain ? 1 : 0);
 
   // Bind input energy texture and output color texture
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);

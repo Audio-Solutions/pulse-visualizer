@@ -125,7 +125,7 @@ install(FILES README.md LICENSE
 # Install shaders directory
 install(DIRECTORY shaders/
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/shaders
-  FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag"
+  FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag" PATTERN "*.comp"
 )
 
 # Create a desktop entry

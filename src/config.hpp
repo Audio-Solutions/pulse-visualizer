@@ -21,6 +21,7 @@ struct ConfigValues {
     float phosphor_line_width = 2.0f;
     uint phosphor_age_threshold = 256;
     float phosphor_range_factor = 5.0f;
+    bool enable_phosphor_grain = true;
   } oscilloscope;
 
   struct Lissajous {
@@ -38,6 +39,7 @@ struct ConfigValues {
     float phosphor_line_width = 2.0f;
     uint phosphor_age_threshold = 256;
     float phosphor_range_factor = 5.0f;
+    bool enable_phosphor_grain = true;
   } lissajous;
 
   struct FFT {
@@ -59,6 +61,7 @@ struct ConfigValues {
     float phosphor_line_width = 2.0f;
     uint phosphor_age_threshold = 256;
     float phosphor_range_factor = 5.0f;
+    bool enable_phosphor_grain = true;
   } fft;
 
   struct Spectrogram {

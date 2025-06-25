@@ -52,7 +52,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     // draw old data
     if (osc.enable_phosphor && scopePhosphorContext) {
       GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
-          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope);
+          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope, osc.enable_phosphor_grain);
 
       if (phosphorTexture) {
         Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
@@ -146,7 +146,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
             scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt,
             1.0f, colors.background, colors.oscilloscope, osc.phosphor_beam_size, osc.phosphor_line_blur_spread,
             osc.phosphor_line_width, osc.phosphor_decay_slow, osc.phosphor_decay_fast, osc.phosphor_age_threshold,
-            osc.phosphor_range_factor);
+            osc.phosphor_range_factor, osc.enable_phosphor_grain);
 
         // Draw the phosphor result
         if (phosphorTexture) {
