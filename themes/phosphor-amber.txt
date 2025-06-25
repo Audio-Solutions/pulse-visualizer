@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Phosphor Amber - Classic Terminal Monitor Style"
+color: 255, 180, 51
+selection: 255, 191, 0
+text: 255, 200, 112
+accent: 20, 8, 0
+bg: 8, 3, 0
+bgaccent: 15, 6, 0 

@@ -14,14 +14,13 @@ struct ConfigValues {
     bool enable_phosphor = false;
     bool follow_pitch = true;
     float phosphor_beam_energy = 1.0f;
-    float phosphor_db_lower_bound = -60.0f;
-    float phosphor_db_mid_point = -50.0f;
-    float phosphor_db_upper_bound = -40.0f;
-    float phosphor_decay_constant = 50.0f;
+    float phosphor_decay_slow = 10.0f;
+    float phosphor_decay_fast = 100.0f;
     float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_blur_spread = 16.0f;
     float phosphor_line_width = 2.0f;
-    float phosphor_beam_speed_multiplier = 1.0f;
+    uint phosphor_age_threshold = 256;
+    float phosphor_range_factor = 5.0f;
   } oscilloscope;
 
   struct Lissajous {
@@ -31,15 +30,14 @@ struct ConfigValues {
     int spline_segments = 8;
     bool enable_phosphor = true;
     int phosphor_spline_density = 20;
+    float phosphor_decay_slow = 10.0f;
+    float phosphor_decay_fast = 100.0f;
     float phosphor_beam_energy = 1.0f;
-    float phosphor_db_lower_bound = -60.0f;
-    float phosphor_db_mid_point = -50.0f;
-    float phosphor_db_upper_bound = -40.0f;
-    float phosphor_decay_constant = 50.0f;
     float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_blur_spread = 16.0f;
     float phosphor_line_width = 2.0f;
-    float phosphor_beam_speed_multiplier = 1.0f;
+    uint phosphor_age_threshold = 256;
+    float phosphor_range_factor = 5.0f;
   } lissajous;
 
   struct FFT {
@@ -53,15 +51,14 @@ struct ConfigValues {
     std::string stereo_mode = "midside";
     std::string note_key_mode = "sharp";
     bool enable_phosphor = false;
+    float phosphor_decay_slow = 10.0f;
+    float phosphor_decay_fast = 100.0f;
     float phosphor_beam_energy = 1.0f;
-    float phosphor_db_lower_bound = -60.0f;
-    float phosphor_db_mid_point = -50.0f;
-    float phosphor_db_upper_bound = -40.0f;
-    float phosphor_decay_constant = 50.0f;
     float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 1.3f;
+    float phosphor_line_blur_spread = 16.0f;
     float phosphor_line_width = 2.0f;
-    float phosphor_beam_speed_multiplier = 1.0f;
+    uint phosphor_age_threshold = 256;
+    float phosphor_range_factor = 5.0f;
   } fft;
 
   struct Spectrogram {

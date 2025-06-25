@@ -393,6 +393,9 @@ int main() {
       }
     }
 
+    // Update delta time for frame-rate independent animations
+    audioData.updateDeltaTime();
+
     // Reset hover states when main window loses focus
     if (!windowHasFocus) {
       for (auto& splitter : splitters) {

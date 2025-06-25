@@ -52,8 +52,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     // draw old data
     if (osc.enable_phosphor && scopePhosphorContext) {
       GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
-          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope, colors.text,
-          osc.phosphor_db_lower_bound, osc.phosphor_db_mid_point, osc.phosphor_db_upper_bound);
+          scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope);
 
       if (phosphorTexture) {
         Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
@@ -128,11 +127,6 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         intensityLinear.reserve(scopePoints.size());
         dwellTimes.reserve(scopePoints.size());
 
-        // Calculate beam parameters for oscilloscope
-        const float invHeight = 1.0f / audioData.windowHeight;
-        const float referenceHeight = 200.0f;
-        const float sizeScale = static_cast<float>(audioData.windowHeight) / referenceHeight;
-
         for (size_t i = 1; i < scopePoints.size(); ++i) {
           const auto& p1 = scopePoints[i - 1];
           const auto& p2 = scopePoints[i];
@@ -140,43 +134,19 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
           float segLen = sqrtf(dx * dx + dy * dy);
-          float beamSpeed = segLen * invHeight * osc.phosphor_beam_speed_multiplier;
+          float deltaT = 1.0f / audioData.sampleRate;
+          float intensity = osc.phosphor_beam_energy * deltaT / segLen;
 
-          // Calculate beam dwell time and intensity
-          // Aggressive speed-based intensity reduction for realistic CRT behavior
-          float speedFactor = 1.0f / (1.0f + beamSpeed * 200.0f);
-          float speedSquaredFactor = speedFactor * speedFactor;
-
-          // Apply exponential falloff for extremely fast movements
-          float exponentialSpeedFactor = expf(-beamSpeed * 10.0f);
-
-          // Combine factors for realistic "vanishing" effect
-          float combinedSpeedFactor = speedSquaredFactor * exponentialSpeedFactor;
-
-          float intensity = combinedSpeedFactor;
-
-          // Calculate dwell time based on segment length and sample rate
-          float dwelltime =
-              segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / (1e-12f + readCount));
-
-          // Basic beam energy with much more dramatic speed dependency
-          float beamEnergy = osc.phosphor_beam_energy * intensity;
-          float totalSegmentEnergy = beamEnergy * dwelltime;
-
-          intensityLinear.push_back(totalSegmentEnergy);
-          dwellTimes.push_back(dwelltime);
+          intensityLinear.push_back(intensity);
+          dwellTimes.push_back(deltaT);
         }
-
-        // Calculate frame time for decay
-        float deltaTime = static_cast<float>(readCount) / audioData.sampleRate;
-        float pixelWidth = 1.0f;
 
         // Render phosphor splines using high-level interface
         GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-            scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, deltaTime,
-            pixelWidth, colors.background, colors.oscilloscope, colors.text, osc.phosphor_beam_size,
-            osc.phosphor_db_lower_bound, osc.phosphor_db_mid_point, osc.phosphor_db_upper_bound,
-            osc.phosphor_decay_constant, osc.phosphor_line_blur_spread, osc.phosphor_line_width);
+            scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt,
+            1.0f, colors.background, colors.oscilloscope, osc.phosphor_beam_size, osc.phosphor_line_blur_spread,
+            osc.phosphor_line_width, osc.phosphor_decay_slow, osc.phosphor_decay_fast, osc.phosphor_age_threshold,
+            osc.phosphor_range_factor);
 
         // Draw the phosphor result
         if (phosphorTexture) {

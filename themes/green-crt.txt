@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Green CRT - Classic Terminal Monitor Style"
+color: 51, 255, 193
+selection: 0, 255, 100
+text: 112, 255, 212
+accent: 0, 20, 0
+bg: 0, 8, 4
+bgaccent: 0, 15, 0

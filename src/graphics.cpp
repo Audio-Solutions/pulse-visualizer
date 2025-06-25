@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <fstream>
@@ -355,6 +356,69 @@ GLuint createShaderProgram(const char* vertexShaderPath, const char* fragmentSha
   return program;
 }
 
+// Generate a Catmull-Rom spline from a set of control points
+std::vector<std::pair<float, float>> generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
+                                                              int segmentsPerSegment, float tension) {
+  // Not enough points for spline
+  if (controlPoints.size() < 4) {
+    return controlPoints;
+  }
+
+  std::vector<std::pair<float, float>> splinePoints;
+  splinePoints.reserve((controlPoints.size() - 3) * (segmentsPerSegment + 1));
+
+  // Pre-compute tension value and segment scale
+  const float segmentScale = 1.0f / segmentsPerSegment;
+
+  for (size_t i = 1; i < controlPoints.size() - 2; ++i) {
+    const auto& p0 = controlPoints[i - 1];
+    const auto& p1 = controlPoints[i];
+    const auto& p2 = controlPoints[i + 1];
+    const auto& p3 = controlPoints[i + 2];
+
+    // Generate segments between p1 and p2
+    for (int j = 0; j <= segmentsPerSegment; ++j) {
+      float u = static_cast<float>(j) * segmentScale;
+      float u2 = u * u;
+      float u3 = u2 * u;
+
+      // Catmull-Rom blending functions
+      float b0 = -tension * u3 + 2.0f * tension * u2 - tension * u;
+      float b1 = (2.0f - tension) * u3 + (tension - 3.0f) * u2 + 1.0f;
+      float b2 = (tension - 2.0f) * u3 + (3.0f - 2.0f * tension) * u2 + tension * u;
+      float b3 = tension * u3 - tension * u2;
+
+      float x = b0 * p0.first + b1 * p1.first + b2 * p2.first + b3 * p3.first;
+      float y = b0 * p0.second + b1 * p1.second + b2 * p2.second + b3 * p3.second;
+
+      splinePoints.push_back({x, y});
+    }
+  }
+
+  return splinePoints;
+}
+
+// Calculate cumulative distance along a path of points
+std::vector<float> calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points) {
+  std::vector<float> distances;
+  distances.reserve(points.size());
+
+  float cumulativeDistance = 0.0f;
+  distances.push_back(0.0f);
+
+  for (size_t i = 1; i < points.size(); ++i) {
+    const auto& p1 = points[i - 1];
+    const auto& p2 = points[i];
+    float dx = p2.first - p1.first;
+    float dy = p2.second - p1.second;
+    float segmentDistance = sqrtf(dx * dx + dy * dy);
+    cumulativeDistance += segmentDistance;
+    distances.push_back(cumulativeDistance);
+  }
+
+  return distances;
+}
+
 namespace Phosphor {
 // Phosphor compute shader programs
 static GLuint computeProgram = 0;
@@ -366,6 +430,7 @@ static GLuint colormapProgram = 0;
 struct PhosphorContext {
   std::string name;
   GLuint energyTex[2] = {0, 0};
+  GLuint ageTex = 0;
   GLuint colorTex = 0;
   GLuint outputFBO = 0;
   GLuint vertexBuffer = 0;
@@ -377,6 +442,9 @@ struct PhosphorContext {
   ~PhosphorContext() {
     if (energyTex[0]) {
       glDeleteTextures(2, energyTex);
+    }
+    if (ageTex) {
+      glDeleteTextures(1, &ageTex);
     }
     if (colorTex) {
       glDeleteTextures(1, &colorTex);
@@ -390,7 +458,8 @@ struct PhosphorContext {
   }
 
   void ensureTextures(int w, int h) {
-    bool needsReinit = (texWidth != w || texHeight != h || !energyTex[0] || !energyTex[1] || !colorTex || !outputFBO);
+    bool needsReinit =
+        (texWidth != w || texHeight != h || !energyTex[0] || !energyTex[1] || !ageTex || !colorTex || !outputFBO);
 
     if (!needsReinit) {
       return;
@@ -416,6 +485,10 @@ struct PhosphorContext {
       glDeleteTextures(2, energyTex);
       energyTex[0] = energyTex[1] = 0;
     }
+    if (ageTex) {
+      glDeleteTextures(1, &ageTex);
+      ageTex = 0;
+    }
     if (colorTex) {
       glDeleteTextures(1, &colorTex);
       colorTex = 0;
@@ -428,6 +501,7 @@ struct PhosphorContext {
     // Create new resources
     glGenTextures(2, energyTex);
     glGenTextures(1, &colorTex);
+    glGenTextures(1, &ageTex);
     glGenFramebuffers(1, &outputFBO);
 
     // Check for OpenGL errors after resource creation
@@ -457,6 +531,10 @@ struct PhosphorContext {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
+
+    // Create age texture (1D, 1 Channel uint32_t)
+    glBindTexture(GL_TEXTURE_2D, ageTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
     // Create color texture
     glBindTexture(GL_TEXTURE_2D, colorTex);
@@ -610,9 +688,8 @@ PhosphorContext* createPhosphorContext(const char* contextName) { return new Pho
 GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pair<float, float>>& splinePoints,
                              const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
                              int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
-                             const float* lineColor, const float* whiteColor, float beamSize, float dbLowerBound,
-                             float dbMidPoint, float dbUpperBound, float decayConstant, float lineBlurSpread,
-                             float lineWidth) {
+                             const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
+                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor) {
   if (!context || splinePoints.empty()) {
     return 0;
   }
@@ -636,7 +713,11 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-  // 1. Clear tex0 (energyTex[0])
+  // 0. Copy energyTex[0] to energyTex[1]
+  glCopyImageSubData(context->energyTex[0], GL_TEXTURE_2D, 0, 0, 0, 0, context->energyTex[1], GL_TEXTURE_2D, 0, 0, 0, 0,
+                     renderWidth, renderHeight, 1);
+
+  // 1. Clear energyTex[0]
   glBindFramebuffer(GL_FRAMEBUFFER, context->outputFBO);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, context->energyTex[0], 0);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -644,11 +725,12 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // 2. Decay from energyTex[1] to energyTex[0]
-  dispatchDecay(renderWidth, renderHeight, deltaTime, context->energyTex[1], context->energyTex[0], decayConstant);
+  dispatchDecay(renderWidth, renderHeight, deltaTime, decaySlow, decayFast, ageThreshold, context->energyTex[1],
+                context->energyTex[0], context->ageTex);
 
   // 3. Draw phosphor additively on tex0 (energyTex[0])
   dispatchCompute(static_cast<int>(splinePoints.size()), renderWidth, renderHeight, pixelWidth, context->vertexBuffer,
-                  context->energyTex[0], beamSize, dbLowerBound, dbMidPoint, dbUpperBound);
+                  context->energyTex[0], context->ageTex);
 
   // 4. Clear tex1 (energyTex[1])
   glBindFramebuffer(GL_FRAMEBUFFER, context->outputFBO);
@@ -658,19 +740,19 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // 5. Blur from tex0 (energyTex[0]) to tex1 (energyTex[1])
-  dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->energyTex[1], lineBlurSpread, lineWidth);
+  dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->energyTex[1], lineBlurSpread, lineWidth,
+               rangeFactor);
 
-  // 6. Convert blurred energy to color using compute shader
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, whiteColor, context->energyTex[1], context->colorTex,
-                   dbLowerBound, dbMidPoint, dbUpperBound);
+  // 6. Convert energy to color using compute shader
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, context->energyTex[1], context->ageTex,
+                   context->colorTex);
 
   // Return the final color texture for drawing
   return context->colorTex;
 }
 
 GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int renderHeight, const float* bgColor,
-                                const float* lineColor, const float* whiteColor, float dbLowerBound, float dbMidPoint,
-                                float dbUpperBound) {
+                                const float* lineColor) {
   if (!context) {
     return 0;
   }
@@ -680,8 +762,8 @@ GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int r
 
   // Just convert current energy (energyTex[1]) to color using compute shader
   // This mimics the original fallback behavior - no decay, no blur, just colormap
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, whiteColor, context->energyTex[1], context->colorTex,
-                   dbLowerBound, dbMidPoint, dbUpperBound);
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, context->energyTex[1], context->ageTex,
+                   context->colorTex);
 
   // Return the color texture for drawing
   return context->colorTex;
@@ -713,7 +795,7 @@ void drawPhosphorResult(GLuint colorTexture, int width, int height) {
 void destroyPhosphorContext(PhosphorContext* context) { delete context; }
 
 void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWidth, GLuint splineVertexBuffer,
-                     GLuint energyTex, float beamSize, float dbLowerBound, float dbMidPoint, float dbUpperBound) {
+                     GLuint energyTex, GLuint ageTex) {
   ensureComputeProgram();
   if (!computeProgram)
     return;
@@ -723,10 +805,7 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
 
   // Set uniforms
   glUniform1f(glGetUniformLocation(computeProgram, "pixelWidth"), pixelWidth);
-  glUniform1f(glGetUniformLocation(computeProgram, "beamSize"), beamSize);
-  glUniform1f(glGetUniformLocation(computeProgram, "dbLowerBound"), dbLowerBound);
-  glUniform1f(glGetUniformLocation(computeProgram, "dbMidPoint"), dbMidPoint);
-  glUniform1f(glGetUniformLocation(computeProgram, "dbUpperBound"), dbUpperBound);
+  // glUniform1f(glGetUniformLocation(computeProgram, "beamSize"), beamSize);
   glUniform2i(glGetUniformLocation(computeProgram, "texSize"), texWidth, texHeight);
 
   // Bind vertex buffer
@@ -734,6 +813,9 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
 
   // Bind energy texture as image
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+
+  // Bind age texture as image
+  glBindImageTexture(1, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Dispatch compute shader (one thread per vertex)
   GLuint numGroups = (vertexCount + 63) / 64; // Round up to multiple of local_size_x
@@ -745,8 +827,8 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
   glUseProgram(0);
 }
 
-void dispatchDecay(int texWidth, int texHeight, float deltaTime, GLuint inputTex, GLuint outputTex,
-                   float decayConstant) {
+void dispatchDecay(int texWidth, int texHeight, float deltaTime, float decaySlow, float decayFast,
+                   uint32_t ageThreshold, GLuint inputTex, GLuint outputTex, GLuint ageTex) {
   ensureDecayProgram();
   if (!decayProgram)
     return;
@@ -754,13 +836,18 @@ void dispatchDecay(int texWidth, int texHeight, float deltaTime, GLuint inputTex
   // Use the decay compute shader
   glUseProgram(decayProgram);
 
+  float decaySlow_ = exp(-deltaTime * decaySlow);
+  float decayFast_ = exp(-deltaTime * decayFast);
+
   // Set uniforms
-  float decayFactor = exp(-decayConstant * deltaTime);
-  glUniform1f(glGetUniformLocation(decayProgram, "decayFactor"), decayFactor);
+  glUniform1f(glGetUniformLocation(decayProgram, "decaySlow"), decaySlow_);
+  glUniform1f(glGetUniformLocation(decayProgram, "decayFast"), decayFast_);
+  glUniform1ui(glGetUniformLocation(decayProgram, "ageThreshold"), ageThreshold);
 
   // Bind input and output textures
   glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
   glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+  glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
   GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8
@@ -773,8 +860,8 @@ void dispatchDecay(int texWidth, int texHeight, float deltaTime, GLuint inputTex
   glUseProgram(0);
 }
 
-void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread,
-                  float lineWidth) {
+void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread, float lineWidth,
+                  float rangeFactor) {
   ensureBlurProgram();
   if (!blurProgram)
     return;
@@ -785,6 +872,7 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
   // Set uniforms
   glUniform1f(glGetUniformLocation(blurProgram, "line_blur_spread"), lineBlurSpread);
   glUniform1f(glGetUniformLocation(blurProgram, "line_width"), lineWidth);
+  glUniform1f(glGetUniformLocation(blurProgram, "range_factor"), rangeFactor);
   glUniform2f(glGetUniformLocation(blurProgram, "texSize"), static_cast<float>(texWidth),
               static_cast<float>(texHeight));
 
@@ -803,9 +891,8 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
   glUseProgram(0);
 }
 
-void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor,
-                      const float* whiteColor, GLuint energyTex, GLuint colorTex, float dbLowerBound, float dbMidPoint,
-                      float dbUpperBound) {
+void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor, GLuint energyTex,
+                      GLuint ageTex, GLuint colorTex) {
   ensureColormapProgram();
   if (!colormapProgram)
     return;
@@ -814,17 +901,14 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUseProgram(colormapProgram);
 
   // Set uniforms
-  glUniform1f(glGetUniformLocation(colormapProgram, "dbLowerBound"), dbLowerBound);
-  glUniform1f(glGetUniformLocation(colormapProgram, "dbMidPoint"), dbMidPoint);
-  glUniform1f(glGetUniformLocation(colormapProgram, "dbUpperBound"), dbUpperBound);
   glUniform3f(glGetUniformLocation(colormapProgram, "blackColor"), bgColor[0], bgColor[1], bgColor[2]);
-  glUniform3f(glGetUniformLocation(colormapProgram, "lissajousColor"), lissajousColor[0], lissajousColor[1],
+  glUniform3f(glGetUniformLocation(colormapProgram, "beamColor"), lissajousColor[0], lissajousColor[1],
               lissajousColor[2]);
-  glUniform3f(glGetUniformLocation(colormapProgram, "whiteColor"), whiteColor[0], whiteColor[1], whiteColor[2]);
 
   // Bind input energy texture and output color texture
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
   glBindImageTexture(1, colorTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+  glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
   GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8

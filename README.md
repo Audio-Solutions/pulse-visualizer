@@ -6,7 +6,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- **Phosphor brightness varies slightly with screen size.** Currently, the phosphor effect brightness is not perfectly normalized across different window sizes - larger windows may appear dimmer than smaller ones.
+- **Phosphor brightness varies with screen size.** Currently, the phosphor effect brightness is not perfectly normalized across different window sizes - larger windows may appear dimmer than smaller ones.
 - No settings menu or source selection yet.
 - Configuration is handled through a config file (see [Building](#building) for more details).
 - Performance may vary depending on your system's framerate.
@@ -16,6 +16,9 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 - Real-time audio visualization with low-latency processing
 - Almost-perfect analog CRT phosphor emulation with GPU compute shaders for realistic glow and persistence effects
+  - **Incompatible with light themes.** (duh)
+  - Needs nonzero rgb values for proper overdrive effect. 
+  - Light spread factor is configurable using `phosphor_range_factor`. **VERY RESOURCE INTENSIVE: $$\mathcal{O}\left(\left(\text{range\_factor} \cdot \text{line\_blur\_spread} \times 2 + 1\right)^2\right)$$**
 - Multiple visualization styles:
 	- Lissajous curve with Catmull-Rom spline interpolation
 	- Oscilloscope with configurable gradient modes
@@ -71,10 +74,10 @@ The installation will automatically:
 **Themeing:** To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
 
 ```json
-"default_theme": "mocha.txt"
+"default_theme": "green-crt.txt"
 ```
 
-Replace `"mocha.txt"` with any theme file from the `themes/` directory. All files in that directory are installed to `~/.config/pulse-visualizer/themes/` when you run `sudo ninja install`.
+Replace `"green-crt.txt"` with any theme file from the `themes/` directory. All files in that directory are installed to `~/.config/pulse-visualizer/themes/` when you run `sudo ninja install`.
 
 ## Usage
 

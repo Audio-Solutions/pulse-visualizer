@@ -168,11 +168,6 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       intensityLinear.reserve(fftPoints.size());
       dwellTimes.reserve(fftPoints.size());
 
-      // Calculate beam parameters for FFT spectrum
-      const float invHeight = 1.0f / audioData.windowHeight;
-      const float referenceHeight = 200.0f;
-      const float sizeScale = static_cast<float>(audioData.windowHeight) / referenceHeight;
-
       for (size_t i = 1; i < fftPoints.size(); ++i) {
         const auto& p1 = fftPoints[i - 1];
         const auto& p2 = fftPoints[i];
@@ -180,51 +175,20 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         float dx = p2.first - p1.first;
         float dy = p2.second - p1.second;
         float segLen = sqrtf(dx * dx + dy * dy);
-        float beamSpeed = segLen * invHeight * fcfg.phosphor_beam_speed_multiplier;
 
-        // Calculate beam dwell time and intensity for FFT
-        // More moderate speed-based intensity reduction for spectrum display
-        float speedFactor = 1.0f / (1.0f + beamSpeed * 50.0f);
-        float intensity = speedFactor;
+        float deltaT = audioData.dt / fftPoints.size();
+        float intensity = fcfg.phosphor_beam_energy * deltaT * sqrtf(dx);
 
-        // Calculate dwell time based on frequency density (like a real scope)
-        // Higher frequency density (smaller dx) = shorter dwell time to prevent over-brightening
-        float baseDwellTime = segLen / (static_cast<float>(audioData.windowHeight) * audioData.sampleRate / 1000.0f);
-        float baseFrequencySpacing = 2.0f;                                        // Reference spacing for normalization
-        float frequencyDensityFactor = std::max(dx, 0.1f) / baseFrequencySpacing; // Direct relationship
-        float dwelltime = baseDwellTime * frequencyDensityFactor;
-
-        // Beam energy modulated by signal magnitude
-        float beamEnergy = fcfg.phosphor_beam_energy * intensity;
-        float totalSegmentEnergy = beamEnergy * dwelltime;
-
-        intensityLinear.push_back(totalSegmentEnergy);
-        dwellTimes.push_back(dwelltime);
+        intensityLinear.push_back(intensity);
+        dwellTimes.push_back(deltaT);
       }
-
-      // Calculate frame time for decay based on actual audio buffer timing
-      static size_t lastWritePos = 0;
-      static bool firstCall = true;
-
-      size_t readCount;
-      if (firstCall) {
-        readCount = audioData.displaySamples; // On first call, assume we need full display samples
-        firstCall = false;
-      } else {
-        readCount = (audioData.writePos + audioData.bufferSize - lastWritePos) % audioData.bufferSize;
-      }
-      lastWritePos = audioData.writePos;
-
-      // Use actual audio timing for phosphor decay
-      float deltaTime = static_cast<float>(readCount) / audioData.sampleRate;
-      float pixelWidth = 1.0f;
 
       // Render phosphor splines using high-level interface
       GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-          fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight, deltaTime,
-          pixelWidth, colors.background, colors.spectrum, colors.text, fcfg.phosphor_beam_size,
-          fcfg.phosphor_db_lower_bound, fcfg.phosphor_db_mid_point, fcfg.phosphor_db_upper_bound,
-          fcfg.phosphor_decay_constant, fcfg.phosphor_line_blur_spread, fcfg.phosphor_line_width);
+          fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt, 1.0f,
+          colors.background, colors.spectrum, fcfg.phosphor_beam_size, fcfg.phosphor_line_blur_spread,
+          fcfg.phosphor_line_width, fcfg.phosphor_decay_slow, fcfg.phosphor_decay_fast, fcfg.phosphor_age_threshold,
+          fcfg.phosphor_range_factor);
 
       // Draw the phosphor result
       if (phosphorTexture) {

@@ -68,13 +68,6 @@ private:
 
   // Helper methods
   void updateThemeCache();
-
-  // Catmull-Rom spline interpolation
-  std::vector<std::pair<float, float>>
-  generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints, int segmentsPerSegment,
-                           float tension);
-  // Calculate cumulative distance along a path of points
-  std::vector<float> calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points);
 };
 
 // Oscilloscope visualizer

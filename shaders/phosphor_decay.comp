@@ -2,18 +2,19 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-// Uniforms
-uniform float decayFactor; // Precomputed exp(-decayConstant * deltaTime) on CPU
-
 // Input and output textures
 layout(binding = 0, r32f) uniform image2D inputTex;
 layout(binding = 1, r32f) uniform image2D outputTex;
+layout(binding = 2, r32ui) uniform uimage2D ageTex;
+
+uniform float decaySlow;
+uniform float decayFast;
+uniform uint ageThreshold;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSize = imageSize(inputTex);
 
-  // Check bounds
   if (coord.x >= texSize.x || coord.y >= texSize.y) {
     return;
   }
@@ -21,10 +22,19 @@ void main() {
   // Read current linear energy value from input texture
   float currentEnergyLinear = imageLoad(inputTex, coord).r;
 
-  // Apply exponential decay in linear domain using precomputed factor
-  // Linear decay: energy_new = energy_old * exp(-k*dt)
-  float newEnergyLinear = currentEnergyLinear * decayFactor;
-  
+  // Read age in frames from ageTex
+  uint age = imageLoad(ageTex, coord).r; 
+
+  float decay;
+  if (age < ageThreshold) {
+    decay = decayFast;
+  } else {
+    decay = decaySlow;
+  }
+
+  // Apply fade
+  float newEnergyLinear = currentEnergyLinear * decay;
+
   // Write decayed energy to output texture
   imageStore(outputTex, coord, vec4(newEnergyLinear, 0, 0, 0));
 }

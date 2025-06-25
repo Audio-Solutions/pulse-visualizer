@@ -101,14 +101,13 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.enable_phosphor = getBool("oscilloscope.enable_phosphor");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
     v.oscilloscope.phosphor_beam_energy = getFloat("oscilloscope.phosphor_beam_energy");
-    v.oscilloscope.phosphor_db_lower_bound = getFloat("oscilloscope.phosphor_db_lower_bound");
-    v.oscilloscope.phosphor_db_mid_point = getFloat("oscilloscope.phosphor_db_mid_point");
-    v.oscilloscope.phosphor_db_upper_bound = getFloat("oscilloscope.phosphor_db_upper_bound");
-    v.oscilloscope.phosphor_decay_constant = getFloat("oscilloscope.phosphor_decay_constant");
+    v.oscilloscope.phosphor_decay_slow = getFloat("oscilloscope.phosphor_decay_slow");
+    v.oscilloscope.phosphor_decay_fast = getFloat("oscilloscope.phosphor_decay_fast");
     v.oscilloscope.phosphor_beam_size = getFloat("oscilloscope.phosphor_beam_size");
     v.oscilloscope.phosphor_line_blur_spread = getFloat("oscilloscope.phosphor_line_blur_spread");
     v.oscilloscope.phosphor_line_width = getFloat("oscilloscope.phosphor_line_width");
-    v.oscilloscope.phosphor_beam_speed_multiplier = getFloat("oscilloscope.phosphor_beam_speed_multiplier");
+    v.oscilloscope.phosphor_age_threshold = getInt("oscilloscope.phosphor_age_threshold");
+    v.oscilloscope.phosphor_range_factor = getFloat("oscilloscope.phosphor_range_factor");
 
     v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.phosphor_tension = getFloat("lissajous.phosphor_tension");
@@ -116,15 +115,14 @@ void Config::load(const std::string& filename) {
     v.lissajous.spline_segments = getInt("lissajous.spline_segments");
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
     v.lissajous.phosphor_spline_density = getInt("lissajous.phosphor_spline_density");
-    v.lissajous.phosphor_db_lower_bound = getFloat("lissajous.phosphor_db_lower_bound");
-    v.lissajous.phosphor_db_mid_point = getFloat("lissajous.phosphor_db_mid_point");
-    v.lissajous.phosphor_db_upper_bound = getFloat("lissajous.phosphor_db_upper_bound");
-    v.lissajous.phosphor_decay_constant = getFloat("lissajous.phosphor_decay_constant");
+    v.lissajous.phosphor_decay_slow = getFloat("lissajous.phosphor_decay_slow");
+    v.lissajous.phosphor_decay_fast = getFloat("lissajous.phosphor_decay_fast");
     v.lissajous.phosphor_beam_size = getFloat("lissajous.phosphor_beam_size");
     v.lissajous.phosphor_line_blur_spread = getFloat("lissajous.phosphor_line_blur_spread");
     v.lissajous.phosphor_line_width = getFloat("lissajous.phosphor_line_width");
     v.lissajous.phosphor_beam_energy = getFloat("lissajous.phosphor_beam_energy");
-    v.lissajous.phosphor_beam_speed_multiplier = getFloat("lissajous.phosphor_beam_speed_multiplier");
+    v.lissajous.phosphor_age_threshold = getInt("lissajous.phosphor_age_threshold");
+    v.lissajous.phosphor_range_factor = getFloat("lissajous.phosphor_range_factor");
 
     v.fft.font = getString("font.default_font");
     v.fft.min_freq = getFloat("fft.fft_min_freq");
@@ -137,14 +135,13 @@ void Config::load(const std::string& filename) {
     v.fft.note_key_mode = getString("fft.note_key_mode");
     v.fft.enable_phosphor = getBool("fft.enable_phosphor");
     v.fft.phosphor_beam_energy = getFloat("fft.phosphor_beam_energy");
-    v.fft.phosphor_db_lower_bound = getFloat("fft.phosphor_db_lower_bound");
-    v.fft.phosphor_db_mid_point = getFloat("fft.phosphor_db_mid_point");
-    v.fft.phosphor_db_upper_bound = getFloat("fft.phosphor_db_upper_bound");
-    v.fft.phosphor_decay_constant = getFloat("fft.phosphor_decay_constant");
+    v.fft.phosphor_decay_slow = getFloat("fft.phosphor_decay_slow");
+    v.fft.phosphor_decay_fast = getFloat("fft.phosphor_decay_fast");
     v.fft.phosphor_beam_size = getFloat("fft.phosphor_beam_size");
     v.fft.phosphor_line_blur_spread = getFloat("fft.phosphor_line_blur_spread");
     v.fft.phosphor_line_width = getFloat("fft.phosphor_line_width");
-    v.fft.phosphor_beam_speed_multiplier = getFloat("fft.phosphor_beam_speed_multiplier");
+    v.fft.phosphor_age_threshold = getInt("fft.phosphor_age_threshold");
+    v.fft.phosphor_range_factor = getFloat("fft.phosphor_range_factor");
 
     v.spectrogram.time_window = getFloat("spectrogram.time_window");
     v.spectrogram.min_db = getFloat("spectrogram.min_db");

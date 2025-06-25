@@ -21,6 +21,12 @@ struct AudioData {
   size_t displaySamples;
   int windowWidth;
   int windowHeight;
+
+  // Frame timing for delta time tracking
+  float dt = 0.0f; // Delta time in seconds
+  std::chrono::steady_clock::time_point lastFrameTime;
+  bool frameTimingInitialized = false;
+
   float sampleRate = 44100.0f;
   float currentPitch = 0.0f;
   float pitchConfidence = 0.0f;
@@ -55,4 +61,25 @@ struct AudioData {
   AudioData()
       : bufferSize(Config::values().audio.buffer_size), displaySamples(Config::values().audio.display_samples),
         windowWidth(Config::values().window.default_width), windowHeight(Config::values().window.default_height) {}
+
+  // Method to update delta time
+  void updateDeltaTime() {
+    auto currentTime = std::chrono::steady_clock::now();
+
+    if (!frameTimingInitialized) {
+      lastFrameTime = currentTime;
+      frameTimingInitialized = true;
+      dt = 0.0f; // First frame has no delta
+      return;
+    }
+
+    dt = std::chrono::duration<float>(currentTime - lastFrameTime).count();
+    lastFrameTime = currentTime;
+
+    // Clamp delta time to prevent large jumps (e.g., when debugging or window is inactive)
+    // Maximum of 100ms (10 FPS) to prevent visual artifacts
+    if (dt > 0.1f) {
+      dt = 0.1f;
+    }
+  }
 };

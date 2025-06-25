@@ -2,18 +2,18 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
+// Input: inputTex (phosphor energy)
 layout(binding = 0, r32f) uniform image2D inputTex;
+// Output: outputTex (phosphor energy)
 layout(binding = 1, r32f) uniform image2D outputTex;
 
 uniform float line_blur_spread;
 uniform float line_width;
+uniform float range_factor;
 uniform vec2 texSize;
-uniform float viewport_scale; // Scale factor for different viewport sizes (relative to 2160x2160)
 
 // Constants for optimization
-const int MAX_KERNEL_SIZE = 16; // Cap maximum kernel size for performance
-const float MIN_WEIGHT_THRESHOLD = 0.001; // Skip samples below this weight
-const float INV_LOG10 = 1.0 / log(10.0);
+const float PI = 3.14159265359;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -23,12 +23,9 @@ void main() {
     return;
   }
 
-  // Calculate filter size with performance cap
-  int range_filter = min(int(ceil(10.0 * line_blur_spread)) * 2 + 1, MAX_KERNEL_SIZE);
+  // Calculate filter size (from MATLAB: range_filter = ceil(10*line_blur_spread)*2+1)
+  int range_filter = int(ceil(range_factor * line_blur_spread)) * 2 + 1;
   int half_range = range_filter / 2;
-
-  // Precompute squared radius for cheaper distance checks
-  float half_range_sq = float(half_range * half_range);
 
   // Early exit for very small blur spreads
   if (line_blur_spread < 0.01) {
@@ -37,67 +34,66 @@ void main() {
     return;
   }
 
-  float total_weight = 0.0;
-  float result = 0.0;
-
-  // Dot_intens weights
-  const float dot_intens_F = 0.8;
+  // Dot_intens weights: [1, 0.4, 1] for E, F, G respectively
+  const float dot_intens_E = 1.0;
+  const float dot_intens_F = 0.4;
   const float dot_intens_G = 1.0;
 
-  // Precompute constants to avoid repeated calculations
+  // Precompute constants
+  float gaussian_sigma    = line_width;
+  float gaussian_variance = gaussian_sigma * gaussian_sigma;
+  float gaussian_norm     = 1.0 / (2.0 * PI * gaussian_variance);
+
   float f_factor = 1.0 / (line_blur_spread * 0.2);
   float g_factor = 16.0 / float(range_filter);
 
-  // Pre-compute negative factors to avoid repeated unary minus inside the loop
-  float neg_f_factor = -f_factor;
-  float neg_g_factor = -g_factor;
+  // Single pass accumulation
+  float sampleE = 0.0;
+  float sampleF = 0.0;
+  float sampleG = 0.0;
 
-  // Iterate over filter kernel with optimizations
-  for (int dy = -half_range; dy <= half_range; dy++) {
-    for (int dx = -half_range; dx <= half_range; dx++) {
-      // Use squared distance for cheaper comparison first
-      float distanceSq = float(dx * dx + dy * dy);
+  float E_sum = 0.0;
+  float F_sum = 0.0;
+  float G_sum = 0.0;
 
-      // Discard samples outside the circular kernel
-      if (distanceSq > half_range_sq) continue;
-
-      // Compute actual distance only for accepted samples
-      float distance = sqrt(distanceSq);
-
+  for (int dy = -half_range; dy <= half_range; ++dy) {
+    int dy_sq = dy * dy;            // reuse term to save a mul inside the inner loop
+    for (int dx = -half_range; dx <= half_range; ++dx) {
       ivec2 sample_coord = coord + ivec2(dx, dy);
+      sample_coord       = clamp(sample_coord, ivec2(0), ivec2(texSize) - 1);
 
-      // Clamp to texture bounds
-      sample_coord = clamp(sample_coord, ivec2(0), ivec2(texSize) - 1);
+      // radial distance
+      int  dx_sq        = dx * dx;
+      float distance_sq = float(dx_sq + dy_sq);
+      float distance    = sqrt(distance_sq);
 
-      // Calculate the three filter components with optimized math
+      // Kernel contributions (unnormalised for F and G)
+      float E = gaussian_norm * exp(-distance_sq / (2.0 * gaussian_variance));
+      float F_raw = exp(-distance * f_factor);
+      float G_raw = exp(-distance * g_factor);
 
-      // F: Line widening - optimized exponential
-      float F = exp(distance * neg_f_factor);
-
-      // G: Blur around line - optimized exponential  
-      float G = exp(distance * neg_g_factor);
-
-      // Combine with weights: H = E*Dot_intens(1) + F*Dot_intens(2) + G*Dot_intens(3)
-      float H = F * dot_intens_F + G * dot_intens_G;
-
-      // Early exit for negligible weights
-      if (H < MIN_WEIGHT_THRESHOLD) continue;
-
-      // Sample input texture
       float sample_value = imageLoad(inputTex, sample_coord).r;
 
-      result += sample_value * H;
-      total_weight += H;
+      // accumulate weighted samples
+      sampleE += sample_value * E;
+      sampleF += sample_value * F_raw;
+      sampleG += sample_value * G_raw;
+
+      // accumulate kernel sums for normalisation later
+      E_sum += E;
+      F_sum += F_raw;
+      G_sum += G_raw;
     }
   }
 
-  // Normalize result
-  if (total_weight > MIN_WEIGHT_THRESHOLD) {
-    result /= total_weight;
-  } else {
-    // Fallback to original value if no significant contributions
-    result = imageLoad(inputTex, coord).r;
-  }
+  // Final normalised colour
+  float numerator = dot_intens_E * sampleE +
+                    dot_intens_F * (sampleF / F_sum) +
+                    dot_intens_G * (sampleG / G_sum);
+
+  float denominator = dot_intens_E * E_sum + dot_intens_F + dot_intens_G; // E_sum ~= 1, F_sum & G_sum normalise to 1
+
+  float result = numerator / denominator;
 
   // Write result to output texture
   imageStore(outputTex, coord, vec4(result, 0.0, 0.0, 0.0));

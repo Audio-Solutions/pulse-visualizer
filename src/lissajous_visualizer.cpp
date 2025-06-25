@@ -75,71 +75,6 @@ void hsvToRgb(float h, float s, float v, float& r, float& g, float& b) {
 
 } // namespace
 
-// Catmull-Rom spline interpolation
-std::vector<std::pair<float, float>>
-LissajousVisualizer::generateCatmullRomSpline(const std::vector<std::pair<float, float>>& controlPoints,
-                                              int segmentsPerSegment, float tension) {
-  // Not enough points for spline
-  if (controlPoints.size() < 4) {
-    return controlPoints;
-  }
-
-  std::vector<std::pair<float, float>> splinePoints;
-  splinePoints.reserve((controlPoints.size() - 3) * (segmentsPerSegment + 1));
-
-  // Pre-compute tension value and segment scale
-  const float segmentScale = 1.0f / segmentsPerSegment;
-
-  for (size_t i = 1; i < controlPoints.size() - 2; ++i) {
-    const auto& p0 = controlPoints[i - 1];
-    const auto& p1 = controlPoints[i];
-    const auto& p2 = controlPoints[i + 1];
-    const auto& p3 = controlPoints[i + 2];
-
-    // Generate segments between p1 and p2
-    for (int j = 0; j <= segmentsPerSegment; ++j) {
-      float u = static_cast<float>(j) * segmentScale;
-      float u2 = u * u;
-      float u3 = u2 * u;
-
-      // Catmull-Rom blending functions
-      float b0 = -tension * u3 + 2.0f * tension * u2 - tension * u;
-      float b1 = (2.0f - tension) * u3 + (tension - 3.0f) * u2 + 1.0f;
-      float b2 = (tension - 2.0f) * u3 + (3.0f - 2.0f * tension) * u2 + tension * u;
-      float b3 = tension * u3 - tension * u2;
-
-      float x = b0 * p0.first + b1 * p1.first + b2 * p2.first + b3 * p3.first;
-      float y = b0 * p0.second + b1 * p1.second + b2 * p2.second + b3 * p3.second;
-
-      splinePoints.push_back({x, y});
-    }
-  }
-
-  return splinePoints;
-}
-
-// Calculate cumulative distance along a path of points
-std::vector<float>
-LissajousVisualizer::calculateCumulativeDistances(const std::vector<std::pair<float, float>>& points) {
-  std::vector<float> distances;
-  distances.reserve(points.size());
-
-  float cumulativeDistance = 0.0f;
-  distances.push_back(0.0f);
-
-  for (size_t i = 1; i < points.size(); ++i) {
-    const auto& p1 = points[i - 1];
-    const auto& p2 = points[i];
-    float dx = p2.first - p1.first;
-    float dy = p2.second - p1.second;
-    float segmentDistance = sqrtf(dx * dx + dy * dy);
-    cumulativeDistance += segmentDistance;
-    distances.push_back(cumulativeDistance);
-  }
-
-  return distances;
-}
-
 void LissajousVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the Lissajous visualizer
   Graphics::setupViewport(position, 0, width, width, audioData.windowHeight);
@@ -182,9 +117,8 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
     if (newDataCount == 0) {
       if (lis.enable_phosphor && lissajousPhosphorContext) {
         // Draw current phosphor state without processing (just colormap existing energy)
-        GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
-            lissajousPhosphorContext, width, width, colors.background, colors.lissajous, colors.text,
-            lis.phosphor_db_lower_bound, lis.phosphor_db_mid_point, lis.phosphor_db_upper_bound);
+        GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(lissajousPhosphorContext, width, width,
+                                                                              colors.background, colors.lissajous);
 
         if (phosphorTexture) {
           Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, width);
@@ -193,7 +127,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         // Standard non-phosphor rendering
         std::vector<std::pair<float, float>> displayPoints = points;
         if (lis.enable_splines && points.size() >= 4) {
-          displayPoints = generateCatmullRomSpline(points, lis.spline_segments, lis.phosphor_tension);
+          displayPoints = Graphics::generateCatmullRomSpline(points, lis.spline_segments, lis.phosphor_tension);
         }
 
         // Draw the Lissajous curve as antialiased lines
@@ -232,7 +166,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
     if (lis.enable_phosphor && lissajousPhosphorContext) {
       // Generate high-density spline points for phosphor simulation
       if (lis.enable_splines && points.size() >= 4) {
-        densePath = generateCatmullRomSpline(points, lis.phosphor_spline_density, lis.phosphor_tension);
+        densePath = Graphics::generateCatmullRomSpline(points, lis.phosphor_spline_density, lis.phosphor_tension);
       } else if (points.size() >= 2) {
         // Linear interpolation with high density for non-spline mode
         int totalSegments = std::max(1, lis.phosphor_spline_density / static_cast<int>(points.size()));
@@ -260,9 +194,6 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         intensityLinear.reserve(densePath.size());
         dwellTimes.reserve(densePath.size());
 
-        // Calculate beam parameters for lissajous
-        const float invWidth = 1.0f / width;
-
         for (size_t i = 1; i < densePath.size(); ++i) {
           const auto& p1 = densePath[i - 1];
           const auto& p2 = densePath[i];
@@ -270,43 +201,20 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           float dx = p2.first - p1.first;
           float dy = p2.second - p1.second;
           float segLen = sqrtf(dx * dx + dy * dy);
-          float beamSpeed = segLen * invWidth * lis.phosphor_beam_speed_multiplier;
-
-          // Calculate beam dwell time based on segment length and sample rate
-          float dwelltime = segLen / (static_cast<float>(width) * audioData.sampleRate / newDataCount);
-
-          // Much more aggressive speed-based intensity reduction for realistic CRT behavior
-          // Very fast traces should nearly vanish
-          float speedFactor = 1.0f / (1.0f + beamSpeed * 500.0f);
-          float speedSquaredFactor = speedFactor * speedFactor;
-
-          // Apply exponential falloff for extremely fast movements
-          float exponentialSpeedFactor = expf(-beamSpeed * 50.0f);
-
-          // Combine factors for realistic "vanishing" effect
-          float combinedSpeedFactor = speedSquaredFactor * exponentialSpeedFactor;
-
-          float intensity = combinedSpeedFactor;
-
-          // Basic beam energy with much more dramatic speed dependency
-          float beamEnergy = lis.phosphor_beam_energy * intensity;
-          float totalSegmentEnergy = beamEnergy * dwelltime;
+          float deltaT = (1.0f / audioData.sampleRate);
+          float totalEnergy = lis.phosphor_beam_energy * deltaT / segLen / lis.phosphor_spline_density;
 
           // Store linear energy and dwell time
-          intensityLinear.push_back(totalSegmentEnergy);
-          dwellTimes.push_back(dwelltime);
+          intensityLinear.push_back(totalEnergy);
+          dwellTimes.push_back(deltaT);
         }
-
-        // Calculate frame time for decay
-        float deltaTime = static_cast<float>(newDataCount) / audioData.sampleRate;
-        float pixelWidth = 1.0f;
 
         // Render phosphor splines using high-level interface
         GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-            lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width, deltaTime, pixelWidth,
-            colors.background, colors.lissajous, colors.text, lis.phosphor_beam_size, lis.phosphor_db_lower_bound,
-            lis.phosphor_db_mid_point, lis.phosphor_db_upper_bound, lis.phosphor_decay_constant,
-            lis.phosphor_line_blur_spread, lis.phosphor_line_width);
+            lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width, audioData.dt, 1.0f,
+            colors.background, colors.lissajous, lis.phosphor_beam_size, lis.phosphor_line_blur_spread,
+            lis.phosphor_line_width, lis.phosphor_decay_slow, lis.phosphor_decay_fast, lis.phosphor_age_threshold,
+            lis.phosphor_range_factor);
 
         // Draw the phosphor result
         if (phosphorTexture) {
@@ -317,7 +225,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       // Standard non-phosphor rendering
       std::vector<std::pair<float, float>> displayPoints = points;
       if (lis.enable_splines && points.size() >= 4) {
-        displayPoints = generateCatmullRomSpline(points, lis.spline_segments, lis.phosphor_tension);
+        displayPoints = Graphics::generateCatmullRomSpline(points, lis.spline_segments, lis.phosphor_tension);
       }
 
       // Draw the Lissajous curve as antialiased lines

@@ -4,57 +4,53 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(binding = 0, r32f) uniform image2D energyTex;
 layout(binding = 1, rgba8) uniform image2D colorTex;
+layout(binding = 2, r32ui) uniform uimage2D ageTex;
 
-uniform float dbLowerBound;
-uniform float dbMidPoint;
-uniform float dbUpperBound;
 uniform vec3 blackColor;
-uniform vec3 lissajousColor;
-uniform vec3 whiteColor;
+uniform vec3 beamColor;
 
 // Precomputed constants
-const float INV_LOG10 = 1.0 / log(10.0);
+const float TANH_MULT_FACTOR = 100000.0; // Scale energy
 
-vec3 lerp(vec3 a, vec3 b, float t) {
-  return a + t * (b - a);
+// Fast tanh approximation for better performance
+// Based on rational function approximation: tanh(x) ≈ x * (27 + x²) / (27 + 9*x²)
+// This provides good accuracy for the range we're using while being much faster than native tanh
+float fast_tanh(float x) {
+  // Clamp input to prevent overflow
+  x = clamp(x, -3.0, 3.0);
+  
+  float x2 = x * x;
+  return x * (27.0 + x2) / (27.0 + 9.0 * x2);
+}
+
+// Tanh-based color mapping function
+// Equivalent to MATLAB: map = [tanh(map_index*RGB(1)*multfactor);tanh(map_index*RGB(2)*multfactor);tanh(map_index*RGB(3)*multfactor)]'
+// map = min(map,1);
+vec3 tanhColormap(float mapIndex, vec3 baseColor) {
+  vec3 result;
+  result.r = fast_tanh(mapIndex * baseColor.r);
+  result.g = fast_tanh(mapIndex * baseColor.g);
+  result.b = fast_tanh(mapIndex * baseColor.b);
+  
+  // Clamp to [0,1] range (equivalent to min(map,1) in MATLAB)
+  return clamp(result, 0.0, 1.0);
 }
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  ivec2 texSize = imageSize(energyTex);
 
-  // Check bounds
-  if (coord.x >= texSize.x || coord.y >= texSize.y) {
-    return;
-  }
+  // Increment age by 1 frame
+  uint age = imageLoad(ageTex, coord).r;
+  age += 1;
+  imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
 
   // Sample linear energy value
-  float energyLinear = imageLoad(energyTex, coord).r;
+  float energyLinear = imageLoad(energyTex, coord).r * TANH_MULT_FACTOR;
+  vec3 outColor = tanhColormap(energyLinear, beamColor);
 
-  // Early exit for negligible energy values
-  if (energyLinear <= 1e-9) {
-    imageStore(colorTex, coord, vec4(blackColor, 1.0));
-    return;
-  }
-
-  // Convert linear energy to dB using precomputed constant (faster than division)
-  float energyDB = 10.0 * log(energyLinear) * INV_LOG10;
-
-  vec3 outColor;
-
-  if (energyDB <= dbLowerBound) {
-    outColor = blackColor;
-  } else if (energyDB < dbMidPoint) {
-    float t = (energyDB - dbLowerBound) / (dbMidPoint - dbLowerBound);
-    // Apply exponential curve to favor black color longer
-    t = t * t * t * t * t; // Quintic curve - stays near black longer, then transitions more rapidly
-    outColor = lerp(blackColor, lissajousColor, clamp(t, 0.0, 1.0));
-  } else if (energyDB < dbUpperBound) {
-    float t = (energyDB - dbMidPoint) / (dbUpperBound - dbMidPoint);
-    outColor = lerp(lissajousColor, whiteColor, clamp(t, 0.0, 1.0));
-  } else {
-    outColor = whiteColor;
-  }
+  // add bg
+  outColor = outColor + blackColor;
+  outColor = clamp(outColor, 0.0, 1.0);
 
   // Write result to color texture
   imageStore(colorTex, coord, vec4(outColor, 1.0));
