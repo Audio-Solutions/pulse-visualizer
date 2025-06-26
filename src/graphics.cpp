@@ -258,6 +258,18 @@ void drawColoredLineSegments(const std::vector<float>& vertices, const std::vect
 }
 
 std::string loadTextFile(const char* filepath) {
+  // Try local path (Development)
+  std::string localPath = std::string("../") + filepath;
+  std::ifstream localFile(localPath);
+  if (localFile.is_open()) {
+    std::string content;
+    std::string line;
+    while (std::getline(localFile, line)) {
+      content += line + "\n";
+    }
+    return content;
+  }
+
   // Try system installation path
   std::string systemPath = std::string(PULSE_DATA_DIR) + "/" + filepath;
   std::ifstream systemFile(systemPath);
@@ -462,8 +474,8 @@ struct PhosphorContext {
     // Unbind any currently bound textures/framebuffers to avoid issues
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
-    glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+    glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
     texWidth = w;
     texHeight = h;
@@ -505,7 +517,8 @@ struct PhosphorContext {
 
       // Initialize texture with zero background level (linear energy)
       std::vector<float> initData(texWidth * texHeight, 0.0f);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texWidth, texHeight, 0, GL_RED, GL_FLOAT, initData.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT,
+                   initData.data());
 
       // Check for texture creation errors
       error = glGetError();
@@ -801,7 +814,7 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, splineVertexBuffer);
 
   // Bind energy texture as image
-  glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+  glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Bind age texture as image
   glBindImageTexture(1, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -834,8 +847,8 @@ void dispatchDecay(int texWidth, int texHeight, float deltaTime, float decaySlow
   glUniform1ui(glGetUniformLocation(decayProgram, "ageThreshold"), ageThreshold);
 
   // Bind input and output textures
-  glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-  glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+  glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
   glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
@@ -866,8 +879,8 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
               static_cast<float>(texHeight));
 
   // Bind input and output textures
-  glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-  glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+  glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
   GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8
@@ -896,7 +909,7 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUniform1i(glGetUniformLocation(colormapProgram, "enablePhosphorGrain"), enablePhosphorGrain ? 1 : 0);
 
   // Bind input energy texture and output color texture
-  glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+  glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, colorTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
   glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 

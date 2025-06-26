@@ -3,9 +3,9 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // Input: inputTex (phosphor energy)
-layout(binding = 0, r32f) uniform image2D inputTex;
+layout(binding = 0, r32ui) uniform uimage2D inputTex;
 // Output: outputTex (phosphor energy)
-layout(binding = 1, r32f) uniform image2D outputTex;
+layout(binding = 1, r32ui) uniform uimage2D outputTex;
 
 uniform float line_blur_spread;
 uniform float line_width;
@@ -29,8 +29,8 @@ void main() {
 
   // Early exit for very small blur spreads
   if (line_blur_spread < 0.01) {
-    float value = imageLoad(inputTex, coord).r;
-    imageStore(outputTex, coord, vec4(value, 0.0, 0.0, 0.0));
+    uint value = imageLoad(inputTex, coord).r;
+    imageStore(outputTex, coord, uvec4(value, 0, 0, 0));
     return;
   }
 
@@ -72,7 +72,7 @@ void main() {
       float F_raw = exp(-distance * f_factor);
       float G_raw = exp(-distance * g_factor);
 
-      float sample_value = imageLoad(inputTex, sample_coord).r;
+      float sample_value = float(imageLoad(inputTex, sample_coord).r);
 
       // accumulate weighted samples
       sampleE += sample_value * E;
@@ -96,5 +96,5 @@ void main() {
   float result = numerator / denominator;
 
   // Write result to output texture
-  imageStore(outputTex, coord, vec4(result, 0.0, 0.0, 0.0));
+  imageStore(outputTex, coord, uvec4(uint(result), 0, 0, 0));
 }

@@ -12,10 +12,28 @@ layout(std430, binding = 0) restrict readonly buffer SplineVertexBuffer {
   vec4 vertices[]; // x, y, intensityLinear, dwellTime
 };
 
-// Output texture: single-channel R32F for linear energy accumulation
-layout(r32f, binding = 0) restrict uniform image2D energyTex;
-// Output texture: single-channel R32F for age accumulation
+// Output texture: single-channel R32UI for linear energy accumulation
+layout(r32ui, binding = 0) restrict uniform uimage2D energyTex;
+// Output texture: single-channel R32UI for age accumulation
 layout(r32ui, binding = 1) restrict uniform uimage2D ageTex;
+
+// Clamp and add atomic operation
+// Clamps to 0xFFFFFFFFu if the value would overflow
+void clampAddAtomic(ivec2 coord, uint value) {
+  uint old, new, prev;
+  do {
+    old = imageLoad(energyTex, coord).r;
+    if (old >= 4294967295) {
+      return;
+    }
+    if (0xFFFFFFFFu - old < value) {
+      new = 0xFFFFFFFFu;
+    } else {
+      new = old + value;
+    }
+    prev = imageAtomicCompSwap(energyTex, coord, old, new);
+  } while (prev != old);
+}
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
@@ -25,7 +43,7 @@ void main() {
 
   vec4 vertex = vertices[index];
   vec2 pos = vertex.xy;
-  float segmentEnergyLinear = vertex.z;
+  float segmentEnergyLinear = float(vertex.z);
   float dwellTime = vertex.w;
 
   // Convert world coordinates to texture coordinates
@@ -49,7 +67,7 @@ void main() {
       vec2 stepSize = direction * (distance / float(numSteps));
       
       // Interpolate along the segment
-      for (int i = 0; i <= numSteps; ++i) {
+      for (int i = 0; i <= numSteps - 1; ++i) {
         vec2 interpPos = pos + stepSize * float(i);
         ivec2 interpTexCoord = ivec2(interpPos);
 
@@ -58,15 +76,9 @@ void main() {
             interpTexCoord.y < 0 || interpTexCoord.y >= texSize.y) {
           continue;
         }
-
-        // Direct energy deposition without beam spreading
-        float current = imageLoad(energyTex, interpTexCoord).r;
-        float total = current + segmentEnergyLinear;
-        
-        // Clamp to 0 - 1e-2 (3000x the max as per colormap shader to account for blur)
-        total = clamp(total, 0.0, 1e-2);
-
-        imageStore(energyTex, interpTexCoord, vec4(total, 0, 0, 0));
+  
+        // Scale and clamp to 0 - 4294967295
+        clampAddAtomic(interpTexCoord, uint(segmentEnergyLinear * 4.29e9));
 
         // Set age to 0
         imageStore(ageTex, interpTexCoord, uvec4(0, 0, 0, 0));

@@ -3,8 +3,8 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // Input and output textures
-layout(binding = 0, r32f) uniform image2D inputTex;
-layout(binding = 1, r32f) uniform image2D outputTex;
+layout(binding = 0, r32ui) uniform uimage2D inputTex;
+layout(binding = 1, r32ui) uniform uimage2D outputTex;
 layout(binding = 2, r32ui) uniform uimage2D ageTex;
 
 uniform float decaySlow;
@@ -20,7 +20,7 @@ void main() {
   }
 
   // Read current linear energy value from input texture
-  float currentEnergyLinear = imageLoad(inputTex, coord).r;
+  uint currentEnergyLinear = imageLoad(inputTex, coord).r;
 
   // Read age in frames from ageTex
   uint age = imageLoad(ageTex, coord).r; 
@@ -33,8 +33,8 @@ void main() {
   }
 
   // Apply fade
-  float newEnergyLinear = currentEnergyLinear * decay;
+  uint newEnergyLinear = uint(currentEnergyLinear * decay);
 
   // Write decayed energy to output texture
-  imageStore(outputTex, coord, vec4(newEnergyLinear, 0, 0, 0));
+  imageStore(outputTex, coord, uvec4(newEnergyLinear, 0, 0, 0));
 }

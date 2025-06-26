@@ -2,7 +2,7 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout(binding = 0, r32f) uniform image2D energyTex;
+layout(binding = 0, r32ui) uniform uimage2D energyTex;
 layout(binding = 1, rgba8) uniform image2D colorTex;
 layout(binding = 2, r32ui) uniform uimage2D ageTex;
 
@@ -11,7 +11,7 @@ uniform vec3 beamColor;
 uniform int enablePhosphorGrain;
 
 // Precomputed constants
-const float TANH_MULT_FACTOR = 100000.0;
+const float TANH_DIV_FACTOR = 4290000;
 const float GRAIN_STRENGTH = 0.1;
 
 // Natural phosphor grain noise using multiple octaves
@@ -68,10 +68,10 @@ void main() {
   imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
 
   // Sample linear energy value
-  float energyLinear = imageLoad(energyTex, coord).r;
+  float energyLinear = float(imageLoad(energyTex, coord).r);
   
   // Scale energy for tanh mapping
-  energyLinear *= TANH_MULT_FACTOR;
+  energyLinear /= TANH_DIV_FACTOR;
   vec3 outColor = tanhColormap(energyLinear, beamColor);
 
   // add bg
