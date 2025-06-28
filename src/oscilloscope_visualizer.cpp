@@ -19,6 +19,7 @@
 // Static working buffers and phosphor context
 static std::vector<std::pair<float, float>> scopePoints;
 static Graphics::Phosphor::PhosphorContext* scopePhosphorContext = nullptr;
+static float accumulatedDt = 0.0f;
 
 void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   // Set up the viewport for the oscilloscope
@@ -49,7 +50,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   lastWritePos = audioData.writePos;
 
   if (readCount == 0 && audioData.hasValidPeak) {
-    // draw old data
+    // Accumulate time for decay when no new audio data
+    accumulatedDt += audioData.dt;
+
     if (osc.enable_phosphor && scopePhosphorContext) {
       GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
           scopePhosphorContext, width, audioData.windowHeight, colors.background, colors.oscilloscope,
@@ -142,9 +145,13 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           dwellTimes.push_back(deltaT);
         }
 
+        // Use accumulated time plus current dt for proper decay during periods of no audio data
+        float totalDt = audioData.dt + accumulatedDt;
+        accumulatedDt = 0.0f; // Reset accumulated time after using it
+
         // Render phosphor splines using high-level interface
         GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-            scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt,
+            scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight, totalDt,
             1.0f, colors.background, colors.oscilloscope, osc.phosphor_beam_size, osc.phosphor_line_blur_spread,
             osc.phosphor_line_width, osc.phosphor_decay_slow, osc.phosphor_decay_fast, osc.phosphor_age_threshold,
             osc.phosphor_range_factor, osc.enable_phosphor_grain);
