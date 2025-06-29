@@ -46,9 +46,11 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Ninja-build
 
 On Fedora, this would be:
-````sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel````
+````sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel````  
 On Debian, this would be:
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev nlohmann-json3-dev ninja```
+```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev nlohmann-json3-dev ninja```  
+On Archlinux, this would be:
+```sudo pacman -S clang cmake sdl2 fftw freetype2 glew nlohmann-json ninja libpipewire```
 
 **Supported Platforms:**
 - Linux (PulseAudio **or** PipeWire)
