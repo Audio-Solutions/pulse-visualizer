@@ -44,6 +44,9 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - GLEW
 - Nlohmann JSON
 
+On Fedora, this would be:
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel```
+
 **Supported Platforms:**
 - Linux (PulseAudio **or** PipeWire)
 - BSD (PulseAudio)
