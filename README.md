@@ -15,10 +15,12 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 ## Features
 
 - Real-time audio visualization with low-latency processing
-- Almost-perfect analog CRT phosphor emulation with GPU compute shaders for realistic glow and persistence effects
+- Enhanced analog CRT phosphor emulation with GPU compute shaders featuring realistic glow and persistence effects
   - **Incompatible with light themes.** (duh)
-  - Needs nonzero rgb values for proper overdrive effect. 
-  - Light spread factor is configurable using `phosphor_range_factor`. **VERY RESOURCE INTENSIVE: $$\mathcal{O}\left(\left(\text{rangefactor} \cdot \text{lineblurspread} \times 2 + 1\right)^2\right)$$**
+  - Needs nonzero rgb values for proper overdrive effect.
+  - Configurable blur intensity controls with `near_blur_intensity` and `far_blur_intensity` parameters
+  - Light spread factor is configurable using `phosphor_range_factor`. **RESOURCE INTENSIVE: $$\mathcal{O}\left(6 \cdot \left(\text{rangefactor} \cdot \text{lineblurspread} \times 2 + 1\right)\right)$$**
+  - Blur can be disabled by setting `phosphor_range_factor` to zero
 - Multiple visualization styles:
 	- Lissajous curve with Catmull-Rom spline interpolation
 	- Oscilloscope with configurable gradient modes

@@ -11,21 +11,20 @@ uniform float line_blur_spread;
 uniform float line_width;
 uniform float range_factor;
 uniform vec2 texSize;
+uniform int blur_direction; // 0 = horizontal, 1 = vertical
+uniform int kernel_type; // 0 = E kernel, 1 = F kernel, 2 = G kernel
 
-// Constants for optimization
 const float PI = 3.14159265359;
+const float INV_2PI = 0.15915494309; // 1/(2*PI)
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 texSizeInt = ivec2(texSize);
 
-  // Check bounds
-  if (coord.x >= int(texSize.x) || coord.y >= int(texSize.y)) {
+  // Early bounds check
+  if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y) {
     return;
   }
-
-  // Calculate filter size (from MATLAB: range_filter = ceil(10*line_blur_spread)*2+1)
-  int range_filter = int(ceil(range_factor * line_blur_spread)) * 2 + 1;
-  int half_range = range_filter / 2;
 
   // Early exit for very small blur spreads
   if (line_blur_spread < 0.01) {
@@ -34,67 +33,80 @@ void main() {
     return;
   }
 
-  // Dot_intens weights: [1, 0.4, 1] for E, F, G respectively
-  const float dot_intens_E = 1.0;
-  const float dot_intens_F = 0.4;
-  const float dot_intens_G = 1.0;
+  // Calculate filter size and clamp to prevent excessive divergence
+  int range_filter = int(ceil(range_factor * line_blur_spread)) * 2 + 1;
+  int half_range = range_filter / 2;
+  
+  // Fast exit for zero radius
+  if (half_range == 0) {
+    uint value = imageLoad(inputTex, coord).r;
+    imageStore(outputTex, coord, uvec4(value, 0, 0, 0));
+    return;
+  }
 
-  // Precompute constants
-  float gaussian_sigma    = line_width;
-  float gaussian_variance = gaussian_sigma * gaussian_sigma;
-  float gaussian_norm     = 1.0 / (2.0 * PI * gaussian_variance);
+  float inv_2variance, norm_factor;
+  
+  if (kernel_type == 0) {
+    // E kernel (line_width based)
+    float variance = line_width * line_width;
+    inv_2variance = 1.0 / (2.0 * variance);
+    norm_factor = INV_2PI / variance;
+  } else if (kernel_type == 1) {
+    // F kernel (line_blur_spread based)
+    float equivalent_width = 0.693147 * (line_blur_spread * 0.1);
+    float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
+    inv_2variance = 1.0 / (2.0 * variance);
+    norm_factor = INV_2PI / variance;
+  } else {
+    // G kernel (range_filter based)
+    float equivalent_width = 0.693147 * (float(range_filter) / 8.0);
+    float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
+    inv_2variance = 1.0 / (2.0 * variance);
+    norm_factor = INV_2PI / variance;
+  }
 
-  float f_factor = 1.0 / (line_blur_spread * 0.2);
-  float g_factor = 16.0 / float(range_filter);
+  // Single kernel accumulation based on kernel_type
+  float sample_sum = 0.0;
+  float kernel_sum = 0.0;
 
-  // Single pass accumulation
-  float sampleE = 0.0;
-  float sampleF = 0.0;
-  float sampleG = 0.0;
-
-  float E_sum = 0.0;
-  float F_sum = 0.0;
-  float G_sum = 0.0;
-
-  for (int dy = -half_range; dy <= half_range; ++dy) {
-    int dy_sq = dy * dy;            // reuse term to save a mul inside the inner loop
-    for (int dx = -half_range; dx <= half_range; ++dx) {
-      ivec2 sample_coord = coord + ivec2(dx, dy);
-      sample_coord       = clamp(sample_coord, ivec2(0), ivec2(texSize) - 1);
-
-      // radial distance
-      int  dx_sq        = dx * dx;
-      float distance_sq = float(dx_sq + dy_sq);
-      float distance    = sqrt(distance_sq);
-
-      // Kernel contributions (unnormalised for F and G)
-      float E = gaussian_norm * exp(-distance_sq / (2.0 * gaussian_variance));
-      float F_raw = exp(-distance * f_factor);
-      float G_raw = exp(-distance * g_factor);
-
+  if (half_range <= 3) {
+    const ivec2 offset = (blur_direction == 0) ? ivec2(1, 0) : ivec2(0, 1);
+    
+    for (int i = -half_range; i <= half_range; ++i) {
+      ivec2 sample_coord = coord + i * offset;
+      sample_coord = clamp(sample_coord, ivec2(0), texSizeInt - 1);
+      
+      float distance_sq = float(i * i);
+      float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
       float sample_value = float(imageLoad(inputTex, sample_coord).r);
-
-      // accumulate weighted samples
-      sampleE += sample_value * E;
-      sampleF += sample_value * F_raw;
-      sampleG += sample_value * G_raw;
-
-      // accumulate kernel sums for normalisation later
-      E_sum += E;
-      F_sum += F_raw;
-      G_sum += G_raw;
+      
+      sample_sum += sample_value * kernel_weight;
+      kernel_sum += kernel_weight;
+    }
+  } else {
+    // General case for larger kernels
+    for (int i = -half_range; i <= half_range; ++i) {
+      ivec2 sample_coord;
+      if (blur_direction == 0) {
+        sample_coord = coord + ivec2(i, 0);
+      } else {
+        sample_coord = coord + ivec2(0, i);
+      }
+      
+      sample_coord = clamp(sample_coord, ivec2(0), texSizeInt - 1);
+      
+      float distance_sq = float(i * i);
+      float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
+      float sample_value = float(imageLoad(inputTex, sample_coord).r);
+      
+      sample_sum += sample_value * kernel_weight;
+      kernel_sum += kernel_weight;
     }
   }
 
-  // Final normalised colour
-  float numerator = dot_intens_E * sampleE +
-                    dot_intens_F * (sampleF / F_sum) +
-                    dot_intens_G * (sampleG / G_sum);
+  // Normalize by kernel sum for proper energy conservation
+  float result = sample_sum / max(kernel_sum, 1e-6);
 
-  float denominator = dot_intens_E * E_sum + dot_intens_F + dot_intens_G; // E_sum ~= 1, F_sum & G_sum normalise to 1
-
-  float result = numerator / denominator;
-
-  // Write result to output texture
-  imageStore(outputTex, coord, uvec4(uint(result), 0, 0, 0));
+  // Write result
+  imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));
 }

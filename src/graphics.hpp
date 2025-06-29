@@ -37,6 +37,7 @@ namespace Phosphor {
 void ensureComputeProgram();
 void ensureDecayProgram();
 void ensureBlurProgram();
+void ensureCombineProgram();
 void ensureColormapProgram();
 
 void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWidth, GLuint splineVertexBuffer,
@@ -44,7 +45,9 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
 void dispatchDecay(int texWidth, int texHeight, float deltaTime, float decaySlow, float decayFast,
                    uint32_t ageThreshold, GLuint inputTex, GLuint outputTex, GLuint ageTex);
 void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread, float lineWidth,
-                  float rangeFactor);
+                  float rangeFactor, int blurDirection, int kernelType);
+void dispatchCombine(int texWidth, int texHeight, GLuint kernelE, GLuint kernelF, GLuint kernelG, GLuint outputTex,
+                     float nearBlurIntensity, float farBlurIntensity);
 void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* beamColor,
                       bool enablePhosphorGrain, GLuint energyTex, GLuint ageTex, GLuint colorTex);
 

@@ -1,5 +1,7 @@
 #include "graphics.hpp"
 
+#include "config.hpp"
+
 #include <GL/glew.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -424,12 +426,15 @@ namespace Phosphor {
 static GLuint computeProgram = 0;
 static GLuint decayProgram = 0;
 static GLuint blurProgram = 0;
+static GLuint combineProgram = 0;
 static GLuint colormapProgram = 0;
 
 // Phosphor context structure for managing textures per visualizer
 struct PhosphorContext {
   std::string name;
   GLuint energyTex[2] = {0, 0};
+  GLuint blurIntermediateTex = 0;
+  GLuint kernelResults[3] = {0, 0, 0};
   GLuint ageTex = 0;
   GLuint colorTex = 0;
   GLuint outputFBO = 0;
@@ -442,6 +447,12 @@ struct PhosphorContext {
   ~PhosphorContext() {
     if (energyTex[0]) {
       glDeleteTextures(2, energyTex);
+    }
+    if (blurIntermediateTex) {
+      glDeleteTextures(1, &blurIntermediateTex);
+    }
+    if (kernelResults[0]) {
+      glDeleteTextures(3, kernelResults);
     }
     if (ageTex) {
       glDeleteTextures(1, &ageTex);
@@ -459,7 +470,8 @@ struct PhosphorContext {
 
   void ensureTextures(int w, int h) {
     bool needsReinit =
-        (texWidth != w || texHeight != h || !energyTex[0] || !energyTex[1] || !ageTex || !colorTex || !outputFBO);
+        (texWidth != w || texHeight != h || !energyTex[0] || !energyTex[1] || !blurIntermediateTex ||
+         !kernelResults[0] || !kernelResults[1] || !kernelResults[2] || !ageTex || !colorTex || !outputFBO);
 
     if (!needsReinit) {
       return;
@@ -485,6 +497,14 @@ struct PhosphorContext {
       glDeleteTextures(2, energyTex);
       energyTex[0] = energyTex[1] = 0;
     }
+    if (blurIntermediateTex) {
+      glDeleteTextures(1, &blurIntermediateTex);
+      blurIntermediateTex = 0;
+    }
+    if (kernelResults[0]) {
+      glDeleteTextures(3, kernelResults);
+      kernelResults[0] = kernelResults[1] = kernelResults[2] = 0;
+    }
     if (ageTex) {
       glDeleteTextures(1, &ageTex);
       ageTex = 0;
@@ -500,6 +520,8 @@ struct PhosphorContext {
 
     // Create new resources
     glGenTextures(2, energyTex);
+    glGenTextures(1, &blurIntermediateTex);
+    glGenTextures(3, kernelResults);
     glGenTextures(1, &colorTex);
     glGenTextures(1, &ageTex);
     glGenFramebuffers(1, &outputFBO);
@@ -524,6 +546,42 @@ struct PhosphorContext {
       error = glGetError();
       if (error != GL_NO_ERROR) {
         std::cerr << "OpenGL error during energy texture " << i << " creation: " << error << std::endl;
+        return;
+      }
+
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    // Create blur intermediate texture
+    glBindTexture(GL_TEXTURE_2D, blurIntermediateTex);
+    std::vector<float> initData(texWidth * texHeight, 0.0f);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, initData.data());
+
+    // Check for texture creation errors
+    error = glGetError();
+    if (error != GL_NO_ERROR) {
+      std::cerr << "OpenGL error during blur intermediate texture creation: " << error << std::endl;
+      return;
+    }
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create kernel result textures (E, F, G)
+    for (int i = 0; i < 3; ++i) {
+      glBindTexture(GL_TEXTURE_2D, kernelResults[i]);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT,
+                   initData.data());
+
+      // Check for texture creation errors
+      error = glGetError();
+      if (error != GL_NO_ERROR) {
+        std::cerr << "OpenGL error during kernel result texture " << i << " creation: " << error << std::endl;
         return;
       }
 
@@ -653,6 +711,36 @@ void ensureBlurProgram() {
   glDeleteShader(blurShader);
 }
 
+void ensureCombineProgram() {
+  if (combineProgram)
+    return;
+
+  // Load and compile combine compute shader
+  GLuint combineShader = loadShaderFromFile("shaders/phosphor_combine.comp", GL_COMPUTE_SHADER);
+  if (combineShader == 0) {
+    std::cerr << "Failed to load combine compute shader" << std::endl;
+    return;
+  }
+
+  // Create program and attach shader
+  combineProgram = glCreateProgram();
+  glAttachShader(combineProgram, combineShader);
+  glLinkProgram(combineProgram);
+
+  // Check linking status
+  GLint success;
+  glGetProgramiv(combineProgram, GL_LINK_STATUS, &success);
+  if (!success) {
+    char infoLog[512];
+    glGetProgramInfoLog(combineProgram, 512, NULL, infoLog);
+    std::cerr << "Combine compute shader program linking failed: " << infoLog << std::endl;
+    glDeleteProgram(combineProgram);
+    combineProgram = 0;
+  }
+
+  glDeleteShader(combineShader);
+}
+
 void ensureColormapProgram() {
   if (colormapProgram)
     return;
@@ -741,9 +829,20 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   glClear(GL_COLOR_BUFFER_BIT);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  // 5. Blur from tex0 (energyTex[0]) to tex1 (energyTex[1])
-  dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->energyTex[1], lineBlurSpread, lineWidth,
-               rangeFactor);
+  // 5. Separable blur: 3 kernels × 2 directions each = 6 passes total
+  for (int kernel = 0; kernel < 3; ++kernel) {
+    // Horizontal pass: energyTex[0] -> blurIntermediateTex
+    dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->blurIntermediateTex, lineBlurSpread,
+                 lineWidth, rangeFactor, 0, kernel);
+    // Vertical pass: blurIntermediateTex -> kernelResults[kernel]
+    dispatchBlur(renderWidth, renderHeight, context->blurIntermediateTex, context->kernelResults[kernel],
+                 lineBlurSpread, lineWidth, rangeFactor, 1, kernel);
+  }
+
+  // 5.5. Combine kernel results into energyTex[1] with proper weights
+  dispatchCombine(renderWidth, renderHeight, context->kernelResults[0], context->kernelResults[1],
+                  context->kernelResults[2], context->energyTex[1], Config::values().phosphor.near_blur_intensity,
+                  Config::values().phosphor.far_blur_intensity);
 
   // 6. Convert energy to color using compute shader
   dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
@@ -863,7 +962,7 @@ void dispatchDecay(int texWidth, int texHeight, float deltaTime, float decaySlow
 }
 
 void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex, float lineBlurSpread, float lineWidth,
-                  float rangeFactor) {
+                  float rangeFactor, int blurDirection, int kernelType) {
   ensureBlurProgram();
   if (!blurProgram)
     return;
@@ -875,12 +974,46 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
   glUniform1f(glGetUniformLocation(blurProgram, "line_blur_spread"), lineBlurSpread);
   glUniform1f(glGetUniformLocation(blurProgram, "line_width"), lineWidth);
   glUniform1f(glGetUniformLocation(blurProgram, "range_factor"), rangeFactor);
+  glUniform1i(glGetUniformLocation(blurProgram, "blur_direction"), blurDirection);
+  glUniform1i(glGetUniformLocation(blurProgram, "kernel_type"), kernelType);
   glUniform2f(glGetUniformLocation(blurProgram, "texSize"), static_cast<float>(texWidth),
               static_cast<float>(texHeight));
 
   // Bind input and output textures
   glBindImageTexture(0, inputTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+
+  // Dispatch compute shader (8x8 thread groups)
+  GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8
+  GLuint groupsY = (texHeight + 7) / 8; // Round up to multiple of 8
+  glDispatchCompute(groupsX, groupsY, 1);
+
+  // Memory barrier to ensure writes are complete
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+  glUseProgram(0);
+}
+
+void dispatchCombine(int texWidth, int texHeight, GLuint kernelE, GLuint kernelF, GLuint kernelG, GLuint outputTex,
+                     float nearBlurIntensity, float farBlurIntensity) {
+  ensureCombineProgram();
+  if (!combineProgram)
+    return;
+
+  // Use the combine compute shader
+  glUseProgram(combineProgram);
+
+  // Set uniforms for blur intensities
+  glUniform1f(glGetUniformLocation(combineProgram, "near_blur_intensity"), nearBlurIntensity);
+  glUniform1f(glGetUniformLocation(combineProgram, "far_blur_intensity"), farBlurIntensity);
+
+  // Bind input kernel result textures
+  glBindImageTexture(0, kernelE, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, kernelF, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(2, kernelG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+
+  // Bind output texture
+  glBindImageTexture(3, outputTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
   GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8

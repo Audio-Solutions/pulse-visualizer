@@ -136,6 +136,7 @@ void Config::load(const std::string& filename) {
     v.fft.stereo_mode = getString("fft.stereo_mode");
     v.fft.note_key_mode = getString("fft.note_key_mode");
     v.fft.enable_phosphor = getBool("fft.enable_phosphor");
+    v.fft.enable_temporal_interpolation = getBool("fft.enable_temporal_interpolation");
     v.fft.phosphor_beam_energy = getFloat("fft.phosphor_beam_energy");
     v.fft.phosphor_decay_slow = getFloat("fft.phosphor_decay_slow");
     v.fft.phosphor_decay_fast = getFloat("fft.phosphor_decay_fast");
@@ -188,6 +189,9 @@ void Config::load(const std::string& filename) {
     v.pipewire.ring_multiplier = getInt("pipewire.ring_multiplier");
 
     v.debug.log_fps = getBool("debug.log_fps");
+
+    v.phosphor.near_blur_intensity = getFloat("phosphor.near_blur_intensity");
+    v.phosphor.far_blur_intensity = getFloat("phosphor.far_blur_intensity");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

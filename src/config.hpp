@@ -53,6 +53,7 @@ struct ConfigValues {
     std::string stereo_mode = "midside";
     std::string note_key_mode = "sharp";
     bool enable_phosphor = false;
+    bool enable_temporal_interpolation = true;
     float phosphor_decay_slow = 10.0f;
     float phosphor_decay_fast = 100.0f;
     float phosphor_beam_energy = 1.0f;
@@ -120,6 +121,11 @@ struct ConfigValues {
   struct Debug {
     bool log_fps = false;
   } debug;
+
+  struct Phosphor {
+    float near_blur_intensity = 0.2f;
+    float far_blur_intensity = 0.6f;
+  } phosphor;
 };
 
 class Config {

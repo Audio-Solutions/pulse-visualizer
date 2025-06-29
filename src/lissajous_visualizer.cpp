@@ -21,7 +21,6 @@ static Graphics::Phosphor::PhosphorContext* lissajousPhosphorContext = nullptr;
 // Static variable to track last read position
 static size_t lastReadPos = 0;
 static bool firstRun = true;
-static float accumulatedDt = 0.0f;
 
 // HSV conversion helpers (local to this translation unit)
 namespace {
@@ -116,9 +115,6 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
     // If no new data, just draw the current result
     if (newDataCount == 0) {
-      // Accumulate time for decay when no new audio data
-      accumulatedDt += audioData.dt;
-
       if (lis.enable_phosphor && lissajousPhosphorContext) {
         // Draw current phosphor state without processing (just colormap existing energy)
         GLuint phosphorTexture = Graphics::Phosphor::drawCurrentPhosphorState(
@@ -213,13 +209,9 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           dwellTimes.push_back(deltaT);
         }
 
-        // Use accumulated time plus current dt for proper decay during periods of no audio data
-        float totalDt = audioData.dt + accumulatedDt;
-        accumulatedDt = 0.0f; // Reset accumulated time after using it
-
         // Render phosphor splines using high-level interface
         GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-            lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width, totalDt, 1.0f,
+            lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width, audioData.dt, 1.0f,
             colors.background, colors.lissajous, lis.phosphor_beam_size, lis.phosphor_line_blur_spread,
             lis.phosphor_line_width, lis.phosphor_decay_slow, lis.phosphor_decay_fast, lis.phosphor_age_threshold,
             lis.phosphor_range_factor, lis.enable_phosphor_grain);

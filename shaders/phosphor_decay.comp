@@ -26,10 +26,14 @@ void main() {
   uint age = imageLoad(ageTex, coord).r; 
 
   float decay;
-  if (age < ageThreshold) {
+  if (age < ageThreshold - 2) {
     decay = decayFast;
-  } else {
+  } else if (age >= ageThreshold) {
     decay = decaySlow;
+  } else {
+    // 2 frame lerp between decay speeds for smooth transition
+    float t = float(age - (ageThreshold - 2)) / 2.0f;
+    decay = mix(decayFast, decaySlow, t);
   }
 
   // Apply fade

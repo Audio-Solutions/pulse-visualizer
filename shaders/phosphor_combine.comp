@@ -1,0 +1,43 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Input: 3 kernel result textures
+layout(binding = 0, r32ui) uniform uimage2D kernelE;
+layout(binding = 1, r32ui) uniform uimage2D kernelF;
+layout(binding = 2, r32ui) uniform uimage2D kernelG;
+
+// Output: combined result
+layout(binding = 3, r32ui) uniform uimage2D outputTex;
+
+// Uniforms for configurable blur intensities
+uniform float near_blur_intensity;
+uniform float far_blur_intensity;
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  
+  // Get texture dimensions from first kernel
+  ivec2 texSize = imageSize(kernelE);
+  
+  // Early bounds check
+  if (coord.x >= texSize.x || coord.y >= texSize.y) {
+    return;
+  }
+
+  // Load results from each kernel (already normalized by their respective kernel sums)
+  float sampleE = float(imageLoad(kernelE, coord).r);
+  float sampleF = float(imageLoad(kernelF, coord).r);
+  float sampleG = float(imageLoad(kernelG, coord).r);
+
+  // Dot_intens weights: [1, configurable, configurable] for E, F, G respectively
+  const float dot_intens_E = 1.0;
+
+  // Combine with proper weights (energy-conserving)
+  float numerator = dot_intens_E * sampleE + near_blur_intensity * sampleF + far_blur_intensity * sampleG;
+  float denominator = dot_intens_E + near_blur_intensity + far_blur_intensity;
+  float result = numerator / denominator;
+
+  // Write combined result
+  imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));
+} 

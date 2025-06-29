@@ -120,6 +120,10 @@ private:
   void updateCaches();
   void calculateFrequencyAndDB(float x, float y, float windowHeight, float& frequency, float& actualDB) const;
   void freqToNote(float freq, std::string& noteName, int& octave, int& cents) const;
+
+  // Cached vectors for FFT points
+  static std::vector<std::pair<float, float>> fftPoints;
+  static std::vector<std::pair<float, float>> alternateFFTPoints;
 };
 
 // Spectrogram visualizer (normal + high quality reassigned)
