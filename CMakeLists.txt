@@ -71,6 +71,7 @@ pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3f)
 pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 
 # Find OpenGL
+set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 
 # Find GLEW

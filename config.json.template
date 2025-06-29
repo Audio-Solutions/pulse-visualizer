@@ -13,7 +13,7 @@
   },
   "phosphor": {
     "near_blur_intensity": 0.2,
-    "far_blur_intensity": 0.6
+    "far_blur_intensity": 0.4
   },
   "fft": {
     "fft_fall_speed": 40.0,
@@ -22,7 +22,7 @@
     "fft_max_freq": 20000.0,
     "fft_min_db": -60.0,
     "fft_min_freq": 10.0,
-    "fft_rise_speed": 200.0,
+    "fft_rise_speed": 500.0,
     "fft_size": 4096,
     "fft_slope_correction_db": 4.5,
     "fft_smoothing_factor": 0.2,
@@ -30,13 +30,13 @@
     "stereo_mode": "midside",
     "enable_phosphor": true,
     "enable_temporal_interpolation": false,
-    "phosphor_beam_energy": 400.0,
-    "phosphor_decay_slow": 30.0,
-    "phosphor_decay_fast": 350.0,
-    "phosphor_beam_size": 1,
+    "phosphor_beam_energy": 200.0,
+    "phosphor_decay_slow": 10.0,
+    "phosphor_decay_fast": 75.0,
+    "phosphor_beam_size": 1.0,
     "phosphor_line_blur_spread": 64,
-    "phosphor_line_width": 0.4,
-    "phosphor_age_threshold": 12,
+    "phosphor_line_width": 0.5,
+    "phosphor_age_threshold": 10,
     "phosphor_range_factor": 2.0,
     "enable_phosphor_grain": true
   },
@@ -50,13 +50,13 @@
     "phosphor_tension": 0.5,
     "max_points": 2048,
     "spline_segments": 8,
-    "phosphor_beam_energy": 120.0,
-    "phosphor_decay_slow": 30.0,
-    "phosphor_decay_fast": 250.0,
+    "phosphor_beam_energy": 50.0,
+    "phosphor_decay_slow": 10.0,
+    "phosphor_decay_fast": 75.0,
     "phosphor_beam_size": 1.0,
     "phosphor_line_blur_spread": 64,
     "phosphor_line_width": 0.5,
-    "phosphor_age_threshold": 12,
+    "phosphor_age_threshold": 15,
     "phosphor_range_factor": 2.0,
     "enable_phosphor_grain": true
   },
@@ -65,23 +65,23 @@
     "enable_phosphor": true,
     "gradient_mode": "horizontal",
     "follow_pitch": true,
-    "phosphor_beam_energy": 120.0,
-    "phosphor_decay_slow": 30.0,
-    "phosphor_decay_fast": 250.0,
+    "phosphor_beam_energy": 50.0,
+    "phosphor_decay_slow": 10.0,
+    "phosphor_decay_fast": 75.0,
     "phosphor_beam_size": 1.0,
     "phosphor_line_blur_spread": 64,
     "phosphor_line_width": 0.5,
-    "phosphor_age_threshold": 12,
-    "phosphor_range_factor": 2.0,
+    "phosphor_age_threshold": 15,
+    "phosphor_range_factor": 4.0,
     "enable_phosphor_grain": true
   },
   "pulseaudio": {
     "default_source": "whatever.monitor",
-    "buffer_size": 256
+    "buffer_size": 512
   },
   "pipewire": {
     "default_source": "whatever",
-    "buffer_size": 256,
+    "buffer_size": 512,
     "ring_multiplier": 4
   },
   "spectrogram": {

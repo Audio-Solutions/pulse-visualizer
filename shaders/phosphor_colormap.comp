@@ -4,7 +4,6 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(binding = 0, r32ui) uniform uimage2D energyTex;
 layout(binding = 1, rgba8) uniform image2D colorTex;
-layout(binding = 2, r32ui) uniform uimage2D ageTex;
 
 uniform vec3 blackColor;
 uniform vec3 beamColor;
@@ -61,11 +60,6 @@ vec3 tanhColormap(float mapIndex, vec3 baseColor) {
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-
-  // Increment age by 1 frame
-  uint age = imageLoad(ageTex, coord).r;
-  age += 1;
-  imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
 
   // Sample linear energy value
   float energyLinear = float(imageLoad(energyTex, coord).r);

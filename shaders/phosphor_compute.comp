@@ -46,8 +46,7 @@ void main() {
   if (distance <= 0.0) return;
 
   direction *= 1.0 / distance; // Normalize direction
-  float halfPixelWidth = pixelWidth * 0.5;
-  int numSteps = max(1, int(ceil(distance / halfPixelWidth)));
+  int numSteps = min(256, max(1, int(ceil(distance / pixelWidth))));
   vec2 stepSize = direction * (distance / float(numSteps));
   
   // Total energy for this segment is proportional to its length
@@ -55,9 +54,6 @@ void main() {
   
   // Distribute energy evenly across all steps to maintain constant energy density
   uint energyPerStep = max(1u, totalSegmentEnergy / uint(numSteps));
-  
-  // Clamp numSteps to prevent excessive divergence
-  numSteps = min(numSteps, 256);
   
   // Interpolate along the segment
   for (int i = 0; i < numSteps; ++i) {
@@ -71,44 +67,37 @@ void main() {
     float inv_fx = 1.0 - fract.x;
     float inv_fy = 1.0 - fract.y;
     
+
     // Top-left (0,0)
     ivec2 coord00 = baseCoord;
-    if (inBounds(coord00)) {
-      uint energy = uint(float(energyPerStep) * (inv_fx * inv_fy));
-      if (energy > 0u) {
-        imageAtomicAdd(energyTex, coord00, energy);
-        imageStore(ageTex, coord00, uvec4(0));
-      }
+    uint energy = uint(float(energyPerStep) * (inv_fx * inv_fy));
+    if (energy > 100u) {
+      imageAtomicAdd(energyTex, coord00, energy);
+      imageStore(ageTex, coord00, uvec4(0));
     }
     
     // Top-right (1,0)
     ivec2 coord10 = baseCoord + ivec2(1, 0);
-    if (inBounds(coord10)) {
-      uint energy = uint(float(energyPerStep) * (fract.x * inv_fy));
-      if (energy > 0u) {
-        imageAtomicAdd(energyTex, coord10, energy);
-        imageStore(ageTex, coord10, uvec4(0));
-      }
+    energy = uint(float(energyPerStep) * (fract.x * inv_fy));
+    if (energy > 100u) {
+      imageAtomicAdd(energyTex, coord10, energy);
+      imageStore(ageTex, coord10, uvec4(0));
     }
     
     // Bottom-left (0,1)
     ivec2 coord01 = baseCoord + ivec2(0, 1);
-    if (inBounds(coord01)) {
-      uint energy = uint(float(energyPerStep) * (inv_fx * fract.y));
-      if (energy > 0u) {
-        imageAtomicAdd(energyTex, coord01, energy);
-        imageStore(ageTex, coord01, uvec4(0));
-      }
+    energy = uint(float(energyPerStep) * (inv_fx * fract.y));
+    if (energy > 100u) {
+      imageAtomicAdd(energyTex, coord01, energy);
+      imageStore(ageTex, coord01, uvec4(0));
     }
-    
+
     // Bottom-right (1,1)
     ivec2 coord11 = baseCoord + ivec2(1, 1);
-    if (inBounds(coord11)) {
-      uint energy = uint(float(energyPerStep) * (fract.x * fract.y));
-      if (energy > 0u) {
-        imageAtomicAdd(energyTex, coord11, energy);
-        imageStore(ageTex, coord11, uvec4(0));
-      }
+    energy = uint(float(energyPerStep) * (fract.x * fract.y));
+    if (energy > 100u) {
+      imageAtomicAdd(energyTex, coord11, energy);
+      imageStore(ageTex, coord11, uvec4(0));
     }
   }
 }

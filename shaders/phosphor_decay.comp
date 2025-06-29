@@ -15,10 +15,6 @@ void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSize = imageSize(inputTex);
 
-  if (coord.x >= texSize.x || coord.y >= texSize.y) {
-    return;
-  }
-
   // Read current linear energy value from input texture
   uint currentEnergyLinear = imageLoad(inputTex, coord).r;
 
@@ -34,6 +30,12 @@ void main() {
     // 2 frame lerp between decay speeds for smooth transition
     float t = float(age - (ageThreshold - 2)) / 2.0f;
     decay = mix(decayFast, decaySlow, t);
+  }
+
+  // Increment age by 1 frame if it's not the last frame
+  if (age < ageThreshold) {
+    age += 1;
+    imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
   }
 
   // Apply fade

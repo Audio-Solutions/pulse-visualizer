@@ -285,7 +285,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       // Draw the Main FFT curve using centralized colors
       Graphics::drawAntialiasedLines(fftPoints, colors.spectrum, 2.0f);
     }
-  } else if (!shouldUpdateFFTCurves && audioData.hasValidPeak) {
+  } else if (!shouldUpdateFFTCurves) {
     if (fcfg.enable_phosphor && fftPhosphorContext) {
       GLuint phosphorTexture =
           Graphics::Phosphor::drawCurrentPhosphorState(fftPhosphorContext, width, audioData.windowHeight,

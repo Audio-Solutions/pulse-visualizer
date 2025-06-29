@@ -49,7 +49,7 @@ void dispatchBlur(int texWidth, int texHeight, GLuint inputTex, GLuint outputTex
 void dispatchCombine(int texWidth, int texHeight, GLuint kernelE, GLuint kernelF, GLuint kernelG, GLuint outputTex,
                      float nearBlurIntensity, float farBlurIntensity);
 void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* beamColor,
-                      bool enablePhosphorGrain, GLuint energyTex, GLuint ageTex, GLuint colorTex);
+                      bool enablePhosphorGrain, GLuint energyTex, GLuint colorTex);
 
 // High-level phosphor rendering functions
 struct PhosphorContext;

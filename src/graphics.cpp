@@ -846,7 +846,7 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
 
   // 6. Convert energy to color using compute shader
   dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
-                   context->ageTex, context->colorTex);
+                   context->colorTex);
 
   // Return the final color texture for drawing
   return context->colorTex;
@@ -864,7 +864,7 @@ GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int r
   // Just convert current energy (energyTex[1]) to color using compute shader
   // This mimics the original fallback behavior - no decay, no blur, just colormap
   dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
-                   context->ageTex, context->colorTex);
+                   context->colorTex);
 
   // Return the color texture for drawing
   return context->colorTex;
@@ -1027,7 +1027,7 @@ void dispatchCombine(int texWidth, int texHeight, GLuint kernelE, GLuint kernelF
 }
 
 void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor,
-                      bool enablePhosphorGrain, GLuint energyTex, GLuint ageTex, GLuint colorTex) {
+                      bool enablePhosphorGrain, GLuint energyTex, GLuint colorTex) {
   ensureColormapProgram();
   if (!colormapProgram)
     return;
@@ -1044,7 +1044,6 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   // Bind input energy texture and output color texture
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, colorTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-  glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   // Dispatch compute shader (8x8 thread groups)
   GLuint groupsX = (texWidth + 7) / 8;  // Round up to multiple of 8
