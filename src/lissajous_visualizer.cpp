@@ -136,17 +136,25 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       return;
     }
 
-    // Resize cached vector to exact size needed
-    points.resize(newDataCount);
+    // Extend buffer for spline continuity - add 2.5 points on each side
+    size_t extendedDataCount = newDataCount;
+    size_t bufferStartOffset = 0;
+    if (newDataCount > 1) {
+      extendedDataCount = newDataCount + 5;
+      bufferStartOffset = 3; // Start reading 3 points earlier
+    }
+
+    // Resize cached vector to extended size
+    points.resize(extendedDataCount);
 
     // Pre-compute scaling factors
     const float halfWidth = width * 0.5f;
     const float offsetX = halfWidth;
 
     // Read from circular buffers and reconstruct left/right channels
-    for (size_t i = 0; i < newDataCount; ++i) {
-      // Calculate position in circular buffer - read from lastReadPos forward
-      size_t readPos = (lastReadPos + i) % audioData.bufferSize;
+    for (size_t i = 0; i < extendedDataCount; ++i) {
+      // Calculate position in circular buffer - start from lastReadPos - bufferStartOffset
+      size_t readPos = (lastReadPos + audioData.bufferSize - bufferStartOffset + i) % audioData.bufferSize;
 
       // Reconstruct left/right from mid/side
       float mid = audioData.bufferMid[readPos];
