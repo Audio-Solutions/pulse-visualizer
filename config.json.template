@@ -28,6 +28,8 @@
     "fft_smoothing_factor": 0.2,
     "note_key_mode": "sharp",
     "stereo_mode": "midside",
+    "enable_cqt": true,
+    "cqt_bins_per_octave": 60,
     "enable_phosphor": true,
     "enable_temporal_interpolation": false,
     "phosphor_beam_energy": 200.0,

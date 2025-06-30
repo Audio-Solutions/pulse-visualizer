@@ -137,6 +137,8 @@ void Config::load(const std::string& filename) {
     v.fft.note_key_mode = getString("fft.note_key_mode");
     v.fft.enable_phosphor = getBool("fft.enable_phosphor");
     v.fft.enable_temporal_interpolation = getBool("fft.enable_temporal_interpolation");
+    v.fft.enable_cqt = getBool("fft.enable_cqt");
+    v.fft.cqt_bins_per_octave = getInt("fft.cqt_bins_per_octave");
     v.fft.phosphor_beam_energy = getFloat("fft.phosphor_beam_energy");
     v.fft.phosphor_decay_slow = getFloat("fft.phosphor_decay_slow");
     v.fft.phosphor_decay_fast = getFloat("fft.phosphor_decay_fast");

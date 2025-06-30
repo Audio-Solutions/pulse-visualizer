@@ -54,6 +54,8 @@ struct ConfigValues {
     std::string note_key_mode = "sharp";
     bool enable_phosphor = false;
     bool enable_temporal_interpolation = true;
+    bool enable_cqt = false;
+    int cqt_bins_per_octave = 24;
     float phosphor_decay_slow = 10.0f;
     float phosphor_decay_fast = 100.0f;
     float phosphor_beam_energy = 1.0f;

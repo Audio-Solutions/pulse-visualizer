@@ -131,12 +131,21 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
   // Determine if we should update FFT curves or just redraw existing ones
   bool shouldUpdateFFTCurves = fcfg.enable_temporal_interpolation || (readCount > 0);
 
-  if (shouldUpdateFFTCurves && !audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty()) {
-    const int fftSize = (audioData.fftMagnitudesMid.size() - 1) * 2;
+  // Check if we should use CQT or FFT data
+  bool useCQT = fcfg.enable_cqt && !audioData.cqtMagnitudesMid.empty() && !audioData.cqtMagnitudesSide.empty();
+  bool useFFT = !audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty();
 
-    // Determine which data to use based on FFT mode
+  if (shouldUpdateFFTCurves && (useCQT || useFFT)) {
+    // Determine which data to use based on mode
     const std::vector<float>* mainMagnitudes = nullptr;
     const std::vector<float>* alternateMagnitudes = nullptr;
+    const std::vector<float>* frequencies = nullptr;
+
+    // FFT size for frequency calculations (only used in FFT mode)
+    int fftSize = 0;
+    if (useFFT) {
+      fftSize = (audioData.fftMagnitudesMid.size() - 1) * 2;
+    }
 
     // Temporary vectors for computed LEFTRIGHT mode data
     std::vector<float> leftMagnitudes, rightMagnitudes;
@@ -145,26 +154,50 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     bool isLeftRightMode = (fcfg.stereo_mode == "leftright") && !fcfg.enable_phosphor;
     bool showAlternate = !fcfg.enable_phosphor; // Hide alternate channel in phosphor mode
 
-    if (isLeftRightMode) {
-      // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
-      leftMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
-      rightMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
+    if (useCQT) {
+      // Use CQT data
+      frequencies = &audioData.cqtFrequencies;
 
-      for (size_t i = 0; i < audioData.smoothedMagnitudesMid.size(); ++i) {
-        leftMagnitudes[i] = audioData.smoothedMagnitudesMid[i] - audioData.smoothedMagnitudesSide[i];
-        rightMagnitudes[i] = audioData.smoothedMagnitudesMid[i] + audioData.smoothedMagnitudesSide[i];
+      if (isLeftRightMode) {
+        // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
+        leftMagnitudes.resize(audioData.smoothedCqtMagnitudesMid.size());
+        rightMagnitudes.resize(audioData.smoothedCqtMagnitudesMid.size());
+
+        for (size_t i = 0; i < audioData.smoothedCqtMagnitudesMid.size(); ++i) {
+          leftMagnitudes[i] = audioData.smoothedCqtMagnitudesMid[i] - audioData.smoothedCqtMagnitudesSide[i];
+          rightMagnitudes[i] = audioData.smoothedCqtMagnitudesMid[i] + audioData.smoothedCqtMagnitudesSide[i];
+        }
+
+        mainMagnitudes = &leftMagnitudes;
+        alternateMagnitudes = &rightMagnitudes;
+      } else {
+        // MIDSIDE mode: Main = Mid, Alternate = Side (or mono when phosphor enabled)
+        mainMagnitudes = &audioData.smoothedCqtMagnitudesMid;
+        alternateMagnitudes = &audioData.smoothedCqtMagnitudesSide;
       }
-
-      mainMagnitudes = &leftMagnitudes;
-      alternateMagnitudes = &rightMagnitudes;
     } else {
-      // MIDSIDE mode: Main = Mid, Alternate = Side (or mono when phosphor enabled)
-      mainMagnitudes = &audioData.smoothedMagnitudesMid;
-      alternateMagnitudes = &audioData.smoothedMagnitudesSide;
+      // Use FFT data (original logic)
+      if (isLeftRightMode) {
+        // LEFTRIGHT mode: Main = Mid - Side (Left), Alternate = Mid + Side (Right)
+        leftMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
+        rightMagnitudes.resize(audioData.smoothedMagnitudesMid.size());
+
+        for (size_t i = 0; i < audioData.smoothedMagnitudesMid.size(); ++i) {
+          leftMagnitudes[i] = audioData.smoothedMagnitudesMid[i] - audioData.smoothedMagnitudesSide[i];
+          rightMagnitudes[i] = audioData.smoothedMagnitudesMid[i] + audioData.smoothedMagnitudesSide[i];
+        }
+
+        mainMagnitudes = &leftMagnitudes;
+        alternateMagnitudes = &rightMagnitudes;
+      } else {
+        // MIDSIDE mode: Main = Mid, Alternate = Side (or mono when phosphor enabled)
+        mainMagnitudes = &audioData.smoothedMagnitudesMid;
+        alternateMagnitudes = &audioData.smoothedMagnitudesSide;
+      }
     }
 
     // Pre-compute constants for magnitude processing
-    const float freqScale = fcfg.sample_rate / fftSize;
+    const float freqScale = useCQT ? 1.0f : (audioData.sampleRate / fftSize);
     const float invLogFreqRange = 1.0f / logFreqRange;
     const float invDbRange = 1.0f / dbRange;
     const float gainBase = 1.0f / (440.0f * 2.0f); // Pre-compute for slope correction
@@ -180,8 +213,15 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
 
     // Generate alternate FFT points only when showing alternate channel
     if (showAlternate) {
-      for (size_t bin = 1; bin < alternateMagnitudes->size(); ++bin) {
-        float freq = static_cast<float>(bin) * freqScale;
+      size_t startBin = useCQT ? 0 : 1; // CQT starts from bin 0, FFT from bin 1
+      for (size_t bin = startBin; bin < alternateMagnitudes->size(); ++bin) {
+        float freq;
+        if (useCQT) {
+          freq = (*frequencies)[bin];
+        } else {
+          freq = static_cast<float>(bin) * freqScale;
+        }
+
         if (freq < fcfg.min_freq || freq > fcfg.max_freq)
           continue;
         float logX = (log(freq) - logMinFreq) * invLogFreqRange;
@@ -202,9 +242,16 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       }
     }
 
-    // Draw Main FFT using pre-computed smoothed values
-    for (size_t bin = 1; bin < mainMagnitudes->size(); ++bin) {
-      float freq = static_cast<float>(bin) * freqScale;
+    // Draw Main spectrum using pre-computed smoothed values
+    size_t startBin = useCQT ? 0 : 1; // CQT starts from bin 0, FFT from bin 1
+    for (size_t bin = startBin; bin < mainMagnitudes->size(); ++bin) {
+      float freq;
+      if (useCQT) {
+        freq = (*frequencies)[bin];
+      } else {
+        freq = static_cast<float>(bin) * freqScale;
+      }
+
       if (freq < fcfg.min_freq || freq > fcfg.max_freq)
         continue;
       float logX = (log(freq) - logMinFreq) * invLogFreqRange;
@@ -243,7 +290,14 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
 
         float deltaT = audioData.dt / fftPoints.size();
-        float intensity = fcfg.phosphor_beam_energy * deltaT * sqrtf(dx);
+        float intensity = fcfg.phosphor_beam_energy * deltaT;
+
+        // No idea why this is how it does things
+        if (useCQT) {
+          intensity /= segLen * 0.5f; // where dafuq is / 2 coming from? idk
+        } else {
+          intensity *= sqrtf(dx);
+        }
 
         intensityLinear.push_back(intensity);
         dwellTimes.push_back(deltaT);

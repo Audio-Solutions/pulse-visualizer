@@ -45,6 +45,17 @@ struct AudioData {
   std::vector<float> smoothedMagnitudesSide;
   std::vector<float> interpolatedValuesSide;
 
+  // Pre-allocated CQT data to avoid reallocations
+  std::vector<float> cqtMagnitudesMid;
+  std::vector<float> prevCqtMagnitudesMid;
+  std::vector<float> smoothedCqtMagnitudesMid;
+  std::vector<float> interpolatedCqtValuesMid;
+  std::vector<float> cqtMagnitudesSide;
+  std::vector<float> prevCqtMagnitudesSide;
+  std::vector<float> smoothedCqtMagnitudesSide;
+  std::vector<float> interpolatedCqtValuesSide;
+  std::vector<float> cqtFrequencies; // Center frequencies for each CQT bin
+
   std::chrono::steady_clock::time_point lastFftUpdate;
   float fftUpdateInterval = 0.0f; // Time between FFT updates in seconds
 

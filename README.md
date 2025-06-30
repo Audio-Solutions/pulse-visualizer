@@ -24,7 +24,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Multiple visualization styles:
 	- Lissajous curve with Catmull-Rom spline interpolation
 	- Oscilloscope with configurable gradient modes
-	- FFT with mid/side and right/left modes and sharp/flat note key mode
+	- FFT with mid/side and right/left modes and sharp/flat note key mode, now with Constant-Q transform support
 	- Spectrogram
 - Live configuration updates and popout windows for visualizers
 - Cross-platform support (PulseAudio **and** PipeWire backends)
