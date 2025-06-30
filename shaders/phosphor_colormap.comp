@@ -64,6 +64,12 @@ void main() {
   // Sample linear energy value
   float energyLinear = float(imageLoad(energyTex, coord).r);
   
+  // Apply subtle spatial grain to the energy
+  if (enablePhosphorGrain == 1) {
+    float grain = spatialGrain(vec2(coord));
+    energyLinear *= (1.0 + grain);
+  }
+
   // Scale energy for tanh mapping
   energyLinear /= TANH_DIV_FACTOR;
   vec3 outColor = tanhColormap(energyLinear, beamColor);
@@ -71,12 +77,6 @@ void main() {
   // add bg
   outColor = outColor + blackColor;
   outColor = clamp(outColor, 0.0, 1.0);
-
-  // Apply subtle spatial grain to the color
-  if (enablePhosphorGrain == 1) {
-    float grain = spatialGrain(vec2(coord));
-    outColor = outColor * (1.0 + grain);
-  }
 
   // Write result to color texture
   imageStore(colorTex, coord, vec4(outColor, 1.0));
