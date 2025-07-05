@@ -281,6 +281,10 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       intensityLinear.reserve(fftPoints.size());
       dwellTimes.reserve(fftPoints.size());
 
+      // Normalize beam energy over area
+      float ref = 400.0f * 400.0f;
+      float beamEnergy = fcfg.phosphor_beam_energy / ref * (width * audioData.windowHeight);
+
       for (size_t i = 1; i < fftPoints.size(); ++i) {
         const auto& p1 = fftPoints[i - 1];
         const auto& p2 = fftPoints[i];
@@ -290,7 +294,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
 
         float deltaT = audioData.dt / fftPoints.size();
-        float intensity = fcfg.phosphor_beam_energy * deltaT;
+        float intensity = beamEnergy * deltaT;
 
         // No idea why this is how it does things
         if (useCQT) {

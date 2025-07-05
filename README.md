@@ -6,8 +6,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 
 ⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
 
-- **Phosphor brightness varies with screen size.** Currently, the phosphor effect brightness is not perfectly normalized across different window sizes - larger windows may appear dimmer than smaller ones.
-- No settings menu or source selection yet.
+- No settings menu yet.
 - Configuration is handled through a config file (see [Building](#building) for more details).
 - Performance may vary depending on your system's framerate.
 - Bugs and quirks are to be expected.

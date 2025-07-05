@@ -127,6 +127,10 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
         intensityLinear.reserve(scopePoints.size());
         dwellTimes.reserve(scopePoints.size());
 
+        // Normalize beam energy over area
+        float ref = 400.0f * 400.0f;
+        float beamEnergy = osc.phosphor_beam_energy / ref * (width * audioData.windowHeight);
+
         for (size_t i = 1; i < scopePoints.size(); ++i) {
           const auto& p1 = scopePoints[i - 1];
           const auto& p2 = scopePoints[i];
@@ -135,7 +139,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
           float dy = p2.second - p1.second;
           float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
           float deltaT = 1.0f / audioData.sampleRate;
-          float intensity = osc.phosphor_beam_energy * deltaT / segLen;
+          float intensity = beamEnergy * deltaT / segLen;
 
           intensityLinear.push_back(intensity);
           dwellTimes.push_back(deltaT);

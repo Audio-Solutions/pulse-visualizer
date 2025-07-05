@@ -31,6 +31,51 @@ struct FontCache {
 FT_Library ftLib = nullptr;
 std::map<std::string, FontCache> fontCaches;
 
+// Helper function to transfer texture data with centering
+void transferTextureData(GLuint oldTex, GLuint newTex, int oldW, int oldH, int newW, int newH, GLenum format,
+                         GLenum type) {
+  glBindTexture(GL_TEXTURE_2D, newTex);
+
+  if (oldTex && oldW > 0 && oldH > 0) {
+    // Read old texture data
+    std::vector<uint8_t> oldData(oldW * oldH * 4); // Max 4 bytes per pixel
+    glBindTexture(GL_TEXTURE_2D, oldTex);
+    glGetTexImage(GL_TEXTURE_2D, 0, format, type, oldData.data());
+
+    // Create new texture with transferred data
+    glBindTexture(GL_TEXTURE_2D, newTex);
+
+    // Calculate offset for centering
+    int offsetX = std::max(0, (newW - oldW) / 2);
+    int offsetY = std::max(0, (newH - oldH) / 2);
+
+    // Initialize new texture with zeros
+    std::vector<uint8_t> newData(newW * newH * 4, 0);
+
+    // Copy old data to center of new texture
+    for (int y = 0; y < std::min(oldH, newH); ++y) {
+      for (int x = 0; x < std::min(oldW, newW); ++x) {
+        int oldIdx = (y * oldW + x) * 4;
+        int newIdx = ((y + offsetY) * newW + (x + offsetX)) * 4;
+        if (newIdx + 3 < newData.size() && oldIdx + 3 < oldData.size()) {
+          newData[newIdx] = oldData[oldIdx];
+          newData[newIdx + 1] = oldData[oldIdx + 1];
+          newData[newIdx + 2] = oldData[oldIdx + 2];
+          newData[newIdx + 3] = oldData[oldIdx + 3];
+        }
+      }
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, newW, newH, 0, format, type,
+                 newData.data());
+  } else {
+    // Initialize with zeros if no old data (first generation)
+    std::vector<uint8_t> newData(newW * newH * 4, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, newW, newH, 0, format, type,
+                 newData.data());
+  }
+}
+
 bool ensureFTLib() {
   if (!ftLib) {
     if (FT_Init_FreeType(&ftLib))
@@ -483,6 +528,16 @@ struct PhosphorContext {
     // Add memory barrier to ensure all compute shader writes are complete
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
+    // Store old dimensions and textures for data transfer
+    int oldWidth = texWidth;
+    int oldHeight = texHeight;
+    GLuint oldEnergyTex[2] = {energyTex[0], energyTex[1]};
+    GLuint oldBlurIntermediateTex = blurIntermediateTex;
+    GLuint oldKernelResults[3] = {kernelResults[0], kernelResults[1], kernelResults[2]};
+    GLuint oldAgeTex = ageTex;
+    GLuint oldColorTex = colorTex;
+    GLuint oldOutputFBO = outputFBO;
+
     // Unbind any currently bound textures/framebuffers to avoid issues
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -492,38 +547,12 @@ struct PhosphorContext {
     texWidth = w;
     texHeight = h;
 
-    // Clean up existing resources
-    if (energyTex[0]) {
-      glDeleteTextures(2, energyTex);
-      energyTex[0] = energyTex[1] = 0;
-    }
-    if (blurIntermediateTex) {
-      glDeleteTextures(1, &blurIntermediateTex);
-      blurIntermediateTex = 0;
-    }
-    if (kernelResults[0]) {
-      glDeleteTextures(3, kernelResults);
-      kernelResults[0] = kernelResults[1] = kernelResults[2] = 0;
-    }
-    if (ageTex) {
-      glDeleteTextures(1, &ageTex);
-      ageTex = 0;
-    }
-    if (colorTex) {
-      glDeleteTextures(1, &colorTex);
-      colorTex = 0;
-    }
-    if (outputFBO) {
-      glDeleteFramebuffers(1, &outputFBO);
-      outputFBO = 0;
-    }
-
     // Create new resources
     glGenTextures(2, energyTex);
     glGenTextures(1, &blurIntermediateTex);
     glGenTextures(3, kernelResults);
-    glGenTextures(1, &colorTex);
     glGenTextures(1, &ageTex);
+    glGenTextures(1, &colorTex);
     glGenFramebuffers(1, &outputFBO);
 
     // Check for OpenGL errors after resource creation
@@ -533,19 +562,14 @@ struct PhosphorContext {
       return;
     }
 
-    // Create energy textures
+    // Transfer energy textures
     for (int i = 0; i < 2; ++i) {
-      glBindTexture(GL_TEXTURE_2D, energyTex[i]);
+      transferTextureData(oldEnergyTex[i], energyTex[i], oldWidth, oldHeight, texWidth, texHeight, GL_RED_INTEGER,
+                          GL_UNSIGNED_INT);
 
-      // Initialize texture with zero background level (linear energy)
-      std::vector<float> initData(texWidth * texHeight, 0.0f);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT,
-                   initData.data());
-
-      // Check for texture creation errors
       error = glGetError();
       if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL error during energy texture " << i << " creation: " << error << std::endl;
+        std::cerr << "OpenGL error during energy texture " << i << " transfer: " << error << std::endl;
         return;
       }
 
@@ -555,15 +579,13 @@ struct PhosphorContext {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    // Create blur intermediate texture
-    glBindTexture(GL_TEXTURE_2D, blurIntermediateTex);
-    std::vector<float> initData(texWidth * texHeight, 0.0f);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, initData.data());
+    // Transfer blur intermediate texture
+    transferTextureData(oldBlurIntermediateTex, blurIntermediateTex, oldWidth, oldHeight, texWidth, texHeight,
+                        GL_RED_INTEGER, GL_UNSIGNED_INT);
 
-    // Check for texture creation errors
     error = glGetError();
     if (error != GL_NO_ERROR) {
-      std::cerr << "OpenGL error during blur intermediate texture creation: " << error << std::endl;
+      std::cerr << "OpenGL error during blur intermediate texture transfer: " << error << std::endl;
       return;
     }
 
@@ -572,16 +594,14 @@ struct PhosphorContext {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // Create kernel result textures (E, F, G)
+    // Transfer kernel result textures
     for (int i = 0; i < 3; ++i) {
-      glBindTexture(GL_TEXTURE_2D, kernelResults[i]);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT,
-                   initData.data());
+      transferTextureData(oldKernelResults[i], kernelResults[i], oldWidth, oldHeight, texWidth, texHeight,
+                          GL_RED_INTEGER, GL_UNSIGNED_INT);
 
-      // Check for texture creation errors
       error = glGetError();
       if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL error during kernel result texture " << i << " creation: " << error << std::endl;
+        std::cerr << "OpenGL error during kernel result texture " << i << " transfer: " << error << std::endl;
         return;
       }
 
@@ -591,18 +611,15 @@ struct PhosphorContext {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    // Create age texture (1D, 1 Channel uint32_t)
-    glBindTexture(GL_TEXTURE_2D, ageTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, texWidth, texHeight, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+    // Transfer age texture
+    transferTextureData(oldAgeTex, ageTex, oldWidth, oldHeight, texWidth, texHeight, GL_RED_INTEGER, GL_UNSIGNED_INT);
 
-    // Create color texture
-    glBindTexture(GL_TEXTURE_2D, colorTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // Transfer color texture
+    transferTextureData(oldColorTex, colorTex, oldWidth, oldHeight, texWidth, texHeight, GL_RGBA, GL_UNSIGNED_BYTE);
 
-    // Check for color texture creation errors
     error = glGetError();
     if (error != GL_NO_ERROR) {
-      std::cerr << "OpenGL error during color texture creation: " << error << std::endl;
+      std::cerr << "OpenGL error during color texture transfer: " << error << std::endl;
       return;
     }
 
@@ -612,6 +629,26 @@ struct PhosphorContext {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Clean up old resources
+    if (oldEnergyTex[0]) {
+      glDeleteTextures(2, oldEnergyTex);
+    }
+    if (oldBlurIntermediateTex) {
+      glDeleteTextures(1, &oldBlurIntermediateTex);
+    }
+    if (oldKernelResults[0]) {
+      glDeleteTextures(3, oldKernelResults);
+    }
+    if (oldAgeTex) {
+      glDeleteTextures(1, &oldAgeTex);
+    }
+    if (oldColorTex) {
+      glDeleteTextures(1, &oldColorTex);
+    }
+    if (oldOutputFBO) {
+      glDeleteFramebuffers(1, &oldOutputFBO);
+    }
   }
 
   void ensureVertexBuffer() {

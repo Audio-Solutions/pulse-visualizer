@@ -202,6 +202,10 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         intensityLinear.reserve(densePath.size());
         dwellTimes.reserve(densePath.size());
 
+        // Normalize beam energy over area
+        float ref = 400.0f * 400.0f;
+        float beamEnergy = lis.phosphor_beam_energy / ref * (width * width);
+
         for (size_t i = 1; i < densePath.size(); ++i) {
           const auto& p1 = densePath[i - 1];
           const auto& p2 = densePath[i];
@@ -210,7 +214,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
           float dy = p2.second - p1.second;
           float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
           float deltaT = (1.0f / audioData.sampleRate);
-          float totalEnergy = lis.phosphor_beam_energy * deltaT / segLen / lis.phosphor_spline_density;
+          float totalEnergy = beamEnergy * deltaT / segLen / lis.phosphor_spline_density;
 
           // Store linear energy and dwell time
           intensityLinear.push_back(totalEnergy);
