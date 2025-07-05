@@ -537,11 +537,14 @@ void audioThread(AudioData* audioData) {
       break;
     }
 
+    // Linearize gain
+    float gain = powf(10.0f, audio_cfg.gain_db / 20.0f);
+
     // Write to circular buffer
     std::unique_lock<std::mutex> lock(audioData->mutex);
     for (int i = 0; i < READ_SAMPLES; i += 2) {
-      float sampleLeft = readBuffer[i];
-      float sampleRight = readBuffer[i + 1];
+      float sampleLeft = readBuffer[i] * gain;
+      float sampleRight = readBuffer[i + 1] * gain;
 
       // Write to circular buffer
       audioData->bufferMid[audioData->writePos] = (sampleLeft + sampleRight) / 2.0f;

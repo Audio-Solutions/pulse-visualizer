@@ -100,7 +100,6 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   scopePoints.reserve(audioData.displaySamples);
 
   // Pre-compute scale factors
-  const float amplitudeScale = audioData.windowHeight * osc.amplitude_scale;
   const float widthScale = static_cast<float>(width) / audioData.displaySamples;
   const float centerY = audioData.windowHeight * 0.5f;
 
@@ -108,9 +107,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     size_t pos = (startPos + i) % audioData.bufferSize;
     float x = static_cast<float>(i) * widthScale;
 #ifdef SCOPE_USE_RAW_SIGNAL
-    float y = centerY + audioData.bufferMid[pos] * amplitudeScale;
+    float y = centerY + audioData.bufferMid[pos] * audioData.windowHeight * 0.5f;
 #else
-    float y = centerY + audioData.bandpassedMid[pos] * amplitudeScale;
+    float y = centerY + audioData.bandpassedMid[pos] * audioData.windowHeight * 0.5f;
 #endif
     scopePoints.push_back({x, y});
   }

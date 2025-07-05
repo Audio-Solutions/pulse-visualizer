@@ -6,7 +6,8 @@
     "sample_rate": 48000,
     "fft_skip_frames": 0,
     "silence_threshold": -100.0,
-    "engine": "pipewire"
+    "engine": "pipewire",
+    "gain_db": 0.0
   },
   "debug": {
     "log_fps": false

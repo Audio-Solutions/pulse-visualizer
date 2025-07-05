@@ -9,7 +9,6 @@
 // Central cache of parsed configuration values
 struct ConfigValues {
   struct Oscilloscope {
-    float amplitude_scale = 0.5f;
     std::string gradient_mode = "horizontal";
     bool enable_phosphor = false;
     bool follow_pitch = true;
@@ -89,6 +88,7 @@ struct ConfigValues {
     int buffer_size = 32768;
     int display_samples = 2000;
     int channels = 2;
+    float gain_db = 0.0f;
     std::string engine = "auto";
   } audio;
 

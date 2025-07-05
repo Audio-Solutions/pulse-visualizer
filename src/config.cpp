@@ -96,7 +96,6 @@ void Config::load(const std::string& filename) {
   // Re-populate cached values struct for fast access across the codebase.
   try {
     auto& v = g_cachedValues;
-    v.oscilloscope.amplitude_scale = getFloat("oscilloscope.amplitude_scale");
     v.oscilloscope.gradient_mode = getString("oscilloscope.gradient_mode");
     v.oscilloscope.enable_phosphor = getBool("oscilloscope.enable_phosphor");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
@@ -168,6 +167,7 @@ void Config::load(const std::string& filename) {
     v.audio.buffer_size = getInt("audio.buffer_size");
     v.audio.display_samples = getInt("audio.display_samples");
     v.audio.channels = getInt("audio.channels");
+    v.audio.gain_db = getFloat("audio.gain_db");
     v.audio.engine = getString("audio.engine");
 
     v.visualizers.spectrogram_order = getInt("visualizers.spectrogram_order");
