@@ -64,7 +64,6 @@
     "enable_phosphor_grain": true
   },
   "oscilloscope": {
-    "amplitude_scale": 0.5,
     "enable_phosphor": true,
     "gradient_mode": "horizontal",
     "follow_pitch": true,
