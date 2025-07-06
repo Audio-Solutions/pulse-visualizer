@@ -817,7 +817,7 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                              const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
                              float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor,
                              bool enablePhosphorGrain) {
-  if (!context || splinePoints.empty()) {
+  if (!context) {
     return 0;
   }
 
@@ -825,20 +825,22 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   context->ensureTextures(renderWidth, renderHeight);
   context->ensureVertexBuffer();
 
-  // Upload vertex data to buffer (x, y, intensity, dwellTime format)
-  std::vector<float> vertexData;
-  vertexData.reserve(splinePoints.size() * 4);
+  if (!splinePoints.empty()) {
+    // Upload vertex data to buffer (x, y, intensity, dwellTime format)
+    std::vector<float> vertexData;
+    vertexData.reserve(splinePoints.size() * 4);
 
-  for (size_t i = 0; i < splinePoints.size(); ++i) {
-    vertexData.push_back(splinePoints[i].first);                                  // x
-    vertexData.push_back(splinePoints[i].second);                                 // y
-    vertexData.push_back(i < intensityLinear.size() ? intensityLinear[i] : 0.1f); // intensity
-    vertexData.push_back(i < dwellTimes.size() ? dwellTimes[i] : 1.0f);           // dwellTime
+    for (size_t i = 0; i < splinePoints.size(); ++i) {
+      vertexData.push_back(splinePoints[i].first);                                  // x
+      vertexData.push_back(splinePoints[i].second);                                 // y
+      vertexData.push_back(i < intensityLinear.size() ? intensityLinear[i] : 0.1f); // intensity
+      vertexData.push_back(i < dwellTimes.size() ? dwellTimes[i] : 1.0f);           // dwellTime
+    }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, context->vertexBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
   }
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, context->vertexBuffer);
-  glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   // 0. Copy energyTex[0] to energyTex[1]
   glCopyImageSubData(context->energyTex[0], GL_TEXTURE_2D, 0, 0, 0, 0, context->energyTex[1], GL_TEXTURE_2D, 0, 0, 0, 0,
@@ -856,8 +858,10 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                 context->energyTex[0], context->ageTex);
 
   // 3. Draw phosphor additively on tex0 (energyTex[0])
-  dispatchCompute(static_cast<int>(splinePoints.size()), renderWidth, renderHeight, pixelWidth, context->vertexBuffer,
-                  context->energyTex[0], context->ageTex);
+  if (!splinePoints.empty()) {
+    dispatchCompute(static_cast<int>(splinePoints.size()), renderWidth, renderHeight, pixelWidth, context->vertexBuffer,
+                    context->energyTex[0], context->ageTex);
+  }
 
   // 4. Clear tex1 (energyTex[1])
   glBindFramebuffer(GL_FRAMEBUFFER, context->outputFBO);

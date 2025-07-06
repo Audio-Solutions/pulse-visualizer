@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -26,6 +27,11 @@ struct AudioData {
   float dt = 0.0f; // Delta time in seconds
   std::chrono::steady_clock::time_point lastFrameTime;
   bool frameTimingInitialized = false;
+
+  // Audio data synchronization
+  std::atomic<uint64_t> frameCounter {0}; // Incremented when new audio data is processed
+  std::condition_variable dataReadyCV;    // Signaled when new data is available
+  std::mutex dataReadyMutex;              // Mutex for the condition variable
 
   float sampleRate = 44100.0f;
   float currentPitch = 0.0f;
@@ -60,7 +66,6 @@ struct AudioData {
   float fftUpdateInterval = 0.0f; // Time between FFT updates in seconds
 
   // Pre-computed FFT display data
-
   std::vector<std::pair<float, float>> fftDisplayPoints;
   float peakFreq = 0.0f;
   float peakDb = -100.0f;
@@ -73,24 +78,47 @@ struct AudioData {
       : bufferSize(Config::values().audio.buffer_size), displaySamples(Config::values().audio.display_samples),
         windowWidth(Config::values().window.default_width), windowHeight(Config::values().window.default_height) {}
 
-  // Method to update delta time
   void updateDeltaTime() {
     auto currentTime = std::chrono::steady_clock::now();
 
     if (!frameTimingInitialized) {
       lastFrameTime = currentTime;
       frameTimingInitialized = true;
-      dt = 0.0f; // First frame has no delta
+      dt = 0.0f;
       return;
     }
 
     dt = std::chrono::duration<float>(currentTime - lastFrameTime).count();
     lastFrameTime = currentTime;
 
-    // Clamp delta time to prevent large jumps (e.g., when debugging or window is inactive)
-    // Maximum of 100ms (10 FPS) to prevent visual artifacts
     if (dt > 0.1f) {
       dt = 0.1f;
     }
+  }
+
+  void signalNewData() {
+    frameCounter.fetch_add(1, std::memory_order_release);
+    dataReadyCV.notify_one();
+  }
+
+  bool waitForNewData(uint64_t lastFrame, std::chrono::milliseconds timeout = std::chrono::milliseconds(100)) {
+    std::unique_lock<std::mutex> lock(dataReadyMutex);
+    return dataReadyCV.wait_for(lock, timeout,
+                                [this, lastFrame] { return frameCounter.load(std::memory_order_acquire) > lastFrame; });
+  }
+
+  uint64_t getCurrentFrame() const { return frameCounter.load(std::memory_order_acquire); }
+
+  float getAudioDeltaTime() const {
+    int bufferFrames = 0;
+    if (Config::values().audio.engine == "pulseaudio") {
+      bufferFrames = Config::values().pulseaudio.buffer_size;
+    } else if (Config::values().audio.engine == "pipewire") {
+      bufferFrames = Config::values().pipewire.buffer_size;
+    }
+    if (bufferFrames <= 0) {
+      bufferFrames = 512;
+    }
+    return static_cast<float>(bufferFrames) / sampleRate;
   }
 };

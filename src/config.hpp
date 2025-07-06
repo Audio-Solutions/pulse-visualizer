@@ -12,33 +12,13 @@ struct ConfigValues {
     std::string gradient_mode = "horizontal";
     bool enable_phosphor = false;
     bool follow_pitch = true;
-    float phosphor_beam_energy = 1.0f;
-    float phosphor_decay_slow = 10.0f;
-    float phosphor_decay_fast = 100.0f;
-    float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 16.0f;
-    float phosphor_line_width = 2.0f;
-    uint phosphor_age_threshold = 256;
-    float phosphor_range_factor = 5.0f;
-    bool enable_phosphor_grain = true;
   } oscilloscope;
 
   struct Lissajous {
     int max_points = 1000;
-    float phosphor_tension = 0.5f;
     bool enable_splines = true;
     int spline_segments = 8;
     bool enable_phosphor = true;
-    int phosphor_spline_density = 20;
-    float phosphor_decay_slow = 10.0f;
-    float phosphor_decay_fast = 100.0f;
-    float phosphor_beam_energy = 1.0f;
-    float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 16.0f;
-    float phosphor_line_width = 2.0f;
-    uint phosphor_age_threshold = 256;
-    float phosphor_range_factor = 5.0f;
-    bool enable_phosphor_grain = true;
   } lissajous;
 
   struct FFT {
@@ -55,15 +35,6 @@ struct ConfigValues {
     bool enable_temporal_interpolation = true;
     bool enable_cqt = false;
     int cqt_bins_per_octave = 24;
-    float phosphor_decay_slow = 10.0f;
-    float phosphor_decay_fast = 100.0f;
-    float phosphor_beam_energy = 1.0f;
-    float phosphor_beam_size = 2.0f;
-    float phosphor_line_blur_spread = 16.0f;
-    float phosphor_line_width = 2.0f;
-    uint phosphor_age_threshold = 256;
-    float phosphor_range_factor = 5.0f;
-    bool enable_phosphor_grain = true;
   } fft;
 
   struct Spectrogram {
@@ -94,13 +65,9 @@ struct ConfigValues {
 
   struct Visualizers {
     int spectrogram_order = 0;
-    bool spectrogram_popout = false;
     int lissajous_order = 1;
-    bool lissajous_popout = false;
     int oscilloscope_order = 2;
-    bool oscilloscope_popout = false;
     int fft_order = 3;
-    bool fft_popout = false;
   } visualizers;
 
   struct Window {
@@ -127,6 +94,17 @@ struct ConfigValues {
   struct Phosphor {
     float near_blur_intensity = 0.2f;
     float far_blur_intensity = 0.6f;
+    float beam_energy = 100.0f;
+    float decay_slow = 10.0f;
+    float decay_fast = 100.0f;
+    float beam_size = 2.0f;
+    float line_blur_spread = 16.0f;
+    float line_width = 2.0f;
+    uint age_threshold = 256;
+    float range_factor = 5.0f;
+    bool enable_grain = true;
+    int spline_density = 20;
+    float tension = 0.5f;
   } phosphor;
 };
 

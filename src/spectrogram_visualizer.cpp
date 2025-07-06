@@ -213,17 +213,124 @@ void SpectrogramVisualizer::mapFrequencyToSpectrum(const std::vector<float>& fft
   }
 }
 
+void SpectrogramVisualizer::mapCQTToSpectrum(const std::vector<float>& cqtMagnitudes,
+                                             const std::vector<float>& cqtFrequencies,
+                                             std::vector<float>& spectrum) const {
+  spectrum.resize(textureHeight);
+  std::fill(spectrum.begin(), spectrum.end(), 0.0f);
+
+  if (cqtMagnitudes.empty() || cqtFrequencies.empty())
+    return;
+
+  const auto& scfg = Config::values().spectrogram;
+
+  if (scfg.frequency_scale == "log") {
+    // Logarithmic frequency mapping for CQT
+    float logMinFreq = log10f(std::max(scfg.min_freq, 1.0f));
+    float logMaxFreq = log10f(std::min(scfg.max_freq, cqtFrequencies.back()));
+    float logRange = logMaxFreq - logMinFreq;
+
+    for (size_t i = 0; i < spectrum.size(); ++i) {
+      // Map display bin to frequency
+      float normalizedPos = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
+      float logFreq = logMinFreq + normalizedPos * logRange;
+      float targetFreq = powf(10.0f, logFreq);
+
+      // Find corresponding CQT bin using binary search
+      size_t bin1 = 0, bin2 = 0;
+      for (size_t j = 0; j < cqtFrequencies.size(); ++j) {
+        if (cqtFrequencies[j] >= targetFreq) {
+          if (j > 0) {
+            bin1 = j - 1;
+            bin2 = j;
+          } else {
+            bin1 = j;
+            bin2 = j;
+          }
+          break;
+        }
+        if (j == cqtFrequencies.size() - 1) {
+          bin1 = j;
+          bin2 = j;
+        }
+      }
+
+      if (bin1 < cqtMagnitudes.size()) {
+        if (bin2 < cqtMagnitudes.size() && bin1 != bin2) {
+          // Interpolate between bins
+          float freq1 = cqtFrequencies[bin1];
+          float freq2 = cqtFrequencies[bin2];
+          float fraction = (targetFreq - freq1) / (freq2 - freq1);
+          spectrum[i] = cqtMagnitudes[bin1] * (1.0f - fraction) + cqtMagnitudes[bin2] * fraction;
+        } else {
+          spectrum[i] = cqtMagnitudes[bin1];
+        }
+      }
+    }
+  } else {
+    // Linear frequency mapping for CQT
+    float freqRange = std::min(scfg.max_freq, cqtFrequencies.back()) - scfg.min_freq;
+
+    for (size_t i = 0; i < spectrum.size(); ++i) {
+      // Map display bin to frequency
+      float normalizedPos = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
+      float targetFreq = scfg.min_freq + normalizedPos * freqRange;
+
+      // Find corresponding CQT bin using binary search
+      size_t bin1 = 0, bin2 = 0;
+      for (size_t j = 0; j < cqtFrequencies.size(); ++j) {
+        if (cqtFrequencies[j] >= targetFreq) {
+          if (j > 0) {
+            bin1 = j - 1;
+            bin2 = j;
+          } else {
+            bin1 = j;
+            bin2 = j;
+          }
+          break;
+        }
+        if (j == cqtFrequencies.size() - 1) {
+          bin1 = j;
+          bin2 = j;
+        }
+      }
+
+      if (bin1 < cqtMagnitudes.size()) {
+        if (bin2 < cqtMagnitudes.size() && bin1 != bin2) {
+          // Interpolate between bins
+          float freq1 = cqtFrequencies[bin1];
+          float freq2 = cqtFrequencies[bin2];
+          float fraction = (targetFreq - freq1) / (freq2 - freq1);
+          spectrum[i] = cqtMagnitudes[bin1] * (1.0f - fraction) + cqtMagnitudes[bin2] * fraction;
+        } else {
+          spectrum[i] = cqtMagnitudes[bin1];
+        }
+      }
+    }
+  }
+}
+
 void SpectrogramVisualizer::updateSpectrogramColumn(const AudioData& audioData) {
-  if (audioData.fftMagnitudesMid.empty()) {
+  const auto& fcfg = Config::values().fft;
+
+  // Check if we should use CQT or FFT data
+  bool useCQT = fcfg.enable_cqt && !audioData.cqtMagnitudesMid.empty() && !audioData.cqtFrequencies.empty();
+  bool useFFT = !audioData.fftMagnitudesMid.empty();
+
+  if (!useCQT && !useFFT) {
     return;
   }
 
-  // Use the chosen FFT data with frequency mapping
+  // Use the chosen data with frequency mapping
   std::vector<float> spectrum;
 
-  // First map frequencies according to the chosen scale (log or linear)
-  // This handles the frequency spacing and interpolation
-  mapFrequencyToSpectrum(audioData.fftMagnitudesMid, spectrum, audioData.sampleRate);
+  if (useCQT) {
+    // Use CQT data with frequency mapping
+    mapCQTToSpectrum(audioData.cqtMagnitudesMid, audioData.cqtFrequencies, spectrum);
+  } else {
+    // Use FFT data with frequency mapping
+    mapFrequencyToSpectrum(audioData.fftMagnitudesMid, spectrum, audioData.sampleRate);
+  }
 
   // Prepare column data for texture update - start with background color
   const auto& colors = Theme::ThemeManager::colors();
@@ -309,20 +416,8 @@ void SpectrogramVisualizer::draw(const AudioData& audioData, int) {
   // Initialize texture if needed
   initializeTexture(width, audioData.windowHeight);
 
-  // Update spectrogram data based on time window
-  const auto& scfg = Config::values().spectrogram;
-  static auto lastUpdate = std::chrono::steady_clock::now();
-  auto now = std::chrono::steady_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count();
-
-  // Calculate update interval based on time window and texture width
-  // time_window (seconds) should represent the total time span of the texture width
-  float updateIntervalMs = (scfg.time_window * 1000.0f) / static_cast<float>(textureWidth);
-
-  if (elapsed >= static_cast<long>(updateIntervalMs)) {
-    updateSpectrogramColumn(audioData);
-    lastUpdate = now;
-  }
+  // Update spectrogram data when new audio data is available
+  updateSpectrogramColumn(audioData);
 
   // Draw spectrogram texture with scrolling effect
   glEnable(GL_TEXTURE_2D);

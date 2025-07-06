@@ -16,9 +16,6 @@
 // Static working buffers and phosphor context
 static Graphics::Phosphor::PhosphorContext* fftPhosphorContext = nullptr;
 
-static size_t lastWritePos = 0;
-static bool firstFFTCall = true;
-
 // Computed values from config (cached for performance)
 float FFTVisualizer::logMinFreq = 0.0f;
 float FFTVisualizer::logMaxFreq = 0.0f;
@@ -58,6 +55,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
   updateCaches();
 
   const auto& fcfg = Config::values().fft;
+  const auto& phos = Config::values().phosphor;
   const auto& colors = Theme::ThemeManager::colors();
 
   // Initialize phosphor context if needed
@@ -67,16 +65,6 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     Graphics::Phosphor::destroyPhosphorContext(fftPhosphorContext);
     fftPhosphorContext = nullptr;
   }
-
-  // Check for new audio data
-  size_t readCount;
-  if (firstFFTCall) {
-    readCount = audioData.displaySamples; // On first call, assume we need to process data
-    firstFFTCall = false;
-  } else {
-    readCount = (audioData.writePos + audioData.bufferSize - lastWritePos) % audioData.bufferSize;
-  }
-  lastWritePos = audioData.writePos;
 
   // Draw frequency scale lines and labels first (in the back) for non-phosphor mode
   if (!fcfg.enable_phosphor) {
@@ -128,14 +116,11 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     drawFreqLabel(10000.0f, "10 kHz");
   }
 
-  // Determine if we should update FFT curves or just redraw existing ones
-  bool shouldUpdateFFTCurves = fcfg.enable_temporal_interpolation || (readCount > 0);
-
   // Check if we should use CQT or FFT data
   bool useCQT = fcfg.enable_cqt && !audioData.cqtMagnitudesMid.empty() && !audioData.cqtMagnitudesSide.empty();
   bool useFFT = !audioData.fftMagnitudesMid.empty() && !audioData.fftMagnitudesSide.empty();
 
-  if (shouldUpdateFFTCurves && (useCQT || useFFT)) {
+  if (useCQT || useFFT) {
     // Determine which data to use based on mode
     const std::vector<float>* mainMagnitudes = nullptr;
     const std::vector<float>* alternateMagnitudes = nullptr;
@@ -282,8 +267,8 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       dwellTimes.reserve(fftPoints.size());
 
       // Normalize beam energy over area
-      float ref = 400.0f * 400.0f;
-      float beamEnergy = fcfg.phosphor_beam_energy / ref * (width * audioData.windowHeight);
+      float ref = 400.0f * (useCQT ? 400.0f : 1.0f);
+      float beamEnergy = phos.beam_energy / ref * (width * (useCQT ? audioData.windowHeight : 1.0f));
 
       for (size_t i = 1; i < fftPoints.size(); ++i) {
         const auto& p1 = fftPoints[i - 1];
@@ -292,15 +277,13 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         float dx = p2.first - p1.first;
         float dy = p2.second - p1.second;
         float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
+        float deltaT = 1.0f / audioData.sampleRate;
+        float intensity = beamEnergy;
 
-        float deltaT = audioData.dt / fftPoints.size();
-        float intensity = beamEnergy * deltaT;
-
-        // No idea why this is how it does things
         if (useCQT) {
-          intensity /= segLen * 0.5f; // where dafuq is / 2 coming from? idk
+          intensity = beamEnergy * (deltaT / segLen) * 2.0f;
         } else {
-          intensity *= sqrtf(dx);
+          intensity = beamEnergy * (deltaT * sqrtf(dx)) / 2.0f;
         }
 
         intensityLinear.push_back(intensity);
@@ -309,10 +292,10 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
 
       // Render phosphor splines using high-level interface
       GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
-          fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight, audioData.dt, 1.0f,
-          colors.background, colors.spectrum, fcfg.phosphor_beam_size, fcfg.phosphor_line_blur_spread,
-          fcfg.phosphor_line_width, fcfg.phosphor_decay_slow, fcfg.phosphor_decay_fast, fcfg.phosphor_age_threshold,
-          fcfg.phosphor_range_factor, fcfg.enable_phosphor_grain);
+          fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight,
+          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.spectrum, phos.beam_size,
+          phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold,
+          phos.range_factor, phos.enable_grain);
 
       // Draw the phosphor result
       if (phosphorTexture) {
@@ -343,42 +326,28 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       // Draw the Main FFT curve using centralized colors
       Graphics::drawAntialiasedLines(fftPoints, colors.spectrum, 2.0f);
     }
-  } else if (!shouldUpdateFFTCurves) {
-    if (fcfg.enable_phosphor && fftPhosphorContext) {
-      GLuint phosphorTexture =
-          Graphics::Phosphor::drawCurrentPhosphorState(fftPhosphorContext, width, audioData.windowHeight,
-                                                       colors.background, colors.spectrum, fcfg.enable_phosphor_grain);
-
-      if (phosphorTexture) {
-        Graphics::Phosphor::drawPhosphorResult(phosphorTexture, width, audioData.windowHeight);
-      }
-    } else {
-      // Non-phosphor mode: redraw cached points
-      if (!alternateFFTPoints.empty()) {
-        constexpr float alternateFFTAlpha = 0.3f;
-        float alternateFFTColorArray[4] = {
-            colors.spectrum[0] * alternateFFTAlpha + colors.background[0] * (1.0f - alternateFFTAlpha),
-            colors.spectrum[1] * alternateFFTAlpha + colors.background[1] * (1.0f - alternateFFTAlpha),
-            colors.spectrum[2] * alternateFFTAlpha + colors.background[2] * (1.0f - alternateFFTAlpha),
-            colors.spectrum[3] * alternateFFTAlpha + colors.background[3] * (1.0f - alternateFFTAlpha)};
-        Graphics::drawAntialiasedLines(alternateFFTPoints, alternateFFTColorArray, 2.0f);
-      }
-
-      if (!fftPoints.empty()) {
-        Graphics::drawAntialiasedLines(fftPoints, colors.spectrum, 2.0f);
-      }
-    }
   }
 
   // Draw crosshair and show mouse position info when hovering
-  if (hovering) {
-    // Draw crosshair lines
-    Graphics::drawAntialiasedLine(mouseX, 0, mouseX, audioData.windowHeight, colors.spectrum, 2.0f);
-    Graphics::drawAntialiasedLine(0, mouseY, width, mouseY, colors.spectrum, 2.0f);
+  const auto& audio = Config::values().audio;
+  bool isSilent = !audioData.hasValidPeak || audioData.peakDb < audio.silence_threshold;
 
-    // Calculate frequency and dB from mouse position
+  if (!isSilent && hovering) {
+    // Convert absolute mouse coordinates to relative coordinates within the visualizer
+    float relativeMouseX = mouseX - position;
+    float relativeMouseY = mouseY;
+
+    // Only draw cursor lines if mouse is within the visualizer bounds
+    if (relativeMouseX >= 0 && relativeMouseX <= width && relativeMouseY >= 0 &&
+        relativeMouseY <= audioData.windowHeight) {
+      // Draw crosshair lines relative to visualizer position
+      Graphics::drawAntialiasedLine(relativeMouseX, 0, relativeMouseX, audioData.windowHeight, colors.spectrum, 2.0f);
+      Graphics::drawAntialiasedLine(0, relativeMouseY, width, relativeMouseY, colors.spectrum, 2.0f);
+    }
+
+    // Calculate frequency and dB from mouse position (use relative X coordinate)
     float frequency, actualDB;
-    calculateFrequencyAndDB(mouseX, mouseY, audioData.windowHeight, frequency, actualDB);
+    calculateFrequencyAndDB(relativeMouseX, mouseY, audioData.windowHeight, frequency, actualDB);
 
     // Convert frequency to note
     std::string noteName;
@@ -393,7 +362,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
 
     // Draw overlay text using centralized colors
     Graphics::drawText(overlay, overlayX, overlayY, 14.0f, colors.text, fcfg.font.c_str());
-  } else if (audioData.hasValidPeak) {
+  } else if (!isSilent) {
     // Show pitch detector data when not hovering
     char overlay[128];
     snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", audioData.peakDb, audioData.peakFreq,
@@ -464,4 +433,12 @@ void FFTVisualizer::freqToNote(float freq, std::string& noteName, int& octave, i
   octave = midiInt / 12 - 1;
   noteName = noteNames[noteIdx];
   cents = (int)roundf((midi - midiInt) * 100.0f);
+}
+
+void FFTVisualizer::invalidatePhosphorContext() {
+  if (fftPhosphorContext) {
+    // Force the phosphor context to recreate its textures by destroying and recreating it
+    Graphics::Phosphor::destroyPhosphorContext(fftPhosphorContext);
+    fftPhosphorContext = nullptr;
+  }
 }

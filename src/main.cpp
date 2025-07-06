@@ -5,7 +5,6 @@
 #include "splitter.hpp"
 #include "theme.hpp"
 #include "visualizers.hpp"
-#include "window_manager.hpp"
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -19,19 +18,13 @@
 // Structure to hold the current visualizer configuration
 struct VisualizerConfig {
   int spectrogramOrder = -1; // -1 = disabled, >= 0 = position order
-  bool spectrogramPopout = false;
   int lissajousOrder = -1;
-  bool lissajousPopout = false;
   int oscilloscopeOrder = -1;
-  bool oscilloscopePopout = false;
   int fftOrder = -1;
-  bool fftPopout = false;
 
   bool operator!=(const VisualizerConfig& other) const {
-    return spectrogramOrder != other.spectrogramOrder || spectrogramPopout != other.spectrogramPopout ||
-           lissajousOrder != other.lissajousOrder || lissajousPopout != other.lissajousPopout ||
-           oscilloscopeOrder != other.oscilloscopeOrder || oscilloscopePopout != other.oscilloscopePopout ||
-           fftOrder != other.fftOrder || fftPopout != other.fftPopout;
+    return spectrogramOrder != other.spectrogramOrder || lissajousOrder != other.lissajousOrder ||
+           oscilloscopeOrder != other.oscilloscopeOrder || fftOrder != other.fftOrder;
   }
 };
 
@@ -39,13 +32,82 @@ struct VisualizerConfig {
 VisualizerConfig readVisualizerConfig() {
   // Use centralized config access
   return {.spectrogramOrder = Config::values().visualizers.spectrogram_order,
-          .spectrogramPopout = Config::values().visualizers.spectrogram_popout,
           .lissajousOrder = Config::values().visualizers.lissajous_order,
-          .lissajousPopout = Config::values().visualizers.lissajous_popout,
           .oscilloscopeOrder = Config::values().visualizers.oscilloscope_order,
-          .oscilloscopePopout = Config::values().visualizers.oscilloscope_popout,
-          .fftOrder = Config::values().visualizers.fft_order,
-          .fftPopout = Config::values().visualizers.fft_popout};
+          .fftOrder = Config::values().visualizers.fft_order};
+}
+
+// Function to enforce window aspect ratio based on visualizer configuration
+void enforceWindowAspectRatio(SDL_Window* window, const std::vector<VisualizerBase*>& visualizerPtrs,
+                              bool& enforcingAspectRatio, AudioData& audioData,
+                              std::vector<std::unique_ptr<Splitter>>& splitters, Splitter* rootSplitter) {
+  // Only enforce aspect ratio for single visualizers with aspect ratio constraints
+  if (visualizerPtrs.size() == 1) {
+    VisualizerBase* singleVis = visualizerPtrs[0];
+    if (singleVis && singleVis->shouldEnforceAspectRatio()) {
+      int currentWidth, currentHeight;
+      SDL_GetWindowSize(window, &currentWidth, &currentHeight);
+
+      int requiredWidth = singleVis->getRequiredWidth(currentHeight);
+      if (requiredWidth > 0 && requiredWidth != currentWidth) {
+        if (Config::values().debug.log_fps) {
+          std::cerr << "Enforcing aspect ratio: " << currentWidth << "x" << currentHeight << " -> " << requiredWidth
+                    << "x" << currentHeight << std::endl;
+        }
+        // Set flag to prevent infinite loop
+        enforcingAspectRatio = true;
+        // Resize window to maintain aspect ratio
+        SDL_SetWindowSize(window, requiredWidth, currentHeight);
+
+        // Update OpenGL state and visualizer dimensions immediately
+        audioData.windowWidth = requiredWidth;
+        audioData.windowHeight = currentHeight;
+        glViewport(0, 0, requiredWidth, currentHeight);
+
+        // Update single visualizer dimensions
+        singleVis->setPosition(0);
+        singleVis->setWidth(requiredWidth);
+
+        // Force phosphor contexts to update their textures on next draw
+        // by temporarily setting their dimensions to 0
+        if (auto* lissajousVis = dynamic_cast<LissajousVisualizer*>(singleVis)) {
+          lissajousVis->invalidatePhosphorContext();
+        } else if (auto* oscilloscopeVis = dynamic_cast<OscilloscopeVisualizer*>(singleVis)) {
+          oscilloscopeVis->invalidatePhosphorContext();
+        } else if (auto* fftVis = dynamic_cast<FFTVisualizer*>(singleVis)) {
+          fftVis->invalidatePhosphorContext();
+        }
+
+        // Reset flag immediately since we've handled the resize manually
+        enforcingAspectRatio = false;
+      }
+    }
+  } else if (visualizerPtrs.size() > 1 && rootSplitter) {
+    // For multiple visualizers, update splitter layout if needed
+    int currentWidth, currentHeight;
+    SDL_GetWindowSize(window, &currentWidth, &currentHeight);
+
+    if (currentWidth != audioData.windowWidth || currentHeight != audioData.windowHeight) {
+      // Update audioData dimensions
+      audioData.windowWidth = currentWidth;
+      audioData.windowHeight = currentHeight;
+      glViewport(0, 0, currentWidth, currentHeight);
+
+      // Update splitter layout
+      rootSplitter->update(audioData);
+
+      // Force phosphor contexts to update their textures on next draw
+      for (auto* vis : visualizerPtrs) {
+        if (auto* lissajousVis = dynamic_cast<LissajousVisualizer*>(vis)) {
+          lissajousVis->invalidatePhosphorContext();
+        } else if (auto* oscilloscopeVis = dynamic_cast<OscilloscopeVisualizer*>(vis)) {
+          oscilloscopeVis->invalidatePhosphorContext();
+        } else if (auto* fftVis = dynamic_cast<FFTVisualizer*>(vis)) {
+          fftVis->invalidatePhosphorContext();
+        }
+      }
+    }
+  }
 }
 
 // Function to rebuild visualizers and splitters
@@ -54,8 +116,7 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
                              std::vector<VisualizerBase*>& visualizerPtrs,
                              std::vector<std::unique_ptr<Splitter>>& splitters, Splitter*& rootSplitter,
                              SpectrogramVisualizer*& spectrogramVis, LissajousVisualizer*& lissajousVis,
-                             OscilloscopeVisualizer*& oscilloscopeVis, FFTVisualizer*& fftVis,
-                             WindowManager& windowManager) {
+                             OscilloscopeVisualizer*& oscilloscopeVis, FFTVisualizer*& fftVis) {
 
   // Clear existing objects
   visualizers.clear();
@@ -114,49 +175,21 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
     visualizers.push_back(std::move(pair.visualizer));
   }
 
-  // Create popout flags vector based on config
-  std::vector<bool> popoutFlags;
-  popoutFlags.reserve(visualizerPtrs.size());
-
-  for (const auto* viz : visualizerPtrs) {
-    bool shouldPopout = false;
-    if (viz == spectrogramVis)
-      shouldPopout = config.spectrogramPopout;
-    else if (viz == lissajousVis)
-      shouldPopout = config.lissajousPopout;
-    else if (viz == oscilloscopeVis)
-      shouldPopout = config.oscilloscopePopout;
-    else if (viz == fftVis)
-      shouldPopout = config.fftPopout;
-    popoutFlags.push_back(shouldPopout);
-  }
-
-  // Update window manager with popout windows
-  windowManager.updateWindows(visualizerPtrs, popoutFlags, audioData);
-
-  // Filter out popped-out visualizers for main window splitter system
-  std::vector<VisualizerBase*> mainWindowVisualizers;
-  for (size_t i = 0; i < visualizerPtrs.size(); ++i) {
-    if (!popoutFlags[i]) {
-      mainWindowVisualizers.push_back(visualizerPtrs[i]);
-    }
-  }
-
-  // Create splitters dynamically based on main window visualizers (non-popped-out)
-  if (mainWindowVisualizers.size() >= 2) {
+  // Create splitters dynamically based on visualizers
+  if (visualizerPtrs.size() >= 2) {
     // Create splitters from right to left
-    for (size_t i = mainWindowVisualizers.size() - 1; i > 0; --i) {
-      VisualizerBase* leftVis = mainWindowVisualizers[i - 1];
-      VisualizerBase* rightVis = mainWindowVisualizers[i];
+    for (size_t i = visualizerPtrs.size() - 1; i > 0; --i) {
+      VisualizerBase* leftVis = visualizerPtrs[i - 1];
+      VisualizerBase* rightVis = visualizerPtrs[i];
 
       // Determine if this splitter should be draggable
-      // The lissajous visualizer should have a non-draggable splitter to its right
+      // Visualizers with aspect ratio constraints should have non-draggable splitters to their right
       bool isDraggable = true;
-      if (leftVis == lissajousVis) {
-        isDraggable = false; // Make splitter to the right of lissajous non-draggable
+      if (leftVis->shouldEnforceAspectRatio()) {
+        isDraggable = false; // Make splitter to the right of aspect-ratio-constrained visualizer non-draggable
       }
 
-      Splitter* nextSplitter = (i == mainWindowVisualizers.size() - 1) ? nullptr : splitters.back().get();
+      Splitter* nextSplitter = (i == visualizerPtrs.size() - 1) ? nullptr : splitters.back().get();
       auto splitter = std::make_unique<Splitter>(leftVis, rightVis, nextSplitter, isDraggable);
 
       if (i == 1) {
@@ -177,28 +210,28 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
   constexpr int MIN_VIS_WIDTH = 80;
   int availableWidth = audioData.windowWidth;
 
-  if (rootSplitter && !mainWindowVisualizers.empty()) {
+  if (rootSplitter && !visualizerPtrs.empty()) {
     // Calculate proportional widths
-    int widthPerVisualizer = std::max(MIN_VIS_WIDTH, availableWidth / static_cast<int>(mainWindowVisualizers.size()));
+    int widthPerVisualizer = std::max(MIN_VIS_WIDTH, availableWidth / static_cast<int>(visualizerPtrs.size()));
 
     // Set splitter positions
     for (size_t i = 0; i < splitters.size(); ++i) {
       int position = (i + 1) * widthPerVisualizer;
 
-      // Special handling for lissajous aspect ratio
-      if (i < mainWindowVisualizers.size() - 1 && mainWindowVisualizers[i] == lissajousVis) {
-        int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
+      // Special handling for aspect ratio constraints
+      if (i < visualizerPtrs.size() - 1 && visualizerPtrs[i]->shouldEnforceAspectRatio()) {
+        int requiredWidth = visualizerPtrs[i]->getRequiredWidth(audioData.windowHeight);
         if (requiredWidth > 0) {
-          int lissajousStart = (i == 0) ? 0 : splitters[i - 1]->getPosition();
-          position = lissajousStart + requiredWidth;
+          int visualizerStart = (i == 0) ? 0 : splitters[i - 1]->getPosition();
+          position = visualizerStart + requiredWidth;
         }
       }
 
-      // Special handling when lissajous is the first (leftmost) visualizer
-      if (i == 0 && !mainWindowVisualizers.empty() && mainWindowVisualizers[0] == lissajousVis) {
-        int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
+      // Special handling when aspect-ratio-constrained visualizer is the first (leftmost) visualizer
+      if (i == 0 && !visualizerPtrs.empty() && visualizerPtrs[0]->shouldEnforceAspectRatio()) {
+        int requiredWidth = visualizerPtrs[0]->getRequiredWidth(audioData.windowHeight);
         if (requiredWidth > 0) {
-          int maxWidth = audioData.windowWidth - (mainWindowVisualizers.size() - 1) * MIN_VIS_WIDTH;
+          int maxWidth = audioData.windowWidth - (visualizerPtrs.size() - 1) * MIN_VIS_WIDTH;
           position = std::min(requiredWidth, maxWidth);
         }
       }
@@ -212,6 +245,23 @@ void rebuildVisualizerLayout(const VisualizerConfig& config, AudioData& audioDat
 
     // Initial layout update
     rootSplitter->update(audioData);
+  } else if (!visualizerPtrs.empty() && splitters.empty()) {
+    // Handle single visualizer case - no splitters needed
+    VisualizerBase* singleVis = visualizerPtrs[0];
+    singleVis->setPosition(0);
+
+    // Special handling for aspect ratio when it's the only visualizer
+    if (singleVis->shouldEnforceAspectRatio()) {
+      int requiredWidth = singleVis->getRequiredWidth(audioData.windowHeight);
+      if (requiredWidth > 0) {
+        // Use the required width, but don't exceed window width
+        singleVis->setWidth(std::min(requiredWidth, audioData.windowWidth));
+      } else {
+        singleVis->setWidth(audioData.windowWidth);
+      }
+    } else {
+      singleVis->setWidth(audioData.windowWidth);
+    }
   }
 }
 
@@ -252,16 +302,6 @@ int main() {
 
   Graphics::initialize();
 
-  // Initialize window manager
-  WindowManager windowManager;
-  if (!windowManager.initialize(win, glContext)) {
-    std::cerr << "Failed to initialize window manager" << std::endl;
-    SDL_GL_DeleteContext(glContext);
-    SDL_DestroyWindow(win);
-    SDL_Quit();
-    return 1;
-  }
-
   AudioData audioData;
 
   // Pre-allocate all buffers
@@ -295,115 +335,144 @@ int main() {
   OscilloscopeVisualizer* oscilloscopeVis = nullptr;
   FFTVisualizer* fftVis = nullptr;
 
-  // Set up callback for when popout windows are closed
-  windowManager.setPopoutClosedCallback([&](VisualizerBase* visualizer) {
-    // Update config to pop the visualizer back into main window
-
-    // Determine which visualizer was closed and update config
-    if (visualizer == spectrogramVis) {
-      currentConfig.spectrogramPopout = false;
-    } else if (visualizer == lissajousVis) {
-      currentConfig.lissajousPopout = false;
-    } else if (visualizer == oscilloscopeVis) {
-      currentConfig.oscilloscopePopout = false;
-    } else if (visualizer == fftVis) {
-      currentConfig.fftPopout = false;
-    }
-
-    // Trigger layout rebuild
-    rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
-                            spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
-  });
-
   // Build initial layout
   rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
-                          spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
+                          spectrogramVis, lissajousVis, oscilloscopeVis, fftVis);
 
   std::thread audioThreadHandle(AudioProcessing::audioThread, &audioData);
 
   bool running = true;
   bool windowHasFocus = true;
+  bool enforcingAspectRatio = false; // Flag to prevent infinite resize loops
+
+  // Audio synchronization
+  uint64_t lastAudioFrame = 0;
+  uint64_t currentAudioFrame = 0;
 
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
   Uint32 lastThemeCheck = SDL_GetTicks();
 
-  while (running && windowManager.isRunning()) {
+  // Enforce window aspect ratio if needed (after all initialization)
+  enforceWindowAspectRatio(win, visualizerPtrs, enforcingAspectRatio, audioData, splitters, rootSplitter);
+
+  while (running) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-      // Let window manager handle events first
-      windowManager.handleEvents(event, audioData);
-
-      // If window manager processed quit event, update local running state
-      if (!windowManager.isRunning()) {
+      switch (event.type) {
+      case SDL_QUIT:
         running = false;
         break;
-      }
 
-      // Handle splitter events for main window
-      for (auto& splitter : splitters) {
-        splitter->handleEvent(event, audioData);
-      }
-
-      // Handle main window specific events
-      if (event.type == SDL_WINDOWEVENT && SDL_GetWindowID(win) == event.window.windowID) {
+      case SDL_WINDOWEVENT:
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-          // Handle aspect ratio for leftmost lissajous visualizer in main window
-          // Read mainWindowVisualizers from current config to avoid scope issues
-          std::vector<VisualizerBase*> currentMainVis;
-
-          // Rebuild mainWindowVisualizers based on current config and popout state
-          for (const auto* viz : visualizerPtrs) {
-            bool isPopout = false;
-            if (viz == spectrogramVis)
-              isPopout = currentConfig.spectrogramPopout;
-            else if (viz == lissajousVis)
-              isPopout = currentConfig.lissajousPopout;
-            else if (viz == oscilloscopeVis)
-              isPopout = currentConfig.oscilloscopePopout;
-            else if (viz == fftVis)
-              isPopout = currentConfig.fftPopout;
-
-            if (!isPopout) {
-              currentMainVis.push_back(const_cast<VisualizerBase*>(viz));
-            }
+          // Skip processing if we're already enforcing aspect ratio to prevent infinite loops
+          if (enforcingAspectRatio) {
+            break;
           }
 
-          if (lissajousVis && !currentConfig.lissajousPopout && !currentMainVis.empty() &&
-              currentMainVis[0] == lissajousVis) {
-            int requiredWidth = lissajousVis->getRequiredWidth(audioData.windowHeight);
+          audioData.windowWidth = event.window.data1;
+          audioData.windowHeight = event.window.data2;
+          glViewport(0, 0, audioData.windowWidth, audioData.windowHeight);
+
+          // Enforce window aspect ratio if needed (this may trigger another resize event)
+          enforceWindowAspectRatio(win, visualizerPtrs, enforcingAspectRatio, audioData, splitters, rootSplitter);
+
+          // Handle aspect ratio for leftmost aspect-ratio-constrained visualizer
+          if (!visualizerPtrs.empty() && visualizerPtrs[0]->shouldEnforceAspectRatio()) {
+            int requiredWidth = visualizerPtrs[0]->getRequiredWidth(audioData.windowHeight);
             if (requiredWidth > 0 && !splitters.empty()) {
-              // Adjust the first splitter position to maintain lissajous aspect ratio
+              // Adjust the first splitter position to maintain aspect ratio
               constexpr int MIN_VIS_WIDTH = 80;
-              int maxWidth = audioData.windowWidth - (currentMainVis.size() - 1) * MIN_VIS_WIDTH;
+              int maxWidth = audioData.windowWidth - (visualizerPtrs.size() - 1) * MIN_VIS_WIDTH;
               int newPosition = std::min(requiredWidth, maxWidth);
               splitters[0]->setPosition(newPosition);
             }
           }
 
-          // Update layout only for non-popped-out visualizers
+          // Update layout
           if (rootSplitter) {
             rootSplitter->update(audioData);
+          } else if (!visualizerPtrs.empty() && splitters.empty()) {
+            // Handle single visualizer case - no splitters needed
+            VisualizerBase* singleVis = visualizerPtrs[0];
+            singleVis->setPosition(0);
+
+            // Special handling for aspect ratio when it's the only visualizer
+            if (singleVis->shouldEnforceAspectRatio()) {
+              int requiredWidth = singleVis->getRequiredWidth(audioData.windowHeight);
+              if (requiredWidth > 0) {
+                // Use the required width, but don't exceed window width
+                singleVis->setWidth(std::min(requiredWidth, audioData.windowWidth));
+              } else {
+                singleVis->setWidth(audioData.windowWidth);
+              }
+            } else {
+              singleVis->setWidth(audioData.windowWidth);
+            }
           }
         } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
           windowHasFocus = false;
         } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
           windowHasFocus = true;
         }
+        break;
+
+      case SDL_MOUSEMOTION:
+        // Handle FFT visualizer mouse tracking
+        if (fftVis) {
+          int mouseX = event.motion.x;
+          int mouseY = event.motion.y;
+
+          // Check if mouse is over the FFT visualizer area specifically
+          bool isOverFFT = (mouseX >= fftVis->getPosition() && mouseX < fftVis->getPosition() + fftVis->getWidth() &&
+                            mouseY >= 0 && mouseY < audioData.windowHeight);
+
+          if (isOverFFT) {
+            float localX = static_cast<float>(mouseX);
+            float localY = static_cast<float>(audioData.windowHeight - mouseY); // Flip Y coordinate
+            fftVis->updateMousePosition(localX, localY);
+            fftVis->setHovering(true);
+          } else {
+            fftVis->setHovering(false);
+          }
+        }
+        break;
+      }
+
+      // Handle splitter events
+      for (auto& splitter : splitters) {
+        splitter->handleEvent(event, audioData);
       }
     }
+
+    // Wait for new audio data to be available
+    currentAudioFrame = audioData.getCurrentFrame();
+    if (currentAudioFrame <= lastAudioFrame) {
+      // No new audio data, wait for it
+      if (!audioData.waitForNewData(lastAudioFrame, std::chrono::milliseconds(16))) { // ~60 FPS timeout
+        // Timeout occurred, continue to next frame for UI responsiveness
+        continue;
+      }
+      currentAudioFrame = audioData.getCurrentFrame();
+    }
+    lastAudioFrame = currentAudioFrame;
 
     // Update delta time for frame-rate independent animations
     audioData.updateDeltaTime();
 
-    // Reset hover states when main window loses focus
+    // Reset hover states when window loses focus
     if (!windowHasFocus) {
       for (auto& splitter : splitters) {
         splitter->setHovering(false);
       }
+      // Also reset FFT visualizer hover state when window loses focus
+      if (fftVis) {
+        fftVis->setHovering(false);
+      }
     }
 
-    // Update audio data hover state (check all FFT visualizers)
+    // Update audio data hover state
     audioData.fftHovering = false;
     if (fftVis) {
       audioData.fftHovering = fftVis->isHovering();
@@ -421,7 +490,10 @@ int main() {
         if (newConfig != currentConfig) {
           currentConfig = newConfig;
           rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
-                                  spectrogramVis, lissajousVis, oscilloscopeVis, fftVis, windowManager);
+                                  spectrogramVis, lissajousVis, oscilloscopeVis, fftVis);
+
+          // Enforce window aspect ratio after layout rebuild
+          enforceWindowAspectRatio(win, visualizerPtrs, enforcingAspectRatio, audioData, splitters, rootSplitter);
         }
       }
 
@@ -433,11 +505,26 @@ int main() {
     // Always update layout before drawing
     if (rootSplitter) {
       rootSplitter->update(audioData);
+    } else if (!visualizerPtrs.empty() && splitters.empty()) {
+      // Handle single visualizer case - no splitters needed
+      VisualizerBase* singleVis = visualizerPtrs[0];
+      singleVis->setPosition(0);
+
+      // Special handling for aspect ratio when it's the only visualizer
+      if (singleVis->shouldEnforceAspectRatio()) {
+        int requiredWidth = singleVis->getRequiredWidth(audioData.windowHeight);
+        if (requiredWidth > 0) {
+          // Use the required width, but don't exceed window width
+          singleVis->setWidth(std::min(requiredWidth, audioData.windowWidth));
+        } else {
+          singleVis->setWidth(audioData.windowWidth);
+        }
+      } else {
+        singleVis->setWidth(audioData.windowWidth);
+      }
     }
 
-    // Make main window context current for main window drawing
-    SDL_GL_MakeCurrent(win, glContext);
-
+    // Clear the screen
     const auto& colors = Theme::ThemeManager::colors();
     glClearColor(colors.background[0], colors.background[1], colors.background[2], colors.background[3]);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -445,27 +532,22 @@ int main() {
     {
       std::lock_guard<std::mutex> lock(audioData.mutex);
 
-      // Draw popout windows using window manager
-      windowManager.drawAll(audioData);
-
-      // Draw main window visualizers that are not popped out
-      SDL_GL_MakeCurrent(win, glContext);
-      if (spectrogramVis && !currentConfig.spectrogramPopout) {
+      // Draw all visualizers
+      if (spectrogramVis) {
         spectrogramVis->draw(audioData, 0);
       }
-      if (lissajousVis && !currentConfig.lissajousPopout) {
+      if (lissajousVis) {
         lissajousVis->draw(audioData, 0);
       }
-      if (oscilloscopeVis && !currentConfig.oscilloscopePopout && oscilloscopeVis->getWidth() > 0) {
+      if (oscilloscopeVis && oscilloscopeVis->getWidth() > 0) {
         oscilloscopeVis->draw(audioData, 0);
       }
-      if (fftVis && !currentConfig.fftPopout && fftVis->getWidth() > 0) {
+      if (fftVis && fftVis->getWidth() > 0) {
         fftVis->draw(audioData, 0);
       }
     }
 
-    // Draw splitters on main window
-    SDL_GL_MakeCurrent(win, glContext);
+    // Draw splitters
     for (auto& splitter : splitters) {
       splitter->draw(audioData);
     }

@@ -99,31 +99,11 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.gradient_mode = getString("oscilloscope.gradient_mode");
     v.oscilloscope.enable_phosphor = getBool("oscilloscope.enable_phosphor");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
-    v.oscilloscope.phosphor_beam_energy = getFloat("oscilloscope.phosphor_beam_energy");
-    v.oscilloscope.phosphor_decay_slow = getFloat("oscilloscope.phosphor_decay_slow");
-    v.oscilloscope.phosphor_decay_fast = getFloat("oscilloscope.phosphor_decay_fast");
-    v.oscilloscope.phosphor_beam_size = getFloat("oscilloscope.phosphor_beam_size");
-    v.oscilloscope.phosphor_line_blur_spread = getFloat("oscilloscope.phosphor_line_blur_spread");
-    v.oscilloscope.phosphor_line_width = getFloat("oscilloscope.phosphor_line_width");
-    v.oscilloscope.phosphor_age_threshold = getInt("oscilloscope.phosphor_age_threshold");
-    v.oscilloscope.phosphor_range_factor = getFloat("oscilloscope.phosphor_range_factor");
-    v.oscilloscope.enable_phosphor_grain = getBool("oscilloscope.enable_phosphor_grain");
 
     v.lissajous.max_points = getInt("lissajous.max_points");
-    v.lissajous.phosphor_tension = getFloat("lissajous.phosphor_tension");
     v.lissajous.enable_splines = getBool("lissajous.enable_splines");
     v.lissajous.spline_segments = getInt("lissajous.spline_segments");
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
-    v.lissajous.phosphor_spline_density = getInt("lissajous.phosphor_spline_density");
-    v.lissajous.phosphor_decay_slow = getFloat("lissajous.phosphor_decay_slow");
-    v.lissajous.phosphor_decay_fast = getFloat("lissajous.phosphor_decay_fast");
-    v.lissajous.phosphor_beam_size = getFloat("lissajous.phosphor_beam_size");
-    v.lissajous.phosphor_line_blur_spread = getFloat("lissajous.phosphor_line_blur_spread");
-    v.lissajous.phosphor_line_width = getFloat("lissajous.phosphor_line_width");
-    v.lissajous.phosphor_beam_energy = getFloat("lissajous.phosphor_beam_energy");
-    v.lissajous.phosphor_age_threshold = getInt("lissajous.phosphor_age_threshold");
-    v.lissajous.phosphor_range_factor = getFloat("lissajous.phosphor_range_factor");
-    v.lissajous.enable_phosphor_grain = getBool("lissajous.enable_phosphor_grain");
 
     v.fft.font = getString("font.default_font");
     v.fft.min_freq = getFloat("fft.fft_min_freq");
@@ -138,15 +118,6 @@ void Config::load(const std::string& filename) {
     v.fft.enable_temporal_interpolation = getBool("fft.enable_temporal_interpolation");
     v.fft.enable_cqt = getBool("fft.enable_cqt");
     v.fft.cqt_bins_per_octave = getInt("fft.cqt_bins_per_octave");
-    v.fft.phosphor_beam_energy = getFloat("fft.phosphor_beam_energy");
-    v.fft.phosphor_decay_slow = getFloat("fft.phosphor_decay_slow");
-    v.fft.phosphor_decay_fast = getFloat("fft.phosphor_decay_fast");
-    v.fft.phosphor_beam_size = getFloat("fft.phosphor_beam_size");
-    v.fft.phosphor_line_blur_spread = getFloat("fft.phosphor_line_blur_spread");
-    v.fft.phosphor_line_width = getFloat("fft.phosphor_line_width");
-    v.fft.phosphor_age_threshold = getInt("fft.phosphor_age_threshold");
-    v.fft.phosphor_range_factor = getFloat("fft.phosphor_range_factor");
-    v.fft.enable_phosphor_grain = getBool("fft.enable_phosphor_grain");
 
     v.spectrogram.time_window = getFloat("spectrogram.time_window");
     v.spectrogram.min_db = getFloat("spectrogram.min_db");
@@ -171,13 +142,9 @@ void Config::load(const std::string& filename) {
     v.audio.engine = getString("audio.engine");
 
     v.visualizers.spectrogram_order = getInt("visualizers.spectrogram_order");
-    v.visualizers.spectrogram_popout = getBool("visualizers.spectrogram_popout");
     v.visualizers.lissajous_order = getInt("visualizers.lissajous_order");
-    v.visualizers.lissajous_popout = getBool("visualizers.lissajous_popout");
     v.visualizers.oscilloscope_order = getInt("visualizers.oscilloscope_order");
-    v.visualizers.oscilloscope_popout = getBool("visualizers.oscilloscope_popout");
     v.visualizers.fft_order = getInt("visualizers.fft_order");
-    v.visualizers.fft_popout = getBool("visualizers.fft_popout");
 
     v.window.default_width = getInt("window.default_width");
     v.window.default_height = getInt("window.default_height");
@@ -194,6 +161,17 @@ void Config::load(const std::string& filename) {
 
     v.phosphor.near_blur_intensity = getFloat("phosphor.near_blur_intensity");
     v.phosphor.far_blur_intensity = getFloat("phosphor.far_blur_intensity");
+    v.phosphor.beam_energy = getFloat("phosphor.beam_energy");
+    v.phosphor.decay_slow = getFloat("phosphor.decay_slow");
+    v.phosphor.decay_fast = getFloat("phosphor.decay_fast");
+    v.phosphor.beam_size = getFloat("phosphor.beam_size");
+    v.phosphor.line_blur_spread = getFloat("phosphor.line_blur_spread");
+    v.phosphor.line_width = getFloat("phosphor.line_width");
+    v.phosphor.age_threshold = getInt("phosphor.age_threshold");
+    v.phosphor.range_factor = getFloat("phosphor.range_factor");
+    v.phosphor.enable_grain = getBool("phosphor.enable_grain");
+    v.phosphor.spline_density = getInt("phosphor.spline_density");
+    v.phosphor.tension = getFloat("phosphor.tension");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

@@ -14,7 +14,18 @@
   },
   "phosphor": {
     "near_blur_intensity": 0.2,
-    "far_blur_intensity": 0.4
+    "far_blur_intensity": 0.4,
+    "beam_energy": 50.0,
+    "decay_slow": 10.0,
+    "decay_fast": 75.0,
+    "beam_size": 1.0,
+    "line_blur_spread": 64,
+    "line_width": 0.5,
+    "age_threshold": 15,
+    "range_factor": 2.0,
+    "enable_grain": true,
+    "spline_density": 8,
+    "tension": 0.5
   },
   "fft": {
     "fft_fall_speed": 40.0,
@@ -32,16 +43,7 @@
     "enable_cqt": true,
     "cqt_bins_per_octave": 60,
     "enable_phosphor": true,
-    "enable_temporal_interpolation": false,
-    "phosphor_beam_energy": 400.0,
-    "phosphor_decay_slow": 10.0,
-    "phosphor_decay_fast": 75.0,
-    "phosphor_beam_size": 1.0,
-    "phosphor_line_blur_spread": 64,
-    "phosphor_line_width": 0.5,
-    "phosphor_age_threshold": 10,
-    "phosphor_range_factor": 2.0,
-    "enable_phosphor_grain": true
+    "enable_temporal_interpolation": false
   },
   "font": {
     "default_font": "/path/to/freetype-font.ttf"
@@ -49,33 +51,13 @@
   "lissajous": {
     "enable_phosphor": true,
     "enable_splines": true,
-    "phosphor_spline_density": 8,
-    "phosphor_tension": 0.5,
     "max_points": 2048,
-    "spline_segments": 8,
-    "phosphor_beam_energy": 50.0,
-    "phosphor_decay_slow": 10.0,
-    "phosphor_decay_fast": 75.0,
-    "phosphor_beam_size": 1.0,
-    "phosphor_line_blur_spread": 64,
-    "phosphor_line_width": 0.5,
-    "phosphor_age_threshold": 15,
-    "phosphor_range_factor": 2.0,
-    "enable_phosphor_grain": true
+    "spline_segments": 8
   },
   "oscilloscope": {
     "enable_phosphor": true,
     "gradient_mode": "horizontal",
-    "follow_pitch": true,
-    "phosphor_beam_energy": 50.0,
-    "phosphor_decay_slow": 10.0,
-    "phosphor_decay_fast": 75.0,
-    "phosphor_beam_size": 1.0,
-    "phosphor_line_blur_spread": 64,
-    "phosphor_line_width": 0.5,
-    "phosphor_age_threshold": 15,
-    "phosphor_range_factor": 4.0,
-    "enable_phosphor_grain": true
+    "follow_pitch": true
   },
   "pulseaudio": {
     "default_source": "whatever.monitor",
@@ -96,14 +78,10 @@
     "time_window": 2.0
   },
   "visualizers": {
-    "fft_order": 2,
-    "fft_popout": false,
-    "lissajous_order": 0,
-    "lissajous_popout": false,
-    "oscilloscope_order": 1,
-    "oscilloscope_popout": false,
-    "spectrogram_order": -1,
-    "spectrogram_popout": false
+    "fft_order": 3,
+    "lissajous_order": 1,
+    "oscilloscope_order": 2,
+    "spectrogram_order": 0
   },
   "window": {
     "default_height": 200,

@@ -56,6 +56,7 @@ public:
   void setPosition(int pos) override;
   int getWidth() const override;
   void setWidth(int width) override;
+  void invalidatePhosphorContext();
 
 private:
   int position = 0;
@@ -76,6 +77,7 @@ public:
   void setPosition(int pos) override;
   int getWidth() const override;
   void setWidth(int width) override;
+  void invalidatePhosphorContext();
 
 private:
   int position = 0;
@@ -91,6 +93,7 @@ public:
   void setPosition(int pos) override;
   int getWidth() const override;
   void setWidth(int width) override;
+  void invalidatePhosphorContext();
 
   // Mouse tracking methods
   void updateMousePosition(float mouseX, float mouseY);
@@ -154,6 +157,8 @@ private:
   void updateSpectrogramColumn(const AudioData& audioData);
   void mapFrequencyToSpectrum(const std::vector<float>& fftMagnitudes, std::vector<float>& spectrum,
                               float sampleRate) const;
+  void mapCQTToSpectrum(const std::vector<float>& cqtMagnitudes, const std::vector<float>& cqtFrequencies,
+                        std::vector<float>& spectrum) const;
 
   // Color conversion helpers
   float dbToColor(float db) const;

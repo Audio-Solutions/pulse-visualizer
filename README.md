@@ -25,7 +25,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 	- Oscilloscope with configurable gradient modes
 	- FFT with mid/side and right/left modes and sharp/flat note key mode, now with Constant-Q transform support
 	- Spectrogram
-- Live configuration updates and popout windows for visualizers
+- Live configuration updates
 - Cross-platform support (PulseAudio **and** PipeWire backends)
 - Hardware-accelerated graphics with OpenGL
 - Collection of ready-made themes, including MiniMeters's native themes (see the `themes/` folder)
@@ -45,7 +45,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Ninja-build
 
 On Fedora, this would be:
-````sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel````  
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel```  
 On Debian, this would be:
 ```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev nlohmann-json3-dev ninja```  
 On Archlinux, this would be:
@@ -99,7 +99,7 @@ Pulse
 
 Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request. Apologies in advance for my chaotic coding style.
 
-If you find Pulse useful and want to support its development in other ways, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
+If you find Pulse useful and want to support its development, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
 ## License
 

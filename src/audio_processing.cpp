@@ -949,6 +949,10 @@ void audioThread(AudioData* audioData) {
         audioData->smoothedCqtMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
     }
+
+    // Signal that new audio data is available for rendering
+    audioData->signalNewData();
+
     lock.unlock();
   }
 
