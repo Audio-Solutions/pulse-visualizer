@@ -67,21 +67,28 @@ void main() {
 
   // Single kernel accumulation based on kernel_type
   float sample_sum = 0.0;
-  float kernel_sum = 0.0;
+  float effective_kernel_sum = 0.0;
 
   if (half_range <= 3) {
     const ivec2 offset = (blur_direction == 0) ? ivec2(1, 0) : ivec2(0, 1);
     
     for (int i = -half_range; i <= half_range; ++i) {
       ivec2 sample_coord = coord + i * offset;
-      sample_coord = clamp(sample_coord, ivec2(0), texSizeInt - 1);
-      
       float distance_sq = float(i * i);
       float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
-      float sample_value = float(imageLoad(inputTex, sample_coord).r);
       
-      sample_sum += sample_value * kernel_weight;
-      kernel_sum += kernel_weight;
+      // Check if this sample would be in bounds
+      bool in_bounds = (sample_coord.x >= 0 && sample_coord.x < texSizeInt.x && 
+                       sample_coord.y >= 0 && sample_coord.y < texSizeInt.y);
+      
+      if (in_bounds) {
+        float sample_value = float(imageLoad(inputTex, sample_coord).r);
+        sample_sum += sample_value * kernel_weight;
+      }
+      
+      // Always accumulate kernel weight for proper normalization
+      // This simulates the "missing" energy from out-of-bounds samples
+      effective_kernel_sum += kernel_weight;
     }
   } else {
     // General case for larger kernels
@@ -93,19 +100,27 @@ void main() {
         sample_coord = coord + ivec2(0, i);
       }
       
-      sample_coord = clamp(sample_coord, ivec2(0), texSizeInt - 1);
-      
       float distance_sq = float(i * i);
       float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
-      float sample_value = float(imageLoad(inputTex, sample_coord).r);
       
-      sample_sum += sample_value * kernel_weight;
-      kernel_sum += kernel_weight;
+      // Check if this sample would be in bounds
+      bool in_bounds = (sample_coord.x >= 0 && sample_coord.x < texSizeInt.x && 
+                       sample_coord.y >= 0 && sample_coord.y < texSizeInt.y);
+      
+      if (in_bounds) {
+        float sample_value = float(imageLoad(inputTex, sample_coord).r);
+        sample_sum += sample_value * kernel_weight;
+      }
+      
+      // Always accumulate kernel weight for proper normalization
+      // This simulates the "missing" energy from out-of-bounds samples
+      effective_kernel_sum += kernel_weight;
     }
   }
 
-  // Normalize by kernel sum for proper energy conservation
-  float result = sample_sum / max(kernel_sum, 1e-6);
+  // Normalize by effective kernel sum which accounts for out-of-bounds samples
+  // This prevents edge brightness explosion by properly accounting for missing energy
+  float result = sample_sum / max(effective_kernel_sum, 1e-6);
 
   // Write result
   imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));

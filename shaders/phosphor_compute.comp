@@ -67,11 +67,10 @@ void main() {
     float inv_fx = 1.0 - fract.x;
     float inv_fy = 1.0 - fract.y;
     
-
     // Top-left (0,0)
     ivec2 coord00 = baseCoord;
     uint energy = uint(float(energyPerStep) * (inv_fx * inv_fy));
-    if (energy > 100u) {
+    if (energy > 100u && inBounds(coord00)) {
       imageAtomicAdd(energyTex, coord00, energy);
       imageStore(ageTex, coord00, uvec4(0));
     }
@@ -79,7 +78,7 @@ void main() {
     // Top-right (1,0)
     ivec2 coord10 = baseCoord + ivec2(1, 0);
     energy = uint(float(energyPerStep) * (fract.x * inv_fy));
-    if (energy > 100u) {
+    if (energy > 100u && inBounds(coord10)) {
       imageAtomicAdd(energyTex, coord10, energy);
       imageStore(ageTex, coord10, uvec4(0));
     }
@@ -87,7 +86,7 @@ void main() {
     // Bottom-left (0,1)
     ivec2 coord01 = baseCoord + ivec2(0, 1);
     energy = uint(float(energyPerStep) * (inv_fx * fract.y));
-    if (energy > 100u) {
+    if (energy > 100u && inBounds(coord01)) {
       imageAtomicAdd(energyTex, coord01, energy);
       imageStore(ageTex, coord01, uvec4(0));
     }
@@ -95,7 +94,7 @@ void main() {
     // Bottom-right (1,1)
     ivec2 coord11 = baseCoord + ivec2(1, 1);
     energy = uint(float(energyPerStep) * (fract.x * fract.y));
-    if (energy > 100u) {
+    if (energy > 100u && inBounds(coord11)) {
       imageAtomicAdd(energyTex, coord11, energy);
       imageStore(ageTex, coord11, uvec4(0));
     }

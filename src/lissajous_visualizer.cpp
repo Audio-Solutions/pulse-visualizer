@@ -124,6 +124,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       // Convert to screen coordinates (fixed scaling)
       float x = offsetX + sampleLeft * halfWidth;
       float y = (sampleRight + 1.0f) * halfWidth;
+
+      // Clamp x and y values to screen bounds
+      x = std::max(2.0f, std::min(x, static_cast<float>(width - 2)));
+      y = std::max(2.0f, std::min(y, static_cast<float>(width - 2)));
+
       points[i] = {x, y};
     }
 

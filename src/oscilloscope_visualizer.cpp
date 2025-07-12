@@ -87,6 +87,11 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 #else
     float y = centerY + audioData.bandpassedMid[pos] * audioData.windowHeight * 0.5f;
 #endif
+
+    // Clamp x and y values to screen bounds
+    x = std::max(0.0f, std::min(x, static_cast<float>(width - 1)));
+    y = std::max(0.0f, std::min(y, static_cast<float>(audioData.windowHeight - 1)));
+
     scopePoints.push_back({x, y});
   }
 
