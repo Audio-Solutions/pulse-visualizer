@@ -411,9 +411,9 @@ int main() {
               singleVis->setWidth(audioData.windowWidth);
             }
           }
-        } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        } else if (event.window.event == SDL_WINDOWEVENT_LEAVE) {
           windowHasFocus = false;
-        } else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+        } else if (event.window.event == SDL_WINDOWEVENT_ENTER) {
           windowHasFocus = true;
         }
         break;
