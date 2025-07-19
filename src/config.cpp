@@ -99,6 +99,8 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.gradient_mode = getString("oscilloscope.gradient_mode");
     v.oscilloscope.enable_phosphor = getBool("oscilloscope.enable_phosphor");
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
+    v.oscilloscope.alignment = getString("oscilloscope.alignment");
+    v.oscilloscope.alignment_type = getString("oscilloscope.alignment_type");
 
     v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.enable_splines = getBool("lissajous.enable_splines");

@@ -41,10 +41,23 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
 
   // Use pre-computed bandpassed data for zero crossing detection
-  size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle);
+  size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle) * 2;
   size_t zeroCrossPos = targetPos;
   if (osc.follow_pitch && !audioData.bandpassedMid.empty() && audioData.pitchConfidence > 0.5f &&
       audioData.hasValidPeak) {
+
+    // Adjust target position based on alignment
+    if (osc.alignment == "left") {
+      // Search backward for the nearest positive zero crossing
+      targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
+    } else if (osc.alignment == "center") {
+      // Search backward from center position
+      targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples / 2) % audioData.bufferSize;
+    } else if (osc.alignment == "right") {
+      // Search backward from right edge (newest data)
+      targetPos = (audioData.writePos + audioData.bufferSize - 1) % audioData.bufferSize;
+    }
+
     // Search backward for the nearest positive zero crossing in bandpassed signal
     for (size_t i = 1; i < searchRange && i < audioData.bandpassedMid.size(); i++) {
       size_t pos = (targetPos + audioData.bufferSize - i) % audioData.bufferSize;
@@ -58,10 +71,16 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     }
   }
 
-  // Calculate phase offset to align with peak (3/4 cycle after zero crossing)
-  float threeQuarterCycle = audioData.samplesPerCycle * 0.75f;
+  // Calculate phase offset to align
+  constexpr size_t filterDelay = 40; // butterworth adds ~40 samples of delay
   float phaseOffset =
-      static_cast<float>((targetPos + audioData.bufferSize - zeroCrossPos) % audioData.bufferSize) + threeQuarterCycle;
+      static_cast<float>((targetPos + audioData.bufferSize - zeroCrossPos - filterDelay) % audioData.bufferSize);
+
+  if (osc.alignment_type == "peak") {
+    phaseOffset += audioData.samplesPerCycle * 0.75f;
+  } else if (osc.alignment_type == "zero_crossing") {
+    // do nothing, zero crossing is already aligned
+  }
 
   // Calculate the start position for reading samples, adjusted for phase
   size_t startPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;

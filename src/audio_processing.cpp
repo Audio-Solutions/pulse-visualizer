@@ -790,7 +790,7 @@ void audioThread(AudioData* audioData) {
 
       // Apply bandpass filter to the buffer using circular-buffer-aware processing
       Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, peakFreq, 44100.0f,
-                                         (audioData->writePos + audioData->displaySamples) % audioData->bufferSize,
+                                         audioData->writePos,
                                          100.0f); // 100Hz bandwidth
     } else {
       audioData->pitchConfidence *= 0.9f; // Decay confidence when no valid peak

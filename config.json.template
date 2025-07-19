@@ -57,7 +57,9 @@
   "oscilloscope": {
     "enable_phosphor": true,
     "gradient_mode": "horizontal",
-    "follow_pitch": true
+    "follow_pitch": true,
+    "alignment": "center",
+    "alignment_type": "zero_crossing"
   },
   "pulseaudio": {
     "default_source": "whatever.monitor",

@@ -12,6 +12,8 @@ struct ConfigValues {
     std::string gradient_mode = "horizontal";
     bool enable_phosphor = false;
     bool follow_pitch = true;
+    std::string alignment = "left";
+    std::string alignment_type = "peak";
   } oscilloscope;
 
   struct Lissajous {
