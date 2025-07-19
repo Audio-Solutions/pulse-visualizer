@@ -77,6 +77,9 @@ find_package(OpenGL REQUIRED)
 # Find GLEW
 find_package(GLEW REQUIRED)
 
+# Find YAML-CPP
+find_package(yaml-cpp REQUIRED)
+
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
@@ -94,6 +97,7 @@ target_link_libraries(Pulse PRIVATE
   PkgConfig::FREETYPE
   OpenGL::GL
   ${GLEW_LIBRARIES}
+  yaml-cpp
 )
 
 # Link audio backends conditionally
@@ -168,12 +172,19 @@ install(CODE "
   
   # Copy config template to user config
   execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
-    \"${CMAKE_CURRENT_SOURCE_DIR}/config.json.template\"
-    \"\${USER_HOME}/.config/pulse-visualizer/config.json\"
+    \"${CMAKE_SOURCE_DIR}/config.yml.template\"
+    \"\${USER_HOME}/.config/pulse-visualizer/config.yml\"
+  )
+
+  # Copy font to user config
+  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \"\${USER_HOME}/.local/share/fonts/JetBrainsMono\")
+  execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
+    \"${CMAKE_SOURCE_DIR}/JetBrainsMonoNerdFont-Medium.ttf\"
+    \"\${USER_HOME}/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf\"
   )
   
   # Copy themes to user config (using shell command to avoid CMake GLOB issues)
-  execute_process(COMMAND bash -c \"cp '${CMAKE_CURRENT_SOURCE_DIR}/themes/'*.txt '\${USER_HOME}/.config/pulse-visualizer/themes/'\" RESULT_VARIABLE COPY_RESULT)
+  execute_process(COMMAND bash -c \"cp '${CMAKE_SOURCE_DIR}/themes/'*.txt '\${USER_HOME}/.config/pulse-visualizer/themes/'\" RESULT_VARIABLE COPY_RESULT)
   
   # Change ownership back to the original user
   execute_process(COMMAND chown -R \${CURRENT_USER}:\${CURRENT_USER} \${USER_HOME}/.config/pulse-visualizer)

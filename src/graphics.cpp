@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -85,19 +86,28 @@ bool ensureFTLib() {
 }
 
 FontCache& getFontCache(const char* fontPath, int pixelSize) {
+  // Expand ~/ prefix in font path
+  std::string expandedFontPath = fontPath;
+  if (!expandedFontPath.empty() && expandedFontPath[0] == '~') {
+    const char* home = getenv("HOME");
+    if (home) {
+      expandedFontPath = std::string(home) + expandedFontPath.substr(1);
+    }
+  }
+
   std::string key = std::string(fontPath) + ":" + std::to_string(pixelSize);
   auto it = fontCaches.find(key);
   if (it != fontCaches.end())
     return it->second;
   FontCache cache;
   struct stat buffer;
-  if (stat(fontPath, &buffer) != 0) {
+  if (stat(expandedFontPath.c_str(), &buffer) != 0) {
     return fontCaches[key] = cache;
   }
   if (!ensureFTLib()) {
     return fontCaches[key] = cache;
   }
-  if (FT_New_Face(ftLib, fontPath, 0, &cache.face)) {
+  if (FT_New_Face(ftLib, expandedFontPath.c_str(), 0, &cache.face)) {
     return fontCaches[key] = cache;
   }
   FT_Set_Pixel_Sizes(cache.face, 0, pixelSize);

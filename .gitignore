@@ -73,5 +73,5 @@ deps/
 *.temp 
 
 # Config file symlink
-config.json
+config.yml
 config

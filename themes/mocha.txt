@@ -7,7 +7,7 @@ color: 166, 227, 161
 selection: 250, 179, 135
 text: 205, 214, 244
 accent: 49, 50, 68
-bg: 24, 24, 37
+bg: 17, 17, 27
 bgaccent: 17, 17, 27
 
 ## Optional Colors:

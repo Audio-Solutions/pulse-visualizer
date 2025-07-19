@@ -24,9 +24,9 @@ std::string expandUserPath(const std::string& path) {
   return path;
 }
 
-nlohmann::json Config::configData;
-std::string Config::configPath = "~/.config/pulse-visualizer/config.json";
-std::unordered_map<std::string, nlohmann::json> Config::configCache;
+YAML::Node Config::configData;
+std::string Config::configPath = "~/.config/pulse-visualizer/config.yml";
+std::unordered_map<std::string, YAML::Node> Config::configCache;
 time_t Config::lastConfigMTime = 0;
 size_t Config::configVersion = 0;
 ConfigValues g_cachedValues;
@@ -59,29 +59,29 @@ void Config::load(const std::string& filename) {
 
   std::ifstream in(expanded);
   if (!in) {
-    // If the config file is missing we fall back to an empty JSON object so the
+    // If the config file is missing we fall back to an empty YAML object so the
     // program can still launch with the built-in defaults.  We warn once so the
     // user knows what happened.
     std::cerr << "Warning: could not open config file: " << expanded << " (using defaults)" << std::endl;
-    configData = nlohmann::json::object();
+    configData = YAML::Node();
     clearCache();
     return;
   }
 
   try {
-    in >> configData;
-  } catch (const nlohmann::json::exception& e) {
-    // If JSON parsing fails, warn and fall back to defaults
-    std::cerr << "Warning: JSON parsing error in config file " << expanded << ": " << e.what() << " (using defaults)"
+    configData = YAML::Load(in);
+  } catch (const YAML::Exception& e) {
+    // If YAML parsing fails, warn and fall back to defaults
+    std::cerr << "Warning: YAML parsing error in config file " << expanded << ": " << e.what() << " (using defaults)"
               << std::endl;
-    configData = nlohmann::json::object();
+    configData = YAML::Node();
     clearCache();
     return;
   } catch (const std::exception& e) {
     // Catch any other parsing errors
     std::cerr << "Warning: Error parsing config file " << expanded << ": " << e.what() << " (using defaults)"
               << std::endl;
-    configData = nlohmann::json::object();
+    configData = YAML::Node();
     clearCache();
     return;
   }
@@ -210,111 +210,169 @@ bool Config::reloadIfChanged() {
   return false;
 }
 
-// Helper to traverse dot-separated keys
-nlohmann::json& Config::getJsonRef(const std::string& key) {
-  nlohmann::json* ref = &configData;
-  std::stringstream ss(key);
-  std::string segment;
-  while (std::getline(ss, segment, '.')) {
-    if (!ref->contains(segment) || (*ref)[segment].is_null()) {
-      // Gracefully handle a missing value by returning a reference to a static
-      // null object.  This lets callers decide how to fall back while issuing a
-      // one-off warning.
-      static nlohmann::json nullJson;
-      std::cerr << "Warning: config key missing: " << key << std::endl;
-      return nullJson;
-    }
-    ref = &(*ref)[segment];
+// Helper to get YAML node by key path
+YAML::Node Config::getJsonRef(const std::string& key) {
+  static YAML::Node nullNode;
+
+  // Handle direct access for single-level keys
+  if (configData[key]) {
+    return configData[key];
   }
-  return *ref;
+
+  // For multi-level keys, use a simpler approach
+  size_t dotPos = key.find('.');
+  if (dotPos == std::string::npos) {
+    return nullNode;
+  }
+
+  std::string section = key.substr(0, dotPos);
+  std::string subKey = key.substr(dotPos + 1);
+
+  if (!configData[section] || !configData[section][subKey]) {
+    return nullNode;
+  }
+
+  return configData[section][subKey];
 }
 
 int Config::getInt(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
-    if (!it->second.is_number_integer()) {
+    if (!it->second.IsScalar()) {
       std::cerr << "Warning: config key '" << key << "' is not an integer (cached), using 0" << std::endl;
       configCache[key] = 0;
       return 0;
     }
-    return it->second.get<int>();
+    try {
+      return it->second.as<int>();
+    } catch (const YAML::Exception&) {
+      std::cerr << "Warning: config key '" << key << "' is not an integer (cached), using 0" << std::endl;
+      configCache[key] = 0;
+      return 0;
+    }
   }
-  nlohmann::json& val = getJsonRef(key);
-  if (!val.is_number_integer()) {
+  YAML::Node val = getJsonRef(key);
+  if (!val.IsScalar()) {
     std::cerr << "Warning: config key '" << key << "' expected integer, using 0" << std::endl;
     configCache[key] = 0;
     return 0;
   }
-  configCache[key] = val;
-  return val.get<int>();
+  try {
+    int result = val.as<int>();
+    configCache[key] = val;
+    return result;
+  } catch (const YAML::Exception&) {
+    std::cerr << "Warning: config key '" << key << "' expected integer, using 0" << std::endl;
+    configCache[key] = 0;
+    return 0;
+  }
 }
 
 float Config::getFloat(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
-    if (!it->second.is_number()) {
+    if (!it->second.IsScalar()) {
       std::cerr << "Warning: config key '" << key << "' is not a number (cached), using 0.0" << std::endl;
       configCache[key] = 0.0f;
       return 0.0f;
     }
-    return it->second.get<float>();
+    try {
+      return it->second.as<float>();
+    } catch (const YAML::Exception&) {
+      std::cerr << "Warning: config key '" << key << "' is not a number (cached), using 0.0" << std::endl;
+      configCache[key] = 0.0f;
+      return 0.0f;
+    }
   }
-  nlohmann::json& val = getJsonRef(key);
-  if (!val.is_number()) {
+  YAML::Node val = getJsonRef(key);
+  if (!val.IsScalar()) {
     std::cerr << "Warning: config key '" << key << "' expected number, using 0.0" << std::endl;
     configCache[key] = 0.0f;
     return 0.0f;
   }
-  configCache[key] = val;
-  return val.get<float>();
+  try {
+    float result = val.as<float>();
+    configCache[key] = val;
+    return result;
+  } catch (const YAML::Exception&) {
+    std::cerr << "Warning: config key '" << key << "' expected number, using 0.0" << std::endl;
+    configCache[key] = 0.0f;
+    return 0.0f;
+  }
 }
 
 bool Config::getBool(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
-    if (!it->second.is_boolean()) {
+    if (!it->second.IsScalar()) {
       std::cerr << "Warning: config key '" << key << "' is not a boolean (cached), using false" << std::endl;
       configCache[key] = false;
       return false;
     }
-    return it->second.get<bool>();
+    try {
+      return it->second.as<bool>();
+    } catch (const YAML::Exception&) {
+      std::cerr << "Warning: config key '" << key << "' is not a boolean (cached), using false" << std::endl;
+      configCache[key] = false;
+      return false;
+    }
   }
-  nlohmann::json& val = getJsonRef(key);
-  if (!val.is_boolean()) {
+  YAML::Node val = getJsonRef(key);
+  if (!val.IsScalar()) {
     std::cerr << "Warning: config key '" << key << "' expected boolean, using false" << std::endl;
     configCache[key] = false;
     return false;
   }
-  configCache[key] = val;
-  return val.get<bool>();
+  try {
+    bool result = val.as<bool>();
+    configCache[key] = val;
+    return result;
+  } catch (const YAML::Exception&) {
+    std::cerr << "Warning: config key '" << key << "' expected boolean, using false" << std::endl;
+    configCache[key] = false;
+    return false;
+  }
 }
 
 std::string Config::getString(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
-    if (!it->second.is_string()) {
+    if (!it->second.IsScalar()) {
       std::cerr << "Warning: config key '" << key << "' is not a string (cached), using empty string" << std::endl;
       configCache[key] = "";
       return "";
     }
-    return it->second.get<std::string>();
+    try {
+      return it->second.as<std::string>();
+    } catch (const YAML::Exception&) {
+      std::cerr << "Warning: config key '" << key << "' is not a string (cached), using empty string" << std::endl;
+      configCache[key] = "";
+      return "";
+    }
   }
-  nlohmann::json& val = getJsonRef(key);
-  if (!val.is_string()) {
+  YAML::Node val = getJsonRef(key);
+  if (!val.IsScalar()) {
     std::cerr << "Warning: config key '" << key << "' expected string, using empty string" << std::endl;
     configCache[key] = "";
     return "";
   }
-  configCache[key] = val;
-  return val.get<std::string>();
+  try {
+    std::string result = val.as<std::string>();
+    configCache[key] = val;
+    return result;
+  } catch (const YAML::Exception&) {
+    std::cerr << "Warning: config key '" << key << "' expected string, using empty string" << std::endl;
+    configCache[key] = "";
+    return "";
+  }
 }
 
-nlohmann::json Config::get(const std::string& key) {
+YAML::Node Config::get(const std::string& key) {
   auto it = configCache.find(key);
   if (it != configCache.end()) {
     return it->second;
   }
-  nlohmann::json& val = getJsonRef(key);
+  YAML::Node val = getJsonRef(key);
   configCache[key] = val;
   return val;
 }

@@ -41,15 +41,15 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - FreeType2
 - OpenGL
 - GLEW
-- Nlohmann JSON
+- YAML-CPP
 - Ninja-build
 
 On Fedora, this would be:
-```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel json-devel ninja pipewire-devel```  
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel```  
 On Debian, this would be:
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev nlohmann-json3-dev ninja```  
+```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja```  
 On Archlinux, this would be:
-```sudo pacman -S clang cmake sdl2 fftw freetype2 glew nlohmann-json ninja libpipewire```
+```sudo pacman -S clang cmake sdl2 fftw freetype2 glew yaml-cpp ninja libpipewire```
 
 **Supported Platforms:**
 - Linux (PulseAudio **or** PipeWire)
@@ -80,10 +80,11 @@ The installation will automatically:
 >    - PipeWire  : `"pipewire.default_source"`
 > 3. Set `"default_font"` to the full path of your font file.
 
-**Themeing:** To choose a theme, edit the `"default_theme"` field in your config file (`~/.config/pulse-visualizer/config.json`):
+**Themeing:** To choose a theme, edit the `default_theme` field in your config file (`~/.config/pulse-visualizer/config.yml`):
 
-```json
-"default_theme": "green-crt.txt"
+```yaml
+window:
+  default_theme: green-crt.txt
 ```
 
 Replace `"green-crt.txt"` with any theme file from the `themes/` directory. All files in that directory are installed to `~/.config/pulse-visualizer/themes/` when you run `sudo ninja install`.

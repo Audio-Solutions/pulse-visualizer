@@ -1,10 +1,10 @@
 #pragma once
 
 #include <ctime>
-#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 // Central cache of parsed configuration values
 struct ConfigValues {
@@ -112,24 +112,24 @@ struct ConfigValues {
 
 class Config {
 public:
-  static void load(const std::string& filename = "~/.config/pulse-visualizer/config.json");
+  static void load(const std::string& filename = "~/.config/pulse-visualizer/config.yml");
   static void reload();
   static int getInt(const std::string& key);
   static float getFloat(const std::string& key);
   static bool getBool(const std::string& key);
   static std::string getString(const std::string& key);
-  static nlohmann::json get(const std::string& key);
+  static YAML::Node get(const std::string& key);
   static bool reloadIfChanged();
   static size_t getVersion();
   // Access central cached values
   static const ConfigValues& values();
 
 private:
-  static nlohmann::json configData;
+  static YAML::Node configData;
   static std::string configPath;
-  static std::unordered_map<std::string, nlohmann::json> configCache;
+  static std::unordered_map<std::string, YAML::Node> configCache;
   static void clearCache();
-  static nlohmann::json& getJsonRef(const std::string& key);
+  static YAML::Node getJsonRef(const std::string& key);
   static time_t lastConfigMTime;
   static size_t configVersion;
 
