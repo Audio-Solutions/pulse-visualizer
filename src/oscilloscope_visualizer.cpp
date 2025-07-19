@@ -76,21 +76,20 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   scopePoints.reserve(audioData.displaySamples);
 
   // Pre-compute scale factors
-  const float widthScale = static_cast<float>(width) / audioData.displaySamples;
+  const float widthScale = static_cast<float>(width - 2) / audioData.displaySamples;
   const float centerY = audioData.windowHeight * 0.5f;
 
   for (size_t i = 0; i < audioData.displaySamples; i++) {
     size_t pos = (startPos + i) % audioData.bufferSize;
-    float x = static_cast<float>(i) * widthScale;
+    float x = static_cast<float>(i) * widthScale + 1.0f;
 #ifdef SCOPE_USE_RAW_SIGNAL
     float y = centerY + audioData.bufferMid[pos] * audioData.windowHeight * 0.5f;
 #else
     float y = centerY + audioData.bandpassedMid[pos] * audioData.windowHeight * 0.5f;
 #endif
 
-    // Clamp x and y values to screen bounds
-    x = std::max(0.0f, std::min(x, static_cast<float>(width - 1)));
-    y = std::max(0.0f, std::min(y, static_cast<float>(audioData.windowHeight - 1)));
+    // Clamp y values to screen bounds
+    y = std::max(0.0f, std::min(y, static_cast<float>(audioData.windowHeight - 2)));
 
     scopePoints.push_back({x, y});
   }
