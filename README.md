@@ -50,12 +50,22 @@ On Fedora, this would be:
 ```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel```  
 On Debian, this would be:
 ```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja```  
-On Archlinux, this would be:
-```sudo pacman -S clang cmake sdl2 fftw freetype2 glew yaml-cpp ninja libpipewire```
 
 **Supported Platforms:**
 - Linux (PulseAudio **or** PipeWire)
 - BSD (PulseAudio)
+
+## Installation
+
+**Arch Linux:**
+The package is available on the AUR as `pulse-visualizer-git`:
+```bash
+# Using your preferred AUR helper (e.g., yay, paru)
+yay -S pulse-visualizer-git
+```
+
+**Other Distributions:**
+See the [Building](#building) section below for manual compilation instructions.
 
 ## Building
 
@@ -99,6 +109,7 @@ After installation, you can run the visualizer from anywhere:
 ```bash
 Pulse
 ```
+
 ## Contributing & Support
 
 Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request. Apologies in advance for my chaotic coding style.
