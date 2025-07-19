@@ -9,7 +9,7 @@ namespace AudioProcessing {
 // Signal processing functions
 
 namespace Butterworth {
-// Apply bandpass filter to circular buffer in temporal order
+// Apply bandpass filter to circular buffer efficiently (only processes new data)
 void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
                            float sampleRate, size_t writePos, float bandwidth = 10.0f, int order = 8);
 } // namespace Butterworth

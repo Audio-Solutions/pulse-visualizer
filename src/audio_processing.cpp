@@ -29,6 +29,9 @@ struct Biquad {
     y1 = y;
     return y;
   }
+
+  // Reset filter state
+  void reset() { x1 = x2 = y1 = y2 = 0.0f; }
 };
 
 // Designs a Butterworth bandpass filter and returns the biquad sections
@@ -66,27 +69,112 @@ std::vector<Biquad> designButterworthBandpass(int order, float centerFreq, float
   return biquads;
 }
 
-// Process a buffer through a single biquad section
-void processBiquad(const std::vector<float>& in, std::vector<float>& out, Biquad& bq) {
-  for (size_t i = 0; i < in.size(); ++i) {
-    out[i] = bq.process(in[i]);
+// Incremental bandpass filter that maintains state and only processes new samples
+struct IncrementalBandpass {
+  std::vector<Biquad> biquads;
+  std::vector<float> outputBuffer;
+  size_t lastProcessedPos = 0;
+  size_t bufferSize = 0;
+  float lastCenterFreq = 0.0f;
+  float lastBandwidth = 0.0f;
+  int lastOrder = 0;
+  float lastSampleRate = 0.0f;
+
+  // Initialize or update filter parameters
+  void updateParameters(float centerFreq, float sampleRate, float bandwidth = 10.0f, int order = 8) {
+    // Only redesign if parameters have changed
+    if (centerFreq != lastCenterFreq || bandwidth != lastBandwidth || order != lastOrder ||
+        sampleRate != lastSampleRate) {
+
+      biquads = designButterworthBandpass(order, centerFreq, sampleRate, bandwidth);
+
+      // Reset all biquad states when parameters change
+      for (auto& bq : biquads) {
+        bq.reset();
+      }
+
+      lastCenterFreq = centerFreq;
+      lastBandwidth = bandwidth;
+      lastOrder = order;
+      lastSampleRate = sampleRate;
+    }
   }
-}
 
-// Process a circular buffer through a single biquad section in temporal order
-void processBiquadCircular(const std::vector<float>& in, std::vector<float>& out, Biquad& bq, size_t writePos) {
-  size_t bufferSize = in.size();
+  // Process only new samples in the circular buffer
+  void processNewSamples(const std::vector<float>& input, std::vector<float>& output, size_t writePos,
+                         size_t newSamples) {
+    if (input.empty() || newSamples == 0) {
+      return;
+    }
 
-  // Process samples in temporal order starting from the oldest sample
-  // The oldest sample is at writePos, newest is at (writePos - 1 + bufferSize) % bufferSize
-  for (size_t i = 0; i < bufferSize; ++i) {
-    size_t readPos = (writePos + i) % bufferSize;
-    size_t outPos = (writePos + i) % bufferSize;
-    out[outPos] = bq.process(in[readPos]);
+    size_t bufferSize = input.size();
+
+    // Ensure output buffer is the same size as input
+    if (output.size() != bufferSize) {
+      output.resize(bufferSize);
+    }
+
+    // If this is the first time processing or buffer size changed, process entire buffer
+    if (this->bufferSize != bufferSize) {
+      this->bufferSize = bufferSize;
+      lastProcessedPos = 0;
+      processEntireBuffer(input, output, writePos);
+      return;
+    }
+
+    // Process only the new samples
+    for (size_t sample = 0; sample < newSamples; ++sample) {
+      size_t currentPos = (writePos - newSamples + sample + bufferSize) % bufferSize;
+
+      // Get input sample
+      float inputSample = input[currentPos];
+
+      // Process through all biquad stages
+      float filteredSample = inputSample;
+      for (auto& bq : biquads) {
+        filteredSample = bq.process(filteredSample);
+      }
+
+      // Store result
+      output[currentPos] = filteredSample;
+    }
   }
-}
 
-// Apply cascaded biquads to a circular buffer in temporal order
+  // Process entire buffer (used for initialization or parameter changes)
+  void processEntireBuffer(const std::vector<float>& input, std::vector<float>& output, size_t writePos) {
+    size_t bufferSize = input.size();
+
+    // Ensure output buffer is the same size as input
+    if (output.size() != bufferSize) {
+      output.resize(bufferSize);
+    }
+
+    // Reset all biquad states
+    for (auto& bq : biquads) {
+      bq.reset();
+    }
+
+    // Process entire buffer in temporal order
+    for (size_t i = 0; i < bufferSize; ++i) {
+      size_t readPos = (writePos + i) % bufferSize;
+      float inputSample = input[readPos];
+
+      // Process through all biquad stages
+      float filteredSample = inputSample;
+      for (auto& bq : biquads) {
+        filteredSample = bq.process(filteredSample);
+      }
+
+      // Store result
+      output[readPos] = filteredSample;
+    }
+  }
+};
+
+// Global filter instance for the bandpass filter
+static IncrementalBandpass bandpassFilter;
+
+// Apply bandpass filter to circular buffer efficiently (only processes new data)
 void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
                            float sampleRate, size_t writePos, float bandwidth, int order) {
   if (input.empty()) {
@@ -94,21 +182,31 @@ void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& 
     return;
   }
 
-  // Ensure output buffer is the same size as input
-  if (output.size() != input.size()) {
-    output.resize(input.size());
+  // Update filter parameters if needed
+  bandpassFilter.updateParameters(centerFreq, sampleRate, bandwidth, order);
+
+  // Calculate how many new samples we need to process
+  size_t bufferSize = input.size();
+  size_t newSamples = 0;
+
+  if (bandpassFilter.bufferSize != bufferSize) {
+    // Buffer size changed, process entire buffer
+    bandpassFilter.processEntireBuffer(input, output, writePos);
+  } else {
+    // Calculate new samples since last processing
+    size_t lastPos = bandpassFilter.lastProcessedPos;
+    if (writePos >= lastPos) {
+      newSamples = writePos - lastPos;
+    } else {
+      newSamples = (bufferSize - lastPos) + writePos;
+    }
+
+    // Process only new samples
+    bandpassFilter.processNewSamples(input, output, writePos, newSamples);
   }
 
-  std::vector<Biquad> biquads = designButterworthBandpass(order, centerFreq, sampleRate, bandwidth);
-  std::vector<float> temp1 = input;
-  std::vector<float> temp2(input.size());
-
-  for (auto& bq : biquads) {
-    processBiquadCircular(temp1, temp2, bq, writePos);
-    std::swap(temp1, temp2);
-  }
-
-  output = temp1;
+  // Update last processed position
+  bandpassFilter.lastProcessedPos = writePos;
 }
 
 } // namespace Butterworth

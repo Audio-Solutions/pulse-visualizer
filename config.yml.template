@@ -18,7 +18,7 @@ audio:
   display_samples: 2000
   # Audio sample rate in Hz (must match your system's audio output)
   # Common values: 44100, 48000, 96000
-  sample_rate: 48000
+  sample_rate: 44100
   # Skip frames between FFT calculations (0=every frame, higher=less CPU usage)
   # 0 = maximum responsiveness, higher values = less CPU usage
   fft_skip_frames: 0
@@ -203,7 +203,8 @@ pulseaudio:
   # Look for sources ending in ".monitor" for system audio
   default_source: whatever.monitor
   # Buffer size in frames (affects latency vs stability)
-  # Smaller values = lower latency but more prone to underruns
+  # Smaller values = lower latency but higher CPU usage. Minimum is 512.
+  # Also defines the FPS of the visualizer (sample_rate / buffer_size), eg 44100 / 512 = 86.13 FPS
   buffer_size: 512
 
 # PipeWire Settings
@@ -215,7 +216,8 @@ pipewire:
   # Look for sources that match your audio output
   default_source: whatever
   # Buffer size in frames (affects latency vs stability)
-  # Smaller values = lower latency but more prone to underruns
+  # Smaller values = lower latency but higher CPU usage. Minimum is 512.
+  # Also defines the FPS of the visualizer (sample_rate / buffer_size), eg 44100 / 512 = 86.13 FPS
   buffer_size: 512
   # Ring buffer multiplier (affects buffering strategy)
   # Higher values = more buffering but higher latency
