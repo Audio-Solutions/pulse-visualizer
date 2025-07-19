@@ -34,6 +34,22 @@ struct Biquad {
 // Helper for pre-warping frequencies for bilinear transform
 inline float prewarp(float f, float fs) { return tanf(M_PI * f / fs) / M_PI; }
 
+// Calculate group delay for a Butterworth bandpass filter
+float calculateGroupDelay(float centerFreq, float sampleRate, float bandwidth, int order) {
+  float w0 = 2.0f * M_PI * centerFreq / sampleRate;
+  float BW = 2.0f * M_PI * bandwidth / sampleRate;
+  float Q = centerFreq / bandwidth;
+
+  // For the specific Butterworth bandpass filter implementation used here,
+  // the group delay is approximately proportional to the filter order
+  // and inversely proportional to the bandwidth
+  // An accurate approximation for this filter design:
+  float groupDelay = static_cast<float>(order) / (4.0f * M_PI * bandwidth) * 0.15f;
+
+  // Convert to samples
+  return groupDelay * sampleRate;
+}
+
 // Designs a Butterworth bandpass filter and returns the biquad sections
 std::vector<Biquad> designButterworthBandpass(int order, float centerFreq, float sampleRate, float bandwidth) {
   std::vector<Biquad> biquads;
@@ -110,7 +126,20 @@ void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& 
     processBiquadCircular(temp1, temp2, bq, writePos);
     std::swap(temp1, temp2);
   }
-  output = temp1;
+
+  // Calculate group delay compensation
+  float groupDelaySamples = calculateGroupDelay(centerFreq, sampleRate, bandwidth, order);
+  int delayCompensation = static_cast<int>(roundf(groupDelaySamples));
+
+  // Apply group delay compensation by shifting the output forward
+  // This aligns the filtered signal with the original signal
+  std::vector<float> compensatedOutput(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    size_t compensatedPos = (writePos + i + delayCompensation) % input.size();
+    compensatedOutput[compensatedPos] = temp1[(writePos + i) % input.size()];
+  }
+
+  output = compensatedOutput;
 }
 
 } // namespace Butterworth

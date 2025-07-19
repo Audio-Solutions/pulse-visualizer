@@ -72,9 +72,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   }
 
   // Calculate phase offset to align
-  constexpr size_t filterDelay = 40; // butterworth adds ~40 samples of delay
-  float phaseOffset =
-      static_cast<float>((targetPos + audioData.bufferSize - zeroCrossPos - filterDelay) % audioData.bufferSize);
+  float phaseOffset = static_cast<float>((targetPos + audioData.bufferSize - zeroCrossPos) % audioData.bufferSize);
 
   if (osc.alignment_type == "peak") {
     phaseOffset += audioData.samplesPerCycle * 0.75f;
