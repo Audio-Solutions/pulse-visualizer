@@ -71,9 +71,10 @@ sudo ninja install
 
 The installation will automatically:
 - Install the executable to `/usr/local/bin/Pulse`
-- Set up user configuration in `~/.config/pulse-visualizer/`
-- Install themes to `~/.config/pulse-visualizer/themes/`
+- Install system files to `/usr/local/share/pulse-visualizer/`
 - Create desktop integration and man page
+
+On first run, the application will automatically copy configuration files from the system installation to `~/.config/pulse-visualizer/` if they don't already exist.
 
 > **Note:**
 > 1. Select the audio backend in your config: `"audio.engine": "pulseaudio" | "pipewire" | "auto"` (default `auto`).
@@ -89,7 +90,7 @@ window:
   default_theme: green-crt.txt
 ```
 
-Replace `"green-crt.txt"` with any theme file from the `themes/` directory. All files in that directory are installed to `~/.config/pulse-visualizer/themes/` when you run `sudo ninja install`.
+Replace `"green-crt.txt"` with any theme file from the `themes/` directory. Theme files are automatically copied from the system installation to `~/.config/pulse-visualizer/themes/` on first run.
 
 ## Usage
 

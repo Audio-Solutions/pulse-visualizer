@@ -11,9 +11,78 @@
 #include <SDL2/SDL_opengl.h>
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <thread>
+
+// Function to copy files from system installation to user config directory
+void setupUserConfig() {
+  const char* home = getenv("HOME");
+  if (!home) {
+    std::cerr << "Warning: HOME environment variable not set, cannot setup user config" << std::endl;
+    return;
+  }
+
+  std::string userConfigDir = std::string(home) + "/.config/pulse-visualizer";
+  std::string userThemesDir = userConfigDir + "/themes";
+  std::string userFontsDir = std::string(home) + "/.local/share/fonts/JetBrainsMono";
+
+  // Create user config directories
+  std::filesystem::create_directories(userConfigDir);
+  std::filesystem::create_directories(userThemesDir);
+  std::filesystem::create_directories(userFontsDir);
+
+  // Check if config already exists
+  std::string userConfigFile = userConfigDir + "/config.yml";
+  if (std::filesystem::exists(userConfigFile)) {
+    return; // User config already exists, don't overwrite
+  }
+
+  // Copy config template from system installation
+  std::string systemConfigFile = std::string(PULSE_DATA_DIR) + "/config.yml.template";
+  if (std::filesystem::exists(systemConfigFile)) {
+    try {
+      std::filesystem::copy_file(systemConfigFile, userConfigFile);
+      std::cout << "Created user config file: " << userConfigFile << std::endl;
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: Failed to copy config template: " << e.what() << std::endl;
+    }
+  }
+
+  // Copy themes from system installation
+  std::string systemThemesDir = std::string(PULSE_DATA_DIR) + "/themes";
+  if (std::filesystem::exists(systemThemesDir)) {
+    try {
+      for (const auto& entry : std::filesystem::directory_iterator(systemThemesDir)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".txt") {
+          std::string destFile = userThemesDir + "/" + entry.path().filename().string();
+          if (!std::filesystem::exists(destFile)) {
+            std::filesystem::copy_file(entry.path(), destFile);
+          }
+        }
+      }
+      std::cout << "Copied themes to: " << userThemesDir << std::endl;
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: Failed to copy themes: " << e.what() << std::endl;
+    }
+  }
+
+  // Copy font from system installation
+  std::string systemFontFile = std::string(PULSE_DATA_DIR) + "/fonts/JetBrainsMonoNerdFont-Medium.ttf";
+  std::string userFontFile = userFontsDir + "/JetBrainsMonoNerdFont-Medium.ttf";
+  if (std::filesystem::exists(systemFontFile)) {
+    try {
+      if (!std::filesystem::exists(userFontFile)) {
+        std::filesystem::copy_file(systemFontFile, userFontFile);
+        std::cout << "Copied font to: " << userFontFile << std::endl;
+      }
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: Failed to copy font: " << e.what() << std::endl;
+    }
+  }
+}
 
 // Structure to hold the current visualizer configuration
 struct VisualizerConfig {
@@ -276,6 +345,9 @@ int main() {
 
   // Initialize the theme system
   Theme::ThemeManager::initialize();
+
+  // Setup user config files if they don't exist
+  setupUserConfig();
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);

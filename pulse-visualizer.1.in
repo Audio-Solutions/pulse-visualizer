@@ -20,7 +20,7 @@ GPU compute shaders for realistic glow and persistence effects.
 Show help message and exit
 
 .SH CONFIGURATION
-The application reads its configuration from \fI~/.config/pulse-visualizer/config.json\fR.
+The application reads its configuration from \fI~/.config/pulse-visualizer/config.yml\fR.
 If this file doesn't exist, it will be created from a template on first run.
 The configuration supports live updates and allows selection of audio backend
 (PulseAudio or PipeWire), visualization settings, phosphor effect parameters,
@@ -33,7 +33,7 @@ themes are included with the application.
 
 .SH FILES
 .TP
-.I ~/.config/pulse-visualizer/config.json
+.I ~/.config/pulse-visualizer/config.yml
 Configuration file
 .TP
 .I ~/.config/pulse-visualizer/themes/

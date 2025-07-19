@@ -133,6 +133,22 @@ install(DIRECTORY shaders/
   FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag" PATTERN "*.comp"
 )
 
+# Install config template
+install(FILES config.yml.template
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+)
+
+# Install font
+install(FILES JetBrainsMonoNerdFont-Medium.ttf
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
+)
+
+# Install themes directory
+install(DIRECTORY themes/
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/themes
+  FILES_MATCHING PATTERN "*.txt"
+)
+
 # Create a desktop entry
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
@@ -152,46 +168,3 @@ configure_file(
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
   DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
 )
-
-# Custom install target for user configuration
-install(CODE "
-  # Get the original user's home directory (works with sudo)
-  if(DEFINED ENV{SUDO_USER})
-    set(CURRENT_USER \$ENV{SUDO_USER})
-  else()
-    execute_process(COMMAND whoami OUTPUT_VARIABLE CURRENT_USER OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
-  
-  execute_process(COMMAND getent passwd \${CURRENT_USER} OUTPUT_VARIABLE PASSWD_LINE OUTPUT_STRIP_TRAILING_WHITESPACE)
-  string(REPLACE \":\" \";\" PASSWD_FIELDS \${PASSWD_LINE})
-  list(GET PASSWD_FIELDS 5 USER_HOME)
-  
-  # Create user config directories
-  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \${USER_HOME}/.config/pulse-visualizer)
-  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \${USER_HOME}/.config/pulse-visualizer/themes)
-  
-  # Copy config template to user config
-  execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
-    \"${CMAKE_SOURCE_DIR}/config.yml.template\"
-    \"\${USER_HOME}/.config/pulse-visualizer/config.yml\"
-  )
-
-  # Copy font to user config
-  execute_process(COMMAND \${CMAKE_COMMAND} -E make_directory \"\${USER_HOME}/.local/share/fonts/JetBrainsMono\")
-  execute_process(COMMAND \${CMAKE_COMMAND} -E copy_if_different
-    \"${CMAKE_SOURCE_DIR}/JetBrainsMonoNerdFont-Medium.ttf\"
-    \"\${USER_HOME}/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf\"
-  )
-  
-  # Copy themes to user config (using shell command to avoid CMake GLOB issues)
-  execute_process(COMMAND bash -c \"cp '${CMAKE_SOURCE_DIR}/themes/'*.txt '\${USER_HOME}/.config/pulse-visualizer/themes/'\" RESULT_VARIABLE COPY_RESULT)
-  
-  # Change ownership back to the original user
-  execute_process(COMMAND chown -R \${CURRENT_USER}:\${CURRENT_USER} \${USER_HOME}/.config/pulse-visualizer)
-  
-  if(COPY_RESULT EQUAL 0)
-    message(STATUS \"Installed user configuration to \${USER_HOME}/.config/pulse-visualizer/\")
-  else()
-    message(WARNING \"Failed to copy themes to \${USER_HOME}/.config/pulse-visualizer/themes/\")
-  endif()
-")
