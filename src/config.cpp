@@ -185,6 +185,7 @@ void Config::load(const std::string& filename) {
     v.phosphor.enable_curved_screen = getBool("phosphor.enable_curved_screen");
     v.phosphor.screen_curvature = getFloat("phosphor.screen_curvature");
     v.phosphor.screen_gap = getFloat("phosphor.screen_gap");
+    v.phosphor.grain_strength = getFloat("phosphor.grain_strength");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

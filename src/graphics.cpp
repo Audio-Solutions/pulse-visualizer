@@ -1095,6 +1095,8 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   // Use the colormap compute shader
   glUseProgram(colormapProgram);
 
+  const auto& phos = Config::values().phosphor;
+
   // Set uniforms
   glUniform3f(glGetUniformLocation(colormapProgram, "blackColor"), bgColor[0], bgColor[1], bgColor[2]);
   glUniform3f(glGetUniformLocation(colormapProgram, "beamColor"), lissajousColor[0], lissajousColor[1],
@@ -1103,6 +1105,7 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUniform1i(glGetUniformLocation(colormapProgram, "enableCurvedScreen"), enableCurvedScreen ? 1 : 0);
   glUniform1f(glGetUniformLocation(colormapProgram, "screenCurvature"), screenCurvature);
   glUniform1f(glGetUniformLocation(colormapProgram, "screenGapFactor"), screenGapFactor);
+  glUniform1f(glGetUniformLocation(colormapProgram, "grainStrength"), phos.grain_strength);
   glUniform2i(glGetUniformLocation(colormapProgram, "texSize"), texWidth, texHeight);
 
   // Bind input energy texture and output color texture

@@ -11,12 +11,12 @@ uniform int enablePhosphorGrain;
 uniform int enableCurvedScreen;
 uniform float screenCurvature;
 uniform float screenGapFactor;
+uniform float grainStrength;
 uniform ivec2 texSize;
 
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
-const float GRAIN_STRENGTH = 0.1;
 
 // CRT distortion function
 // Simulates the curved surface of a CRT monitor
@@ -164,7 +164,7 @@ float spatialGrain(vec2 coord) {
     frequency *= 2.0;
   }
   
-  return noise * GRAIN_STRENGTH;
+  return noise * grainStrength;
 }
 
 // Fast tanh approximation for better performance
@@ -223,10 +223,11 @@ void main() {
       energyLinear = float(imageLoad(energyTex, coord).r);
     }
   }
-  
-  // Apply subtle spatial grain to the energy
+
+  // Apply normalized spatial grain to the energy, affecting both brighter and darker directions
   if (enablePhosphorGrain == 1) {
     float grain = spatialGrain(vec2(coord));
+    // Apply grain so it can both increase and decrease energy
     energyLinear *= (1.0 + grain);
   }
 

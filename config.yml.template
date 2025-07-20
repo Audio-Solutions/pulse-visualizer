@@ -81,6 +81,9 @@ phosphor:
   # Enable phosphor grain effect (adds realistic CRT noise)
   # Adds subtle noise to make the effect more realistic
   enable_grain: true
+  # Grain strength (Spatial noise)
+  # Higher values = more noise, lower values = less noise
+  grain_strength: 0.1
   # Density of spline points for phosphor rendering (higher=smoother curves)
   # More points = smoother curves but more GPU usage
   spline_density: 8

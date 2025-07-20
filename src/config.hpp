@@ -120,6 +120,7 @@ struct ConfigValues {
     bool enable_curved_screen = false;
     float screen_curvature = 0.3f;
     float screen_gap = 0.05f;
+    float grain_strength = 0.5f;
   } phosphor;
 };
 
