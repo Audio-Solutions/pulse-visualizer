@@ -14,7 +14,16 @@ struct ConfigValues {
     bool follow_pitch = true;
     std::string alignment = "left";
     std::string alignment_type = "peak";
+    bool limit_cycles = false;
+    int cycles = 1;
+    int min_samples = 64;
   } oscilloscope;
+
+  struct BandpassFilter {
+    float bandwidth = 50.0f;
+    std::string bandwidth_type = "hz";
+    int order = 8;
+  } bandpass_filter;
 
   struct Lissajous {
     int max_points = 1000;
@@ -91,6 +100,7 @@ struct ConfigValues {
 
   struct Debug {
     bool log_fps = false;
+    bool show_bandpassed = false;
   } debug;
 
   struct Phosphor {
@@ -107,6 +117,9 @@ struct ConfigValues {
     bool enable_grain = true;
     int spline_density = 20;
     float tension = 0.5f;
+    bool enable_curved_screen = false;
+    float screen_curvature = 0.3f;
+    float screen_gap = 0.05f;
   } phosphor;
 };
 

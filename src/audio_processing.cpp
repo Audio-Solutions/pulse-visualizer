@@ -457,6 +457,8 @@ void audioThread(AudioData* audioData) {
   while (audioData->running && audioEngine->isRunning()) {
     const auto& audio_cfg = Config::values().audio;
     const auto& fft_cfg = Config::values().fft;
+    const auto& osc_cfg = Config::values().oscilloscope;
+    const auto& bandpass_cfg = Config::values().bandpass_filter;
     audioData->sampleRate = audioEngine->getSampleRate();
 
     // Check for config changes that require audio engine reconfiguration
@@ -884,9 +886,14 @@ void audioThread(AudioData* audioData) {
       audioData->pitchConfidence = std::min(1.0f, confidence / 3.0f);
       audioData->samplesPerCycle = static_cast<float>(sampleRate) / peakFreq;
 
+      float bandwidth = bandpass_cfg.bandwidth;
+      if (bandpass_cfg.bandwidth_type == "percent") {
+        bandwidth = peakFreq * bandwidth / 100.0f;
+      }
+
       // Apply bandpass filter to the buffer using circular-buffer-aware processing
       Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, peakFreq, sampleRate,
-                                         audioData->writePos, 100.0f); // 100Hz bandwidth
+                                         audioData->writePos, bandwidth, bandpass_cfg.order);
     } else {
       audioData->pitchConfidence *= 0.9f; // Decay confidence when no valid peak
     }

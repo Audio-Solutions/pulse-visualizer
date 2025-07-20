@@ -92,6 +92,7 @@ On first run, the application will automatically copy configuration files from t
 >    - PulseAudio: `"pulseaudio.default_source"`
 >    - PipeWire  : `"pipewire.default_source"`
 > 3. Set `"default_font"` to the full path of your font file.
+> 4. Check `/usr/local/share/pulse-visualizer/config.yml.template` for comprehensive configuration options including phosphor effects, FFT settings, visualizer layouts, and more advanced features.
 
 **Themeing:** To choose a theme, edit the `default_theme` field in your config file (`~/.config/pulse-visualizer/config.yml`):
 

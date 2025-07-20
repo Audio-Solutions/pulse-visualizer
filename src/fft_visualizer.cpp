@@ -293,9 +293,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       // Render phosphor splines using high-level interface
       GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
           fftPhosphorContext, fftPoints, intensityLinear, dwellTimes, width, audioData.windowHeight,
-          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.spectrum, phos.beam_size,
-          phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold,
-          phos.range_factor, phos.enable_grain);
+          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.spectrum);
 
       // Draw the phosphor result
       if (phosphorTexture) {

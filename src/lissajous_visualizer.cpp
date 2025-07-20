@@ -185,9 +185,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         // Render phosphor splines using high-level interface
         GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
             lissajousPhosphorContext, densePath, intensityLinear, dwellTimes, width, width,
-            audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.lissajous, phos.beam_size,
-            phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold,
-            phos.range_factor, phos.enable_grain);
+            audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.lissajous);
 
         // Draw the phosphor result
         if (phosphorTexture) {
@@ -198,11 +196,9 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
       std::vector<std::pair<float, float>> emptyPoints;
       std::vector<float> emptyIntensity;
       std::vector<float> emptyDwell;
-      GLuint tex = Graphics::Phosphor::renderPhosphorSplines(
-          lissajousPhosphorContext, emptyPoints, emptyIntensity, emptyDwell, width, width,
-          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.lissajous, phos.beam_size,
-          phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold,
-          phos.range_factor, phos.enable_grain);
+      GLuint tex = Graphics::Phosphor::renderPhosphorSplines(lissajousPhosphorContext, emptyPoints, emptyIntensity,
+                                                             emptyDwell, width, width, audioData.getAudioDeltaTime(),
+                                                             1.0f, colors.background, colors.lissajous);
       if (tex)
         Graphics::Phosphor::drawPhosphorResult(tex, width, width);
       return;

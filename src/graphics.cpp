@@ -824,12 +824,13 @@ PhosphorContext* createPhosphorContext(const char* contextName) { return new Pho
 GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pair<float, float>>& splinePoints,
                              const std::vector<float>& intensityLinear, const std::vector<float>& dwellTimes,
                              int renderWidth, int renderHeight, float deltaTime, float pixelWidth, const float* bgColor,
-                             const float* lineColor, float beamSize, float lineBlurSpread, float lineWidth,
-                             float decaySlow, float decayFast, uint32_t ageThreshold, float rangeFactor,
-                             bool enablePhosphorGrain) {
+                             const float* lineColor) {
   if (!context) {
     return 0;
   }
+
+  // Get phosphor config values directly
+  const auto& phos = Config::values().phosphor;
 
   // Ensure textures are created/resized for current dimensions
   context->ensureTextures(renderWidth, renderHeight);
@@ -864,13 +865,14 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // 2. Decay from energyTex[1] to energyTex[0]
-  dispatchDecay(renderWidth, renderHeight, deltaTime, decaySlow, decayFast, ageThreshold, context->energyTex[1],
-                context->energyTex[0], context->ageTex);
+  dispatchDecay(renderWidth, renderHeight, deltaTime, phos.decay_slow, phos.decay_fast, phos.age_threshold,
+                context->energyTex[1], context->energyTex[0], context->ageTex);
 
   // 3. Draw phosphor additively on tex0 (energyTex[0])
   if (!splinePoints.empty()) {
     dispatchCompute(static_cast<int>(splinePoints.size()), renderWidth, renderHeight, pixelWidth, context->vertexBuffer,
-                    context->energyTex[0], context->ageTex);
+                    context->energyTex[0], context->ageTex, phos.enable_curved_screen, phos.screen_curvature,
+                    phos.screen_gap);
   }
 
   // 4. Clear tex1 (energyTex[1])
@@ -883,11 +885,11 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
   // 5. Separable blur: 3 kernels × 2 directions each = 6 passes total
   for (int kernel = 0; kernel < 3; ++kernel) {
     // Horizontal pass: energyTex[0] -> blurIntermediateTex
-    dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->blurIntermediateTex, lineBlurSpread,
-                 lineWidth, rangeFactor, 0, kernel);
+    dispatchBlur(renderWidth, renderHeight, context->energyTex[0], context->blurIntermediateTex, phos.line_blur_spread,
+                 phos.line_width, phos.range_factor, 0, kernel);
     // Vertical pass: blurIntermediateTex -> kernelResults[kernel]
     dispatchBlur(renderWidth, renderHeight, context->blurIntermediateTex, context->kernelResults[kernel],
-                 lineBlurSpread, lineWidth, rangeFactor, 1, kernel);
+                 phos.line_blur_spread, phos.line_width, phos.range_factor, 1, kernel);
   }
 
   // 5.5. Combine kernel results into energyTex[1] with proper weights
@@ -896,26 +898,29 @@ GLuint renderPhosphorSplines(PhosphorContext* context, const std::vector<std::pa
                   Config::values().phosphor.far_blur_intensity);
 
   // 6. Convert energy to color using compute shader
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
-                   context->colorTex);
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, phos.enable_grain, phos.enable_curved_screen,
+                   phos.screen_curvature, phos.screen_gap, context->energyTex[1], context->colorTex);
 
   // Return the final color texture for drawing
   return context->colorTex;
 }
 
 GLuint drawCurrentPhosphorState(PhosphorContext* context, int renderWidth, int renderHeight, const float* bgColor,
-                                const float* lineColor, bool enablePhosphorGrain) {
+                                const float* lineColor) {
   if (!context) {
     return 0;
   }
+
+  // Get phosphor config values directly
+  const auto& phos = Config::values().phosphor;
 
   // Ensure textures exist for current dimensions
   context->ensureTextures(renderWidth, renderHeight);
 
   // Just convert current energy (energyTex[1]) to color using compute shader
   // This mimics the original fallback behavior - no decay, no blur, just colormap
-  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, enablePhosphorGrain, context->energyTex[1],
-                   context->colorTex);
+  dispatchColormap(renderWidth, renderHeight, bgColor, lineColor, phos.enable_grain, phos.enable_curved_screen,
+                   phos.screen_curvature, phos.screen_gap, context->energyTex[1], context->colorTex);
 
   // Return the color texture for drawing
   return context->colorTex;
@@ -947,7 +952,8 @@ void drawPhosphorResult(GLuint colorTexture, int width, int height) {
 void destroyPhosphorContext(PhosphorContext* context) { delete context; }
 
 void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWidth, GLuint splineVertexBuffer,
-                     GLuint energyTex, GLuint ageTex) {
+                     GLuint energyTex, GLuint ageTex, bool enableCurvedScreen, float screenCurvature,
+                     float screenGapFactor) {
   ensureComputeProgram();
   if (!computeProgram)
     return;
@@ -957,7 +963,9 @@ void dispatchCompute(int vertexCount, int texWidth, int texHeight, float pixelWi
 
   // Set uniforms
   glUniform1f(glGetUniformLocation(computeProgram, "pixelWidth"), pixelWidth);
-  // glUniform1f(glGetUniformLocation(computeProgram, "beamSize"), beamSize);
+  glUniform1i(glGetUniformLocation(computeProgram, "enableCurvedScreen"), enableCurvedScreen ? 1 : 0);
+  glUniform1f(glGetUniformLocation(computeProgram, "screenCurvature"), screenCurvature);
+  glUniform1f(glGetUniformLocation(computeProgram, "screenGapFactor"), screenGapFactor);
   glUniform2i(glGetUniformLocation(computeProgram, "texSize"), texWidth, texHeight);
 
   // Bind vertex buffer
@@ -1078,7 +1086,8 @@ void dispatchCombine(int texWidth, int texHeight, GLuint kernelE, GLuint kernelF
 }
 
 void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const float* lissajousColor,
-                      bool enablePhosphorGrain, GLuint energyTex, GLuint colorTex) {
+                      bool enablePhosphorGrain, bool enableCurvedScreen, float screenCurvature, float screenGapFactor,
+                      GLuint energyTex, GLuint colorTex) {
   ensureColormapProgram();
   if (!colormapProgram)
     return;
@@ -1091,6 +1100,10 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUniform3f(glGetUniformLocation(colormapProgram, "beamColor"), lissajousColor[0], lissajousColor[1],
               lissajousColor[2]);
   glUniform1i(glGetUniformLocation(colormapProgram, "enablePhosphorGrain"), enablePhosphorGrain ? 1 : 0);
+  glUniform1i(glGetUniformLocation(colormapProgram, "enableCurvedScreen"), enableCurvedScreen ? 1 : 0);
+  glUniform1f(glGetUniformLocation(colormapProgram, "screenCurvature"), screenCurvature);
+  glUniform1f(glGetUniformLocation(colormapProgram, "screenGapFactor"), screenGapFactor);
+  glUniform2i(glGetUniformLocation(colormapProgram, "texSize"), texWidth, texHeight);
 
   // Bind input energy texture and output color texture
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);

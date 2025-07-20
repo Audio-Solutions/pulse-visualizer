@@ -38,6 +38,9 @@ debug:
   # Enable FPS logging to console (true/false)
   # Useful for performance monitoring
   log_fps: false
+  # Show bandpassed signal on oscilloscope
+  # Shows the filtered signal used for pitch detection
+  show_bandpassed: false
 
 # Phosphor Effect Settings
 # Controls the CRT phosphor simulation effect (realistic glow and persistence)
@@ -84,6 +87,14 @@ phosphor:
   # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
   # Higher values = tighter curves, lower values = looser curves
   tension: 0.5
+  # Enable curved phosphor screen effect (simulates curved CRT monitor)
+  # Adds barrel distortion to simulate curved screen geometry
+  enable_curved_screen: true
+  # Curvature intensity for curved screen effect (0.0-1.0)
+  # Higher values = more curved screen, 0.0 = flat screen
+  screen_curvature: 0.1
+  # Gap factor between screen edges and border (higher=less gap)
+  screen_gap: 1.1
 
 # FFT (Fast Fourier Transform) Settings
 # Controls frequency analysis and spectrum visualization
@@ -193,6 +204,28 @@ oscilloscope:
   # Peak: align to waveform peaks
   # Zero_crossing: align to zero crossings
   alignment_type: zero_crossing
+  # Only track n cycles of the waveform
+  # When true, limits display to specified number of waveform cycles
+  # When false, uses fixed number of samples from audio.display_samples
+  limit_cycles: false
+  # Number of cycles to track when limit_cycles is true
+  # More cycles = longer time window but may show less detail
+  cycles: 3
+  # Minimum number of samples to display in oscilloscope
+  # Ensures minimum detail level when peak pitch is too high
+  min_samples: 256
+
+# Bandpass Filter Settings
+# Controls the bandpass filter applied to the audio signal used for pitch following
+# A tighter bandpass filter has a better precision with the downside of jitter during pitch changes
+bandpass_filter:
+  # Bandwidth in Hz or percent of center frequency
+  # Lower values = narrower filter, higher values = wider filter
+  bandwidth: 20.0
+  # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
+  bandwidth_type: percent
+  # Order of the bandpass filter (higher = steeper filter, more CPU usage)
+  order: 2
 
 # PulseAudio Settings
 # Controls PulseAudio backend configuration

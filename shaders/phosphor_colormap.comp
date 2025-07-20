@@ -8,10 +8,143 @@ layout(binding = 1, rgba8) uniform image2D colorTex;
 uniform vec3 blackColor;
 uniform vec3 beamColor;
 uniform int enablePhosphorGrain;
+uniform int enableCurvedScreen;
+uniform float screenCurvature;
+uniform float screenGapFactor;
+uniform ivec2 texSize;
+
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
 const float GRAIN_STRENGTH = 0.1;
+
+// CRT distortion function
+// Simulates the curved surface of a CRT monitor
+vec2 crtDistortion(vec2 uv) {
+  // Normalize coordinates to [-1, 1] range
+  vec2 centered = uv * 2.0 - 1.0;
+  
+  // Apply barrel distortion (pincushion for CRT)
+  float distortion = screenCurvature;
+  float r2 = dot(centered, centered);
+  float distortionFactor = 1.0 + distortion * r2;
+  
+  // Apply distortion
+  vec2 distorted = centered * distortionFactor;
+  
+  // Convert back to [0, 1] range
+  return (distorted + 1.0) * 0.5;
+}
+
+// Calculate border mask with antialiasing
+// Returns 1.0 for inside screen, 0.0 for outside, smooth transition at edges
+float calculateBorderMask(vec2 uv, vec2 texelSize) {
+  // Early return if no border is needed (both features disabled)
+  if (enableCurvedScreen == 0 && screenGapFactor >= 1.0) {
+    return 1.0; // No border, full screen content
+  }
+  
+  // Apply screen gap factor to create border in the middle
+  float gapOffset = (1.0 - screenGapFactor) * 0.5;
+  vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
+  
+  if (enableCurvedScreen == 0) {
+    // No distortion - simple rectangular border with gap
+    vec2 border = texelSize * 2.0; // Border thickness
+    vec2 mask = smoothstep(0.0, border.x, scaledUV) * smoothstep(1.0, 1.0 - border.x, scaledUV) *
+                smoothstep(0.0, border.y, scaledUV) * smoothstep(1.0, 1.0 - border.y, scaledUV);
+    return mask.x * mask.y;
+  }
+  
+  // With CRT distortion, we need to check if the distorted coordinate is within bounds
+  vec2 distortedUV = crtDistortion(scaledUV);
+  
+  // Calculate the Jacobian to determine edge thickness
+  vec2 epsilon = texelSize * 0.5;
+  vec2 ddx = crtDistortion(scaledUV + vec2(epsilon.x, 0.0)) - crtDistortion(scaledUV - vec2(epsilon.x, 0.0));
+  vec2 ddy = crtDistortion(scaledUV + vec2(0.0, epsilon.y)) - crtDistortion(scaledUV - vec2(0.0, epsilon.y));
+  float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
+  
+  // Adaptive border thickness based on distortion
+  float borderThickness = texelSize.x * 2.0 / max(area, 0.1);
+  
+  // Check if we're inside the distorted screen area
+  float insideX = smoothstep(0.0, borderThickness, distortedUV.x) * 
+                  smoothstep(1.0, 1.0 - borderThickness, distortedUV.x);
+  float insideY = smoothstep(0.0, borderThickness, distortedUV.y) * 
+                  smoothstep(1.0, 1.0 - borderThickness, distortedUV.y);
+  
+  return insideX * insideY;
+}
+
+// Antialiased sampling function
+// Samples multiple points around the distorted coordinate to reduce aliasing
+float sampleAntialiased(vec2 uv, vec2 texelSize) {
+  // Apply screen gap factor scaling
+  float gapOffset = (1.0 - screenGapFactor) * 0.5;
+  vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
+  
+  // Check if the scaled coordinate is within the valid range
+  if (scaledUV.x < 0.0 || scaledUV.x > 1.0 || scaledUV.y < 0.0 || scaledUV.y > 1.0) {
+    return 0.0; // Return black for out-of-bounds
+  }
+  
+  // Calculate the distortion at the current pixel
+  vec2 distortedUV = crtDistortion(scaledUV);
+  
+  // Check if the distorted coordinate is within bounds
+  if (distortedUV.x < 0.0 || distortedUV.x > 1.0 || 
+      distortedUV.y < 0.0 || distortedUV.y > 1.0) {
+    return 0.0; // Return black for out-of-bounds
+  }
+  
+  // Calculate the Jacobian of the distortion transformation
+  // This helps us determine how much the sampling area is stretched
+  vec2 epsilon = texelSize * 0.5;
+  vec2 ddx = crtDistortion(scaledUV + vec2(epsilon.x, 0.0)) - crtDistortion(scaledUV - vec2(epsilon.x, 0.0));
+  vec2 ddy = crtDistortion(scaledUV + vec2(0.0, epsilon.y)) - crtDistortion(scaledUV - vec2(0.0, epsilon.y));
+  
+  // Calculate the area of the transformed pixel
+  float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
+  
+  // If the area is too small, we need more samples
+  float minArea = 0.1;
+  int samples = max(1, int(ceil(minArea / max(area, 0.01))));
+  samples = min(samples, 16); // Cap at 16 samples for performance
+  
+  float result = 0.0;
+  float weightSum = 0.0;
+  
+  // Multi-sample antialiasing
+  for (int i = 0; i < samples; i++) {
+    for (int j = 0; j < samples; j++) {
+      vec2 offset = vec2(float(i), float(j)) / float(samples - 1) - 0.5;
+      vec2 sampleUV = scaledUV + offset * texelSize;
+      vec2 distortedSampleUV = crtDistortion(sampleUV);
+      
+      // Check bounds
+      if (distortedSampleUV.x >= 0.0 && distortedSampleUV.x <= 1.0 && 
+          distortedSampleUV.y >= 0.0 && distortedSampleUV.y <= 1.0) {
+        
+        // Sample the energy texture at the distorted coordinate
+        ivec2 sampleCoord = ivec2(distortedSampleUV * vec2(texSize));
+        sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
+        float energy = float(imageLoad(energyTex, sampleCoord).r);
+        
+        float weight = 1.0 / float(samples * samples);
+        result += energy * weight;
+        weightSum += weight;
+      }
+    }
+  }
+  
+  // Normalize by the actual weight sum to avoid darkening
+  if (weightSum > 0.0) {
+    result /= weightSum;
+  }
+  
+  return result;
+}
 
 // Natural phosphor grain noise using multiple octaves
 float spatialGrain(vec2 coord) {
@@ -60,9 +193,36 @@ vec3 tanhColormap(float mapIndex, vec3 baseColor) {
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  vec2 uv = vec2(coord) / vec2(texSize);
+  vec2 texelSize = 1.0 / vec2(texSize);
 
-  // Sample linear energy value
-  float energyLinear = float(imageLoad(energyTex, coord).r);
+  // Calculate border mask
+  float screenMask = calculateBorderMask(uv, texelSize);
+  
+  // Sample energy value with optional CRT distortion
+  float energyLinear;
+  if (enableCurvedScreen == 1) {
+    // Use antialiased sampling for CRT distortion
+    energyLinear = sampleAntialiased(uv, texelSize);
+  } else {
+    // Direct sampling - only apply scaling if gap factor is not 1.0
+    if (screenGapFactor < 1.0) {
+      float gapOffset = (1.0 - screenGapFactor) * 0.5;
+      vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
+      
+      // Check if the scaled coordinate is within the valid range
+      if (scaledUV.x >= 0.0 && scaledUV.x <= 1.0 && scaledUV.y >= 0.0 && scaledUV.y <= 1.0) {
+        ivec2 sampleCoord = ivec2(scaledUV * vec2(texSize));
+        sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
+        energyLinear = float(imageLoad(energyTex, sampleCoord).r);
+      } else {
+        energyLinear = 0.0; // Return black for out-of-bounds
+      }
+    } else {
+      // No scaling needed - direct sampling
+      energyLinear = float(imageLoad(energyTex, coord).r);
+    }
+  }
   
   // Apply subtle spatial grain to the energy
   if (enablePhosphorGrain == 1) {
@@ -72,11 +232,17 @@ void main() {
 
   // Scale energy for tanh mapping
   energyLinear /= TANH_DIV_FACTOR;
-  vec3 outColor = tanhColormap(energyLinear, beamColor);
+  vec3 screenColor = tanhColormap(energyLinear, beamColor);
 
   // add bg
-  outColor = outColor + blackColor;
-  outColor = clamp(outColor, 0.0, 1.0);
+  screenColor = screenColor + blackColor;
+  screenColor = clamp(screenColor, 0.0, 1.0);
+
+  // Calculate border color (70% of background color)
+  vec3 borderColor = blackColor * 0.7;
+  
+  // Blend between screen content and border based on mask
+  vec3 outColor = mix(borderColor, screenColor, screenMask);
 
   // Write result to color texture
   imageStore(colorTex, coord, vec4(outColor, 1.0));

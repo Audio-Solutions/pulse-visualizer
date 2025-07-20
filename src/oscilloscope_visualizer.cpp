@@ -25,6 +25,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
 
   const auto& osc = Config::values().oscilloscope;
+  const auto& debug = Config::values().debug;
   const auto& phos = Config::values().phosphor;
   const auto& colors = Theme::ThemeManager::colors();
   const auto& audio = Config::values().audio;
@@ -37,8 +38,16 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     scopePhosphorContext = nullptr;
   }
 
+  size_t displaySamples = audioData.displaySamples;
+  if (osc.limit_cycles) {
+    displaySamples = audioData.samplesPerCycle * osc.cycles;
+
+    // Limit to at least min_samples
+    displaySamples = std::max(displaySamples, static_cast<size_t>(osc.min_samples));
+  }
+
   // Calculate the target position for phase correction
-  size_t targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
+  size_t targetPos = (audioData.writePos + audioData.bufferSize - displaySamples) % audioData.bufferSize;
 
   // Use pre-computed bandpassed data for zero crossing detection
   size_t searchRange = static_cast<size_t>(audioData.samplesPerCycle) * 2;
@@ -49,10 +58,10 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     // Adjust target position based on alignment
     if (osc.alignment == "left") {
       // Search backward for the nearest positive zero crossing
-      targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
+      targetPos = (audioData.writePos + audioData.bufferSize - displaySamples) % audioData.bufferSize;
     } else if (osc.alignment == "center") {
       // Search backward from center position
-      targetPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples / 2) % audioData.bufferSize;
+      targetPos = (audioData.writePos + audioData.bufferSize - displaySamples / 2) % audioData.bufferSize;
     } else if (osc.alignment == "right") {
       // Search backward from right edge (newest data)
       targetPos = (audioData.writePos + audioData.bufferSize - 1) % audioData.bufferSize;
@@ -81,7 +90,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
   }
 
   // Calculate the start position for reading samples, adjusted for phase
-  size_t startPos = (audioData.writePos + audioData.bufferSize - audioData.displaySamples) % audioData.bufferSize;
+  size_t startPos = (audioData.writePos + audioData.bufferSize - displaySamples) % audioData.bufferSize;
   if (osc.follow_pitch && audioData.samplesPerCycle > 0.0f && audioData.pitchConfidence > 0.5f &&
       audioData.hasValidPeak) {
     // Move backward by the phase offset
@@ -90,20 +99,22 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
 
   // Re-use static vector for waveform points
   scopePoints.clear();
-  scopePoints.reserve(audioData.displaySamples);
+  scopePoints.reserve(displaySamples);
 
   // Pre-compute scale factors
-  const float widthScale = static_cast<float>(width - 2) / audioData.displaySamples;
+  const float widthScale = static_cast<float>(width - 2) / displaySamples;
   const float centerY = audioData.windowHeight * 0.5f;
 
-  for (size_t i = 0; i < audioData.displaySamples; i++) {
+  for (size_t i = 0; i < displaySamples + 1; i++) {
     size_t pos = (startPos + i) % audioData.bufferSize;
     float x = static_cast<float>(i) * widthScale + 1.0f;
-#ifdef SCOPE_USE_RAW_SIGNAL
-    float y = centerY + audioData.bufferMid[pos] * audioData.windowHeight * 0.5f;
-#else
-    float y = centerY + audioData.bandpassedMid[pos] * audioData.windowHeight * 0.5f;
-#endif
+
+    float y = 0.0f;
+    if (debug.show_bandpassed) {
+      y = centerY + audioData.bandpassedMid[pos] * audioData.windowHeight * 0.5f;
+    } else {
+      y = centerY + audioData.bufferMid[pos] * audioData.windowHeight * 0.5f;
+    }
 
     // Clamp y values to screen bounds
     y = std::max(0.0f, std::min(y, static_cast<float>(audioData.windowHeight - 2)));
@@ -120,9 +131,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     std::vector<float> emptyDwell;
     GLuint tex = Graphics::Phosphor::renderPhosphorSplines(
         scopePhosphorContext, emptyPoints, emptyIntensity, emptyDwell, width, audioData.windowHeight,
-        audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.oscilloscope, phos.beam_size,
-        phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold, phos.range_factor,
-        phos.enable_grain);
+        audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.oscilloscope);
     if (tex)
       Graphics::Phosphor::drawPhosphorResult(tex, width, audioData.windowHeight);
     return;
@@ -142,6 +151,9 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
       float ref = 400.0f * 400.0f;
       float beamEnergy = phos.beam_energy / ref * (width * audioData.windowHeight);
 
+      // Normalize beam energy over display samples
+      beamEnergy = beamEnergy / displaySamples * audioData.displaySamples;
+
       for (size_t i = 1; i < scopePoints.size(); ++i) {
         const auto& p1 = scopePoints[i - 1];
         const auto& p2 = scopePoints[i];
@@ -159,9 +171,7 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
       // Render phosphor splines using high-level interface
       GLuint phosphorTexture = Graphics::Phosphor::renderPhosphorSplines(
           scopePhosphorContext, scopePoints, intensityLinear, dwellTimes, width, audioData.windowHeight,
-          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.oscilloscope, phos.beam_size,
-          phos.line_blur_spread, phos.line_width, phos.decay_slow, phos.decay_fast, phos.age_threshold,
-          phos.range_factor, phos.enable_grain);
+          audioData.getAudioDeltaTime(), 1.0f, colors.background, colors.oscilloscope);
 
       // Draw the phosphor result
       if (phosphorTexture) {

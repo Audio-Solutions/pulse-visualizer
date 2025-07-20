@@ -101,6 +101,13 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.follow_pitch = getBool("oscilloscope.follow_pitch");
     v.oscilloscope.alignment = getString("oscilloscope.alignment");
     v.oscilloscope.alignment_type = getString("oscilloscope.alignment_type");
+    v.oscilloscope.limit_cycles = getBool("oscilloscope.limit_cycles");
+    v.oscilloscope.cycles = getInt("oscilloscope.cycles");
+    v.oscilloscope.min_samples = getInt("oscilloscope.min_samples");
+
+    v.bandpass_filter.bandwidth = getFloat("bandpass_filter.bandwidth");
+    v.bandpass_filter.bandwidth_type = getString("bandpass_filter.bandwidth_type");
+    v.bandpass_filter.order = getInt("bandpass_filter.order");
 
     v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.enable_splines = getBool("lissajous.enable_splines");
@@ -160,6 +167,7 @@ void Config::load(const std::string& filename) {
     v.pipewire.ring_multiplier = getInt("pipewire.ring_multiplier");
 
     v.debug.log_fps = getBool("debug.log_fps");
+    v.debug.show_bandpassed = getBool("debug.show_bandpassed");
 
     v.phosphor.near_blur_intensity = getFloat("phosphor.near_blur_intensity");
     v.phosphor.far_blur_intensity = getFloat("phosphor.far_blur_intensity");
@@ -174,6 +182,9 @@ void Config::load(const std::string& filename) {
     v.phosphor.enable_grain = getBool("phosphor.enable_grain");
     v.phosphor.spline_density = getInt("phosphor.spline_density");
     v.phosphor.tension = getFloat("phosphor.tension");
+    v.phosphor.enable_curved_screen = getBool("phosphor.enable_curved_screen");
+    v.phosphor.screen_curvature = getFloat("phosphor.screen_curvature");
+    v.phosphor.screen_gap = getFloat("phosphor.screen_gap");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

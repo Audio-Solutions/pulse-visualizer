@@ -24,7 +24,9 @@ The application reads its configuration from \fI~/.config/pulse-visualizer/confi
 If this file doesn't exist, it will be created from a template on first run.
 The configuration supports live updates and allows selection of audio backend
 (PulseAudio or PipeWire), visualization settings, phosphor effect parameters,
-and theme selection.
+and theme selection. For comprehensive configuration options including advanced
+phosphor effects, FFT settings, visualizer layouts, and more, see the template
+file at \fI/usr/local/share/pulse-visualizer/config.yml.template\fR.
 
 .SH THEMES
 Themes are stored in \fI~/.config/pulse-visualizer/themes/\fR and can be selected
