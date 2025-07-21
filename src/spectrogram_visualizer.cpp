@@ -410,28 +410,28 @@ void SpectrogramVisualizer::updateSpectrogramColumn(const AudioData& audioData) 
 }
 
 void SpectrogramVisualizer::draw(const AudioData& audioData, int) {
-  // Set up the viewport for the spectrogram
   Graphics::setupViewport(position, 0, width, audioData.windowHeight, audioData.windowHeight);
-
-  // Initialize texture if needed
   initializeTexture(width, audioData.windowHeight);
 
-  // Update spectrogram data when new audio data is available
-  updateSpectrogramColumn(audioData);
+  // Advance column only when enough time has passed to match time_window
+  const auto& scfg = Config::values().spectrogram;
+  float advanceInterval = (textureWidth > 0) ? (scfg.time_window / static_cast<float>(textureWidth)) : 0.0f;
+  if (advanceInterval > 0.0f) {
+    columnAdvanceAccumulator += audioData.dt;
+    while (columnAdvanceAccumulator >= advanceInterval) {
+      updateSpectrogramColumn(audioData);
+      columnAdvanceAccumulator -= advanceInterval;
+    }
+  }
 
-  // Draw spectrogram texture with scrolling effect
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, spectrogramTexture);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
   float drawHeight = static_cast<float>(audioData.windowHeight);
-
-  // Calculate texture coordinates for scrolling effect
   float colWidth = 1.0f / textureWidth;
   float currentU = static_cast<float>(currentColumn) * colWidth;
 
-  // Draw the texture in two parts to create seamless scrolling
-  // Part 1: From current column to end of texture
   float part1Width = (1.0f - currentU) * width;
   if (part1Width > 0.0f) {
     glBegin(GL_QUADS);
@@ -446,7 +446,6 @@ void SpectrogramVisualizer::draw(const AudioData& audioData, int) {
     glEnd();
   }
 
-  // Part 2: From start of texture to current column
   float part2Width = currentU * width;
   if (part2Width > 0.0f) {
     glBegin(GL_QUADS);

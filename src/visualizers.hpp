@@ -152,6 +152,9 @@ private:
   int textureHeight = 0;
   int currentColumn = 0;
 
+  // Time accumulator for controlling column advance rate
+  float columnAdvanceAccumulator = 0.0f;
+
   // Internal helpers (no cached values needed - using centralized config and theme access)
   void initializeTexture(int targetWidth, int targetHeight);
   void updateSpectrogramColumn(const AudioData& audioData);
