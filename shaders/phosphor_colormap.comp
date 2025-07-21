@@ -187,25 +187,6 @@ vec3 tanhColormap(float mapIndex, vec3 baseColor) {
   return clamp(result, 0.0, 1.0);
 }
 
-// Helper function for direct sampling (move outside main)
-float getEnergy(vec2 sampleUV, float screenGapFactor, ivec2 texSize) {
-  if (screenGapFactor < 1.0) {
-    float gapOffset = (1.0 - screenGapFactor) * 0.5;
-    vec2 scaledUV = (sampleUV - gapOffset) / screenGapFactor;
-    if (scaledUV.x >= 0.0 && scaledUV.x <= 1.0 && scaledUV.y >= 0.0 && scaledUV.y <= 1.0) {
-      ivec2 sampleCoord = ivec2(scaledUV * vec2(texSize));
-      sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-      return float(imageLoad(energyTex, sampleCoord).r);
-    } else {
-      return 0.0;
-    }
-  } else {
-    ivec2 sampleCoord = ivec2(sampleUV * vec2(texSize));
-    sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-    return float(imageLoad(energyTex, sampleCoord).r);
-  }
-}
-
 float tanhColormapChannel(float mapIndex, float baseColor) {
   return clamp(fast_tanh(mapIndex * baseColor), 0.0, 1.0);
 }
@@ -239,9 +220,10 @@ void main() {
     energyG = sampleAntialiased(uvG, texelSize);
     energyB = sampleAntialiased(uvB, texelSize);
   } else {
-    energyR = getEnergy(uvR, screenGapFactor, texSize);
-    energyG = getEnergy(uvG, screenGapFactor, texSize);
-    energyB = getEnergy(uvB, screenGapFactor, texSize);
+    // 1:1 mapping, no UV math, no gap, no antialiasing
+    energyR = float(imageLoad(energyTex, coord).r);
+    energyG = float(imageLoad(energyTex, coord).r);
+    energyB = float(imageLoad(energyTex, coord).r);
   }
 
   // Apply normalized spatial grain to the energy, affecting both brighter and darker directions

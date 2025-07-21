@@ -654,13 +654,6 @@ void audioThread(AudioData* audioData) {
       ConstantQ::computeCQT(cqtParams, audioData->bufferSide, audioData->writePos, audioData->cqtMagnitudesSide);
     }
 
-    // Update FFT timing
-    auto now = std::chrono::steady_clock::now();
-    if (audioData->lastFftUpdate != std::chrono::steady_clock::time_point()) {
-      audioData->fftUpdateInterval = std::chrono::duration<float>(now - audioData->lastFftUpdate).count();
-    }
-    audioData->lastFftUpdate = now;
-
     // Unified pitch/peak detection using configurable frequency range
     int sampleRate = audioEngine->getSampleRate();
     const float minFreq = fft_cfg.min_freq;

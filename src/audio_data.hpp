@@ -21,11 +21,6 @@ struct AudioData {
   int windowWidth;
   int windowHeight;
 
-  // Frame timing for delta time tracking
-  float dt = 0.0f; // Delta time in seconds
-  std::chrono::steady_clock::time_point lastFrameTime;
-  bool frameTimingInitialized = false;
-
   float sampleRate = 44100.0f;
   float currentPitch = 0.0f;
   float pitchConfidence = 0.0f;

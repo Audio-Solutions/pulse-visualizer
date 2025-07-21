@@ -417,7 +417,7 @@ void SpectrogramVisualizer::draw(const AudioData& audioData, int) {
   const auto& scfg = Config::values().spectrogram;
   float advanceInterval = (textureWidth > 0) ? (scfg.time_window / static_cast<float>(textureWidth)) : 0.0f;
   if (advanceInterval > 0.0f) {
-    columnAdvanceAccumulator += audioData.dt;
+    columnAdvanceAccumulator += audioData.getAudioDeltaTime();
     while (columnAdvanceAccumulator >= advanceInterval) {
       updateSpectrogramColumn(audioData);
       columnAdvanceAccumulator -= advanceInterval;
