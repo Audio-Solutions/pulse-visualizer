@@ -98,6 +98,14 @@ phosphor:
   screen_curvature: 0.1
   # Gap factor between screen edges and border (higher=less gap)
   screen_gap: 1.1
+  # Vignette strength (0.0-1.0)
+  # Higher values = more vignette, lower values = less vignette
+  # 0 to disable
+  vignette_strength: 0.3
+  # Chromatic aberration strength (0.0-1.0)
+  # Higher values = more chromatic aberration, lower values = less chromatic aberration
+  # 0 to disable
+  chromatic_aberration_strength: 0.005
 
 # FFT (Fast Fourier Transform) Settings
 # Controls frequency analysis and spectrum visualization

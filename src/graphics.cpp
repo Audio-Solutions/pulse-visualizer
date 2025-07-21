@@ -1107,6 +1107,8 @@ void dispatchColormap(int texWidth, int texHeight, const float* bgColor, const f
   glUniform1f(glGetUniformLocation(colormapProgram, "screenGapFactor"), screenGapFactor);
   glUniform1f(glGetUniformLocation(colormapProgram, "grainStrength"), phos.grain_strength);
   glUniform2i(glGetUniformLocation(colormapProgram, "texSize"), texWidth, texHeight);
+  glUniform1f(glGetUniformLocation(colormapProgram, "vignetteStrength"), phos.vignette_strength);
+  glUniform1f(glGetUniformLocation(colormapProgram, "chromaticAberrationStrength"), phos.chromatic_aberration_strength);
 
   // Bind input energy texture and output color texture
   glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);

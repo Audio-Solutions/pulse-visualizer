@@ -2,74 +2,41 @@
 
 ![Pulse Audio Visualizer in Phosphor Mode](media/viz.gif)
 
-Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/) that transforms your system's audio into eye-catching (maybe?) visual effects. Built in C++ and powered by SDL2, OpenGL, PulseAudio, and FFTW, Pulse delivers smooth, responsive visuals that move in sync with your music (unless your system sucks :D).
+## What Even Is This?
 
-## Current Status
-
-⚠️ **Early Development Notice**: Pulse is still in active development and comes with a few rough edges:
-
-- No settings menu yet.
-- Configuration is handled through a config file (see [Building](#building) for more details).
-- Performance may vary depending on your system's framerate.
-- Bugs and quirks are to be expected.
+Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL2, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
 
 ## Features
 
-- Real-time audio visualization with low-latency processing
-- Enhanced analog CRT phosphor emulation with GPU compute shaders featuring realistic glow and persistence effects
-  - **Incompatible with light themes.** (duh)
-  - Needs nonzero rgb values for proper overdrive effect.
-  - Configurable blur intensity controls with `near_blur_intensity` and `far_blur_intensity` parameters
-  - Light spread factor is configurable using `phosphor_range_factor`. **RESOURCE INTENSIVE: $$\mathcal{O}\left(6 \cdot \left(\text{rangefactor} \cdot \text{lineblurspread} \times 2 + 1\right)\right)$$**
-  - Blur can be disabled by setting `phosphor_range_factor` to zero
-- Multiple visualization styles:
-	- Lissajous curve with Catmull-Rom spline interpolation
-	- Oscilloscope with configurable gradient modes
-	- FFT with mid/side and right/left modes and sharp/flat note key mode, now with Constant-Q transform support
-	- Spectrogram
-- Live configuration updates
-- Cross-platform support (PulseAudio **and** PipeWire backends)
-- Hardware-accelerated graphics with OpenGL
-- Collection of ready-made themes, including MiniMeters's native themes (see the `themes/` folder)
-
-## Dependencies & Platform Support
-
-**Dependencies:**
-- C++17 compatible compiler
-- CMake 3.10 or newer
-- SDL2
-- PulseAudio **or** PipeWire (0.3+)
-- FFTW3
-- FreeType2
-- OpenGL
-- GLEW
-- YAML-CPP
-- Ninja-build
-
-On Fedora, this would be:
-```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel```  
-On Debian, this would be:
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja```  
-
-**Supported Platforms:**
-- Linux (PulseAudio **or** PipeWire)
-- BSD (PulseAudio)
+- Real-time, low-latency audio visualization
+- CRT phosphor emulation with GPU compute shaders (glow, persistence, all the retro stuff)
+  - Curved screen, vignette, grain, chromatic aberration (toggle as you like)
+  - Blur, light spread, and overdrive are all tweakable
+- Multiple visualizer styles:
+  - Lissajous curve (with fancy spline interpolation)
+  - Oscilloscope (gradient modes, pitch following, cycle limiting)
+  - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
+  - Spectrogram (log/linear scale, interpolation)
+- Live config and theme hot-reloading (no restart needed, mostly)
+- Draggable splitters for custom layout
+- Mouse interaction: hover FFT for note readout, drag splitters, etc.
+- Cross-platform: PulseAudio **and** PipeWire
+- Hardware-accelerated graphics (OpenGL)
+- A pile of ready-made themes (see `themes/`)
 
 ## Installation
 
-**Arch Linux:**
-The package is available on the AUR as `pulse-visualizer-git`:
+### Arch Linux (AUR)
+
+Just grab it from the AUR as `pulse-visualizer-git`:
+
 ```bash
-# Using your preferred AUR helper (e.g., yay, paru)
 yay -S pulse-visualizer-git
 ```
 
-**Other Distributions:**
-See the [Building](#building) section below for manual compilation instructions.
+### Other Distros (Manual Build)
 
-## Building
-
-Build and install the project:
+Clone, build, install:
 
 ```bash
 mkdir build
@@ -79,53 +46,101 @@ ninja
 sudo ninja install
 ```
 
-The installation will automatically:
-- Install the executable to `/usr/local/bin/Pulse`
+This will:
+- Put the executable in `/usr/local/bin/Pulse`
 - Install system files to `/usr/local/share/pulse-visualizer/`
-- Create desktop integration and man page
+- Set up desktop integration and man page
 
-On first run, the application will automatically copy configuration files from the system installation to `~/.config/pulse-visualizer/` if they don't already exist.
+On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
 
-> **Note:**
-> 1. Select the audio backend in your config: `"audio.engine": "pulseaudio" | "pipewire" | "auto"` (default `auto`).
-> 2. Set the input device for the chosen backend:
->    - PulseAudio: `"pulseaudio.default_source"`
->    - PipeWire  : `"pipewire.default_source"`
-> 3. Set `"default_font"` to the full path of your font file.
-> 4. Check `/usr/local/share/pulse-visualizer/config.yml.template` for comprehensive configuration options including phosphor effects, FFT settings, visualizer layouts, and more advanced features.
+## Dependencies & Platform Support
 
-**Themeing:** To choose a theme, edit the `default_theme` field in your config file (`~/.config/pulse-visualizer/config.yml`):
+**You need:**
+- C++17 compiler
+- CMake 3.10+
+- SDL2
+- PulseAudio **or** PipeWire (0.3+)
+- FFTW3
+- FreeType2
+- OpenGL
+- GLEW
+- YAML-CPP
+- Ninja-build
+
+Fedora:  
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel```  
+Debian:  
+```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja```
+
+**Works on:**
+- Linux (PulseAudio or PipeWire)
+- BSD (PulseAudio)
+
+## Configuration
+
+Pulse doesn't have a settings menu (and will probably never have one), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`.
+
+- Pick your audio backend: set `engine` under the `audio` section, e.g.:
+  ```yaml
+  audio:
+    engine: pipewire   # or pulseaudio, or auto (default)
+  ```
+- Set the input device:
+  - For PulseAudio: set `default_source` under the `pulseaudio` section:
+    ```yaml
+    pulseaudio:
+      default_source: your_pulseaudio_source_name
+    ```
+  - For PipeWire: set `default_source` under the `pipewire` section:
+    ```yaml
+    pipewire:
+      default_source: your_pipewire_source_name
+    ```
+- Set your font by editing the `default_font` field under the `font` section:
+  ```yaml
+  font:
+    default_font: /full/path/to/your/font.ttf
+  ```
+- Tons of other options are available in `/usr/local/share/pulse-visualizer/config.yml.template`
+
+### Themeing
+
+To pick a theme, edit the `default_theme` field in your config:
 
 ```yaml
 window:
   default_theme: green-crt.txt
 ```
 
-Replace `"green-crt.txt"` with any theme file from the `themes/` directory. Theme files are automatically copied from the system installation to `~/.config/pulse-visualizer/themes/` on first run.
+Swap `green-crt.txt` for any file in `themes/`. Theme files get copied to `~/.config/pulse-visualizer/themes/` on first run.
+
+Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
 
 ## Usage
 
-After installation, you can run the visualizer from anywhere:
+Just run:
 
 ```bash
 Pulse
 ```
 
+- Drag splitters to resize/rearrange visualizers
+- Lissajous will enforce a square aspect ratio
+- Hover FFT for real-time frequency, dB, and note readout
+- All config and theme changes are live, no restart needed
+
 ## Contributing & Support
 
-Contributions are welcome! If you want to help improve Pulse, feel free to jump in. I use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format the code, so please use it to format your code before submitting a pull request. Apologies in advance for my chaotic coding style.
+Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
 
-If you find Pulse useful and want to support its development, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
+If you like Pulse, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [MiniMeters](https://minimeters.app/) for inspiration in audio visualization design
+- [MiniMeters](https://minimeters.app/) for inspiration
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
-- SDL2 for cross-platform graphics and input
-- PulseAudio and PipeWire for audio capture
-- FFTW for fast Fourier transforms
-- FreeType for text rendering
+- SDL2, PulseAudio, PipeWire, FFTW, FreeType, and everyone else who made this possible

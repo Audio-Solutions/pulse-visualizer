@@ -121,6 +121,8 @@ struct ConfigValues {
     float screen_curvature = 0.3f;
     float screen_gap = 0.05f;
     float grain_strength = 0.5f;
+    float vignette_strength = 0.3f;
+    float chromatic_aberration_strength = 0.003f;
   } phosphor;
 };
 

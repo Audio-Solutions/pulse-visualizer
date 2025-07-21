@@ -186,6 +186,8 @@ void Config::load(const std::string& filename) {
     v.phosphor.screen_curvature = getFloat("phosphor.screen_curvature");
     v.phosphor.screen_gap = getFloat("phosphor.screen_gap");
     v.phosphor.grain_strength = getFloat("phosphor.grain_strength");
+    v.phosphor.vignette_strength = getFloat("phosphor.vignette_strength");
+    v.phosphor.chromatic_aberration_strength = getFloat("phosphor.chromatic_aberration_strength");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

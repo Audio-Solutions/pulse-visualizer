@@ -12,8 +12,9 @@ uniform int enableCurvedScreen;
 uniform float screenCurvature;
 uniform float screenGapFactor;
 uniform float grainStrength;
+uniform float vignetteStrength;
+uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
-
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
@@ -107,18 +108,13 @@ float sampleAntialiased(vec2 uv, vec2 texelSize) {
   // Calculate the area of the transformed pixel
   float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
   
-  // If the area is too small, we need more samples
-  float minArea = 0.1;
-  int samples = max(1, int(ceil(minArea / max(area, 0.01))));
-  samples = min(samples, 16); // Cap at 16 samples for performance
-  
   float result = 0.0;
   float weightSum = 0.0;
   
   // Multi-sample antialiasing
-  for (int i = 0; i < samples; i++) {
-    for (int j = 0; j < samples; j++) {
-      vec2 offset = vec2(float(i), float(j)) / float(samples - 1) - 0.5;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      vec2 offset = vec2(float(i), float(j)) / float(8 - 1) - 0.5;
       vec2 sampleUV = scaledUV + offset * texelSize;
       vec2 distortedSampleUV = crtDistortion(sampleUV);
       
@@ -131,7 +127,7 @@ float sampleAntialiased(vec2 uv, vec2 texelSize) {
         sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
         float energy = float(imageLoad(energyTex, sampleCoord).r);
         
-        float weight = 1.0 / float(samples * samples);
+        float weight = 1.0 / 64.0;
         result += energy * weight;
         weightSum += weight;
       }
@@ -191,6 +187,29 @@ vec3 tanhColormap(float mapIndex, vec3 baseColor) {
   return clamp(result, 0.0, 1.0);
 }
 
+// Helper function for direct sampling (move outside main)
+float getEnergy(vec2 sampleUV, float screenGapFactor, ivec2 texSize) {
+  if (screenGapFactor < 1.0) {
+    float gapOffset = (1.0 - screenGapFactor) * 0.5;
+    vec2 scaledUV = (sampleUV - gapOffset) / screenGapFactor;
+    if (scaledUV.x >= 0.0 && scaledUV.x <= 1.0 && scaledUV.y >= 0.0 && scaledUV.y <= 1.0) {
+      ivec2 sampleCoord = ivec2(scaledUV * vec2(texSize));
+      sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
+      return float(imageLoad(energyTex, sampleCoord).r);
+    } else {
+      return 0.0;
+    }
+  } else {
+    ivec2 sampleCoord = ivec2(sampleUV * vec2(texSize));
+    sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
+    return float(imageLoad(energyTex, sampleCoord).r);
+  }
+}
+
+float tanhColormapChannel(float mapIndex, float baseColor) {
+  return clamp(fast_tanh(mapIndex * baseColor), 0.0, 1.0);
+}
+
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   vec2 uv = vec2(coord) / vec2(texSize);
@@ -198,42 +217,51 @@ void main() {
 
   // Calculate border mask
   float screenMask = calculateBorderMask(uv, texelSize);
+
+  vec2 center = vec2(0.5, 0.5);
+  vec2 toCenter = uv - center;
   
-  // Sample energy value with optional CRT distortion
-  float energyLinear;
-  if (enableCurvedScreen == 1) {
-    // Use antialiased sampling for CRT distortion
-    energyLinear = sampleAntialiased(uv, texelSize);
+  vec2 uvR, uvG, uvB;
+  if (chromaticAberrationStrength == 0.0) {
+    uvR = uv;
+    uvG = uv;
+    uvB = uv;
   } else {
-    // Direct sampling - only apply scaling if gap factor is not 1.0
-    if (screenGapFactor < 1.0) {
-      float gapOffset = (1.0 - screenGapFactor) * 0.5;
-      vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
-      
-      // Check if the scaled coordinate is within the valid range
-      if (scaledUV.x >= 0.0 && scaledUV.x <= 1.0 && scaledUV.y >= 0.0 && scaledUV.y <= 1.0) {
-        ivec2 sampleCoord = ivec2(scaledUV * vec2(texSize));
-        sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-        energyLinear = float(imageLoad(energyTex, sampleCoord).r);
-      } else {
-        energyLinear = 0.0; // Return black for out-of-bounds
-      }
-    } else {
-      // No scaling needed - direct sampling
-      energyLinear = float(imageLoad(energyTex, coord).r);
-    }
+    uvR = uv + toCenter * chromaticAberrationStrength;
+    uvG = uv;
+    uvB = uv - toCenter * chromaticAberrationStrength;
+  }
+
+  float energyR, energyG, energyB;
+
+  if (enableCurvedScreen == 1) {
+    energyR = sampleAntialiased(uvR, texelSize);
+    energyG = sampleAntialiased(uvG, texelSize);
+    energyB = sampleAntialiased(uvB, texelSize);
+  } else {
+    energyR = getEnergy(uvR, screenGapFactor, texSize);
+    energyG = getEnergy(uvG, screenGapFactor, texSize);
+    energyB = getEnergy(uvB, screenGapFactor, texSize);
   }
 
   // Apply normalized spatial grain to the energy, affecting both brighter and darker directions
   if (enablePhosphorGrain == 1) {
     float grain = spatialGrain(vec2(coord));
-    // Apply grain so it can both increase and decrease energy
-    energyLinear *= (1.0 + grain);
+    energyR *= (1.0 + grain);
+    energyG *= (1.0 + grain);
+    energyB *= (1.0 + grain);
   }
 
   // Scale energy for tanh mapping
-  energyLinear /= TANH_DIV_FACTOR;
-  vec3 screenColor = tanhColormap(energyLinear, beamColor);
+  energyR /= TANH_DIV_FACTOR;
+  energyG /= TANH_DIV_FACTOR;
+  energyB /= TANH_DIV_FACTOR;
+
+  // Map to color using tanhColormap per channel
+  vec3 screenColor;
+  screenColor.r = tanhColormapChannel(energyR, beamColor.r);
+  screenColor.g = tanhColormapChannel(energyG, beamColor.g);
+  screenColor.b = tanhColormapChannel(energyB, beamColor.b);
 
   // add bg
   screenColor = screenColor + blackColor;
@@ -241,9 +269,16 @@ void main() {
 
   // Calculate border color (70% of background color)
   vec3 borderColor = blackColor * 0.7;
-  
+
   // Blend between screen content and border based on mask
   vec3 outColor = mix(borderColor, screenColor, screenMask);
+
+  // Vignette effect
+  if (vignetteStrength > 0.0) {
+    float vignette = smoothstep(1.0, 0.2, length(toCenter) / 0.707);
+    vignette = mix(1.0, vignette, vignetteStrength);
+    outColor = mix(blackColor * 0.7, outColor, vignette);
+  }
 
   // Write result to color texture
   imageStore(colorTex, coord, vec4(outColor, 1.0));
