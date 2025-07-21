@@ -127,6 +127,11 @@ lissajous:
   spline_segments: 8
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
+  # Readback multiplier of the data
+  # Defines how much of the previous data is redrawn
+  # Higher value means more data is redrawn, which stabilizes the lissajous.
+  # Caveat is a minor increase in CPU usage.
+  readback_multiplier: 2.0
 
 # Oscilloscope Settings
 # Controls the oscilloscope waveform visualization

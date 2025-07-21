@@ -32,6 +32,7 @@ struct ConfigValues {
     int spline_segments = 8;
     bool enable_phosphor = true;
     float beam_multiplier = 1.0f;
+    float readback_multiplier = 1.0f;
   } lissajous;
 
   struct FFT {

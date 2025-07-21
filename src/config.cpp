@@ -115,7 +115,8 @@ void Config::load(const std::string& filename) {
     v.lissajous.spline_segments = getInt("lissajous.spline_segments");
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
     v.lissajous.beam_multiplier = getFloat("lissajous.beam_multiplier");
-
+    v.lissajous.readback_multiplier = getFloat("lissajous.readback_multiplier");
+    
     v.fft.min_freq = getFloat("fft.min_freq");
     v.fft.max_freq = getFloat("fft.max_freq");
     v.fft.sample_rate = getFloat("audio.sample_rate");

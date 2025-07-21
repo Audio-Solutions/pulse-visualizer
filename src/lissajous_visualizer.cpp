@@ -96,7 +96,7 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
     size_t newWritePos = audioData.writePos;
     size_t bufferSize = audioData.bufferSize;
 
-    size_t readCount = (newWritePos - lastWritePos + bufferSize) % bufferSize + 5;
+    size_t readCount = ((newWritePos - lastWritePos + bufferSize) % bufferSize) * (1.0f + lis.readback_multiplier) + 5;
 
     points.resize(readCount);
 
@@ -165,6 +165,9 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
         // Apply beam multiplier
         beamEnergy *= lis.beam_multiplier;
+
+        // Normalize beam energy with readback multiplier
+        beamEnergy /= (1.0f + lis.readback_multiplier);
 
         for (size_t i = 1; i < densePath.size(); ++i) {
           const auto& p1 = densePath[i - 1];
