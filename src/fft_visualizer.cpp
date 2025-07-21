@@ -90,7 +90,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         drawFreqLine(freq);
       }
     }
-    for (float freq = 10000.0f; freq <= fcfg.max_freq; freq *= 10.0f) {
+    for (int freq = 10000; freq <= static_cast<int>(fcfg.max_freq); freq *= 10) {
       drawFreqLine(freq);
     }
 
@@ -109,7 +109,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
                                textHeight + padding * 2, colors.background);
 
       // Draw the text
-      Graphics::drawText(label, x - textWidth / 2, y, 10.0f, colors.grid, fcfg.font.c_str());
+      Graphics::drawText(label, x - textWidth / 2, y, 10.0f, colors.grid, Config::values().font.c_str());
     };
     drawFreqLabel(100.0f, "100 Hz");
     drawFreqLabel(1000.0f, "1 kHz");
@@ -267,8 +267,14 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
       dwellTimes.reserve(fftPoints.size());
 
       // Normalize beam energy over area
-      float ref = 400.0f * (useCQT ? 400.0f : 1.0f);
+      float ref = 400.0f * (useCQT ? 300.0f : 1.0f);
       float beamEnergy = phos.beam_energy / ref * (width * (useCQT ? audioData.windowHeight : 1.0f));
+
+      // Apply beam multiplier
+      beamEnergy *= fcfg.beam_multiplier;
+
+      // Normalize beam energy over fps
+      beamEnergy = beamEnergy * audioData.getAudioDeltaTime() / 0.016f;
 
       for (size_t i = 1; i < fftPoints.size(); ++i) {
         const auto& p1 = fftPoints[i - 1];
@@ -278,8 +284,8 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
         float dy = p2.second - p1.second;
         float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
         float deltaT = 1.0f / audioData.sampleRate;
-        float intensity = beamEnergy;
 
+        float intensity;
         if (useCQT) {
           intensity = beamEnergy * (deltaT / segLen) * 2.0f;
         } else {
@@ -359,7 +365,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     float overlayY = audioData.windowHeight - 20.0f;
 
     // Draw overlay text using centralized colors
-    Graphics::drawText(overlay, overlayX, overlayY, 14.0f, colors.text, fcfg.font.c_str());
+    Graphics::drawText(overlay, overlayX, overlayY, 14.0f, colors.text, Config::values().font.c_str());
   } else if (!isSilent) {
     // Show pitch detector data when not hovering
     char overlay[128];
@@ -369,7 +375,7 @@ void FFTVisualizer::draw(const AudioData& audioData, int) {
     float overlayY = audioData.windowHeight - 20.0f;
 
     // Draw overlay text using centralized colors
-    Graphics::drawText(overlay, overlayX, overlayY, 14.0f, colors.text, fcfg.font.c_str());
+    Graphics::drawText(overlay, overlayX, overlayY, 14.0f, colors.text, Config::values().font.c_str());
   }
 }
 

@@ -103,30 +103,36 @@ void Config::load(const std::string& filename) {
     v.oscilloscope.alignment_type = getString("oscilloscope.alignment_type");
     v.oscilloscope.limit_cycles = getBool("oscilloscope.limit_cycles");
     v.oscilloscope.cycles = getInt("oscilloscope.cycles");
-    v.oscilloscope.min_samples = getInt("oscilloscope.min_samples");
+    v.oscilloscope.min_cycle_time = getFloat("oscilloscope.min_cycle_time");
+    v.oscilloscope.time_window = getFloat("oscilloscope.time_window");
+    v.oscilloscope.beam_multiplier = getFloat("oscilloscope.beam_multiplier");
 
     v.bandpass_filter.bandwidth = getFloat("bandpass_filter.bandwidth");
     v.bandpass_filter.bandwidth_type = getString("bandpass_filter.bandwidth_type");
     v.bandpass_filter.order = getInt("bandpass_filter.order");
 
-    v.lissajous.max_points = getInt("lissajous.max_points");
     v.lissajous.enable_splines = getBool("lissajous.enable_splines");
     v.lissajous.spline_segments = getInt("lissajous.spline_segments");
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
+    v.lissajous.beam_multiplier = getFloat("lissajous.beam_multiplier");
 
-    v.fft.font = getString("font.default_font");
-    v.fft.min_freq = getFloat("fft.fft_min_freq");
-    v.fft.max_freq = getFloat("fft.fft_max_freq");
+    v.fft.min_freq = getFloat("fft.min_freq");
+    v.fft.max_freq = getFloat("fft.max_freq");
     v.fft.sample_rate = getFloat("audio.sample_rate");
-    v.fft.slope_correction_db = getFloat("fft.fft_slope_correction_db");
-    v.fft.min_db = getFloat("fft.fft_min_db");
-    v.fft.max_db = getFloat("fft.fft_max_db");
+    v.fft.slope_correction_db = getFloat("fft.slope_correction_db");
+    v.fft.min_db = getFloat("fft.min_db");
+    v.fft.max_db = getFloat("fft.max_db");
     v.fft.stereo_mode = getString("fft.stereo_mode");
     v.fft.note_key_mode = getString("fft.note_key_mode");
     v.fft.enable_phosphor = getBool("fft.enable_phosphor");
-    v.fft.enable_temporal_interpolation = getBool("fft.enable_temporal_interpolation");
     v.fft.enable_cqt = getBool("fft.enable_cqt");
     v.fft.cqt_bins_per_octave = getInt("fft.cqt_bins_per_octave");
+    v.fft.smoothing_factor = getFloat("fft.smoothing_factor");
+    v.fft.rise_speed = getFloat("fft.rise_speed");
+    v.fft.fall_speed = getFloat("fft.fall_speed");
+    v.fft.hover_fall_speed = getFloat("fft.hover_fall_speed");
+    v.fft.size = getInt("fft.size");
+    v.fft.beam_multiplier = getFloat("fft.beam_multiplier");
 
     v.spectrogram.time_window = getFloat("spectrogram.time_window");
     v.spectrogram.min_db = getFloat("spectrogram.min_db");
@@ -136,19 +142,11 @@ void Config::load(const std::string& filename) {
     v.spectrogram.min_freq = getFloat("spectrogram.min_freq");
     v.spectrogram.max_freq = getFloat("spectrogram.max_freq");
 
-    v.audio.smoothing_factor = getFloat("fft.fft_smoothing_factor");
-    v.audio.rise_speed = getFloat("fft.fft_rise_speed");
-    v.audio.fall_speed = getFloat("fft.fft_fall_speed");
-    v.audio.hover_fall_speed = getFloat("fft.fft_hover_fall_speed");
     v.audio.silence_threshold = getFloat("audio.silence_threshold");
     v.audio.sample_rate = getFloat("audio.sample_rate");
-    v.audio.fft_size = getInt("fft.fft_size");
-    v.audio.fft_skip_frames = getInt("audio.fft_skip_frames");
-    v.audio.buffer_size = getInt("audio.buffer_size");
-    v.audio.display_samples = getInt("audio.display_samples");
-    v.audio.channels = getInt("audio.channels");
     v.audio.gain_db = getFloat("audio.gain_db");
     v.audio.engine = getString("audio.engine");
+    v.audio.device = getString("audio.device");
 
     v.visualizers.spectrogram_order = getInt("visualizers.spectrogram_order");
     v.visualizers.lissajous_order = getInt("visualizers.lissajous_order");
@@ -158,13 +156,7 @@ void Config::load(const std::string& filename) {
     v.window.default_width = getInt("window.default_width");
     v.window.default_height = getInt("window.default_height");
     v.window.default_theme = getString("window.default_theme");
-
-    v.pulseaudio.default_source = getString("pulseaudio.default_source");
-    v.pulseaudio.buffer_size = getInt("pulseaudio.buffer_size");
-
-    v.pipewire.default_source = getString("pipewire.default_source");
-    v.pipewire.buffer_size = getInt("pipewire.buffer_size");
-    v.pipewire.ring_multiplier = getInt("pipewire.ring_multiplier");
+    v.window.fps_limit = getInt("window.fps_limit");
 
     v.debug.log_fps = getBool("debug.log_fps");
     v.debug.show_bandpassed = getBool("debug.show_bandpassed");
@@ -188,6 +180,8 @@ void Config::load(const std::string& filename) {
     v.phosphor.grain_strength = getFloat("phosphor.grain_strength");
     v.phosphor.vignette_strength = getFloat("phosphor.vignette_strength");
     v.phosphor.chromatic_aberration_strength = getFloat("phosphor.chromatic_aberration_strength");
+
+    v.font = getString("font");
   } catch (...) {
     // If any key is missing we already warned; values struct keeps defaults.
   }

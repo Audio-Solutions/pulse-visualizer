@@ -78,69 +78,34 @@ Debian:
 
 ## Configuration
 
-Pulse doesn't have a settings menu (and will probably never have one), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`.
+Pulse doesn't have a settings menu (and probably never will), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`.
 
-- Pick your audio backend: set `engine` under the `audio` section, e.g.:
+The configuration is now organized into logical sections. Here are the most important ones:
+
+- `audio`: Set your audio backend and input device here. For example:
   ```yaml
   audio:
     engine: pipewire   # or pulseaudio, or auto (default)
+    device: your_audio_device_name
   ```
-- Set the input device:
-  - For PulseAudio: set `default_source` under the `pulseaudio` section:
-    ```yaml
-    pulseaudio:
-      default_source: your_pulseaudio_source_name
-    ```
-  - For PipeWire: set `default_source` under the `pipewire` section:
-    ```yaml
-    pipewire:
-      default_source: your_pipewire_source_name
-    ```
-- Set your font by editing the `default_font` field under the `font` section:
+  - `engine` chooses the backend (`pipewire`, `pulseaudio`, or `auto`).
+  - `device` is the name of your input device (see `pactl list sources short` or `pw-cli ls Node`).
+- `font`: Set your font path:
   ```yaml
-  font:
-    default_font: /full/path/to/your/font.ttf
+  font: /full/path/to/your/font.ttf
   ```
-- Tons of other options are available in `/usr/local/share/pulse-visualizer/config.yml.template`
+- `window`: Set window size, theme, and FPS limit:
+  ```yaml
+  window:
+    default_width: 1080
+    default_height: 200
+    default_theme: mocha.txt
+    fps_limit: 240
+  ```
+- `phosphor`, `fft`, `lissajous`, `oscilloscope`, `bandpass_filter`, `spectrogram`, `visualizers`: Fine-tune every aspect of the visualizers and effects. Each section is documented in the config template.
+
+For all available options and detailed descriptions, see `/usr/local/share/pulse-visualizer/config.yml.template`.
 
 ### Themeing
 
-To pick a theme, edit the `default_theme` field in your config:
-
-```yaml
-window:
-  default_theme: green-crt.txt
-```
-
-Swap `green-crt.txt` for any file in `themes/`. Theme files get copied to `~/.config/pulse-visualizer/themes/` on first run.
-
-Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
-
-## Usage
-
-Just run:
-
-```bash
-Pulse
-```
-
-- Drag splitters to resize/rearrange visualizers
-- Lissajous will enforce a square aspect ratio
-- Hover FFT for real-time frequency, dB, and note readout
-- All config and theme changes are live, no restart needed
-
-## Contributing & Support
-
-Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
-
-If you like Pulse, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Acknowledgments
-
-- [MiniMeters](https://minimeters.app/) for inspiration
-- [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
-- SDL2, PulseAudio, PipeWire, FFTW, FreeType, and everyone else who made this possible
+To pick a theme, edit the `

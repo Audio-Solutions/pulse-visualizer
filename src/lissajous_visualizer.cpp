@@ -90,30 +90,24 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
   bool isSilent = !audioData.hasValidPeak || audioData.peakDb < audio.silence_threshold;
 
+  static size_t lastWritePos = 0;
+
   if (!audioData.bufferMid.empty() && !audioData.bufferSide.empty()) {
-    // Read the most recent lis.max_points samples from the circular buffer
-    size_t readCount = std::min(static_cast<size_t>(lis.max_points), audioData.bufferSize);
+    size_t newWritePos = audioData.writePos;
+    size_t bufferSize = audioData.bufferSize;
 
-    // Extend buffer for spline continuity - add 2.5 points on each side
-    size_t extendedDataCount = readCount;
-    size_t bufferStartOffset = 0;
-    if (readCount > 1) {
-      extendedDataCount = readCount + 5;
-      bufferStartOffset = 3; // Start reading 3 points earlier
-    }
+    size_t readCount = (newWritePos - lastWritePos + bufferSize) % bufferSize + 5;
 
-    // Resize cached vector to extended size
-    points.resize(extendedDataCount);
+    points.resize(readCount);
 
     // Pre-compute scaling factors
     const float halfWidth = width * 0.5f;
     const float offsetX = halfWidth;
 
-    // Read from circular buffers and reconstruct left/right channels
-    for (size_t i = 0; i < extendedDataCount; ++i) {
-      // Calculate position in circular buffer - start from writePos - extendedDataCount + bufferStartOffset
-      size_t readPos = (audioData.writePos + audioData.bufferSize - extendedDataCount + bufferStartOffset + i) %
-                       audioData.bufferSize;
+    size_t startPos = (bufferSize + newWritePos - readCount) % bufferSize;
+
+    for (size_t i = 0; i < readCount; ++i) {
+      size_t readPos = (startPos + i) % bufferSize;
 
       // Reconstruct left/right from mid/side
       float mid = audioData.bufferMid[readPos];
@@ -131,6 +125,8 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
 
       points[i] = {x, y};
     }
+
+    lastWritePos = newWritePos;
 
     if (lis.enable_phosphor && !isSilent && lissajousPhosphorContext) {
       // Generate high-density spline points for phosphor simulation
@@ -164,8 +160,11 @@ void LissajousVisualizer::draw(const AudioData& audioData, int) {
         dwellTimes.reserve(densePath.size());
 
         // Normalize beam energy over area
-        float ref = 400.0f * 400.0f;
+        float ref = 200.0f * 200.0f;
         float beamEnergy = phos.beam_energy / ref * (width * width);
+
+        // Apply beam multiplier
+        beamEnergy *= lis.beam_multiplier;
 
         for (size_t i = 1; i < densePath.size(); ++i) {
           const auto& p1 = densePath[i - 1];

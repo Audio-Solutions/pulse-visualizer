@@ -16,7 +16,9 @@ struct ConfigValues {
     std::string alignment_type = "peak";
     bool limit_cycles = false;
     int cycles = 1;
-    int min_samples = 64;
+    float min_cycle_time = 16.0f;
+    float time_window = 64.0f;
+    float beam_multiplier = 1.0f;
   } oscilloscope;
 
   struct BandpassFilter {
@@ -26,14 +28,13 @@ struct ConfigValues {
   } bandpass_filter;
 
   struct Lissajous {
-    int max_points = 1000;
     bool enable_splines = true;
     int spline_segments = 8;
     bool enable_phosphor = true;
+    float beam_multiplier = 1.0f;
   } lissajous;
 
   struct FFT {
-    std::string font;
     float min_freq = 10.0f;
     float max_freq = 20000.0f;
     float sample_rate = 44100.0f;
@@ -43,9 +44,14 @@ struct ConfigValues {
     std::string stereo_mode = "midside";
     std::string note_key_mode = "sharp";
     bool enable_phosphor = false;
-    bool enable_temporal_interpolation = true;
     bool enable_cqt = false;
     int cqt_bins_per_octave = 24;
+    float smoothing_factor = 0.2f;
+    float rise_speed = 500.0f;
+    float fall_speed = 50.0f;
+    float hover_fall_speed = 10.0f;
+    int size = 4096;
+    float beam_multiplier = 1.0f;
   } fft;
 
   struct Spectrogram {
@@ -59,19 +65,11 @@ struct ConfigValues {
   } spectrogram;
 
   struct Audio {
-    float smoothing_factor = 0.2f;
-    float rise_speed = 500.0f;
-    float fall_speed = 50.0f;
-    float hover_fall_speed = 10.0f;
     float silence_threshold = -100.0f;
     float sample_rate = 44100.0f;
-    int fft_size = 4096;
-    int fft_skip_frames = 2;
-    int buffer_size = 32768;
-    int display_samples = 2000;
-    int channels = 2;
     float gain_db = 0.0f;
     std::string engine = "auto";
+    std::string device = "auto";
   } audio;
 
   struct Visualizers {
@@ -85,18 +83,8 @@ struct ConfigValues {
     int default_width = 1080;
     int default_height = 200;
     std::string default_theme = "mocha.txt";
+    int fps_limit = 240;
   } window;
-
-  struct PulseAudio {
-    std::string default_source = "your-audio-device.monitor";
-    int buffer_size = 512;
-  } pulseaudio;
-
-  struct PipeWire {
-    std::string default_source = "your-audio-device";
-    int buffer_size = 512;
-    int ring_multiplier = 4;
-  } pipewire;
 
   struct Debug {
     bool log_fps = false;
@@ -124,6 +112,8 @@ struct ConfigValues {
     float vignette_strength = 0.3f;
     float chromatic_aberration_strength = 0.003f;
   } phosphor;
+
+  std::string font;
 };
 
 class Config {

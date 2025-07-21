@@ -7,30 +7,20 @@
 # Audio Processing Settings
 # Controls how audio is captured, processed, and displayed
 audio:
-  # Number of audio samples to buffer (affects latency vs memory usage)
-  # Larger values = more latency but more stable
-  buffer_size: 32768
-  # Number of audio channels (1=mono, 2=stereo)
-  # Most systems use 2 for stereo audio
-  channels: 2
-  # Number of samples to display in oscilloscope and lissajous visualizers
-  # More samples = longer time window but more CPU usage
-  display_samples: 2000
   # Audio sample rate in Hz (must match your system's audio output)
   # Common values: 44100, 48000, 96000
-  sample_rate: 44100
-  # Skip frames between FFT calculations (0=every frame, higher=less CPU usage)
-  # 0 = maximum responsiveness, higher values = less CPU usage
-  fft_skip_frames: 0
+  sample_rate: 48000
   # Threshold below which audio is considered silent (in dB)
   # Lower values = more sensitive to quiet sounds
-  silence_threshold: -100.0
+  silence_threshold: -90.0
   # Audio backend: "pulseaudio", "pipewire", or "auto" (auto-detects best available)
   # "auto" is recommended for most systems
   engine: pipewire
+  # Audio device name (see system audio devices)
+  device: alsa_output.pci-0000_0e_00.4.iec958-stereo
   # Audio gain adjustment in dB (positive=louder, negative=quieter)
   # Adjust if audio is too quiet or too loud
-  gain_db: 0.0
+  gain_db: -0.0
 
 # Debug Settings
 # Controls debugging and logging features
@@ -45,283 +35,172 @@ debug:
 # Phosphor Effect Settings
 # Controls the CRT phosphor simulation effect (realistic glow and persistence)
 # WARNING: These settings are computationally expensive and affect performance
-# Disable phosphor effects if you experience performance issues
 phosphor:
   # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
-  # Affects the glow effect around bright areas
-  near_blur_intensity: 0.2
+  near_blur_intensity: 0.3
   # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
-  # Affects the glow effect around bright areas
-  far_blur_intensity: 0.4
+  far_blur_intensity: 0.6
   # Energy of the electron beam (affects brightness of phosphor effect)
-  # Higher values = brighter phosphor effect
-  beam_energy: 50.0
+  beam_energy: 150.0
   # Slow decay rate of phosphor persistence (higher=longer persistence)
-  # Controls how long the phosphor glow lasts
-  decay_slow: 10.0
+  decay_slow: 7.0
   # Fast decay rate of phosphor persistence (higher=shorter persistence)
-  # Controls how quickly bright areas fade
-  decay_fast: 75.0
+  decay_fast: 50.0
   # Size of the electron beam (affects line thickness)
-  # Higher values = thicker lines
   beam_size: 1.0
   # Spread of the blur effect (higher=more spread, more GPU intensive)
-  # RESOURCE INTENSIVE: Higher values use more GPU resources
   line_blur_spread: 64
   # Width of the phosphor lines
-  # Thinner lines = more detailed but less visible
   line_width: 0.5
   # Age threshold for phosphor decay (higher=longer persistence)
-  # Controls how long phosphor effects are maintained
-  age_threshold: 15
+  age_threshold: 10
   # Range factor for blur calculations (higher=more blur, more GPU intensive)
-  # RESOURCE INTENSIVE: O(6 * (range_factor * line_blur_spread * 2 + 1))
-  # Set to 0 to disable blur entirely
   range_factor: 2.0
   # Enable phosphor grain effect (adds realistic CRT noise)
-  # Adds subtle noise to make the effect more realistic
   enable_grain: true
   # Grain strength (Spatial noise)
-  # Higher values = more noise, lower values = less noise
   grain_strength: 0.1
   # Density of spline points for phosphor rendering (higher=smoother curves)
-  # More points = smoother curves but more GPU usage
   spline_density: 8
   # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
-  # Higher values = tighter curves, lower values = looser curves
   tension: 0.5
   # Enable curved phosphor screen effect (simulates curved CRT monitor)
-  # Adds barrel distortion to simulate curved screen geometry
   enable_curved_screen: true
   # Curvature intensity for curved screen effect (0.0-1.0)
-  # Higher values = more curved screen, 0.0 = flat screen
   screen_curvature: 0.1
   # Gap factor between screen edges and border (higher=less gap)
-  screen_gap: 1.1
+  screen_gap: 1.09
   # Vignette strength (0.0-1.0)
-  # Higher values = more vignette, lower values = less vignette
-  # 0 to disable
   vignette_strength: 0.3
   # Chromatic aberration strength (0.0-1.0)
-  # Higher values = more chromatic aberration, lower values = less chromatic aberration
-  # 0 to disable
   chromatic_aberration_strength: 0.005
 
 # FFT (Fast Fourier Transform) Settings
 # Controls frequency analysis and spectrum visualization
 fft:
   # Fall speed of FFT bars (higher=faster fall, more responsive)
-  # Controls how quickly FFT bars fall when audio decreases
-  fft_fall_speed: 40.0
+  fall_speed: 40.0
   # Hover fall speed when audio is quiet (higher=faster fall)
-  # Controls fall speed when audio is below silence threshold
-  fft_hover_fall_speed: 10.0
+  hover_fall_speed: 10.0
   # Maximum dB level for FFT display
-  # Higher values = more dynamic range
-  fft_max_db: 10.0
+  max_db: 10.0
   # Maximum frequency to display in Hz
-  # Human hearing range is ~20Hz-20kHz
-  fft_max_freq: 20000.0
+  max_freq: 22000.0
   # Minimum dB level for FFT display
-  # Lower values = more sensitive to quiet frequencies
-  fft_min_db: -60.0
+  min_db: -60.0
   # Minimum frequency to display in Hz
-  # Lower values = show more low frequencies
-  fft_min_freq: 10.0
+  min_freq: 10.0
   # Rise speed of FFT bars (higher=faster rise, more responsive)
-  # Controls how quickly FFT bars rise when audio increases
-  fft_rise_speed: 500.0
+  rise_speed: 500.0
   # FFT size (must be power of 2, higher=better frequency resolution)
-  # Common values: 2048, 4096, 8192
-  # Higher values = better frequency resolution but more CPU usage
-  fft_size: 4096
+  size: 4096
   # Slope correction for frequency response (dB per octave)
-  # Compensates for frequency response characteristics
-  fft_slope_correction_db: 4.5
+  slope_correction_db: 4.5
   # Smoothing factor for FFT values (0.0-1.0, higher=smoother)
-  # Reduces jitter in FFT display
-  fft_smoothing_factor: 0.2
+  smoothing_factor: 0.2
   # Note key mode: "sharp" or "flat" (affects frequency labels)
-  # Sharp: C#, D#, F#, G#, A#
-  # Flat: Db, Eb, Gb, Ab, Bb
   note_key_mode: sharp
   # Stereo mode: "midside" (mid/side channels) or "leftright" (left/right channels)
-  # Midside: better for stereo imaging analysis
-  # Leftright: traditional left/right channel display
   stereo_mode: midside
   # Enable Constant-Q Transform (better frequency resolution for musical notes)
-  # Provides better frequency resolution for musical frequencies
-  # More CPU intensive than standard FFT
   enable_cqt: true
   # Number of frequency bins per octave for CQT (higher=better resolution)
-  # More bins = better frequency resolution but more CPU usage
   cqt_bins_per_octave: 60
   # Enable phosphor effect for FFT visualization
-  # Adds CRT phosphor glow effect to FFT display
   enable_phosphor: true
-  # Enable temporal interpolation for smoother FFT transitions
-  # Smooths transitions between FFT frames
-  enable_temporal_interpolation: false
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
 
 # Font Settings
 # Controls text rendering for frequency labels and UI elements
-font:
-  # Path to TrueType font file for text rendering
-  # Must be a valid font file path on your system
-  # Common locations:
-  # - /usr/share/fonts/truetype/
-  # - ~/.local/share/fonts/
-  # - /System/Library/Fonts/ (macOS)
-  default_font: ~/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf
+# Path to TrueType font file for text rendering
+font: ~/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf
 
 # Lissajous Curve Settings
 # Controls the Lissajous curve visualization (X-Y plot of left vs right channel)
-# Shows the relationship between left and right audio channels
 lissajous:
   # Enable phosphor effect for lissajous visualization
-  # Adds CRT phosphor glow effect to lissajous curves
   enable_phosphor: true
   # Enable Catmull-Rom spline interpolation for smoother curves
-  # Creates smoother curves between data points
   enable_splines: true
-  # Maximum number of points to display in the curve
-  # More points = longer time window but more CPU usage
-  max_points: 2048
   # Number of segments per spline (higher=smoother curves)
-  # More segments = smoother curves but more CPU usage
   spline_segments: 8
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
 
 # Oscilloscope Settings
 # Controls the oscilloscope waveform visualization
-# Shows the audio waveform over time
 oscilloscope:
   # Enable phosphor effect for oscilloscope visualization
-  # Adds CRT phosphor glow effect to oscilloscope display
   enable_phosphor: true
+  # Time window for oscilloscope in ms
+  time_window: 64.0
   # Gradient mode: "horizontal", "vertical", or "off"
-  # Horizontal: intensity based on distance from center line
-  # Vertical: intensity based on distance from center line
-  # Off: no gradient effect
-  gradient_mode: horizontal
+  gradient_mode: off
   # Follow pitch for phase alignment (true=align to detected pitch)
-  # Aligns waveform to detected musical pitch for better visualization
   follow_pitch: true
   # Alignment position: "left", "center", or "right"
-  # Left: align to left edge of display
-  # Center: align to center of display
-  # Right: align to right edge of display
   alignment: center
   # Alignment type: "peak" or "zero_crossing"
-  # Peak: align to waveform peaks
-  # Zero_crossing: align to zero crossings
   alignment_type: zero_crossing
   # Only track n cycles of the waveform
-  # When true, limits display to specified number of waveform cycles
-  # When false, uses fixed number of samples from audio.display_samples
   limit_cycles: false
   # Number of cycles to track when limit_cycles is true
-  # More cycles = longer time window but may show less detail
-  cycles: 3
-  # Minimum number of samples to display in oscilloscope
-  # Ensures minimum detail level when peak pitch is too high
-  min_samples: 256
+  cycles: 2
+  # Minimum time window to display in oscilloscope in ms
+  min_cycle_time: 16.0
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
 
 # Bandpass Filter Settings
 # Controls the bandpass filter applied to the audio signal used for pitch following
-# A tighter bandpass filter has a better precision with the downside of jitter during pitch changes
 bandpass_filter:
   # Bandwidth in Hz or percent of center frequency
-  # Lower values = narrower filter, higher values = wider filter
   bandwidth: 20.0
   # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
   bandwidth_type: percent
   # Order of the bandpass filter (higher = steeper filter, more CPU usage)
   order: 2
 
-# PulseAudio Settings
-# Controls PulseAudio backend configuration
-# Only used when audio.engine is set to "pulseaudio"
-pulseaudio:
-  # Default audio source device (monitor source for system audio)
-  # Use "pactl list sources short" to find available sources
-  # Look for sources ending in ".monitor" for system audio
-  default_source: whatever.monitor
-  # Buffer size in frames (affects latency vs stability)
-  # Smaller values = lower latency but higher CPU usage. Minimum is 512.
-  # Also defines the FPS of the visualizer (sample_rate / buffer_size), eg 44100 / 512 = 86.13 FPS
-  buffer_size: 512
-
-# PipeWire Settings
-# Controls PipeWire backend configuration
-# Only used when audio.engine is set to "pipewire"
-pipewire:
-  # Default audio source device
-  # Use "pw-cli list-objects | grep -i source" to find available sources
-  # Look for sources that match your audio output
-  default_source: whatever
-  # Buffer size in frames (affects latency vs stability)
-  # Smaller values = lower latency but higher CPU usage. Minimum is 512.
-  # Also defines the FPS of the visualizer (sample_rate / buffer_size), eg 44100 / 512 = 86.13 FPS
-  buffer_size: 512
-  # Ring buffer multiplier (affects buffering strategy)
-  # Higher values = more buffering but higher latency
-  ring_multiplier: 4
-
 # Spectrogram Settings
 # Controls the spectrogram visualization (time-frequency heat map)
-# Shows frequency content over time as a color-coded display
 spectrogram:
   # Frequency scale: "log" or "linear"
-  # Log: logarithmic frequency scale (better for musical frequencies)
-  # Linear: linear frequency scale (better for technical analysis)
   frequency_scale: log
   # Enable interpolation for smoother spectrogram display
-  # Smooths the color transitions in the spectrogram
   interpolation: true
   # Maximum dB level for spectrogram display
-  # Higher values = more dynamic range
   max_db: -10.0
   # Maximum frequency to display in Hz
-  # Human hearing range is ~20Hz-20kHz
-  max_freq: 20000.0
+  max_freq: 22000.0
   # Minimum dB level for spectrogram display
-  # Lower values = more sensitive to quiet frequencies
-  min_db: -80.0
+  min_db: -60.0
   # Minimum frequency to display in Hz
-  # Lower values = show more low frequencies
   min_freq: 20.0
   # Time window for spectrogram in seconds
-  # Longer windows = more history but less real-time detail
-  time_window: 2.0
+  time_window: 4.0
 
 # Visualizer Layout Settings
 # Controls the order and visibility of visualizers
-# -1 = disabled, 0+ = display order (lower numbers appear first)
-# Visualizers are arranged from top to bottom in order
 visualizers:
   # FFT spectrum visualizer order
-  # Shows frequency spectrum as bars
-  fft_order: 3
+  fft_order: 2
   # Lissajous curve visualizer order
-  # Shows X-Y plot of left vs right channel
-  lissajous_order: 1
+  lissajous_order: 0
   # Oscilloscope visualizer order
-  # Shows audio waveform over time
-  oscilloscope_order: 2
+  oscilloscope_order: 1
   # Spectrogram visualizer order (-1 = disabled)
-  # Shows frequency content over time as heat map
-  spectrogram_order: 0
+  spectrogram_order: -1
 
 # Window Settings
 # Controls the main application window
 window:
   # Default window height in pixels
-  # Adjust based on your screen resolution and preferences
   default_height: 200
   # Default theme file (from themes/ directory)
-  # Available themes: mocha.txt, green-crt.txt, breeze-dark.txt, etc.
-  # Themes control the color scheme of the visualizer
   default_theme: green-crt.txt
   # Default window width in pixels
-  # Adjust based on your screen resolution and preferences
-  default_width: 1080 
+  default_width: 1080
+  # FPS limit for the main window
+  # This will also throttle the audio thread to save CPU
+  fps_limit: 60 

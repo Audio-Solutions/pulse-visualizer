@@ -17,6 +17,11 @@
 #include <memory>
 #include <thread>
 
+// Defines to shut IntelliSense up as they are defined by CMake.
+#ifndef PULSE_DATA_DIR
+#define PULSE_DATA_DIR ""
+#endif
+
 // Function to copy files from system installation to user config directory
 void setupUserConfig() {
   const char* home = getenv("HOME");
@@ -376,13 +381,21 @@ int main() {
 
   AudioData audioData;
 
+  // Determine buffer size based on fft_size * 2, engine buffer size if pulseaudio.
+  size_t bufferSize = Config::values().fft.size * 2;
+  if (Config::values().audio.engine == "pulseaudio") {
+    bufferSize = std::max(bufferSize,
+                          static_cast<size_t>(Config::values().audio.sample_rate / Config::values().window.fps_limit));
+  }
+  audioData.bufferSize = bufferSize;
+
   // Pre-allocate all buffers
   audioData.bufferMid.resize(audioData.bufferSize, 0.0f);
   audioData.bufferSide.resize(audioData.bufferSize, 0.0f);
   audioData.bandpassedMid.resize(audioData.bufferSize, 0.0f);
 
   // Pre-allocate all FFT-related vectors using config FFT size
-  const int FFT_SIZE = Config::values().audio.fft_size;
+  const int FFT_SIZE = Config::values().fft.size;
   audioData.fftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
   audioData.prevFftMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
   audioData.smoothedMagnitudesMid.resize(FFT_SIZE / 2 + 1, 0.0f);
@@ -424,6 +437,7 @@ int main() {
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
   Uint32 lastThemeCheck = SDL_GetTicks();
+  Uint32 frameStart = SDL_GetTicks();
 
   // Enforce window aspect ratio if needed (after all initialization)
   enforceWindowAspectRatio(win, visualizerPtrs, enforcingAspectRatio, audioData, splitters, rootSplitter);
@@ -518,21 +532,6 @@ int main() {
       }
     }
 
-    // Wait for new audio data to be available
-    currentAudioFrame = audioData.getCurrentFrame();
-    if (currentAudioFrame <= lastAudioFrame) {
-      // No new audio data, wait for it
-      if (!audioData.waitForNewData(lastAudioFrame, std::chrono::milliseconds(16))) { // ~60 FPS timeout
-        // Timeout occurred, continue to next frame for UI responsiveness
-        continue;
-      }
-      currentAudioFrame = audioData.getCurrentFrame();
-    }
-    lastAudioFrame = currentAudioFrame;
-
-    // Update delta time for frame-rate independent animations
-    audioData.updateDeltaTime();
-
     // Reset hover states when window loses focus
     if (!windowHasFocus) {
       for (auto& splitter : splitters) {
@@ -602,8 +601,6 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     {
-      std::lock_guard<std::mutex> lock(audioData.mutex);
-
       // Draw all visualizers
       if (spectrogramVis) {
         spectrogramVis->draw(audioData, 0);
@@ -627,7 +624,17 @@ int main() {
     SDL_GL_SwapWindow(win);
 
     frameCount++;
-    currentTime = SDL_GetTicks();
+    uint32_t targetFps = Config::values().window.fps_limit;
+    uint32_t frameInterval = (targetFps > 0) ? (1000 / targetFps) : 0;
+    uint32_t now = SDL_GetTicks();
+    uint32_t elapsed = now - frameStart;
+    if (frameInterval > 0 && elapsed < frameInterval) {
+      SDL_Delay(frameInterval - elapsed);
+      now = SDL_GetTicks();
+    }
+    currentTime = now;
+    frameStart = now;
+
     if (currentTime - lastFpsUpdate >= 1000) {
       if (Config::values().debug.log_fps) {
         std::cerr << "FPS: " << frameCount << std::endl;

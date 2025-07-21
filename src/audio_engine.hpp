@@ -29,13 +29,13 @@ public:
   virtual ~AudioEngineBase() = default;
 
   // Initialize the audio engine
-  virtual bool initialize(const std::string& deviceName = "") = 0;
+  virtual bool initialize(const std::string& deviceName = "", AudioData* audioData = nullptr) = 0;
 
   // Read audio data into buffer
   virtual bool readAudio(float* buffer, size_t frames) = 0;
 
   // Clean up resources
-  virtual void cleanup() = 0;
+  virtual void cleanup(AudioData* audioData) = 0;
 
   // Get engine type
   virtual Type getType() const = 0;
@@ -54,7 +54,7 @@ public:
 
   // Check if current config matches desired config
   virtual bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100,
-                                    uint32_t channels = 2, uint32_t bufferSize = 512) const = 0;
+                                    uint32_t bufferSize = 512) const = 0;
 
   // Get current device name
   virtual std::string getCurrentDevice() const = 0;

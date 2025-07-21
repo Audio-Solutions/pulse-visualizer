@@ -96,6 +96,8 @@ private:
   std::vector<DeviceInfo> available_sources;
   std::string default_sink_name;
 
+  AudioData* audioData;
+
   // Callback for source enumeration
   static void source_info_callback(pa_context* context, const pa_source_info* info, int eol, void* userdata) {
     if (eol || !info || !userdata)
@@ -252,30 +254,31 @@ private:
   }
 
 public:
-  PulseAudioEngine() : pa_stream(nullptr), initialized(false), running(false) {
+  PulseAudioEngine() : pa_stream(nullptr), initialized(false), running(false), audioData(nullptr) {
     sample_spec.format = PA_SAMPLE_FLOAT32;
     sample_spec.rate = 44100;
     sample_spec.channels = 2;
   }
 
-  ~PulseAudioEngine() { cleanup(); }
+  ~PulseAudioEngine() { cleanup(audioData); }
 
-  bool initialize(const std::string& deviceName = "") override {
+  bool initialize(const std::string& deviceName = "", AudioData* audioData = nullptr) override {
     if (initialized) {
-      cleanup();
+      cleanup(audioData);
     }
+    this->audioData = audioData;
 
     // Enumerate available devices
     enumerateDevices();
 
     // Set sample spec according to config
     sample_spec.rate = Config::values().audio.sample_rate;
-    sample_spec.channels = Config::values().audio.channels;
+    sample_spec.channels = 2;
 
     // Derive PulseAudio buffer attributes from configurable frame count
     uint32_t buffer_frames = 0;
     try {
-      buffer_frames = static_cast<uint32_t>(Config::values().pulseaudio.buffer_size);
+      buffer_frames = static_cast<uint32_t>(sample_spec.rate / Config::values().window.fps_limit);
     } catch (...) {
       buffer_frames = 512; // sensible default if the key is missing
     }
@@ -302,7 +305,7 @@ public:
 
     int error = 0;
 
-    std::string target_device = deviceName.empty() ? Config::values().pulseaudio.default_source : deviceName;
+    std::string target_device = deviceName.empty() ? Config::values().audio.device : deviceName;
     std::string source = findBestDevice(target_device);
 
     pa_stream = pa_simple_new(nullptr,               // server
@@ -353,7 +356,7 @@ public:
     return true;
   }
 
-  void cleanup() override {
+  void cleanup(AudioData* audioData) override {
     if (pa_stream) {
       pa_simple_free(pa_stream);
       pa_stream = nullptr;
@@ -372,27 +375,32 @@ public:
 
   std::string getLastError() const override { return last_error; }
 
-  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100, uint32_t channels = 2,
+  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100,
                             uint32_t bufferSize = 512) const override {
     // Check if engine parameters have changed
-    if (sample_spec.rate != sampleRate || sample_spec.channels != channels) {
+    if (sample_spec.rate != sampleRate) {
       return true;
     }
 
     // Check if device has changed
-    std::string targetDevice = deviceName.empty() ? Config::values().pulseaudio.default_source : deviceName;
+    std::string targetDevice = deviceName.empty() ? Config::values().audio.device : deviceName;
     if (connected_device_name != targetDevice && !connected_device_name.empty()) {
+      // Allow device name changes that only differ by the presence or absence of ".monitor" suffix
+      auto strip_monitor = [](const std::string& name) {
+        if (name.size() >= 8 && name.compare(name.size() - 8, 8, ".monitor") == 0)
+          return name.substr(0, name.size() - 8);
+        return name;
+      };
+      if (strip_monitor(connected_device_name) == strip_monitor(targetDevice)) {
+        return false;
+      }
       return true;
     }
 
     // Check if buffer size has changed
-    uint32_t currentBufferSize = 0;
-    try {
-      currentBufferSize = static_cast<uint32_t>(Config::values().pulseaudio.buffer_size);
-    } catch (...) {
-      currentBufferSize = 512;
-    }
+    static uint32_t currentBufferSize = 0;
     if (currentBufferSize != bufferSize) {
+      currentBufferSize = bufferSize;
       return true;
     }
 
@@ -418,14 +426,8 @@ private:
   bool running;
 
   uint32_t sample_rate;
-  uint32_t channels;
 
-  // Circular buffer for audio data
-  std::vector<float> audio_buffer;
-  size_t buffer_write_pos;
-  size_t buffer_read_pos;
-  std::mutex buffer_mutex;
-  std::condition_variable buffer_cv;
+  AudioData* audioData;
 
   // Note: pw_thread_loop handles threading internally
 
@@ -522,20 +524,16 @@ private:
       n_samples = buf->datas[0].maxsize / sizeof(float);
     }
 
-    // Copy to circular buffer
-    {
-      std::lock_guard<std::mutex> lock(buffer_mutex);
-      for (uint32_t i = 0; i < n_samples; ++i) {
-        audio_buffer[buffer_write_pos] = samples[i];
-        buffer_write_pos = (buffer_write_pos + 1) % audio_buffer.size();
-
-        // Prevent buffer overrun - advance read position by channels to maintain alignment
-        if (buffer_write_pos == buffer_read_pos) {
-          buffer_read_pos = (buffer_read_pos + channels) % audio_buffer.size();
-        }
+    // Copy to AudioData
+    if (audioData) {
+      size_t bufferSize = audioData->bufferSize;
+      for (uint32_t i = 0; i + 1 < n_samples; i += 2) {
+        float sampleLeft = samples[i];
+        float sampleRight = samples[i + 1];
+        audioData->bufferMid[audioData->writePos] = (sampleLeft + sampleRight) / 2.0f;
+        audioData->bufferSide[audioData->writePos] = (sampleLeft - sampleRight) / 2.0f;
+        audioData->writePos = (audioData->writePos + 1) % bufferSize;
       }
-      // Notify any waiting consumer that new data is available
-      buffer_cv.notify_one();
     }
 
     pw_stream_queue_buffer(stream, b);
@@ -583,34 +581,15 @@ private:
 public:
   PipeWireEngine()
       : loop(nullptr), context(nullptr), core(nullptr), stream(nullptr), initialized(false), running(false),
-        sample_rate(44100), channels(2), buffer_write_pos(0), buffer_read_pos(0), registry(nullptr) {
-    // Resize circular buffer: configurable "pipewire.buffer_size" frames (per channel)
-    size_t cfg_frames = 0;
-    try {
-      cfg_frames = static_cast<size_t>(Config::values().pipewire.buffer_size);
-    } catch (...) {
-      cfg_frames = 512; // Fallback if key missing / invalid
-    }
-    if (cfg_frames == 0) {
-      cfg_frames = 512;
-    }
+        sample_rate(44100), registry(nullptr), audioData(nullptr) {}
 
-    // Size the ring-buffer to N periods where N is configurable (pipewire.ring_multiplier, default 4).
-    size_t ring_mult = 4;
-    try {
-      ring_mult = static_cast<size_t>(Config::values().pipewire.ring_multiplier);
-    } catch (...) {
-    }
-    ring_mult = std::clamp<size_t>(ring_mult, 2, 16); // reasonable bounds
-    audio_buffer.resize(cfg_frames * channels * ring_mult);
-  }
+  ~PipeWireEngine() { cleanup(audioData); }
 
-  ~PipeWireEngine() { cleanup(); }
-
-  bool initialize(const std::string& deviceName = "") override {
+  bool initialize(const std::string& deviceName = "", AudioData* audioData = nullptr) override {
     if (initialized) {
-      cleanup();
+      cleanup(audioData);
     }
+    this->audioData = audioData;
 
     pw_init(nullptr, nullptr);
 
@@ -664,29 +643,6 @@ public:
     }
 
     sample_rate = Config::values().audio.sample_rate;
-    channels = Config::values().audio.channels;
-
-    // Resize circular buffer: configurable "pipewire.buffer_size" frames (per channel)
-    size_t cfg_frames = 0;
-    try {
-      cfg_frames = static_cast<size_t>(Config::values().pipewire.buffer_size);
-    } catch (...) {
-      cfg_frames = 512; // Fallback if key missing / invalid
-    }
-    if (cfg_frames == 0) {
-      cfg_frames = 512;
-    }
-
-    // Size the ring-buffer to N periods where N is configurable (pipewire.ring_multiplier, default 4).
-    size_t ring_mult = 4;
-    try {
-      ring_mult = static_cast<size_t>(Config::values().pipewire.ring_multiplier);
-    } catch (...) {
-    }
-    ring_mult = std::clamp<size_t>(ring_mult, 2, 16);
-    audio_buffer.resize(cfg_frames * channels * ring_mult);
-    buffer_write_pos = 0;
-    buffer_read_pos = 0;
 
     // Create stream
     const struct spa_pod* params[1];
@@ -695,7 +651,7 @@ public:
     struct spa_pod_builder b;
 
     info.format = SPA_AUDIO_FORMAT_F32;
-    info.channels = channels;
+    info.channels = 2;
     info.rate = sample_rate;
 
     spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -770,45 +726,17 @@ public:
       return false;
     }
 
-    const size_t samples_needed = frames * channels;
-    size_t samples_copied = 0;
-
-    // Wait until the requested number of samples is present in the internal ring-buffer;
-    // if none arrive within WAIT_TIMEOUT, pad the remainder with zeros and return.
-    constexpr auto WAIT_TIMEOUT = std::chrono::milliseconds(200);
-
-    auto availableSamples = [this]() {
-      return (buffer_write_pos >= buffer_read_pos) ? (buffer_write_pos - buffer_read_pos)
-                                                   : (audio_buffer.size() - buffer_read_pos + buffer_write_pos);
-    };
-
-    std::unique_lock<std::mutex> lock(buffer_mutex);
-
-    while (samples_copied < samples_needed) {
-      size_t avail = availableSamples();
-
-      if (avail == 0) {
-        // Wait until new data arrives or timeout
-        if (buffer_cv.wait_for(lock, WAIT_TIMEOUT) == std::cv_status::timeout) {
-          // Timed out – pad remaining with zeros and exit
-          std::fill_n(buffer + samples_copied, samples_needed - samples_copied, 0.0f);
-          break;
-        }
-        continue; // re-evaluate avail after wake-up
-      }
-
-      size_t to_copy = std::min(avail, samples_needed - samples_copied);
-      for (size_t i = 0; i < to_copy; ++i) {
-        buffer[samples_copied + i] = audio_buffer[buffer_read_pos];
-        buffer_read_pos = (buffer_read_pos + 1) % audio_buffer.size();
-      }
-      samples_copied += to_copy;
+    static size_t lastWritePos = 0;
+    // wait for Frames writes to be available
+    while ((audioData->writePos - lastWritePos + audioData->bufferSize) % audioData->bufferSize < frames) {
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
+    lastWritePos = audioData->writePos;
 
     return true;
   }
 
-  void cleanup() override {
+  void cleanup(AudioData* audioData) override {
     if (loop) {
       pw_thread_loop_lock(loop);
 
@@ -852,33 +780,29 @@ public:
 
   uint32_t getSampleRate() const override { return sample_rate; }
 
-  uint32_t getChannels() const override { return channels; }
+  uint32_t getChannels() const override { return 2; }
 
   bool isRunning() const override { return running; }
 
   std::string getLastError() const override { return last_error; }
 
-  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100, uint32_t channels = 2,
+  bool needsReconfiguration(const std::string& deviceName = "", uint32_t sampleRate = 44100,
                             uint32_t bufferSize = 512) const override {
     // Check if engine parameters have changed
-    if (sample_rate != sampleRate || this->channels != channels) {
+    if (sample_rate != sampleRate) {
       return true;
     }
 
     // Check if device has changed
-    std::string targetDevice = deviceName.empty() ? Config::values().pipewire.default_source : deviceName;
+    std::string targetDevice = deviceName.empty() ? Config::values().audio.device : deviceName;
     if (connected_device_name != targetDevice && !connected_device_name.empty()) {
       return true;
     }
 
     // Check if buffer size has changed
-    uint32_t currentBufferSize = 0;
-    try {
-      currentBufferSize = static_cast<uint32_t>(Config::values().pipewire.buffer_size);
-    } catch (...) {
-      currentBufferSize = 512;
-    }
+    static uint32_t currentBufferSize = 0;
     if (currentBufferSize != bufferSize) {
+      currentBufferSize = bufferSize;
       return true;
     }
 

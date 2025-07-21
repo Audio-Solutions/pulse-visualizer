@@ -38,12 +38,12 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
     scopePhosphorContext = nullptr;
   }
 
-  size_t displaySamples = audioData.displaySamples;
+  size_t displaySamples = osc.time_window * audioData.sampleRate / 1000;
   if (osc.limit_cycles) {
     displaySamples = audioData.samplesPerCycle * osc.cycles;
 
-    // Limit to at least min_samples
-    displaySamples = std::max(displaySamples, static_cast<size_t>(osc.min_samples));
+    // Limit to at least min_cycle_time
+    displaySamples = std::max(displaySamples, static_cast<size_t>(osc.min_cycle_time * audioData.sampleRate / 1000));
   }
 
   // Calculate the target position for phase correction
@@ -148,11 +148,17 @@ void OscilloscopeVisualizer::draw(const AudioData& audioData, int) {
       dwellTimes.reserve(scopePoints.size());
 
       // Normalize beam energy over area
-      float ref = 400.0f * 400.0f;
+      float ref = 300.0f * 300.0f;
       float beamEnergy = phos.beam_energy / ref * (width * audioData.windowHeight);
 
+      // Apply beam multiplier
+      beamEnergy *= osc.beam_multiplier;
+
       // Normalize beam energy over display samples
-      beamEnergy = beamEnergy / displaySamples * audioData.displaySamples;
+      beamEnergy = beamEnergy / displaySamples * 2048;
+
+      // Normalize beam energy over fps
+      beamEnergy = beamEnergy * audioData.getAudioDeltaTime() / 0.016f;
 
       for (size_t i = 1; i < scopePoints.size(); ++i) {
         const auto& p1 = scopePoints[i - 1];
