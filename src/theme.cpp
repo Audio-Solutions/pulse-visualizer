@@ -53,7 +53,7 @@ size_t ThemeManager::getVersion() { return themeVersion; }
 
 bool ThemeManager::loadThemeFromConfig() {
   try {
-    std::string themeName = Config::values().window.default_theme;
+    std::string themeName = Config::values().window.theme;
     return loadThemeFromFile(themeName);
   } catch (...) {
     // Fallback to mocha theme if config fails

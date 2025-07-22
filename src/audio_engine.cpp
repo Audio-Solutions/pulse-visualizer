@@ -426,6 +426,7 @@ private:
   bool running;
 
   uint32_t sample_rate;
+  std::atomic<uint32_t> samples_written;
 
   AudioData* audioData;
 
@@ -445,6 +446,9 @@ private:
   std::vector<DeviceInfo> available_devices;
   std::string connected_device_name;
   std::string connected_device_description;
+
+  std::mutex samples_mutex;
+  std::condition_variable samples_cv;
 
   static void on_process(void* userdata) {
     auto* engine = static_cast<PipeWireEngine*>(userdata);
@@ -535,6 +539,12 @@ private:
         audioData->writePos = (audioData->writePos + 1) % bufferSize;
       }
     }
+
+    {
+      std::lock_guard<std::mutex> lock(samples_mutex);
+      samples_written += n_samples;
+    }
+    samples_cv.notify_one();
 
     pw_stream_queue_buffer(stream, b);
   }
@@ -665,11 +675,25 @@ public:
 
     pw_thread_loop_lock(loop);
 
-    stream =
-        pw_stream_new_simple(pw_thread_loop_get_loop(loop), "Audio Visualizer",
-                             pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
-                                               PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true", nullptr),
-                             &stream_events, this);
+    // build node_latency string from sample_rate and buffer_size
+    size_t audio_engine_buffer_size = sample_rate / Config::values().window.fps_limit / 4;
+    // align to highest power of 2
+    size_t aligned_buffer_size = 1;
+    while (aligned_buffer_size < audio_engine_buffer_size) {
+      aligned_buffer_size *= 2;
+    }
+    // minimum buffer size is 128 samples
+    if (aligned_buffer_size < 128) {
+      aligned_buffer_size = 128;
+    }
+
+    std::string node_latency = std::to_string(aligned_buffer_size) + "/" + std::to_string(sample_rate);
+
+    stream = pw_stream_new_simple(pw_thread_loop_get_loop(loop), "Audio Visualizer",
+                                  pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
+                                                    PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true",
+                                                    PW_KEY_NODE_LATENCY, node_latency.c_str(), nullptr),
+                                  &stream_events, this);
 
     if (!stream) {
       last_error = "Failed to create PipeWire stream";
@@ -726,12 +750,9 @@ public:
       return false;
     }
 
-    static size_t lastWritePos = 0;
-    // wait for Frames writes to be available
-    while ((audioData->writePos - lastWritePos + audioData->bufferSize) % audioData->bufferSize < frames) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-    lastWritePos = audioData->writePos;
+    std::unique_lock<std::mutex> lock(samples_mutex);
+    samples_cv.wait(lock, [&] { return samples_written >= frames; });
+    samples_written = 0;
 
     return true;
   }

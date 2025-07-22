@@ -17,6 +17,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)
+- Separate FFT/CQT threads for mid/side channels
 - Live config and theme hot-reloading (no restart needed, mostly)
 - Draggable splitters for custom layout
 - Mouse interaction: hover FFT for note readout, drag splitters, etc.
@@ -99,7 +100,7 @@ The configuration is now organized into logical sections. Here are the most impo
   window:
     default_width: 1080
     default_height: 200
-    default_theme: mocha.txt
+    theme: mocha.txt
     fps_limit: 240
   ```
 - `phosphor`, `fft`, `lissajous`, `oscilloscope`, `bandpass_filter`, `spectrogram`, `visualizers`: Fine-tune every aspect of the visualizers and effects. Each section is documented in the config template.
@@ -108,4 +109,42 @@ For all available options and detailed descriptions, see `/usr/local/share/pulse
 
 ### Themeing
 
-To pick a theme, edit the `
+To pick a theme, edit the `theme` field in your config:
+
+```yaml
+window:
+  theme: green-crt.txt
+```
+
+Swap `green-crt.txt` for any file in `themes/`. Theme files get copied to `~/.config/pulse-visualizer/themes/` on first run.
+
+Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
+
+## Usage
+
+Just run:
+
+```bash
+Pulse
+```
+
+- Drag splitters to resize/rearrange visualizers
+- Lissajous will enforce a square aspect ratio
+- Hover FFT for real-time frequency, dB, and note readout
+- All config and theme changes are live, no restart needed
+
+## Contributing & Support
+
+Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
+
+If you like Pulse, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Acknowledgments
+
+- [MiniMeters](https://minimeters.app/) for inspiration
+- [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
+- SDL2, PulseAudio, PipeWire, FFTW, FreeType, and everyone else who made this possible

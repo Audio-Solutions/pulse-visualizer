@@ -424,6 +424,8 @@ int main() {
   rebuildVisualizerLayout(currentConfig, audioData, visualizers, visualizerPtrs, splitters, rootSplitter,
                           spectrogramVis, lissajousVis, oscilloscopeVis, fftVis);
 
+  std::thread fftThreadHandleSide(AudioProcessing::FFT_CQTThreadSide, &audioData);
+  std::thread fftThreadHandleMid(AudioProcessing::FFT_CQTThreadMid, &audioData);
   std::thread audioThreadHandle(AudioProcessing::audioThread, &audioData);
 
   bool running = true;
@@ -437,7 +439,6 @@ int main() {
   Uint32 frameCount = 0;
   Uint32 lastFpsUpdate = SDL_GetTicks();
   Uint32 lastThemeCheck = SDL_GetTicks();
-  Uint32 frameStart = SDL_GetTicks();
 
   // Enforce window aspect ratio if needed (after all initialization)
   enforceWindowAspectRatio(win, visualizerPtrs, enforcingAspectRatio, audioData, splitters, rootSplitter);
@@ -532,6 +533,11 @@ int main() {
       }
     }
 
+    // Wait for data ready signal
+    std::unique_lock<std::mutex> lock(audioData.audioMutex);
+    audioData.audioCv.wait(lock, [&] { return audioData.dataReady.load(std::memory_order_acquire); });
+    audioData.dataReady = false;
+
     // Reset hover states when window loses focus
     if (!windowHasFocus) {
       for (auto& splitter : splitters) {
@@ -624,17 +630,7 @@ int main() {
     SDL_GL_SwapWindow(win);
 
     frameCount++;
-    uint32_t targetFps = Config::values().window.fps_limit;
-    uint32_t frameInterval = (targetFps > 0) ? (1000 / targetFps) : 0;
-    uint32_t now = SDL_GetTicks();
-    uint32_t elapsed = now - frameStart;
-    if (frameInterval > 0 && elapsed < frameInterval) {
-      SDL_Delay(frameInterval - elapsed);
-      now = SDL_GetTicks();
-    }
-    currentTime = now;
-    frameStart = now;
-
+    currentTime = SDL_GetTicks();
     if (currentTime - lastFpsUpdate >= 1000) {
       if (Config::values().debug.log_fps) {
         std::cerr << "FPS: " << frameCount << std::endl;
@@ -645,7 +641,41 @@ int main() {
   }
 
   audioData.running = false;
+  audioData.fftCvMid.notify_one();
+  audioData.fftCvSide.notify_one();
   audioThreadHandle.join();
+  fftThreadHandleSide.join();
+  fftThreadHandleMid.join();
+
+  // Explicitly free FFTW buffers and plans on exit
+  {
+    std::lock_guard<std::mutex> lock(audioData.fftPlanMutexMid);
+    std::lock_guard<std::mutex> lockSide(audioData.fftPlanMutexSide);
+    if (audioData.fftPlanMid) {
+      fftwf_destroy_plan(audioData.fftPlanMid);
+      audioData.fftPlanMid = nullptr;
+    }
+    if (audioData.fftPlanSide) {
+      fftwf_destroy_plan(audioData.fftPlanSide);
+      audioData.fftPlanSide = nullptr;
+    }
+    if (audioData.fftInMid) {
+      fftwf_free(audioData.fftInMid);
+      audioData.fftInMid = nullptr;
+    }
+    if (audioData.fftInSide) {
+      fftwf_free(audioData.fftInSide);
+      audioData.fftInSide = nullptr;
+    }
+    if (audioData.fftOutMid) {
+      fftwf_free(audioData.fftOutMid);
+      audioData.fftOutMid = nullptr;
+    }
+    if (audioData.fftOutSide) {
+      fftwf_free(audioData.fftOutSide);
+      audioData.fftOutSide = nullptr;
+    }
+  }
 
   SDL_GL_DeleteContext(glContext);
   SDL_DestroyWindow(win);

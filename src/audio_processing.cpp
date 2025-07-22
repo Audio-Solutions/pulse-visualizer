@@ -222,6 +222,7 @@ struct CQTParameters {
 
   float sampleRateInv; // 1.0 / sampleRate
   float twoPi;         // 2 * PI
+  float maxFreq;       // Maximum frequency for CQT bins
 };
 
 // Initialize CQT parameters and generate center frequencies
@@ -231,6 +232,7 @@ CQTParameters initializeCQT(float f0, int binsPerOctave, float sampleRate, float
   params.f0 = f0;
   params.binsPerOctave = binsPerOctave;
   params.sampleRate = sampleRate;
+  params.maxFreq = maxFreq;
 
   params.sampleRateInv = 1.0f / sampleRate;
   params.twoPi = 2.0f * M_PI;
@@ -364,6 +366,42 @@ void computeCQT(const CQTParameters& params, const std::vector<float>& circularB
 
 } // namespace ConstantQ
 
+// Utility function to (re)allocate FFTW buffers and plans in the main audio thread
+void recreateFFTWPlans(AudioData* audioData, int fftSize) {
+  std::lock_guard<std::mutex> lock(audioData->fftPlanMutexMid);
+  std::lock_guard<std::mutex> lockSide(audioData->fftPlanMutexSide);
+  if (audioData->fftPlanMid) {
+    fftwf_destroy_plan(audioData->fftPlanMid);
+    audioData->fftPlanMid = nullptr;
+  }
+  if (audioData->fftPlanSide) {
+    fftwf_destroy_plan(audioData->fftPlanSide);
+    audioData->fftPlanSide = nullptr;
+  }
+  if (audioData->fftInMid) {
+    fftwf_free(audioData->fftInMid);
+    audioData->fftInMid = nullptr;
+  }
+  if (audioData->fftInSide) {
+    fftwf_free(audioData->fftInSide);
+    audioData->fftInSide = nullptr;
+  }
+  if (audioData->fftOutMid) {
+    fftwf_free(audioData->fftOutMid);
+    audioData->fftOutMid = nullptr;
+  }
+  if (audioData->fftOutSide) {
+    fftwf_free(audioData->fftOutSide);
+    audioData->fftOutSide = nullptr;
+  }
+  audioData->fftInMid = fftwf_alloc_real(fftSize);
+  audioData->fftInSide = fftwf_alloc_real(fftSize);
+  audioData->fftOutMid = fftwf_alloc_complex(fftSize / 2 + 1);
+  audioData->fftOutSide = fftwf_alloc_complex(fftSize / 2 + 1);
+  audioData->fftPlanMid = fftwf_plan_dft_r2c_1d(fftSize, audioData->fftInMid, audioData->fftOutMid, FFTW_ESTIMATE);
+  audioData->fftPlanSide = fftwf_plan_dft_r2c_1d(fftSize, audioData->fftInSide, audioData->fftOutSide, FFTW_ESTIMATE);
+}
+
 void audioThread(AudioData* audioData) {
   AudioThreadState state;
 
@@ -392,43 +430,26 @@ void audioThread(AudioData* audioData) {
   std::string lastEngineTypeStr = preferredEngineStr;
   std::string lastDeviceName = deviceName;
   uint32_t lastSampleRate = audioEngine->getSampleRate();
-  float lastMinFreq = Config::values().fft.min_freq;
-  float lastMaxFreq = Config::values().fft.max_freq;
-  int lastCqtBinsPerOctave = Config::values().fft.cqt_bins_per_octave;
 
   // Determine read size based on fps limit
   int bufferFrames = audioEngine->getSampleRate() / Config::values().window.fps_limit;
   uint32_t lastBufferSize = bufferFrames;
+  int lastFftSize = Config::values().fft.size;
+  bool lastEnableCqt = Config::values().fft.enable_cqt;
 
   const int READ_SAMPLES = bufferFrames * 2;
   std::vector<float> readBuffer(READ_SAMPLES);
 
-  // Initialize state first to get FFT size
-  state.lastFrameTime = std::chrono::steady_clock::now();
-  int FFT_SIZE = Config::values().fft.size;
-  fftwf_complex* out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
-  float* in = fftwf_alloc_real(FFT_SIZE);
-  fftwf_plan plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
-  int lastFftSize = FFT_SIZE;
+  // Initialize FFTW plans
+  recreateFFTWPlans(audioData, lastFftSize);
 
-  // Initialize CQT parameters
-  ConstantQ::CQTParameters cqtParams =
-      ConstantQ::initializeCQT(Config::values().fft.min_freq, Config::values().fft.cqt_bins_per_octave,
-                               audioEngine->getSampleRate(), Config::values().fft.max_freq, audioData->bufferSize);
-  ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
-
-  // Initialize CQT data vectors in AudioData
-  {
-    audioData->cqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-    audioData->prevCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-    audioData->smoothedCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-    audioData->interpolatedCqtValuesMid.resize(cqtParams.numBins, 0.0f);
-    audioData->cqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-    audioData->prevCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-    audioData->smoothedCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-    audioData->interpolatedCqtValuesSide.resize(cqtParams.numBins, 0.0f);
-    audioData->cqtFrequencies = cqtParams.frequencies;
+  // initialize fftw in outs
+  if (!audioData->fftInMid || !audioData->fftInSide || !audioData->fftOutMid || !audioData->fftOutSide ||
+      !audioData->fftPlanMid || !audioData->fftPlanSide) {
+    std::cerr << "Failed to allocate FFTW buffers!" << std::endl;
   }
+
+  state.lastFrameTime = std::chrono::steady_clock::now();
 
   while (audioData->running && audioEngine->isRunning()) {
     const auto& audio_cfg = Config::values().audio;
@@ -498,72 +519,14 @@ void audioThread(AudioData* audioData) {
         lastBufferSize = currentBufferSize;
       }
 
-      // Reinitialize CQT if any CQT-related parameters changed (independent of engine changes)
-      float currentMinFreq = fft_cfg.min_freq;
-      float currentMaxFreq = fft_cfg.max_freq;
-      int currentCqtBinsPerOctave = fft_cfg.cqt_bins_per_octave;
-      if (currentSampleRate != lastSampleRate || currentMinFreq != lastMinFreq || currentMaxFreq != lastMaxFreq ||
-          currentCqtBinsPerOctave != lastCqtBinsPerOctave) {
-        cqtParams = ConstantQ::initializeCQT(currentMinFreq, currentCqtBinsPerOctave, audioEngine->getSampleRate(),
-                                             currentMaxFreq, audioData->bufferSize);
-        ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
-
-        // Resize CQT data vectors
-        audioData->cqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-        audioData->prevCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-        audioData->smoothedCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
-        audioData->interpolatedCqtValuesMid.resize(cqtParams.numBins, 0.0f);
-        audioData->cqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-        audioData->prevCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-        audioData->smoothedCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
-        audioData->interpolatedCqtValuesSide.resize(cqtParams.numBins, 0.0f);
-        audioData->cqtFrequencies = cqtParams.frequencies;
-
-        lastMinFreq = currentMinFreq;
-        lastMaxFreq = currentMaxFreq;
-        lastCqtBinsPerOctave = currentCqtBinsPerOctave;
-      }
-
-      // Check if FFT size has changed
       int currentFftSize = Config::values().fft.size;
-      if (currentFftSize != lastFftSize) {
-
-        // Clean up old FFTW resources
-        fftwf_destroy_plan(plan);
-        fftwf_free(in);
-        fftwf_free(out);
-
-        // Create new FFTW resources
-        FFT_SIZE = currentFftSize;
-        out = fftwf_alloc_complex(FFT_SIZE / 2 + 1);
-        in = fftwf_alloc_real(FFT_SIZE);
-        plan = fftwf_plan_dft_r2c_1d(FFT_SIZE, in, out, FFTW_ESTIMATE);
-        lastFftSize = FFT_SIZE;
-
-        // Resize AudioData FFT vectors to match new FFT size
-        const size_t fftBins = FFT_SIZE / 2 + 1;
-        audioData->fftMagnitudesMid.resize(fftBins, 0.0f);
-        audioData->prevFftMagnitudesMid.resize(fftBins, 0.0f);
-        audioData->smoothedMagnitudesMid.resize(fftBins, 0.0f);
-        audioData->interpolatedValuesMid.resize(fftBins, 0.0f);
-        audioData->fftMagnitudesSide.resize(fftBins, 0.0f);
-        audioData->prevFftMagnitudesSide.resize(fftBins, 0.0f);
-        audioData->smoothedMagnitudesSide.resize(fftBins, 0.0f);
-        audioData->interpolatedValuesSide.resize(fftBins, 0.0f);
+      bool currentEnableCqt = Config::values().fft.enable_cqt;
+      // Only recreate FFTW plans if switching from CQT to FFT, or if FFT size changed while CQT is disabled
+      if (!currentEnableCqt && (lastEnableCqt || currentFftSize != lastFftSize)) {
+        recreateFFTWPlans(audioData, currentFftSize);
+        lastFftSize = currentFftSize;
       }
-
-      // Check if audio buffer size has changed (this affects the circular buffer in AudioData)
-      size_t currentAudioBufferSize = audioData->bufferSize;
-      if (currentAudioBufferSize != audioData->bufferSize) {
-
-        // Resize circular buffers
-        audioData->bufferMid.resize(audioData->bufferSize, 0.0f);
-        audioData->bufferSide.resize(audioData->bufferSize, 0.0f);
-        audioData->bandpassedMid.resize(audioData->bufferSize, 0.0f);
-
-        // Reset write position to avoid out-of-bounds access
-        audioData->writePos = 0;
-      }
+      lastEnableCqt = currentEnableCqt;
     }
 
     // Update READ_SAMPLES based on current engine
@@ -590,75 +553,132 @@ void audioThread(AudioData* audioData) {
       }
     }
 
-    // Compute FFT only if CQT is not enabled
-    if (!fft_cfg.enable_cqt) {
-      // Copy and window the input data from circular buffer (mid channel)
-      size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
+    // Signal FFT/CQT threads to start processing
+    {
+      std::lock_guard<std::mutex> lock(audioData->fftMutex);
+      audioData->fftReadyMid = true;
+      audioData->fftCvMid.notify_one();
+      audioData->fftReadySide = true;
+      audioData->fftCvSide.notify_one();
+    }
 
+    // Apply bandpass filter using the most recent pitch (may be 1 frame out of date)
+    if (audioData->pitchConfidence > 0.0f) {
+      float pitch = audioData->currentPitch;
+      float bandwidth = bandpass_cfg.bandwidth;
+      if (bandpass_cfg.bandwidth_type == "percent") {
+        bandwidth = pitch * bandwidth / 100.0f;
+      }
+      Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, pitch, audioData->sampleRate,
+                                         audioData->writePos, bandwidth, bandpass_cfg.order);
+    }
+
+    // New data is available, signal main thread to redraw
+    {
+      std::lock_guard<std::mutex> lock(audioData->audioMutex);
+      audioData->dataReady = true;
+    }
+    audioData->audioCv.notify_one();
+  }
+
+  audioEngine->cleanup(audioData);
+}
+
+// --- Mid channel FFT/CQT thread ---
+void FFT_CQTThreadMid(AudioData* audioData) {
+  AudioThreadState state;
+  int FFT_SIZE = Config::values().fft.size;
+  // Use main-thread-allocated buffers and plans
+  int lastFftSize = FFT_SIZE;
+
+  ConstantQ::CQTParameters cqtParams =
+      ConstantQ::initializeCQT(Config::values().fft.min_freq, Config::values().fft.cqt_bins_per_octave,
+                               audioData->sampleRate, Config::values().fft.max_freq, audioData->bufferSize);
+  ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
+
+  // Initialize CQT data vectors in AudioData (if needed)
+  {
+    audioData->cqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+    audioData->prevCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+    audioData->smoothedCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+    audioData->interpolatedCqtValuesMid.resize(cqtParams.numBins, 0.0f);
+    audioData->cqtFrequencies = cqtParams.frequencies;
+  }
+
+  while (audioData->running) {
+    std::unique_lock<std::mutex> lock(audioData->fftMutex);
+    audioData->fftCvMid.wait(lock, [&] { return audioData->fftReadyMid.load() || !audioData->running; });
+    if (!audioData->running)
+      break;
+    audioData->fftReadyMid = false;
+    lock.unlock();
+
+    const auto& fft_cfg = Config::values().fft;
+    int sampleRate = audioData->sampleRate;
+    float minFreq = fft_cfg.min_freq;
+    float maxFreq = fft_cfg.max_freq;
+
+    int currentFftSize = Config::values().fft.size;
+    if (currentFftSize != lastFftSize) {
+      // Only update local FFT_SIZE and skip plan/buffer management
+      FFT_SIZE = currentFftSize;
+      lastFftSize = FFT_SIZE;
+      // Resize display vectors as before
+      const size_t fftBins = FFT_SIZE / 2 + 1;
+      audioData->fftMagnitudesMid.resize(fftBins, 0.0f);
+      audioData->prevFftMagnitudesMid.resize(fftBins, 0.0f);
+      audioData->smoothedMagnitudesMid.resize(fftBins, 0.0f);
+      audioData->interpolatedValuesMid.resize(fftBins, 0.0f);
+    }
+
+    float currentMinFreq = fft_cfg.min_freq;
+    float currentMaxFreq = fft_cfg.max_freq;
+    int currentCqtBinsPerOctave = fft_cfg.cqt_bins_per_octave;
+    if (sampleRate != cqtParams.sampleRate || currentMinFreq != cqtParams.f0 || currentMaxFreq != cqtParams.maxFreq ||
+        currentCqtBinsPerOctave != cqtParams.binsPerOctave) {
+      cqtParams = ConstantQ::initializeCQT(currentMinFreq, currentCqtBinsPerOctave, sampleRate, currentMaxFreq,
+                                           audioData->bufferSize);
+      ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
+      audioData->cqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+      audioData->prevCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+      audioData->smoothedCqtMagnitudesMid.resize(cqtParams.numBins, 0.0f);
+      audioData->interpolatedCqtValuesMid.resize(cqtParams.numBins, 0.0f);
+      audioData->cqtFrequencies = cqtParams.frequencies;
+    }
+
+    // FFT and CQT calculations for mid channel only
+    if (!fft_cfg.enable_cqt) {
+      size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
       for (int i = 0; i < FFT_SIZE; i++) {
-        // Apply Hanning window
         float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
         size_t pos = (startPos + i) % audioData->bufferSize;
-        in[i] = audioData->bufferMid[pos] * window;
+        if (fft_cfg.stereo_mode == "leftright") {
+          audioData->fftInMid[i] = (audioData->bufferSide[pos] - audioData->bufferMid[pos]) * 0.5f * window;
+        } else {
+          audioData->fftInMid[i] = audioData->bufferMid[pos] * window;
+        }
       }
-
-      // Execute FFT (mid channel)
-      fftwf_execute(plan);
-
-      // Store previous frame for interpolation
+      std::lock_guard<std::mutex> lock(audioData->fftPlanMutexMid);
+      if (audioData->fftPlanMid) {
+        fftwf_execute(audioData->fftPlanMid);
+      }
       audioData->prevFftMagnitudesMid = audioData->fftMagnitudesMid;
-
-      // Calculate new magnitudes with proper FFTW3 scaling
-      const float fftScale = 2.0f / FFT_SIZE; // 2.0f for Hann window sum
-
+      const float fftScale = 2.0f / FFT_SIZE;
       for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
-        // Double all bins except DC and Nyquist
+        float mag = sqrt(audioData->fftOutMid[i][0] * audioData->fftOutMid[i][0] +
+                         audioData->fftOutMid[i][1] * audioData->fftOutMid[i][1]) *
+                    fftScale;
         if (i != 0 && i != FFT_SIZE / 2)
           mag *= 2.0f;
         audioData->fftMagnitudesMid[i] = mag;
       }
-
-      // Now process side channel FFT
-      audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
-
-      // Copy and window the input data from circular buffer (side channel)
-      for (int i = 0; i < FFT_SIZE; i++) {
-        // Apply Hanning window
-        float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
-        size_t pos = (startPos + i) % audioData->bufferSize;
-        in[i] = audioData->bufferSide[pos] * window;
-      }
-
-      // Execute FFT (side channel)
-      fftwf_execute(plan);
-
-      // Calculate side channel magnitudes with proper FFTW3 scaling
-      for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
-        float mag = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]) * fftScale;
-        // Double all bins except DC and Nyquist
-        if (i != 0 && i != FFT_SIZE / 2)
-          mag *= 2.0f;
-        audioData->fftMagnitudesSide[i] = mag;
-      }
     }
-
-    // Compute CQT only if enabled
     if (fft_cfg.enable_cqt) {
-      // Store previous CQT frames for interpolation
       audioData->prevCqtMagnitudesMid = audioData->cqtMagnitudesMid;
-      audioData->prevCqtMagnitudesSide = audioData->cqtMagnitudesSide;
-
-      // Compute CQT for both mid and side channels
       ConstantQ::computeCQT(cqtParams, audioData->bufferMid, audioData->writePos, audioData->cqtMagnitudesMid);
-      ConstantQ::computeCQT(cqtParams, audioData->bufferSide, audioData->writePos, audioData->cqtMagnitudesSide);
     }
 
-    // Unified pitch/peak detection using configurable frequency range
-    int sampleRate = audioEngine->getSampleRate();
-    const float minFreq = fft_cfg.min_freq;
-    const float maxFreq = fft_cfg.max_freq;
-
+    // Pitch detection for mid channel only
     float maxMagnitude = 0.0f;
     float peakDb = -100.0f;
     float peakFreq = 0.0f;
@@ -666,11 +686,8 @@ void audioThread(AudioData* audioData) {
     float avgMagnitude = 0.0f;
 
     if (fft_cfg.enable_cqt) {
-      // Use CQT bins for pitch detection
       const auto& magnitudes = audioData->cqtMagnitudesMid;
       const auto& frequencies = cqtParams.frequencies;
-
-      // Find bins within frequency range
       int minBin = 0, maxBin = magnitudes.size() - 1;
       for (int i = 0; i < magnitudes.size(); i++) {
         if (frequencies[i] >= minFreq) {
@@ -684,152 +701,92 @@ void audioThread(AudioData* audioData) {
           break;
         }
       }
-
-      // find peak, calculate dB, and accumulate average
       for (int i = minBin; i <= maxBin; i++) {
         float magnitude = magnitudes[i];
-
-        // Convert to dB using proper scaling
         float dB = 20.0f * log10f(magnitude + 1e-9f);
-
-        // Track peak magnitude and bin
         if (magnitude > maxMagnitude) {
           maxMagnitude = magnitude;
           peakBin = i;
         }
-
-        // Track peak dB
         if (dB > peakDb) {
           peakDb = dB;
         }
-
-        // Accumulate for average
         avgMagnitude += magnitude;
       }
       avgMagnitude /= (maxBin - minBin + 1);
-
-      // Apply parabolic interpolation for precise frequency estimation in CQT
       if (peakBin > 0 && peakBin < frequencies.size() - 1) {
         float y1 = magnitudes[peakBin - 1];
         float y2 = magnitudes[peakBin];
         float y3 = magnitudes[peakBin + 1];
-
-        // Parabolic interpolation to find precise peak location
         float denominator = y1 - 2.0f * y2 + y3;
-        if (std::abs(denominator) > 1e-9f) { // Avoid division by zero
+        if (std::abs(denominator) > 1e-9f) {
           float offset = 0.5f * (y1 - y3) / denominator;
-          // Clamp offset to reasonable range
           offset = std::max(-0.5f, std::min(0.5f, offset));
-
-          // For CQT, interpolate in log frequency space since bins are logarithmically spaced
           float logFreq1 = log2f(frequencies[peakBin - 1]);
           float logFreq2 = log2f(frequencies[peakBin]);
           float logFreq3 = log2f(frequencies[peakBin + 1]);
-
-          // Interpolate in log space
           float interpolatedLogFreq = logFreq2 + offset * (logFreq3 - logFreq1) * 0.5f;
           peakFreq = powf(2.0f, interpolatedLogFreq);
         } else {
-          // Fallback to bin center if parabolic interpolation fails
           peakFreq = frequencies[peakBin];
         }
       } else if (peakBin >= 0 && peakBin < frequencies.size()) {
-        // Edge case: use bin center frequency
         peakFreq = frequencies[peakBin];
       }
     } else {
-      // Use FFT bins for pitch detection
       const int fftSize = (audioData->fftMagnitudesMid.size() - 1) * 2;
-
       int minBin = static_cast<int>(minFreq * fftSize / sampleRate);
       int maxBin = static_cast<int>(maxFreq * fftSize / sampleRate);
-
-      // Clamp to valid bin range
       minBin = std::max(1, minBin);
       maxBin = std::min((int)audioData->fftMagnitudesMid.size() - 1, maxBin);
-
-      // find peak, calculate dB, and accumulate average
       for (int i = minBin; i <= maxBin; i++) {
         float magnitude = audioData->fftMagnitudesMid[i];
         float dB = 20.0f * log10f(magnitude + 1e-9f);
-
-        // Track peak magnitude and bin
         if (magnitude > maxMagnitude) {
           maxMagnitude = magnitude;
           peakBin = i;
         }
-
-        // Track peak dB
         if (dB > peakDb) {
           peakDb = dB;
         }
-
-        // Accumulate for average
         avgMagnitude += magnitude;
       }
       avgMagnitude /= (maxBin - minBin + 1);
-
-      // Apply parabolic interpolation for precise frequency estimation
       if (peakBin > 0 && peakBin < audioData->fftMagnitudesMid.size() - 1) {
         float y1 = audioData->fftMagnitudesMid[peakBin - 1];
         float y2 = audioData->fftMagnitudesMid[peakBin];
         float y3 = audioData->fftMagnitudesMid[peakBin + 1];
-
-        // Parabolic interpolation to find precise peak location
         float denominator = y1 - 2.0f * y2 + y3;
-        if (std::abs(denominator) > 1e-9f) { // Avoid division by zero
+        if (std::abs(denominator) > 1e-9f) {
           float offset = 0.5f * (y1 - y3) / denominator;
-          // Clamp offset to reasonable range
           offset = std::max(-0.5f, std::min(0.5f, offset));
-
           float interpolatedBin = peakBin + offset;
           peakFreq = interpolatedBin * sampleRate / fftSize;
         } else {
-          // Fallback to bin center if parabolic interpolation fails
           peakFreq = static_cast<float>(peakBin * sampleRate) / fftSize;
         }
       }
     }
-
-    // Store computed values
     audioData->peakFreq = peakFreq;
     audioData->peakDb = peakDb;
-
-    // Check if we have a valid peak (above silence threshold)
-    audioData->hasValidPeak = (peakDb > audio_cfg.silence_threshold);
-
-    // Convert to note
+    audioData->hasValidPeak = (peakDb > Config::values().audio.silence_threshold);
     static const char* noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     static const char* noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
     const char* const* noteNames = (fft_cfg.note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
     freqToNote(peakFreq, audioData->peakNote, audioData->peakOctave, audioData->peakCents, noteNames);
-
-    // Update pitch-related data based on validity
     if (audioData->hasValidPeak) {
       audioData->currentPitch = peakFreq;
-      // Use confidence ratio (peak vs average) scaled to 0-1 range
       float confidence = maxMagnitude / (avgMagnitude + 1e-6f);
       audioData->pitchConfidence = std::min(1.0f, confidence / 3.0f);
       audioData->samplesPerCycle = static_cast<float>(sampleRate) / peakFreq;
-
-      float bandwidth = bandpass_cfg.bandwidth;
-      if (bandpass_cfg.bandwidth_type == "percent") {
-        bandwidth = peakFreq * bandwidth / 100.0f;
-      }
-
-      // Apply bandpass filter to the buffer using circular-buffer-aware processing
-      Butterworth::applyBandpassCircular(audioData->bufferMid, audioData->bandpassedMid, peakFreq, sampleRate,
-                                         audioData->writePos, bandwidth, bandpass_cfg.order);
     } else {
-      audioData->pitchConfidence *= 0.9f; // Decay confidence when no valid peak
+      audioData->pitchConfidence *= 0.9f;
     }
 
-    // Pre-compute smoothed FFT values for display
+    // Smoothing/interpolation for mid channel only
     auto currentFrameTime = std::chrono::steady_clock::now();
     float dt = std::chrono::duration<float>(currentFrameTime - state.lastFrameTime).count();
     state.lastFrameTime = currentFrameTime;
-
-    // Update interpolation factor
     if (audioData->fftUpdateInterval > 0.0f) {
       float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
       float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
@@ -837,153 +794,217 @@ void audioThread(AudioData* audioData) {
           state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * fft_cfg.smoothing_factor;
       state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
     }
-
-    // Apply linear interpolation for both channels (FFT)
     if (!fft_cfg.enable_cqt) {
       for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
         audioData->interpolatedValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
                                               state.fftInterpolation * audioData->fftMagnitudesMid[i];
-        audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
-                                               state.fftInterpolation * audioData->fftMagnitudesSide[i];
       }
     }
-
-    // Apply linear interpolation for both channels (CQT)
     if (fft_cfg.enable_cqt) {
       for (size_t i = 0; i < audioData->cqtMagnitudesMid.size(); ++i) {
         audioData->interpolatedCqtValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevCqtMagnitudesMid[i] +
                                                  state.fftInterpolation * audioData->cqtMagnitudesMid[i];
+      }
+    }
+    if (!fft_cfg.enable_cqt) {
+      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
+        float current = audioData->interpolatedValuesMid[i];
+        float previous = audioData->smoothedMagnitudesMid[i];
+        float freq = (float)i * sampleRate / (audioData->fftMagnitudesMid.size() - 1) / 2;
+        if (freq < minFreq || freq > maxFreq)
+          continue;
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
+        float diff = currentDb - previousDb;
+        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
+        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
+        float maxChange = speed * dt;
+        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+        float newDb = previousDb + change;
+        audioData->smoothedMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+      }
+    }
+    if (fft_cfg.enable_cqt) {
+      for (size_t i = 0; i < audioData->cqtMagnitudesMid.size(); ++i) {
+        float current = audioData->interpolatedCqtValuesMid[i];
+        float previous = audioData->smoothedCqtMagnitudesMid[i];
+        float freq = audioData->cqtFrequencies[i];
+        if (freq < minFreq || freq > maxFreq)
+          continue;
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
+        float diff = currentDb - previousDb;
+        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
+        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
+        float maxChange = speed * dt;
+        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+        float newDb = previousDb + change;
+        audioData->smoothedCqtMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+      }
+    }
+  }
+}
+
+void FFT_CQTThreadSide(AudioData* audioData) {
+  AudioThreadState state;
+  int FFT_SIZE = Config::values().fft.size;
+  // Use main-thread-allocated buffers and plans
+  int lastFftSize = FFT_SIZE;
+
+  ConstantQ::CQTParameters cqtParams =
+      ConstantQ::initializeCQT(Config::values().fft.min_freq, Config::values().fft.cqt_bins_per_octave,
+                               audioData->sampleRate, Config::values().fft.max_freq, audioData->bufferSize);
+  ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
+
+  // Initialize CQT data vectors in AudioData (if needed)
+  {
+    audioData->cqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+    audioData->prevCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+    audioData->smoothedCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+    audioData->interpolatedCqtValuesSide.resize(cqtParams.numBins, 0.0f);
+    audioData->cqtFrequencies = cqtParams.frequencies;
+  }
+
+  while (audioData->running) {
+    std::unique_lock<std::mutex> lock(audioData->fftMutex);
+    audioData->fftCvSide.wait(lock, [&] { return audioData->fftReadySide.load() || !audioData->running; });
+    if (!audioData->running)
+      break;
+    audioData->fftReadySide = false;
+    lock.unlock();
+
+    // skip if phosphor is enabled
+    if (Config::values().fft.enable_phosphor) {
+      continue;
+    }
+
+    const auto& fft_cfg = Config::values().fft;
+    int sampleRate = audioData->sampleRate;
+    float minFreq = fft_cfg.min_freq;
+    float maxFreq = fft_cfg.max_freq;
+
+    int currentFftSize = Config::values().fft.size;
+    if (currentFftSize != lastFftSize) {
+      // Only update local FFT_SIZE and skip plan/buffer management
+      FFT_SIZE = currentFftSize;
+      lastFftSize = FFT_SIZE;
+      // Resize display vectors as before
+      const size_t fftBins = FFT_SIZE / 2 + 1;
+      audioData->fftMagnitudesSide.resize(fftBins, 0.0f);
+      audioData->prevFftMagnitudesSide.resize(fftBins, 0.0f);
+      audioData->smoothedMagnitudesSide.resize(fftBins, 0.0f);
+      audioData->interpolatedValuesSide.resize(fftBins, 0.0f);
+    }
+
+    float currentMinFreq = fft_cfg.min_freq;
+    float currentMaxFreq = fft_cfg.max_freq;
+    int currentCqtBinsPerOctave = fft_cfg.cqt_bins_per_octave;
+    if (sampleRate != cqtParams.sampleRate || currentMinFreq != cqtParams.f0 || currentMaxFreq != cqtParams.maxFreq ||
+        currentCqtBinsPerOctave != cqtParams.binsPerOctave) {
+      cqtParams = ConstantQ::initializeCQT(currentMinFreq, currentCqtBinsPerOctave, sampleRate, currentMaxFreq,
+                                           audioData->bufferSize);
+      ConstantQ::generateCQTKernels(cqtParams, Config::values().fft.size);
+      audioData->cqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+      audioData->prevCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+      audioData->smoothedCqtMagnitudesSide.resize(cqtParams.numBins, 0.0f);
+      audioData->interpolatedCqtValuesSide.resize(cqtParams.numBins, 0.0f);
+      audioData->cqtFrequencies = cqtParams.frequencies;
+    }
+
+    // FFT and CQT calculations for side channel only
+    if (!fft_cfg.enable_cqt) {
+      size_t startPos = (audioData->writePos + audioData->bufferSize - FFT_SIZE) % audioData->bufferSize;
+      for (int i = 0; i < FFT_SIZE; i++) {
+        float window = 0.5f * (1.0f - cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+        size_t pos = (startPos + i) % audioData->bufferSize;
+        if (fft_cfg.stereo_mode == "leftright") {
+          audioData->fftInSide[i] = (audioData->bufferMid[pos] - audioData->bufferSide[pos]) * 0.5f * window;
+        } else {
+          audioData->fftInSide[i] = audioData->bufferSide[pos] * window;
+        }
+      }
+      std::lock_guard<std::mutex> lock(audioData->fftPlanMutexSide);
+      if (audioData->fftPlanSide) {
+        fftwf_execute(audioData->fftPlanSide);
+      }
+      audioData->prevFftMagnitudesSide = audioData->fftMagnitudesSide;
+      const float fftScale = 2.0f / FFT_SIZE;
+      for (int i = 0; i < FFT_SIZE / 2 + 1; i++) {
+        float mag = sqrt(audioData->fftOutSide[i][0] * audioData->fftOutSide[i][0] +
+                         audioData->fftOutSide[i][1] * audioData->fftOutSide[i][1]) *
+                    fftScale;
+        if (i != 0 && i != FFT_SIZE / 2)
+          mag *= 2.0f;
+        audioData->fftMagnitudesSide[i] = mag;
+      }
+    }
+    if (fft_cfg.enable_cqt) {
+      audioData->prevCqtMagnitudesSide = audioData->cqtMagnitudesSide;
+      ConstantQ::computeCQT(cqtParams, audioData->bufferSide, audioData->writePos, audioData->cqtMagnitudesSide);
+    }
+
+    // Smoothing/interpolation for side channel only
+    auto currentFrameTime = std::chrono::steady_clock::now();
+    float dt = std::chrono::duration<float>(currentFrameTime - state.lastFrameTime).count();
+    state.lastFrameTime = currentFrameTime;
+    if (audioData->fftUpdateInterval > 0.0f) {
+      float timeSinceUpdate = std::chrono::duration<float>(currentFrameTime - audioData->lastFftUpdate).count();
+      float targetInterpolation = timeSinceUpdate / audioData->fftUpdateInterval;
+      state.fftInterpolation =
+          state.fftInterpolation + (targetInterpolation - state.fftInterpolation) * fft_cfg.smoothing_factor;
+      state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
+    }
+    if (!fft_cfg.enable_cqt) {
+      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
+        audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
+                                               state.fftInterpolation * audioData->fftMagnitudesSide[i];
+      }
+    }
+    if (fft_cfg.enable_cqt) {
+      for (size_t i = 0; i < audioData->cqtMagnitudesSide.size(); ++i) {
         audioData->interpolatedCqtValuesSide[i] =
             (1.0f - state.fftInterpolation) * audioData->prevCqtMagnitudesSide[i] +
             state.fftInterpolation * audioData->cqtMagnitudesSide[i];
       }
     }
-
-    // Apply temporal smoothing with asymmetric speeds (FFT channels)
     if (!fft_cfg.enable_cqt) {
-      // Apply temporal smoothing with asymmetric speeds (mid channel)
-      for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
-        float current = audioData->interpolatedValuesMid[i];
-        float previous = audioData->smoothedMagnitudesMid[i];
-
-        // Calculate frequency for this bin
-        float freq = (float)i * sampleRate / (audioData->fftMagnitudesMid.size() - 1) / 2;
-        if (freq < minFreq || freq > maxFreq)
-          continue;
-
-        // Convert to dB for consistent speed calculation
-        float currentDb = 20.0f * log10f(current + 1e-9f);
-        float previousDb = 20.0f * log10f(previous + 1e-9f);
-
-        // Calculate the difference and determine if we're rising or falling
-        float diff = currentDb - previousDb;
-        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
-        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
-
-        // Apply speed-based smoothing in dB space
-        float maxChange = speed * dt;
-        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
-        float newDb = previousDb + change;
-
-        // Convert back to linear space
-        audioData->smoothedMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
-      }
-
-      // Apply temporal smoothing with asymmetric speeds (side channel)
       for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
         float current = audioData->interpolatedValuesSide[i];
         float previous = audioData->smoothedMagnitudesSide[i];
-
-        // Calculate frequency for this bin
         float fftSize = (audioData->fftMagnitudesSide.size() - 1) * 2;
         float freq = (float)i * sampleRate / fftSize;
         if (freq < minFreq || freq > maxFreq)
           continue;
-
-        // Convert to dB for consistent speed calculation
         float currentDb = 20.0f * log10f(current + 1e-9f);
         float previousDb = 20.0f * log10f(previous + 1e-9f);
-
-        // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
         float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
         float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
-
-        // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;
         float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
         float newDb = previousDb + change;
-
-        // Convert back to linear space
         audioData->smoothedMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
     }
-
-    // Apply temporal smoothing with asymmetric speeds (CQT channels)
     if (fft_cfg.enable_cqt) {
-      // Apply temporal smoothing with asymmetric speeds (CQT mid channel)
-      for (size_t i = 0; i < audioData->cqtMagnitudesMid.size(); ++i) {
-        float current = audioData->interpolatedCqtValuesMid[i];
-        float previous = audioData->smoothedCqtMagnitudesMid[i];
-
-        // Calculate frequency for this CQT bin
-        float freq = audioData->cqtFrequencies[i];
-        if (freq < minFreq || freq > maxFreq)
-          continue;
-
-        // Convert to dB for consistent speed calculation
-        float currentDb = 20.0f * log10f(current + 1e-9f);
-        float previousDb = 20.0f * log10f(previous + 1e-9f);
-
-        // Calculate the difference and determine if we're rising or falling
-        float diff = currentDb - previousDb;
-        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
-        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
-
-        // Apply speed-based smoothing in dB space
-        float maxChange = speed * dt;
-        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
-        float newDb = previousDb + change;
-
-        // Convert back to linear space
-        audioData->smoothedCqtMagnitudesMid[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
-      }
-
-      // Apply temporal smoothing with asymmetric speeds (CQT side channel)
       for (size_t i = 0; i < audioData->cqtMagnitudesSide.size(); ++i) {
         float current = audioData->interpolatedCqtValuesSide[i];
         float previous = audioData->smoothedCqtMagnitudesSide[i];
-
-        // Calculate frequency for this CQT bin
         float freq = audioData->cqtFrequencies[i];
         if (freq < minFreq || freq > maxFreq)
           continue;
-
-        // Convert to dB for consistent speed calculation
         float currentDb = 20.0f * log10f(current + 1e-9f);
         float previousDb = 20.0f * log10f(previous + 1e-9f);
-
-        // Calculate the difference and determine if we're rising or falling
         float diff = currentDb - previousDb;
         float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
         float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
-
-        // Apply speed-based smoothing in dB space
         float maxChange = speed * dt;
         float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
         float newDb = previousDb + change;
-
-        // Convert back to linear space
         audioData->smoothedCqtMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
     }
   }
-
-  fftwf_destroy_plan(plan);
-  fftwf_free(in);
-  fftwf_free(out);
-
-  audioEngine->cleanup(audioData);
 }
 
 void freqToNote(float freq, std::string& noteName, int& octave, int& cents, const char* const* noteNames) {

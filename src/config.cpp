@@ -116,7 +116,7 @@ void Config::load(const std::string& filename) {
     v.lissajous.enable_phosphor = getBool("lissajous.enable_phosphor");
     v.lissajous.beam_multiplier = getFloat("lissajous.beam_multiplier");
     v.lissajous.readback_multiplier = getFloat("lissajous.readback_multiplier");
-    
+
     v.fft.min_freq = getFloat("fft.min_freq");
     v.fft.max_freq = getFloat("fft.max_freq");
     v.fft.sample_rate = getFloat("audio.sample_rate");
@@ -156,7 +156,7 @@ void Config::load(const std::string& filename) {
 
     v.window.default_width = getInt("window.default_width");
     v.window.default_height = getInt("window.default_height");
-    v.window.default_theme = getString("window.default_theme");
+    v.window.theme = getString("window.theme");
     v.window.fps_limit = getInt("window.fps_limit");
 
     v.debug.log_fps = getBool("debug.log_fps");

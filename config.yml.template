@@ -105,7 +105,8 @@ fft:
   # Enable Constant-Q Transform (better frequency resolution for musical notes)
   enable_cqt: true
   # Number of frequency bins per octave for CQT (higher=better resolution)
-  cqt_bins_per_octave: 60
+  # Significant CPU usage increase with higher values
+  cqt_bins_per_octave: 48
   # Enable phosphor effect for FFT visualization
   enable_phosphor: true
   # Beam multiplier for phosphor effect
@@ -203,9 +204,11 @@ window:
   # Default window height in pixels
   default_height: 200
   # Default theme file (from themes/ directory)
-  default_theme: green-crt.txt
+  theme: green-crt.txt
   # Default window width in pixels
   default_width: 1080
   # FPS limit for the main window
   # This will also throttle the audio thread to save CPU
+  # Note: this does not define the exact FPS limit,
+  # as pipewire/pulseaudio only accept base-2 read sizes.
   fps_limit: 60 

@@ -83,7 +83,7 @@ struct ConfigValues {
   struct Window {
     int default_width = 1080;
     int default_height = 200;
-    std::string default_theme = "mocha.txt";
+    std::string theme = "mocha.txt";
     int fps_limit = 240;
   } window;
 

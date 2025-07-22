@@ -40,12 +40,12 @@ struct AudioThreadState {
   // Note conversion cache
   const char* const* noteNames = nullptr;
   std::string note_key_mode = "sharp";
-
-  void updateConfigCache();
 };
 
-// Audio thread function
+// Audio thread functions
 void audioThread(AudioData* audioData);
+void FFT_CQTThreadMid(AudioData* audioData);
+void FFT_CQTThreadSide(AudioData* audioData);
 
 // Helper function to convert frequency to note
 void freqToNote(float freq, std::string& noteName, int& octave, int& cents, const char* const* noteNames);

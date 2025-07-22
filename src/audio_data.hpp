@@ -6,6 +6,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <fftw3.h>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -62,8 +63,32 @@ struct AudioData {
   int peakCents = 0;
   bool hasValidPeak = false;
 
+  // Main thread synchronization
+  std::atomic<bool> dataReady;
+  std::mutex audioMutex;
+  std::condition_variable audioCv;
+
+  // FFT/CQT thread synchronization
+  std::mutex fftMutex;
+  std::atomic<bool> fftReadyMid {false};
+  std::condition_variable fftCvMid;
+  std::atomic<bool> fftReadySide {false};
+  std::condition_variable fftCvSide;
+
+  // FFTW plans
+  std::mutex fftPlanMutexMid;
+  fftwf_plan fftPlanMid;
+  std::mutex fftPlanMutexSide;
+  fftwf_plan fftPlanSide;
+  float* fftInMid;
+  float* fftInSide;
+  fftwf_complex* fftOutMid;
+  fftwf_complex* fftOutSide;
+
   AudioData()
-      : windowWidth(Config::values().window.default_width), windowHeight(Config::values().window.default_height) {}
+      : windowWidth(Config::values().window.default_width), windowHeight(Config::values().window.default_height),
+        fftInMid(nullptr), fftInSide(nullptr), fftOutMid(nullptr), fftOutSide(nullptr), fftPlanMid(nullptr),
+        fftPlanSide(nullptr) {}
 
   float getAudioDeltaTime() const { return 1.0f / Config::values().window.fps_limit; }
 };
