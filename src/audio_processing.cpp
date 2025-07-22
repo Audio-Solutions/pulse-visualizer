@@ -13,6 +13,26 @@
 #include <memory>
 #include <thread>
 
+#if defined(HAVE_AVX2)
+#include <cmath>
+#include <immintrin.h>
+static inline __m256 _mm256_log10_ps(__m256 x) {
+  float vals[8];
+  _mm256_storeu_ps(vals, x);
+  for (int i = 0; i < 8; ++i)
+    vals[i] = log10f(vals[i]);
+  return _mm256_loadu_ps(vals);
+}
+static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
+  float va[8], vb[8], vr[8];
+  _mm256_storeu_ps(va, a);
+  _mm256_storeu_ps(vb, b);
+  for (int i = 0; i < 8; ++i)
+    vr[i] = powf(va[i], vb[i]);
+  return _mm256_loadu_ps(vr);
+}
+#endif
+
 namespace AudioProcessing {
 
 namespace Butterworth {
@@ -97,73 +117,50 @@ struct IncrementalBandpass {
     }
   }
 
-  // Process only new samples in the circular buffer
-  void processNewSamples(const std::vector<float>& input, std::vector<float>& output, size_t writePos,
+  template <typename Alloc>
+  void processEntireBuffer(const std::vector<float, Alloc>& input, std::vector<float, Alloc>& output, size_t writePos) {
+    size_t bufferSize = input.size();
+    if (output.size() != bufferSize) {
+      output.resize(bufferSize);
+    }
+    for (auto& bq : biquads) {
+      bq.reset();
+    }
+    for (size_t i = 0; i < bufferSize; ++i) {
+      size_t readPos = (writePos + i) % bufferSize;
+      float inputSample = input[readPos];
+      float filteredSample = inputSample;
+      for (auto& bq : biquads) {
+        filteredSample = bq.process(filteredSample);
+      }
+      output[readPos] = filteredSample;
+    }
+  }
+
+  template <typename Alloc>
+  void processNewSamples(const std::vector<float, Alloc>& input, std::vector<float, Alloc>& output, size_t writePos,
                          size_t newSamples) {
     if (input.empty() || newSamples == 0) {
       return;
     }
-
     size_t bufferSize = input.size();
-
-    // Ensure output buffer is the same size as input
     if (output.size() != bufferSize) {
       output.resize(bufferSize);
     }
-
-    // If this is the first time processing or buffer size changed, process entire buffer
     if (this->bufferSize != bufferSize) {
       this->bufferSize = bufferSize;
       lastProcessedPos = 0;
       processEntireBuffer(input, output, writePos);
       return;
     }
-
-    // Process only the new samples
     for (size_t sample = 0; sample < newSamples; ++sample) {
       size_t currentPos = (writePos - newSamples + sample + bufferSize) % bufferSize;
-
-      // Get input sample
       float inputSample = input[currentPos];
-
-      // Process through all biquad stages
       float filteredSample = inputSample;
       for (auto& bq : biquads) {
         filteredSample = bq.process(filteredSample);
       }
-
-      // Store result
       output[currentPos] = filteredSample;
-    }
-  }
-
-  // Process entire buffer (used for initialization or parameter changes)
-  void processEntireBuffer(const std::vector<float>& input, std::vector<float>& output, size_t writePos) {
-    size_t bufferSize = input.size();
-
-    // Ensure output buffer is the same size as input
-    if (output.size() != bufferSize) {
-      output.resize(bufferSize);
-    }
-
-    // Reset all biquad states
-    for (auto& bq : biquads) {
-      bq.reset();
-    }
-
-    // Process entire buffer in temporal order
-    for (size_t i = 0; i < bufferSize; ++i) {
-      size_t readPos = (writePos + i) % bufferSize;
-      float inputSample = input[readPos];
-
-      // Process through all biquad stages
-      float filteredSample = inputSample;
-      for (auto& bq : biquads) {
-        filteredSample = bq.process(filteredSample);
-      }
-
-      // Store result
-      output[readPos] = filteredSample;
     }
   }
 };
@@ -172,37 +169,27 @@ struct IncrementalBandpass {
 static IncrementalBandpass bandpassFilter;
 
 // Apply bandpass filter to circular buffer efficiently (only processes new data)
-void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& output, float centerFreq,
+template <typename Alloc>
+void applyBandpassCircular(const std::vector<float, Alloc>& input, std::vector<float, Alloc>& output, float centerFreq,
                            float sampleRate, size_t writePos, float bandwidth, int order) {
   if (input.empty()) {
     output.clear();
     return;
   }
-
-  // Update filter parameters if needed
   bandpassFilter.updateParameters(centerFreq, sampleRate, bandwidth, order);
-
-  // Calculate how many new samples we need to process
   size_t bufferSize = input.size();
   size_t newSamples = 0;
-
   if (bandpassFilter.bufferSize != bufferSize) {
-    // Buffer size changed, process entire buffer
     bandpassFilter.processEntireBuffer(input, output, writePos);
   } else {
-    // Calculate new samples since last processing
     size_t lastPos = bandpassFilter.lastProcessedPos;
     if (writePos >= lastPos) {
       newSamples = writePos - lastPos;
     } else {
       newSamples = (bufferSize - lastPos) + writePos;
     }
-
-    // Process only new samples
     bandpassFilter.processNewSamples(input, output, writePos, newSamples);
   }
-
-  // Update last processed position
   bandpassFilter.lastProcessedPos = writePos;
 }
 
@@ -211,21 +198,20 @@ void applyBandpassCircular(const std::vector<float>& input, std::vector<float>& 
 namespace ConstantQ {
 
 struct CQTParameters {
-  float f0;                                              // Lowest frequency
-  int binsPerOctave;                                     // Number of bins per octave
-  int numBins;                                           // Total number of CQT bins
-  float sampleRate;                                      // Sample rate
-  std::vector<float> frequencies;                        // Center frequencies for each bin
-  std::vector<float> qFactors;                           // Q factor for each bin
-  std::vector<std::vector<std::complex<float>>> kernels; // CQT filter kernels
-  std::vector<int> kernelLengths;                        // Length of each kernel
-
-  float sampleRateInv; // 1.0 / sampleRate
-  float twoPi;         // 2 * PI
-  float maxFreq;       // Maximum frequency for CQT bins
+  float f0;
+  int binsPerOctave;
+  int numBins;
+  float sampleRate;
+  std::vector<float> frequencies;
+  std::vector<float> qFactors;
+  std::vector<int> kernelLengths;
+  std::vector<std::vector<float>> kernelReals;
+  std::vector<std::vector<float>> kernelImags;
+  float sampleRateInv;
+  float twoPi;
+  float maxFreq;
 };
 
-// Initialize CQT parameters and generate center frequencies
 CQTParameters initializeCQT(float f0, int binsPerOctave, float sampleRate, float maxFreq = 20000.0f,
                             int maxKernelLength = 8192) {
   CQTParameters params;
@@ -233,133 +219,232 @@ CQTParameters initializeCQT(float f0, int binsPerOctave, float sampleRate, float
   params.binsPerOctave = binsPerOctave;
   params.sampleRate = sampleRate;
   params.maxFreq = maxFreq;
-
   params.sampleRateInv = 1.0f / sampleRate;
   params.twoPi = 2.0f * M_PI;
-
-  // Calculate number of bins needed to reach maxFreq
   float octaves = log2f(maxFreq / f0);
   params.numBins = static_cast<int>(ceil(octaves * binsPerOctave));
-
-  // Ensure we have at least one bin and don't exceed reasonable limits
   params.numBins = std::max(1, std::min(params.numBins, 1000));
-
-  // Generate center frequencies logarithmically spaced
   params.frequencies.resize(params.numBins);
   params.qFactors.resize(params.numBins);
-  params.kernels.resize(params.numBins);
   params.kernelLengths.resize(params.numBins);
-
+  params.kernelReals.resize(params.numBins);
+  params.kernelImags.resize(params.numBins);
   float binRatio = 1.0f / binsPerOctave;
   float qBase = 1.0f / (powf(2.0f, binRatio) - 1.0f);
-
   for (int k = 0; k < params.numBins; k++) {
-    // Logarithmic frequency spacing
     params.frequencies[k] = f0 * powf(2.0f, static_cast<float>(k) * binRatio);
-
     params.qFactors[k] = qBase;
   }
-
   return params;
 }
 
-// Generate Complex Morlet wavelet kernel for a specific frequency bin
 void generateMorletKernel(CQTParameters& params, int binIndex, int maxKernelLength) {
   float fc = params.frequencies[binIndex];
   float Q = params.qFactors[binIndex];
-
   float sigma = Q / (params.twoPi * fc);
   float twoSigmaSquared = 2.0f * sigma * sigma;
   float omega = params.twoPi * fc;
-
-  // Kernel length based on 6 standard deviations (99.7% of energy)
-  int kernelLength = static_cast<int>(ceilf(6.0f * sigma / params.sampleRateInv));
-
+  float dt = params.sampleRateInv;
+  int kernelLength = static_cast<int>(ceilf(6.0f * sigma / dt));
   if (kernelLength > maxKernelLength) {
     kernelLength = maxKernelLength;
-    // Recalculate for capped length
-    sigma = static_cast<float>(kernelLength) * params.sampleRateInv / 6.0f;
+    sigma = static_cast<float>(kernelLength) * dt / 6.0f;
     twoSigmaSquared = 2.0f * sigma * sigma;
   }
-
   if (kernelLength % 2 == 0)
-    kernelLength++; // Make odd for symmetry
-
+    kernelLength++;
   params.kernelLengths[binIndex] = kernelLength;
-  params.kernels[binIndex].resize(kernelLength);
-
+  params.kernelReals[binIndex].resize(kernelLength);
+  params.kernelImags[binIndex].resize(kernelLength);
   int center = kernelLength / 2;
   float normalization = 0.0f;
-
+  float phase0 = -omega * center * dt;
+  float cosPhase = cosf(phase0);
+  float sinPhase = sinf(phase0);
+  float cosDelta = cosf(omega * dt);
+  float sinDelta = sinf(omega * dt);
   for (int n = 0; n < kernelLength; n++) {
-    float t = static_cast<float>(n - center) * params.sampleRateInv;
-
-    float tSquared = t * t;
-    float envelope = expf(-tSquared / twoSigmaSquared);
-
-    float phase = omega * t;
-    float cosPhase = cosf(phase);
-    float sinPhase = sinf(phase);
-
-    // Store kernel value
-    params.kernels[binIndex][n] = std::complex<float>(envelope * cosPhase, envelope * sinPhase);
-
-    // Accumulate normalization factor (sum of magnitudes for amplitude normalization)
+    float t = static_cast<float>(n - center) * dt;
+    float envelope = expf(-(t * t) / twoSigmaSquared);
+    float real = envelope * cosPhase;
+    float imag = envelope * sinPhase;
+    params.kernelReals[binIndex][n] = real;
+    params.kernelImags[binIndex][n] = imag;
     normalization += envelope;
+    float newCos = cosPhase * cosDelta - sinPhase * sinDelta;
+    float newSin = sinPhase * cosDelta + cosPhase * sinDelta;
+    cosPhase = newCos;
+    sinPhase = newSin;
   }
-
-  // Apply amplitude normalization for flat frequency response
-  // This ensures equal amplitude sine waves produce equal CQT magnitudes regardless of frequency
   if (normalization > 0.0f) {
     float amplitudeNorm = 1.0f / normalization;
-    for (auto& sample : params.kernels[binIndex]) {
-      sample *= amplitudeNorm;
+    for (int n = 0; n < kernelLength; n++) {
+      params.kernelReals[binIndex][n] *= amplitudeNorm;
+      params.kernelImags[binIndex][n] *= amplitudeNorm;
     }
   }
 }
 
-// Generate all CQT kernels
 void generateCQTKernels(CQTParameters& params, int maxKernelLength) {
   for (int k = 0; k < params.numBins; k++) {
     generateMorletKernel(params, k, maxKernelLength);
   }
 }
 
-// Apply CQT to a circular buffer and compute magnitudes
-void computeCQT(const CQTParameters& params, const std::vector<float>& circularBuffer, size_t writePos,
+#if defined(HAVE_AVX2)
+static inline float avx2_reduce_add_ps(__m256 v) {
+  __m128 vlow = _mm256_castps256_ps128(v);
+  __m128 vhigh = _mm256_extractf128_ps(v, 1);
+  vlow = _mm_add_ps(vlow, vhigh);
+  __m128 shuf = _mm_movehdup_ps(vlow);
+  __m128 sums = _mm_add_ps(vlow, shuf);
+  shuf = _mm_movehl_ps(shuf, sums);
+  sums = _mm_add_ss(sums, shuf);
+  return _mm_cvtss_f32(sums);
+}
+#endif
+
+template <typename Alloc>
+void computeCQT(const CQTParameters& params, const std::vector<float, Alloc>& circularBuffer, size_t writePos,
                 std::vector<float>& cqtMagnitudes) {
   size_t bufferSize = circularBuffer.size();
   cqtMagnitudes.resize(params.numBins);
 
   for (int k = 0; k < params.numBins; k++) {
-    const auto& kernel = params.kernels[k];
+    const auto& kernelReal = params.kernelReals[k];
+    const auto& kernelImag = params.kernelImags[k];
     int kernelLength = params.kernelLengths[k];
-
-    // Ensure we have enough samples in the buffer
     if (kernelLength > static_cast<int>(bufferSize)) {
       cqtMagnitudes[k] = bufferSize - 1;
       continue;
     }
-
     size_t startPos = (writePos + bufferSize - kernelLength) % bufferSize;
-
     float realSum = 0.0f;
     float imagSum = 0.0f;
-
+#if defined(HAVE_AVX2)
+    const float* bufPtr = &circularBuffer[startPos];
+    const float* realPtr = kernelReal.data();
+    const float* imagPtr = kernelImag.data();
+    bool aligned = ((reinterpret_cast<uintptr_t>(bufPtr) % 32) == 0) &&
+                   ((reinterpret_cast<uintptr_t>(realPtr) % 32) == 0) &&
+                   ((reinterpret_cast<uintptr_t>(imagPtr) % 32) == 0);
+    if (startPos + kernelLength <= bufferSize) {
+      int n = 0;
+      __m256 realSumVec = _mm256_setzero_ps();
+      __m256 imagSumVec = _mm256_setzero_ps();
+      if (aligned) {
+        for (; n + 7 < kernelLength; n += 8) {
+          __m256 sampleVec = _mm256_load_ps(bufPtr + n);
+          __m256 realVec = _mm256_load_ps(realPtr + n);
+          __m256 imagVec = _mm256_load_ps(imagPtr + n);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      } else {
+        for (; n + 7 < kernelLength; n += 8) {
+          __m256 sampleVec = _mm256_loadu_ps(bufPtr + n);
+          __m256 realVec = _mm256_loadu_ps(realPtr + n);
+          __m256 imagVec = _mm256_loadu_ps(imagPtr + n);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      }
+      float realSumArr[8], imagSumArr[8];
+      _mm256_storeu_ps(realSumArr, realSumVec);
+      _mm256_storeu_ps(imagSumArr, imagSumVec);
+      for (int i = 0; i < 8; ++i) {
+        realSum += realSumArr[i];
+        imagSum += imagSumArr[i];
+      }
+      for (; n < kernelLength; ++n) {
+        float sample = bufPtr[n];
+        realSum += sample * realPtr[n];
+        imagSum -= sample * imagPtr[n];
+      }
+    } else {
+      size_t firstLen = bufferSize - startPos;
+      size_t secondLen = kernelLength - firstLen;
+      int n = 0;
+      __m256 realSumVec = _mm256_setzero_ps();
+      __m256 imagSumVec = _mm256_setzero_ps();
+      const float* bufPtr1 = &circularBuffer[startPos];
+      const float* realPtr1 = realPtr;
+      const float* imagPtr1 = imagPtr;
+      bool aligned1 = ((reinterpret_cast<uintptr_t>(bufPtr1) % 32) == 0) &&
+                      ((reinterpret_cast<uintptr_t>(realPtr1) % 32) == 0) &&
+                      ((reinterpret_cast<uintptr_t>(imagPtr1) % 32) == 0);
+      if (aligned1) {
+        for (; n + 7 < firstLen; n += 8) {
+          __m256 sampleVec = _mm256_load_ps(bufPtr1 + n);
+          __m256 realVec = _mm256_load_ps(realPtr1 + n);
+          __m256 imagVec = _mm256_load_ps(imagPtr1 + n);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      } else {
+        for (; n + 7 < firstLen; n += 8) {
+          __m256 sampleVec = _mm256_loadu_ps(bufPtr1 + n);
+          __m256 realVec = _mm256_loadu_ps(realPtr1 + n);
+          __m256 imagVec = _mm256_loadu_ps(imagPtr1 + n);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      }
+      float realSumArr[8], imagSumArr[8];
+      _mm256_storeu_ps(realSumArr, realSumVec);
+      _mm256_storeu_ps(imagSumArr, imagSumVec);
+      for (int i = 0; i < 8; ++i) {
+        realSum += realSumArr[i];
+        imagSum += imagSumArr[i];
+      }
+      for (; n < firstLen; ++n) {
+        float sample = bufPtr1[n];
+        realSum += sample * realPtr1[n];
+        imagSum -= sample * imagPtr1[n];
+      }
+      int m = 0;
+      realSumVec = _mm256_setzero_ps();
+      imagSumVec = _mm256_setzero_ps();
+      const float* bufPtr2 = &circularBuffer[0];
+      const float* realPtr2 = realPtr + firstLen;
+      const float* imagPtr2 = imagPtr + firstLen;
+      bool aligned2 = ((reinterpret_cast<uintptr_t>(bufPtr2) % 32) == 0) &&
+                      ((reinterpret_cast<uintptr_t>(realPtr2) % 32) == 0) &&
+                      ((reinterpret_cast<uintptr_t>(imagPtr2) % 32) == 0);
+      if (aligned2) {
+        for (; m + 7 < secondLen; m += 8) {
+          __m256 sampleVec = _mm256_load_ps(bufPtr2 + m);
+          __m256 realVec = _mm256_load_ps(realPtr2 + m);
+          __m256 imagVec = _mm256_load_ps(imagPtr2 + m);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      } else {
+        for (; m + 7 < secondLen; m += 8) {
+          __m256 sampleVec = _mm256_loadu_ps(bufPtr2 + m);
+          __m256 realVec = _mm256_loadu_ps(realPtr2 + m);
+          __m256 imagVec = _mm256_loadu_ps(imagPtr2 + m);
+          realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
+          imagSumVec = _mm256_fnmadd_ps(sampleVec, imagVec, imagSumVec);
+        }
+      }
+      realSum += avx2_reduce_add_ps(realSumVec);
+      imagSum += avx2_reduce_add_ps(imagSumVec);
+      for (; m < secondLen; ++m) {
+        float sample = bufPtr2[m];
+        realSum += sample * realPtr2[m];
+        imagSum -= sample * imagPtr2[m];
+      }
+    }
+#else
     for (int n = 0; n < kernelLength; n++) {
       size_t bufferIdx = (startPos + n) % bufferSize;
       float sample = circularBuffer[bufferIdx];
-      // Use conjugate: conj(a + bi) = a - bi
-      realSum += sample * kernel[n].real();
-      imagSum -= sample * kernel[n].imag(); // Note the minus for conjugate
+      realSum += sample * kernelReal[n];
+      imagSum -= sample * kernelImag[n];
     }
-
-    // Compute magnitude: |a + bi| = sqrt(a² + b²)
-    // Apply scaling to match FFT amplitude response
+#endif
     float magnitude = sqrtf(realSum * realSum + imagSum * imagSum);
-
-    // Scale to match FFT levels - the factor accounts for the difference in how
-    // CQT kernels vs FFT bins respond to sine waves of equal amplitude
     cqtMagnitudes[k] = magnitude * 2.0f;
   }
 }
@@ -675,7 +760,9 @@ void FFT_CQTThreadMid(AudioData* audioData) {
     }
     if (fft_cfg.enable_cqt) {
       audioData->prevCqtMagnitudesMid = audioData->cqtMagnitudesMid;
+      auto cqt_start = std::chrono::high_resolution_clock::now();
       ConstantQ::computeCQT(cqtParams, audioData->bufferMid, audioData->writePos, audioData->cqtMagnitudesMid);
+      auto cqt_end = std::chrono::high_resolution_clock::now();
     }
 
     // Pitch detection for mid channel only
@@ -795,16 +882,54 @@ void FFT_CQTThreadMid(AudioData* audioData) {
       state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
     }
     if (!fft_cfg.enable_cqt) {
+#if defined(HAVE_AVX2)
+      size_t n = 0;
+      size_t N = audioData->fftMagnitudesMid.size();
+      float interp = state.fftInterpolation;
+      float one_minus_interp = 1.0f - interp;
+      __m256 interp_vec = _mm256_set1_ps(interp);
+      __m256 one_minus_interp_vec = _mm256_set1_ps(one_minus_interp);
+      for (; n + 7 < N; n += 8) {
+        __m256 prev = _mm256_loadu_ps(&audioData->prevFftMagnitudesMid[n]);
+        __m256 curr = _mm256_loadu_ps(&audioData->fftMagnitudesMid[n]);
+        __m256 res = _mm256_add_ps(_mm256_mul_ps(one_minus_interp_vec, prev), _mm256_mul_ps(interp_vec, curr));
+        _mm256_storeu_ps(&audioData->interpolatedValuesMid[n], res);
+      }
+      for (; n < N; ++n) {
+        audioData->interpolatedValuesMid[n] =
+            one_minus_interp * audioData->prevFftMagnitudesMid[n] + interp * audioData->fftMagnitudesMid[n];
+      }
+#else
       for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
         audioData->interpolatedValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesMid[i] +
                                               state.fftInterpolation * audioData->fftMagnitudesMid[i];
       }
+#endif
     }
     if (fft_cfg.enable_cqt) {
+#if defined(HAVE_AVX2)
+      size_t n = 0;
+      size_t N = audioData->cqtMagnitudesMid.size();
+      float interp = state.fftInterpolation;
+      float one_minus_interp = 1.0f - interp;
+      __m256 interp_vec = _mm256_set1_ps(interp);
+      __m256 one_minus_interp_vec = _mm256_set1_ps(one_minus_interp);
+      for (; n + 7 < N; n += 8) {
+        __m256 prev = _mm256_loadu_ps(&audioData->prevCqtMagnitudesMid[n]);
+        __m256 curr = _mm256_loadu_ps(&audioData->cqtMagnitudesMid[n]);
+        __m256 res = _mm256_add_ps(_mm256_mul_ps(one_minus_interp_vec, prev), _mm256_mul_ps(interp_vec, curr));
+        _mm256_storeu_ps(&audioData->interpolatedCqtValuesMid[n], res);
+      }
+      for (; n < N; ++n) {
+        audioData->interpolatedCqtValuesMid[n] =
+            one_minus_interp * audioData->prevCqtMagnitudesMid[n] + interp * audioData->cqtMagnitudesMid[n];
+      }
+#else
       for (size_t i = 0; i < audioData->cqtMagnitudesMid.size(); ++i) {
         audioData->interpolatedCqtValuesMid[i] = (1.0f - state.fftInterpolation) * audioData->prevCqtMagnitudesMid[i] +
                                                  state.fftInterpolation * audioData->cqtMagnitudesMid[i];
       }
+#endif
     }
     if (!fft_cfg.enable_cqt) {
       for (size_t i = 0; i < audioData->fftMagnitudesMid.size(); ++i) {
@@ -955,19 +1080,47 @@ void FFT_CQTThreadSide(AudioData* audioData) {
       state.fftInterpolation = std::min(1.0f, state.fftInterpolation);
     }
     if (!fft_cfg.enable_cqt) {
-      for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
-        audioData->interpolatedValuesSide[i] = (1.0f - state.fftInterpolation) * audioData->prevFftMagnitudesSide[i] +
-                                               state.fftInterpolation * audioData->fftMagnitudesSide[i];
+#if defined(HAVE_AVX2)
+      size_t N = audioData->fftMagnitudesSide.size();
+      size_t n = 0;
+      for (; n + 7 < N; n += 8) {
+        __m256 current = _mm256_loadu_ps(&audioData->interpolatedValuesSide[n]);
+        __m256 previous = _mm256_loadu_ps(&audioData->smoothedMagnitudesSide[n]);
+        __m256 currentDb =
+            _mm256_mul_ps(_mm256_set1_ps(20.0f), _mm256_log10_ps(_mm256_add_ps(current, _mm256_set1_ps(1e-9f))));
+        __m256 previousDb =
+            _mm256_mul_ps(_mm256_set1_ps(20.0f), _mm256_log10_ps(_mm256_add_ps(previous, _mm256_set1_ps(1e-9f))));
+        __m256 diff = _mm256_sub_ps(currentDb, previousDb);
+        __m256 speed = _mm256_set1_ps(fft_cfg.fall_speed);
+        __m256 mask = _mm256_cmp_ps(diff, _mm256_setzero_ps(), _CMP_GT_OS);
+        speed = _mm256_blendv_ps(speed, _mm256_set1_ps(fft_cfg.rise_speed), mask);
+        __m256 maxChange = _mm256_mul_ps(speed, _mm256_set1_ps(dt));
+        __m256 absDiff = _mm256_andnot_ps(_mm256_set1_ps(-0.0f), diff);
+        __m256 change = _mm256_min_ps(absDiff, maxChange);
+        change = _mm256_blendv_ps(_mm256_sub_ps(_mm256_setzero_ps(), change), change, mask);
+        __m256 newDb = _mm256_add_ps(previousDb, change);
+        __m256 newMag = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.0f), _mm256_div_ps(newDb, _mm256_set1_ps(20.0f))),
+                                      _mm256_set1_ps(1e-9f));
+        _mm256_storeu_ps(&audioData->smoothedMagnitudesSide[n], newMag);
       }
-    }
-    if (fft_cfg.enable_cqt) {
-      for (size_t i = 0; i < audioData->cqtMagnitudesSide.size(); ++i) {
-        audioData->interpolatedCqtValuesSide[i] =
-            (1.0f - state.fftInterpolation) * audioData->prevCqtMagnitudesSide[i] +
-            state.fftInterpolation * audioData->cqtMagnitudesSide[i];
+      for (; n < N; ++n) {
+        float current = audioData->interpolatedValuesSide[n];
+        float previous = audioData->smoothedMagnitudesSide[n];
+        float fftSize = (audioData->fftMagnitudesSide.size() - 1) * 2;
+        float freq = (float)n * sampleRate / fftSize;
+        if (freq < minFreq || freq > maxFreq)
+          continue;
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
+        float diff = currentDb - previousDb;
+        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
+        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
+        float maxChange = speed * dt;
+        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+        float newDb = previousDb + change;
+        audioData->smoothedMagnitudesSide[n] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
-    }
-    if (!fft_cfg.enable_cqt) {
+#else
       for (size_t i = 0; i < audioData->fftMagnitudesSide.size(); ++i) {
         float current = audioData->interpolatedValuesSide[i];
         float previous = audioData->smoothedMagnitudesSide[i];
@@ -985,8 +1138,49 @@ void FFT_CQTThreadSide(AudioData* audioData) {
         float newDb = previousDb + change;
         audioData->smoothedMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
+#endif
     }
     if (fft_cfg.enable_cqt) {
+#if defined(HAVE_AVX2)
+      size_t N = audioData->cqtMagnitudesSide.size();
+      size_t n = 0;
+      for (; n + 7 < N; n += 8) {
+        __m256 current = _mm256_loadu_ps(&audioData->interpolatedCqtValuesSide[n]);
+        __m256 previous = _mm256_loadu_ps(&audioData->smoothedCqtMagnitudesSide[n]);
+        __m256 currentDb =
+            _mm256_mul_ps(_mm256_set1_ps(20.0f), _mm256_log10_ps(_mm256_add_ps(current, _mm256_set1_ps(1e-9f))));
+        __m256 previousDb =
+            _mm256_mul_ps(_mm256_set1_ps(20.0f), _mm256_log10_ps(_mm256_add_ps(previous, _mm256_set1_ps(1e-9f))));
+        __m256 diff = _mm256_sub_ps(currentDb, previousDb);
+        __m256 speed = _mm256_set1_ps(fft_cfg.fall_speed);
+        __m256 mask = _mm256_cmp_ps(diff, _mm256_setzero_ps(), _CMP_GT_OS);
+        speed = _mm256_blendv_ps(speed, _mm256_set1_ps(fft_cfg.rise_speed), mask);
+        __m256 maxChange = _mm256_mul_ps(speed, _mm256_set1_ps(dt));
+        __m256 absDiff = _mm256_andnot_ps(_mm256_set1_ps(-0.0f), diff);
+        __m256 change = _mm256_min_ps(absDiff, maxChange);
+        change = _mm256_blendv_ps(_mm256_sub_ps(_mm256_setzero_ps(), change), change, mask);
+        __m256 newDb = _mm256_add_ps(previousDb, change);
+        __m256 newMag = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.0f), _mm256_div_ps(newDb, _mm256_set1_ps(20.0f))),
+                                      _mm256_set1_ps(1e-9f));
+        _mm256_storeu_ps(&audioData->smoothedCqtMagnitudesSide[n], newMag);
+      }
+      for (; n < N; ++n) {
+        float current = audioData->interpolatedCqtValuesSide[n];
+        float previous = audioData->smoothedCqtMagnitudesSide[n];
+        float freq = audioData->cqtFrequencies[n];
+        if (freq < minFreq || freq > maxFreq)
+          continue;
+        float currentDb = 20.0f * log10f(current + 1e-9f);
+        float previousDb = 20.0f * log10f(previous + 1e-9f);
+        float diff = currentDb - previousDb;
+        float fallSpeed = audioData->fftHovering ? fft_cfg.hover_fall_speed : fft_cfg.fall_speed;
+        float speed = (diff > 0) ? fft_cfg.rise_speed : fallSpeed;
+        float maxChange = speed * dt;
+        float change = std::min(std::abs(diff), maxChange) * (diff > 0 ? 1.0f : -1.0f);
+        float newDb = previousDb + change;
+        audioData->smoothedCqtMagnitudesSide[n] = powf(10.0f, newDb / 20.0f) - 1e-9f;
+      }
+#else
       for (size_t i = 0; i < audioData->cqtMagnitudesSide.size(); ++i) {
         float current = audioData->interpolatedCqtValuesSide[i];
         float previous = audioData->smoothedCqtMagnitudesSide[i];
@@ -1003,6 +1197,7 @@ void FFT_CQTThreadSide(AudioData* audioData) {
         float newDb = previousDb + change;
         audioData->smoothedCqtMagnitudesSide[i] = powf(10.0f, newDb / 20.0f) - 1e-9f;
       }
+#endif
     }
   }
 }

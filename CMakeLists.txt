@@ -168,3 +168,10 @@ configure_file(
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
   DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
 )
+
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+if(COMPILER_SUPPORTS_AVX2)
+  add_compile_definitions(HAVE_AVX2)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+endif()

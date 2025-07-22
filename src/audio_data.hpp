@@ -5,16 +5,45 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
+#include <cstdlib>
 #include <deque>
 #include <fftw3.h>
+#include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
+template <typename T, std::size_t Alignment> struct AlignedAllocator {
+  using value_type = T;
+  using pointer = T*;
+  using const_pointer = const T*;
+  using void_pointer = void*;
+  using const_void_pointer = const void*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  template <class U> struct rebind {
+    using other = AlignedAllocator<U, Alignment>;
+  };
+
+  AlignedAllocator() noexcept {}
+  template <class U> AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept {}
+
+  pointer allocate(size_type n) {
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr, Alignment, n * sizeof(T)) != 0)
+      throw std::bad_alloc();
+    return reinterpret_cast<pointer>(ptr);
+  }
+  void deallocate(pointer p, size_type) noexcept { free(p); }
+};
+
 struct AudioData {
-  std::vector<float> bufferMid;     // Mid channel
-  std::vector<float> bufferSide;    // Side channel
-  std::vector<float> bandpassedMid; // Mid channel (filtered)
+  std::vector<float, AlignedAllocator<float, 32>> bufferMid;     // Mid channel
+  std::vector<float, AlignedAllocator<float, 32>> bufferSide;    // Side channel
+  std::vector<float, AlignedAllocator<float, 32>> bandpassedMid; // Mid channel (filtered)
   size_t writePos = 0;
   std::atomic<bool> running {true};
   std::atomic<bool> fftHovering {false};
