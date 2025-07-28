@@ -36,6 +36,8 @@ debug:
 # Controls the CRT phosphor simulation effect (realistic glow and persistence)
 # WARNING: These settings are computationally expensive and affect performance
 phosphor:
+  # Enable or disable phosphor effects globally
+  enabled: true
   # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
   near_blur_intensity: 0.3
   # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
@@ -78,26 +80,28 @@ phosphor:
 # FFT (Fast Fourier Transform) Settings
 # Controls frequency analysis and spectrum visualization
 fft:
-  # Fall speed of FFT bars (higher=faster fall, more responsive)
-  fall_speed: 40.0
-  # Hover fall speed when audio is quiet (higher=faster fall)
-  hover_fall_speed: 10.0
-  # Maximum dB level for FFT display
-  max_db: 10.0
-  # Maximum frequency to display in Hz
-  max_freq: 22000.0
-  # Minimum dB level for FFT display
-  min_db: -60.0
-  # Minimum frequency to display in Hz
-  min_freq: 10.0
-  # Rise speed of FFT bars (higher=faster rise, more responsive)
-  rise_speed: 500.0
   # FFT size (must be power of 2, higher=better frequency resolution)
   size: 4096
+  # Enable smoothing for FFT values
+  enable_smoothing: true
+  # Fall speed of FFT bars (higher=faster fall, more responsive)
+  fall_speed: 100.0
+  # Hover fall speed when audio is quiet (higher=faster fall)
+  hover_fall_speed: 10.0
+  # Rise speed of FFT bars (higher=faster rise, more responsive)
+  rise_speed: 500.0
+  # Maximum dB level for FFT display
+  max_db: 10.0
+  # Minimum dB level for FFT display
+  min_db: -60.0
+  # Maximum frequency to display in Hz
+  max_freq: 22000.0
+  # Minimum frequency to display in Hz
+  min_freq: 10.0
+  # Enable frequency markers on the display
+  frequency_markers: true
   # Slope correction for frequency response (dB per octave)
   slope_correction_db: 4.5
-  # Smoothing factor for FFT values (0.0-1.0, higher=smoother)
-  smoothing_factor: 0.2
   # Note key mode: "sharp" or "flat" (affects frequency labels)
   note_key_mode: sharp
   # Stereo mode: "midside" (mid/side channels) or "leftright" (left/right channels)
@@ -106,9 +110,7 @@ fft:
   enable_cqt: true
   # Number of frequency bins per octave for CQT (higher=better resolution)
   # Significant CPU usage increase with higher values
-  cqt_bins_per_octave: 48
-  # Enable phosphor effect for FFT visualization
-  enable_phosphor: true
+  cqt_bins_per_octave: 60
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
 
@@ -120,8 +122,6 @@ font: ~/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf
 # Lissajous Curve Settings
 # Controls the Lissajous curve visualization (X-Y plot of left vs right channel)
 lissajous:
-  # Enable phosphor effect for lissajous visualization
-  enable_phosphor: true
   # Enable Catmull-Rom spline interpolation for smoother curves
   enable_splines: true
   # Number of segments per spline (higher=smoother curves)
@@ -132,17 +132,13 @@ lissajous:
   # Defines how much of the previous data is redrawn
   # Higher value means more data is redrawn, which stabilizes the lissajous.
   # Caveat is a minor increase in CPU usage.
-  readback_multiplier: 2.0
+  readback_multiplier: 3.0
 
 # Oscilloscope Settings
 # Controls the oscilloscope waveform visualization
 oscilloscope:
-  # Enable phosphor effect for oscilloscope visualization
-  enable_phosphor: true
   # Time window for oscilloscope in ms
-  time_window: 64.0
-  # Gradient mode: "horizontal", "vertical", or "off"
-  gradient_mode: off
+  time_window: 50.0
   # Follow pitch for phase alignment (true=align to detected pitch)
   follow_pitch: true
   # Alignment position: "left", "center", or "right"
@@ -162,7 +158,7 @@ oscilloscope:
 # Controls the bandpass filter applied to the audio signal used for pitch following
 bandpass_filter:
   # Bandwidth in Hz or percent of center frequency
-  bandwidth: 20.0
+  bandwidth: 40.0
   # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
   bandwidth_type: percent
   # Order of the bandpass filter (higher = steeper filter, more CPU usage)
@@ -201,14 +197,14 @@ visualizers:
 # Window Settings
 # Controls the main application window
 window:
-  # Default window height in pixels
-  default_height: 200
-  # Default theme file (from themes/ directory)
-  theme: green-crt.txt
   # Default window width in pixels
   default_width: 1080
+  # Default window height in pixels
+  default_height: 200
   # FPS limit for the main window
   # This will also throttle the audio thread to save CPU
   # Note: this does not define the exact FPS limit,
   # as pipewire/pulseaudio only accept base-2 read sizes.
-  fps_limit: 60 
+  fps_limit: 240
+  # Default theme file (from themes/ directory)
+  theme: mocha.txt 

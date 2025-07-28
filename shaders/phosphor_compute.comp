@@ -4,12 +4,11 @@
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 // Uniforms
-uniform float pixelWidth; // Width of a single pixel in world coordinates
 uniform ivec2 texSize; // Size of the energy texture
 
 // Input buffer: spline vertices with position and energy
 layout(std430, binding = 0) restrict readonly buffer SplineVertexBuffer {
-  vec4 vertices[]; // x, y, intensityLinear, dwellTime
+  vec3 vertices[]; // x, y, intensityLinear
 };
 
 // Output texture: single-channel R32UI for linear energy accumulation
@@ -28,14 +27,14 @@ void main() {
   // Early exit with single comparison
   if (index >= vertexCount) return;
 
-  vec4 vertex = vertices[index];
+  vec3 vertex = vertices[index];
   vec2 pos = vertex.xy;
   float segmentEnergyLinear = vertex.z;
   
   // Early exit if no next vertex
   if (index + 1 >= vertexCount) return;
   
-  vec4 nextVertex = vertices[index + 1];
+  vec3 nextVertex = vertices[index + 1];
   vec2 nextPos = nextVertex.xy;
 
   // Calculate direction and distance
@@ -46,7 +45,7 @@ void main() {
   if (distance <= 0.0) return;
 
   direction *= 1.0 / distance; // Normalize direction
-  int numSteps = min(256, max(1, int(ceil(distance / pixelWidth))));
+  int numSteps = min(256, max(1, int(ceil(distance))));
   vec2 stepSize = direction * (distance / float(numSteps));
   
   // Total energy for this segment is proportional to its length

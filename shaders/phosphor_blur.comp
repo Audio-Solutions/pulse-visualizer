@@ -13,6 +13,8 @@ uniform float range_factor;
 uniform vec2 texSize;
 uniform int blur_direction; // 0 = horizontal, 1 = vertical
 uniform int kernel_type; // 0 = E kernel, 1 = F kernel, 2 = G kernel
+uniform float f_intensity;
+uniform float g_intensity;
 
 const float PI = 3.14159265359;
 const float INV_2PI = 0.15915494309; // 1/(2*PI)
@@ -29,7 +31,12 @@ void main() {
   // Early exit for very small blur spreads
   if (line_blur_spread < 0.01) {
     uint value = imageLoad(inputTex, coord).r;
-    imageStore(outputTex, coord, uvec4(value, 0, 0, 0));
+    
+    if (blur_direction == 1) {
+      imageAtomicAdd(outputTex, coord, value);
+    } else {
+      imageStore(outputTex, coord, uvec4(uint(max(0.0, value)), 0, 0, 0));
+    }
     return;
   }
 
@@ -40,7 +47,12 @@ void main() {
   // Fast exit for zero radius
   if (half_range == 0) {
     uint value = imageLoad(inputTex, coord).r;
-    imageStore(outputTex, coord, uvec4(value, 0, 0, 0));
+
+    if (blur_direction == 1) {
+      imageAtomicAdd(outputTex, coord, value);
+    } else {
+      imageStore(outputTex, coord, uvec4(uint(max(0.0, value)), 0, 0, 0));
+    }
     return;
   }
 
@@ -122,6 +134,16 @@ void main() {
   // This prevents edge brightness explosion by properly accounting for missing energy
   float result = sample_sum / max(effective_kernel_sum, 1e-6);
 
+  if (kernel_type == 1) {
+    result *= f_intensity;
+  } else if (kernel_type == 2) {
+    result *= g_intensity;
+  }
+
   // Write result
-  imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));
+  if (blur_direction == 1) {
+    imageAtomicAdd(outputTex, coord, uint(max(0.0, result)));
+  } else {
+    imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));
+  }
 }
