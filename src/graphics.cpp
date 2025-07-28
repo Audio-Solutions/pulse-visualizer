@@ -1,0 +1,481 @@
+#include "include/graphics.hpp"
+
+#include "include/config.hpp"
+#include "include/sdl_window.hpp"
+#include "include/theme.hpp"
+#include "include/window_manager.hpp"
+
+namespace Graphics {
+
+void drawLine(const float& x1, const float& y1, const float& x2, const float& y2, const float* color,
+              const float& thickness) {
+  glColor4fv(color);
+  glLineWidth(thickness);
+  glBegin(GL_LINES);
+  glVertex2f(x1, y1);
+  glVertex2f(x2, y2);
+  glEnd();
+}
+
+void drawFilledRect(const float& x, const float& y, const float& width, const float& height, const float* color) {
+  glColor4fv(color);
+  glBegin(GL_QUADS);
+  glVertex2f(x, y);
+  glVertex2f(x + width, y);
+  glVertex2f(x + width, y + height);
+  glVertex2f(x, y + height);
+  glEnd();
+}
+
+namespace Font {
+FT_Face face = nullptr;
+FT_Library ftLib = nullptr;
+
+std::unordered_map<char, GlyphTexture> glyphCache;
+
+void load() {
+  std::string path = expandUserPath(Config::options.font);
+  struct stat buf;
+  if (stat(path.c_str(), &buf) != 0)
+    return;
+
+  if (!ftLib)
+    if (FT_Init_FreeType(&ftLib) != 0)
+      return;
+
+  if (FT_New_Face(ftLib, path.c_str(), 0, &face))
+    return;
+}
+
+void cleanup() {
+  for (auto& [ch, glyph] : glyphCache) {
+    if (glIsTexture(glyph.textureId)) {
+      glDeleteTextures(1, &glyph.textureId);
+    }
+  }
+  glyphCache.clear();
+}
+
+GlyphTexture& getGlyphTexture(char c, float size) {
+  auto it = glyphCache.find(c);
+  if (it != glyphCache.end()) {
+    return it->second;
+  }
+
+  FT_Set_Pixel_Sizes(face, 0, size);
+
+  if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+    static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
+    return empty;
+  }
+
+  FT_GlyphSlot g = face->glyph;
+
+  GLuint tex;
+  glGenTextures(1, &tex);
+  glBindTexture(GL_TEXTURE_2D, tex);
+
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, g->bitmap.width, g->bitmap.rows, 0, GL_ALPHA, GL_UNSIGNED_BYTE,
+               g->bitmap.buffer);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  GlyphTexture glyph = {
+      tex,           static_cast<int>(g->bitmap.width),  static_cast<int>(g->bitmap.rows), g->bitmap_left,
+      g->bitmap_top, static_cast<int>(g->advance.x >> 6)};
+
+  glyphCache[c] = glyph;
+  return glyphCache[c];
+}
+
+void drawText(const char* text, const float& x, const float& y, const float& size, const float* color) {
+  if (!text || !*text || !face)
+    return;
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_TEXTURE_2D);
+  glColor4fv(color);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  float _x = x, _y = y;
+  for (const char* p = text; *p; p++) {
+    const char& c = *p;
+    if (c == '\n') {
+      _x = x;
+      _y += size;
+      continue;
+    }
+
+    GlyphTexture& glyph = getGlyphTexture(c, size);
+    if (glyph.textureId == 0)
+      continue;
+
+    glBindTexture(GL_TEXTURE_2D, glyph.textureId);
+
+    float x0 = _x + static_cast<float>(glyph.bearingX);
+    float y0 = _y - static_cast<float>(glyph.height - glyph.bearingY);
+    float w = static_cast<float>(glyph.width);
+    float h = static_cast<float>(glyph.height);
+
+    glBegin(GL_QUADS);
+    glTexCoord2f(0, 1);
+    glVertex2f(x0, y0);
+    glTexCoord2f(1, 1);
+    glVertex2f(x0 + w, y0);
+    glTexCoord2f(1, 0);
+    glVertex2f(x0 + w, y0 + h);
+    glTexCoord2f(0, 0);
+    glVertex2f(x0, y0 + h);
+    glEnd();
+
+    _x += static_cast<float>(glyph.advance);
+  }
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glDisable(GL_TEXTURE_2D);
+}
+} // namespace Font
+
+void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<std::pair<float, float>> points,
+               float* color) {
+  std::vector<float> vertexData;
+  vertexData.reserve(points.size() * 2);
+
+  float lastX = -10000.f, lastY = -10000.f;
+  for (size_t i = 0; i < points.size(); i++) {
+    float x = points[i].first;
+    float y = points[i].second;
+    if (i == 0 || std::abs(x - lastX) >= 1.0f || std::abs(y - lastY) >= 1.0f) {
+      vertexData.push_back(x);
+      vertexData.push_back(y);
+      lastX = x;
+      lastY = y;
+    }
+  }
+
+  if (vertexData.size() < 4)
+    return;
+
+  WindowManager::setViewport(window->x, window->width, SDLWindow::height);
+
+  glBindBuffer(GL_ARRAY_BUFFER, window->phosphor.vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_LINE_SMOOTH);
+  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+
+  glColor4fv(color);
+  glLineWidth(2.f);
+
+  glDrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(vertexData.size() / 2));
+
+  glDisable(GL_LINE_SMOOTH);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+namespace Shader {
+std::vector<GLuint> shaders(4, 0);
+
+std::string loadFile(const char* path) {
+  std::string local = std::string("../") + path;
+  std::ifstream lFile(local);
+  if (lFile.is_open()) {
+    std::string content;
+    std::string line;
+    while (std::getline(lFile, line))
+      content += line + "\n";
+    return content;
+  }
+
+  std::string inst = std::string(PULSE_DATA_DIR) + "/" + path;
+  std::ifstream sFile(inst);
+  if (sFile.is_open()) {
+    std::string content;
+    std::string line;
+    while (std::getline(sFile, line))
+      content += line + "\n";
+    return content;
+  }
+
+  std::cerr << "Failed to open shader file '" << path << "'" << std::endl;
+  return "";
+}
+
+GLuint load(const char* path, GLenum type) {
+  std::string src = loadFile(path);
+  if (src.empty())
+    return 0;
+
+  GLuint shader = glCreateShader(type);
+  auto p = src.c_str();
+  glShaderSource(shader, 1, &p, nullptr);
+  glCompileShader(shader);
+
+  GLint tmp = 0;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &tmp);
+  if (tmp != GL_FALSE)
+    return shader;
+
+  glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &tmp);
+  std::vector<char> log(tmp);
+  glGetShaderInfoLog(shader, tmp, &tmp, log.data());
+
+  std::cerr << "Shader compilation failed for '" << path << "': " << log.data() << std::endl;
+  glDeleteShader(shader);
+  return 0;
+}
+
+void ensureShaders() {
+  if (std::all_of(shaders.begin(), shaders.end(), [](int x) { return x != 0; }))
+    return;
+
+  static std::vector<std::string> shaderPaths = {"shaders/phosphor_compute.comp", "shaders/phosphor_decay.comp",
+                                                 "shaders/phosphor_blur.comp", "shaders/phosphor_colormap.comp"};
+
+  for (int i = 0; i < shaders.size(); i++) {
+    if (shaders[i])
+      continue;
+
+    GLuint shader = load(shaderPaths[i].c_str(), GL_COMPUTE_SHADER);
+    if (!shader)
+      continue;
+
+    shaders[i] = glCreateProgram();
+    glAttachShader(shaders[i], shader);
+    glLinkProgram(shaders[i]);
+
+    GLint tmp;
+    glGetProgramiv(shaders[i], GL_LINK_STATUS, &tmp);
+    if (!tmp) {
+      char log[512];
+      glGetProgramInfoLog(shaders[i], 512, NULL, log);
+      std::cerr << "Shader linking failed:" << log << std::endl;
+      glDeleteProgram(shaders[i]);
+      shaders[i] = 0;
+    }
+
+    glDeleteShader(shader);
+  }
+}
+
+void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
+                     const GLuint& vertexBuffer, const GLuint& out) {
+  if (!shaders[0])
+    return;
+
+  glUseProgram(shaders[0]);
+
+  glUniform2i(glGetUniformLocation(shaders[0], "texSize"), win->width, SDLWindow::height);
+
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
+  glBindImageTexture(0, out, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(1, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+
+  GLuint g = (vertexCount + 63) / 64;
+  glDispatchCompute(g, 1, 1);
+
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+  glUseProgram(0);
+}
+
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& in,
+                   const GLuint& out) {
+  if (!shaders[1])
+    return;
+
+  glUseProgram(shaders[1]);
+
+  float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay_slow);
+  float decayFast = exp(-WindowManager::dt * Config::options.phosphor.decay_fast);
+
+  glUniform1f(glGetUniformLocation(shaders[1], "decaySlow"), decaySlow);
+  glUniform1f(glGetUniformLocation(shaders[1], "decayFast"), decayFast);
+  glUniform1ui(glGetUniformLocation(shaders[1], "ageThreshold"), Config::options.phosphor.age_threshold);
+
+  glBindImageTexture(0, in, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+  glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+
+  GLuint gX = (win->width + 7) / 8;
+  GLuint gY = (SDLWindow::height + 7) / 8;
+  glDispatchCompute(gX, gY, 1);
+
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+  glUseProgram(0);
+}
+
+void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& in,
+                  const GLuint& out) {
+  if (!shaders[2])
+    return;
+
+  glUseProgram(shaders[2]);
+
+  glUniform1f(glGetUniformLocation(shaders[2], "line_blur_spread"), Config::options.phosphor.line_blur_spread);
+  glUniform1f(glGetUniformLocation(shaders[2], "line_width"), Config::options.phosphor.line_width);
+  glUniform1f(glGetUniformLocation(shaders[2], "range_factor"), Config::options.phosphor.range_factor);
+  glUniform1i(glGetUniformLocation(shaders[2], "blur_direction"), dir);
+  glUniform1i(glGetUniformLocation(shaders[2], "kernel_type"), kernel);
+  glUniform1f(glGetUniformLocation(shaders[2], "f_intensity"), Config::options.phosphor.near_blur_intensity);
+  glUniform1f(glGetUniformLocation(shaders[2], "g_intensity"), Config::options.phosphor.far_blur_intensity);
+  glUniform2f(glGetUniformLocation(shaders[2], "texSize"), static_cast<float>(win->width),
+              static_cast<float>(SDLWindow::height));
+
+  glBindImageTexture(0, in, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, out, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+
+  GLuint gX = (win->width + 7) / 8;
+  GLuint gY = (SDLWindow::height + 7) / 8;
+  glDispatchCompute(gX, gY, 1);
+
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+  glUseProgram(0);
+}
+
+void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* lineColor, const GLuint& in,
+                      const GLuint& out) {
+  if (!shaders[3])
+    return;
+
+  glUseProgram(shaders[3]);
+
+  float* bg = Theme::colors.background;
+
+  glUniform3f(glGetUniformLocation(shaders[3], "blackColor"), bg[0], bg[1], bg[2]);
+  glUniform3f(glGetUniformLocation(shaders[3], "beamColor"), lineColor[0], lineColor[1], lineColor[2]);
+  glUniform1i(glGetUniformLocation(shaders[3], "enablePhosphorGrain"), Config::options.phosphor.enable_grain);
+  glUniform1i(glGetUniformLocation(shaders[3], "enableCurvedScreen"), Config::options.phosphor.enable_curved_screen);
+  glUniform1f(glGetUniformLocation(shaders[3], "screenCurvature"), Config::options.phosphor.screen_curvature);
+  glUniform1f(glGetUniformLocation(shaders[3], "screenGapFactor"), Config::options.phosphor.screen_gap);
+  glUniform1f(glGetUniformLocation(shaders[3], "grainStrength"), Config::options.phosphor.grain_strength);
+  glUniform2i(glGetUniformLocation(shaders[3], "texSize"), win->width, SDLWindow::height);
+  glUniform1f(glGetUniformLocation(shaders[3], "vignetteStrength"), Config::options.phosphor.vignette_strength);
+  glUniform1f(glGetUniformLocation(shaders[3], "chromaticAberrationStrength"),
+              Config::options.phosphor.chromatic_aberration_strength);
+
+  glBindImageTexture(0, in, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(1, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+
+  GLuint gX = (win->width + 7) / 8;
+  GLuint gY = (SDLWindow::height + 7) / 8;
+  glDispatchCompute(gX, gY, 1);
+
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+  glUseProgram(0);
+}
+} // namespace Shader
+
+namespace Phosphor {
+void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
+            const std::vector<float>& energies, const float* lineColor, bool renderPoints) {
+
+  Graphics::Shader::ensureShaders();
+
+  glCopyImageSubData(win->phosphor.energyTexture, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture, GL_TEXTURE_2D,
+                     0, 0, 0, 0, win->width, SDLWindow::height, 1);
+
+  Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.tempTexture, win->phosphor.energyTexture);
+
+  if (renderPoints)
+    Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), win->phosphor.ageTexture,
+                            win->phosphor.vertexBuffer, win->phosphor.energyTexture);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, win->phosphor.frameBuffer);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2, 0);
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  for (int k = 0; k < 3; k++) {
+    Shader::dispatchBlur(win, 0, k, win->phosphor.energyTexture, win->phosphor.tempTexture);
+    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture, win->phosphor.tempTexture2);
+  }
+
+  Shader::dispatchColormap(win, lineColor, win->phosphor.tempTexture2, win->phosphor.outputTexture);
+}
+} // namespace Phosphor
+
+void rgbaToHsva(float* rgba, float* hsva) {
+  float r = rgba[0], g = rgba[1], b = rgba[2], a = rgba[3];
+  float maxc = std::max({r, g, b}), minc = std::min({r, g, b});
+  float d = maxc - minc;
+  float h = 0, s = (maxc == 0 ? 0 : d / maxc), v = maxc;
+  if (d > 1e-6f) {
+    if (maxc == r)
+      h = (g - b) / d + (g < b ? 6 : 0);
+    else if (maxc == g)
+      h = (b - r) / d + 2;
+    else
+      h = (r - g) / d + 4;
+    h /= 6;
+  }
+  hsva[0] = h;
+  hsva[1] = s;
+  hsva[2] = v;
+  hsva[3] = a;
+}
+
+void hsvaToRgba(float* hsva, float* rgba) {
+  float h = hsva[0], s = hsva[1], v = hsva[2], a = hsva[3];
+  float r, g, b;
+
+  if (s <= 1e-6f) {
+    r = g = b = v;
+  } else {
+    h = std::fmod(h, 1.0f) * 6.0f;
+    int i = static_cast<int>(std::floor(h));
+    float f = h - i;
+    float p = v * (1.0f - s);
+    float q = v * (1.0f - s * f);
+    float t = v * (1.0f - s * (1.0f - f));
+    switch (i) {
+    case 0:
+      r = v;
+      g = t;
+      b = p;
+      break;
+    case 1:
+      r = q;
+      g = v;
+      b = p;
+      break;
+    case 2:
+      r = p;
+      g = v;
+      b = t;
+      break;
+    case 3:
+      r = p;
+      g = q;
+      b = v;
+      break;
+    case 4:
+      r = t;
+      g = p;
+      b = v;
+      break;
+    case 5:
+    default:
+      r = v;
+      g = p;
+      b = q;
+      break;
+    }
+  }
+  rgba[0] = r;
+  rgba[1] = g;
+  rgba[2] = b;
+  rgba[3] = a;
+}
+
+} // namespace Graphics

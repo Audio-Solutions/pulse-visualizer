@@ -18,7 +18,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)
 - Separate FFT/CQT threads for mid/side channels
-- SIMD (AVX2) acceleration for FFT/CQT and smoothing/interpolation in audio processing
+- Extensive SIMD (AVX2) acceleration
 - Live config and theme hot-reloading (no restart needed, mostly)
 - Draggable splitters for custom layout
 - Mouse interaction: hover FFT for note readout, drag splitters, etc.
@@ -82,29 +82,16 @@ Debian:
 
 Pulse doesn't have a settings menu (and probably never will), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`.
 
-The configuration is now organized into logical sections. Here are the most important ones:
+For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURATION.md).
 
-- `audio`: Set your audio backend and input device here. For example:
-  ```yaml
-  audio:
-    engine: pipewire   # or pulseaudio, or auto (default)
-    device: your_audio_device_name
-  ```
-  - `engine` chooses the backend (`pipewire`, `pulseaudio`, or `auto`).
-  - `device` is the name of your input device (see `pactl list sources short` or `pw-cli ls Node`).
-- `font`: Set your font path:
-  ```yaml
-  font: /full/path/to/your/font.ttf
-  ```
-- `window`: Set window size, theme, and FPS limit:
-  ```yaml
-  window:
-    default_width: 1080
-    default_height: 200
-    theme: mocha.txt
-    fps_limit: 240
-  ```
-- `phosphor`, `fft`, `lissajous`, `oscilloscope`, `bandpass_filter`, `spectrogram`, `visualizers`: Fine-tune every aspect of the visualizers and effects. Each section is documented in the config template.
+### Quick Configuration
+
+The most important settings to configure:
+
+- `audio`: Set your audio backend and input device
+- `font`: Set your font path
+- `window`: Set window size, theme, and FPS limit
+- `phosphor`, `fft`, `lissajous`, `oscilloscope`: Fine-tune visualizers and effects
 
 For all available options and detailed descriptions, see `/usr/local/share/pulse-visualizer/config.yml.template`.
 
