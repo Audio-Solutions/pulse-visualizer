@@ -1,8 +1,5 @@
 #pragma once
-
-#include <optional>
-#include <string>
-#include <yaml-cpp/yaml.h>
+#include "common.hpp"
 
 namespace Config {
 struct Options {
@@ -111,10 +108,19 @@ struct Options {
   } phosphor;
 
   std::string font;
-} options;
+};
 
+extern Options options;
+
+#ifdef __linux__
+extern int inotifyFd;
+extern int inotifyWatch;
+#endif
+
+void copyFiles();
 std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path);
 template <typename T> T get(const YAML::Node& root, const std::string& path);
 void load();
 bool reload();
+
 } // namespace Config

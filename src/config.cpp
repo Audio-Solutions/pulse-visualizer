@@ -1,18 +1,18 @@
 #include "include/config.hpp"
 
-#include "include/common.hpp"
-
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <optional>
-#include <string>
-#include <yaml-cpp/yaml.h>
-
 namespace Config {
+Options options;
+
+#ifdef __linux__
+int inotifyFd = -1;
+int inotifyWatch = -1;
+#endif
+
 void copyFiles() {
   const char* home = getenv("HOME");
-  if (!home) { /* ... */
+  if (!home) {
+    std::cerr << "Warning: HOME environment variable not set, cannot setup user config" << std::endl;
+    return;
   }
 
   std::string userCfgDir = std::string(home) + "/.config/pulse-visualizer";
@@ -23,73 +23,87 @@ void copyFiles() {
   std::filesystem::create_directories(userThemeDir);
   std::filesystem::create_directories(userFontDir);
 
-  if (!std::filesystem::exists(userCfgDir + "/config.yml")) { /* ... */
+  if (!std::filesystem::exists(userCfgDir + "/config.yml")) {
+    std::string cfgSource = std::string(PULSE_DATA_DIR) + "/config.yml.template";
+    if (std::filesystem::exists(cfgSource)) {
+      try {
+        std::filesystem::copy_file(cfgSource, userCfgDir + "/config.yml");
+        std::cout << "Created user config file: " << userCfgDir << "/config.yml" << std::endl;
+      } catch (const std::exception& e) {
+        std::cerr << "Warning: Failed to copy config template: " << e.what() << std::endl;
+      }
+    }
   }
 
   std::string themeSource = std::string(PULSE_DATA_DIR) + "/themes";
-  if (std::filesystem::exists(themeSource) && !std::filesystem::exists(themeSource + "/_TEMPLATE.txt")) { /* ... */
+  if (std::filesystem::exists(themeSource) && !std::filesystem::exists(themeSource + "/_TEMPLATE.txt")) {
+    try {
+      for (const auto& entry : std::filesystem::directory_iterator(themeSource)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".txt") {
+          std::string destFile = userThemeDir + "/" + entry.path().filename().string();
+          if (!std::filesystem::exists(destFile)) {
+            std::filesystem::copy_file(entry.path(), destFile);
+          }
+        }
+      }
+      std::cout << "Copied themes to: " << userThemeDir << std::endl;
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: Failed to copy themes: " << e.what() << std::endl;
+    }
   }
 
-  // Copy font from system installation
   std::string fontSource = std::string(PULSE_DATA_DIR) + "/fonts/JetBrainsMonoNerdFont-Medium.ttf";
   std::string userFontFile = userFontDir + "/JetBrainsMonoNerdFont-Medium.ttf";
-  if (std::filesystem::exists(fontSource)) { /* ... */
+  if (std::filesystem::exists(fontSource)) {
+    try {
+      if (!std::filesystem::exists(userFontFile)) {
+        std::filesystem::copy_file(fontSource, userFontFile);
+        std::cout << "Copied font to: " << userFontFile << std::endl;
+      }
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: Failed to copy font: " << e.what() << std::endl;
+    }
   }
 }
 
-struct Options {
-  oscilloscope;
-
-  bandpass_filter;
-
-  lissajous;
-
-  fft;
-
-  spectrogram;
-
-  audio;
-
-  visualizers;
-
-  window;
-
-  debug;
-
-  phosphor;
-
-  std::string font;
-} options;
-
-#ifdef __linux__
-int inotifyFd = -1;
-int inotifyWatch = -1;
-#endif
-
 std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path) {
   if (root[path].IsDefined())
-    ; // ...
+    return root[path];
 
   size_t dotIndex = path.find('.');
   if (dotIndex == std::string::npos)
-    ; // ...
+    return std::nullopt;
 
   std::string section = path.substr(0, dotIndex);
   std::string sub = path.substr(dotIndex + 1);
 
   if (!root[section].IsDefined())
-    ; // ...
+    return std::nullopt;
 
   return getNode(root[section], sub);
 }
 
-template <typename T> T get(const YAML::Node& root, const std::string& path) { /* ... */ }
+template <typename T> T get(const YAML::Node& root, const std::string& path) {
+  auto node = getNode(root, path);
+  if (node.has_value())
+    return node.value().as<T>();
+
+  std::cerr << path << " is missing." << std::endl;
+
+  return T {};
+}
 
 void load() {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData = YAML::LoadFile(path);
 
 #ifdef __linux__
+  if (inotifyFd == -1) {
+    inotifyFd = inotify_init1(IN_NONBLOCK);
+    if (inotifyWatch != -1)
+      inotify_rm_watch(inotifyFd, inotifyWatch);
+    inotifyWatch = inotify_add_watch(inotifyFd, path.c_str(), IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF);
+  }
 #endif
 
   options.oscilloscope.follow_pitch = get<bool>(configData, "oscilloscope.follow_pitch");
@@ -181,9 +195,33 @@ void load() {
 
 bool reload() {
 #ifdef __linux__
+  if (inotifyFd != -1 && inotifyWatch != -1) {
+    char buf[sizeof(struct inotify_event) * 16];
+    ssize_t len = read(inotifyFd, buf, sizeof(buf));
+    if (len > 0) {
+      load();
+      return true;
+    }
+  }
 #else
-
+  static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
+  struct stat st;
+  if (stat(path.c_str(), &st) != 0) {
+    std::cerr << "Warning: could not stat config file." << std::endl;
+    return false;
+  }
+  static time_t lastConfigMTime = 0;
+  if (st.st_mtime != lastConfigMTime) {
+    load();
+    return true;
+  }
 #endif
   return false;
 }
+
+template bool get<bool>(const YAML::Node&, const std::string&);
+template int get<int>(const YAML::Node&, const std::string&);
+template float get<float>(const YAML::Node&, const std::string&);
+template std::string get<std::string>(const YAML::Node&, const std::string&);
+
 } // namespace Config
