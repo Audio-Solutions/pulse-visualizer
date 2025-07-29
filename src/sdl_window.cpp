@@ -63,14 +63,14 @@ void init() {
 }
 
 void handleEvent(SDL_Event& event) {
-  // handle events for the base window only
+  // handle events for the base window only except for quit
+  if (event.type == SDL_QUIT) {
+    running = false;
+    return;
+  }
+
   if (event.window.windowID == SDL_GetWindowID(wins[0])) {
     switch (event.type) {
-    case SDL_QUIT:
-      deinit();
-      running = false;
-      return;
-
     case SDL_KEYDOWN:
       switch (event.key.keysym.sym) {
       case SDLK_q:

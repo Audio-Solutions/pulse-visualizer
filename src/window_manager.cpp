@@ -566,6 +566,14 @@ void reorder() {
   // Disable dragging for last splitter if Lissajous is last
   if (!windows.empty() && !splitters.empty() && windows.back().aspectRatio != 0.0f)
     splitters.back().draggable = false;
+
+  // Spread splitters evenly across the window width
+  size_t n = windows.size();
+  if (n > 1) {
+    for (size_t i = 0; i < splitters.size(); ++i) {
+      splitters[i].x = static_cast<int>((i + 1) * SDLWindow::width / n);
+    }
+  }
 }
 
 template <Direction direction> void swapVisualizer(size_t index) {
