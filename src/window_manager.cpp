@@ -113,6 +113,8 @@ void Splitter::draw() {
 
   // Draw hover highlight if mouse is over splitter
   if (hovering) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4fv(Theme::alpha(Theme::colors.accent, 0.3f));
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
@@ -120,6 +122,7 @@ void Splitter::draw() {
     glVertex2f(10, SDLWindow::height);
     glVertex2f(0, SDLWindow::height);
     glEnd();
+    glDisable(GL_BLEND);
   }
 }
 
