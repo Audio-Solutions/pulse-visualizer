@@ -48,8 +48,6 @@ phosphor:
   decay_slow: 7.0
   # Fast decay rate of phosphor persistence (higher=shorter persistence)
   decay_fast: 50.0
-  # Size of the electron beam (affects line thickness)
-  beam_size: 1.0
   # Spread of the blur effect (higher=more spread, more GPU intensive)
   line_blur_spread: 64
   # Width of the phosphor lines

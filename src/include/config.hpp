@@ -90,7 +90,6 @@ struct Options {
     float beam_energy = 100.0f;
     float decay_slow = 10.0f;
     float decay_fast = 100.0f;
-    float beam_size = 2.0f;
     float line_blur_spread = 16.0f;
     float line_width = 2.0f;
     int age_threshold = 256;

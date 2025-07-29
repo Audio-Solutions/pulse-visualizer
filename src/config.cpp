@@ -203,7 +203,7 @@ void load() {
   // If the config fails to load we still want the watch to be created
   if (configData.IsNull())
     return;
-  
+
   // Load visualizer window layouts
   options.visualizers = get<std::vector<std::string>>(configData, "visualizers");
 
@@ -280,7 +280,6 @@ void load() {
   options.phosphor.beam_energy = get<float>(configData, "phosphor.beam_energy");
   options.phosphor.decay_slow = get<float>(configData, "phosphor.decay_slow");
   options.phosphor.decay_fast = get<float>(configData, "phosphor.decay_fast");
-  options.phosphor.beam_size = get<float>(configData, "phosphor.beam_size");
   options.phosphor.line_blur_spread = get<float>(configData, "phosphor.line_blur_spread");
   options.phosphor.line_width = get<float>(configData, "phosphor.line_width");
   options.phosphor.age_threshold = get<int>(configData, "phosphor.age_threshold");
