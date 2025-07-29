@@ -34,6 +34,9 @@ void init() {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+  // Disable compositor bypass for better performance
+  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+
   // Create SDL window with OpenGL support
   win = SDL_CreateWindow("Pulse", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1080, 200,
                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
@@ -58,9 +61,6 @@ void init() {
                              reinterpret_cast<const char*>(glewGetErrorString(err)));
   }
 
-  // Disable compositor bypass for better performance
-  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-
   // Configure OpenGL rendering state
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -68,6 +68,9 @@ void init() {
   glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
   glLineWidth(2.0f);
 
+  // Initialise window size
+  SDL_GetWindowSize(win, &width, &height);
+  
   running = true;
 }
 
