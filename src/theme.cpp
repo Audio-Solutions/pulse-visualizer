@@ -41,15 +41,18 @@ void load(const std::string& name) {
 
 #ifdef __linux__
   // Setup file watching for theme changes
-  currentThemePath = path;
   if (themeInotifyFd == -1) {
     themeInotifyFd = inotify_init1(IN_NONBLOCK);
   }
-  if (themeInotifyWatch != -1) {
-    inotify_rm_watch(themeInotifyFd, themeInotifyWatch);
+  if (path != currentThemePath || themeInotifyWatch == -1) {
+    if (themeInotifyWatch != -1) {
+      inotify_rm_watch(themeInotifyFd, themeInotifyWatch);
+    }
+    themeInotifyWatch = inotify_add_watch(themeInotifyFd, path.c_str(), IN_CLOSE_WRITE);
   }
-  themeInotifyWatch = inotify_add_watch(themeInotifyFd, path.c_str(), IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF);
 #endif
+
+  currentThemePath = path;
 
   // Color mapping for array-based colors (RGBA)
   static std::unordered_map<std::string, float*> colorMapArrays = {
@@ -169,6 +172,18 @@ bool reload() {
     char buf[sizeof(struct inotify_event) * 16];
     ssize_t len = read(themeInotifyFd, buf, sizeof(buf));
     if (len > 0) {
+
+      for (int i = 0; i < len; i += sizeof(struct inotify_event)) {
+        inotify_event* event = (inotify_event*)&buf[i];
+
+        // check if the inotify got freed (file gets moved, deleted etc), kernel fires IN_IGNORED when that happens
+        if ((event->mask & IN_IGNORED) == IN_IGNORED) {
+          // if(event->wd == themeInotifyWatch) {
+            themeInotifyWatch = -1;
+          // }
+        }
+      }
+
       load(Config::options.window.theme);
       return true;
     }

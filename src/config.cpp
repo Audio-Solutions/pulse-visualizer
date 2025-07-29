@@ -98,8 +98,25 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
  */
 template <typename T> T get(const YAML::Node& root, const std::string& path) {
   auto node = getNode(root, path);
-  if (node.has_value())
-    return node.value().as<T>();
+  if (node.has_value()) {
+    try {
+      return node.value().as<T>();
+    } catch (std::exception) {
+      std::cerr << "Converting " << path << " to ";
+
+      if (typeid(T) == typeid(std::string)) {
+        std::cerr << "string";
+      } else if (typeid(T) == typeid(int)) {
+        std::cerr << "int";
+      } else if (typeid(T) == typeid(float)) {
+        std::cerr << "float";
+      }
+
+      std::cerr << " failed" << std::endl;
+
+      return T {};
+    }
+  }
 
   std::cerr << path << " is missing." << std::endl;
 
@@ -161,7 +178,17 @@ template <> std::vector<std::string> get<std::vector<std::string>>(const YAML::N
 
 void load() {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
-  YAML::Node configData = YAML::LoadFile(path);
+  YAML::Node configData;
+
+  // Handle YAML errors
+  try {
+    configData = YAML::LoadFile(path);
+  } catch (YAML::BadFile e) {
+    std::cerr << "Failed to load config file" << std::endl;
+  } catch (YAML::ParserException e) {
+    std::cerr << "Parser error when loading the config file: \"" << e.msg << "\" at " << e.mark.line + 1 << "("
+              << e.mark.column + 1 << ")" << std::endl;
+  }
 
 #ifdef __linux__
   // Setup file watching for configuration changes
@@ -169,10 +196,14 @@ void load() {
     inotifyFd = inotify_init1(IN_NONBLOCK);
     if (inotifyWatch != -1)
       inotify_rm_watch(inotifyFd, inotifyWatch);
-    inotifyWatch = inotify_add_watch(inotifyFd, path.c_str(), IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF);
+    inotifyWatch = inotify_add_watch(inotifyFd, path.c_str(), IN_CLOSE_WRITE);
   }
 #endif
 
+  // If the config fails to load we still want the watch to be created
+  if (configData.IsNull())
+    return;
+  
   // Load visualizer window layouts
   options.visualizers = get<std::vector<std::string>>(configData, "visualizers");
 
@@ -275,6 +306,16 @@ bool reload() {
     char buf[sizeof(struct inotify_event) * 16];
     ssize_t len = read(inotifyFd, buf, sizeof(buf));
     if (len > 0) {
+      for (int i = 0; i < len; i += sizeof(struct inotify_event)) {
+        inotify_event* event = (inotify_event*)&buf[i];
+
+        // check if the inotify got freed (file gets moved, deleted etc), kernel fires IN_IGNORED when that happens
+        if ((event->mask & IN_IGNORED) == IN_IGNORED) {
+          inotifyFd = -1;
+          inotifyWatch = -1;
+        }
+      }
+
       load();
       return true;
     }
