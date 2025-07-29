@@ -170,47 +170,46 @@ void render() {
   float x = 10.0f;
   float y = SDLWindow::height - 20.0f;
 
-  if (window->hovering) {
-    // Convert mouse coordinates to window-relative coordinates
-    float mouseXRel = SDLWindow::mouseX - window->x;
-    float mouseYRel = SDLWindow::mouseY;
+  // Convert mouse coordinates to window-relative coordinates
+  float mouseXRel = SDLWindow::mouseX - window->x;
+  float mouseYRel = SDLWindow::mouseY;
 
+  if (window->hovering && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
+      mouseYRel < SDLWindow::height) {
     // Check if mouse is within window bounds
-    if (mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 && mouseYRel < SDLWindow::height) {
-      // Draw crosshair
-      glColor4fv(color);
-      glLineWidth(2.0f);
-      glBegin(GL_LINES);
+    // Draw crosshair
+    glColor4fv(color);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
 
-      // Draw horizontal line from left edge to right edge
-      glVertex2f(0, mouseYRel);
-      glVertex2f(window->width, mouseYRel);
+    // Draw horizontal line from left edge to right edge
+    glVertex2f(0, mouseYRel);
+    glVertex2f(window->width, mouseYRel);
 
-      // Draw vertical line from top edge to bottom edge
-      glVertex2f(mouseXRel, 0);
-      glVertex2f(mouseXRel, SDLWindow::height);
+    // Draw vertical line from top edge to bottom edge
+    glVertex2f(mouseXRel, 0);
+    glVertex2f(mouseXRel, SDLWindow::height);
 
-      glEnd();
+    glEnd();
 
-      // Convert coordinates to frequency and dB
-      float logMin = log(Config::options.fft.min_freq);
-      float logMax = log(Config::options.fft.max_freq);
-      float logX = mouseXRel / window->width;
-      float logFreq = logMin + logX * (logMax - logMin);
-      float freq = exp(logFreq);
+    // Convert coordinates to frequency and dB
+    float logMin = log(Config::options.fft.min_freq);
+    float logMax = log(Config::options.fft.max_freq);
+    float logX = mouseXRel / window->width;
+    float logFreq = logMin + logX * (logMax - logMin);
+    float freq = exp(logFreq);
 
-      float normalizedY = mouseYRel / SDLWindow::height;
-      float dB = Config::options.fft.min_db + normalizedY * (Config::options.fft.max_db - Config::options.fft.min_db);
-      float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
-      float gain = powf(freq * 1.0f / (440.0f * 2.0f), -k);
-      dB += 20.f * log10f(gain);
+    float normalizedY = mouseYRel / SDLWindow::height;
+    float dB = Config::options.fft.min_db + normalizedY * (Config::options.fft.max_db - Config::options.fft.min_db);
+    float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
+    float gain = powf(freq * 1.0f / (440.0f * 2.0f), -k);
+    dB += 20.f * log10f(gain);
 
-      // Get note information and display
-      auto [note, octave, cents] = DSP::toNote(freq, noteNames);
-      snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", dB, freq, note.c_str(), octave,
-               cents);
-      Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text);
-    }
+    // Get note information and display
+    auto [note, octave, cents] = DSP::toNote(freq, noteNames);
+    snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", dB, freq, note.c_str(), octave,
+             cents);
+    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text);
   } else if (DSP::pitchDB > Config::options.audio.silence_threshold) {
     auto [note, octave, cents] = DSP::toNote(DSP::pitch, noteNames);
     snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", DSP::pitchDB, DSP::pitch,
