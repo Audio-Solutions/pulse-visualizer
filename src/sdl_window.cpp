@@ -1,12 +1,14 @@
 #include "include/sdl_window.hpp"
 
+#include "include/config.hpp"
 #include "include/theme.hpp"
 
 namespace SDLWindow {
 
 // Global window state variables
-SDL_Window* win = nullptr;
-SDL_GLContext glContext = 0;
+std::vector<SDL_Window*> wins;
+std::vector<SDL_GLContext> glContexts;
+size_t currentWindow = 0;
 bool focused = false;
 bool running = false;
 int width, height;
@@ -15,10 +17,10 @@ int width, height;
 int mouseX = 0, mouseY = 0;
 
 void deinit() {
-  if (glContext)
-    SDL_GL_DeleteContext(glContext);
-  if (win)
-    SDL_DestroyWindow(win);
+  for (size_t i = 0; i < wins.size(); i++) {
+    SDL_DestroyWindow(wins[i]);
+    SDL_GL_DeleteContext(glContexts[i]);
+  }
   SDL_Quit();
 }
 
@@ -37,22 +39,8 @@ void init() {
   // Disable compositor bypass to enable transparency in DE's like KDE
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
-  // Create SDL window with OpenGL support
-  win = SDL_CreateWindow("Pulse", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1080, 200,
-                         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-  if (!win) {
-    std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
-    deinit();
-    exit(1);
-  }
-
-  // Create OpenGL context
-  glContext = SDL_GL_CreateContext(win);
-  if (!glContext) {
-    std::cerr << "Failed to create OpenGL context: " << SDL_GetError() << std::endl;
-    deinit();
-    exit(1);
-  }
+  // Create Base SDL window
+  createWindow("Pulse", Config::options.window.default_width, Config::options.window.default_height);
 
   // Initialize GLEW for OpenGL extensions
   GLenum err = glewInit();
@@ -69,8 +57,8 @@ void init() {
   glLineWidth(2.0f);
 
   // Initialise window size
-  SDL_GetWindowSize(win, &width, &height);
-  
+  SDL_GetWindowSize(wins[currentWindow], &width, &height);
+
   running = true;
 }
 
@@ -125,7 +113,7 @@ void handleEvent(SDL_Event& event) {
   }
 }
 
-void display() { SDL_GL_SwapWindow(win); }
+void display() { SDL_GL_SwapWindow(wins[currentWindow]); }
 
 void clear() {
   // Clear with current theme background color
@@ -134,4 +122,45 @@ void clear() {
   glClear(GL_COLOR_BUFFER_BIT);
 }
 
+size_t createWindow(const std::string& title, int width, int height) {
+  // Create SDL window with OpenGL support
+  SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
+                                     SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  if (!win) {
+    std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
+    return -1;
+  }
+
+  // Create OpenGL context
+  SDL_GLContext glContext = SDL_GL_CreateContext(win);
+  if (!glContext) {
+    std::cerr << "Failed to create OpenGL context: " << SDL_GetError() << std::endl;
+    SDL_DestroyWindow(win);
+    return -1;
+  }
+  wins.push_back(win);
+  glContexts.push_back(glContext);
+  return wins.size() - 1;
+}
+
+bool destroyWindow(size_t index) {
+  if (index >= wins.size())
+    return false;
+  SDL_DestroyWindow(wins[index]);
+  SDL_GL_DeleteContext(glContexts[index]);
+  wins.erase(wins.begin() + index);
+  glContexts.erase(glContexts.begin() + index);
+  if (currentWindow == index)
+    currentWindow = 0;
+  selectWindow(currentWindow);
+  return true;
+}
+
+bool selectWindow(size_t index) {
+  if (index >= wins.size())
+    return false;
+  currentWindow = index;
+  SDL_GL_MakeCurrent(wins[index], glContexts[index]);
+  return true;
+}
 } // namespace SDLWindow

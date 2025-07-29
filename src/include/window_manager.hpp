@@ -20,7 +20,7 @@ void setViewport(int x, int width, int height);
  * @brief Window splitter for resizing visualizer windows
  */
 struct Splitter {
-  SDL_Window* win = nullptr;
+  size_t windowIndex = 0;
   int x, dx;
   bool draggable = true;
   bool dragging = false;
@@ -42,7 +42,7 @@ struct Splitter {
  * @brief Visualizer window with phosphor effect support
  */
 struct VisualizerWindow {
-  SDL_Window* win = nullptr;
+  size_t windowIndex = 0;
   int x, width;
   float aspectRatio = 0;
   size_t pointCount;

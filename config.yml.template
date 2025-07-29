@@ -184,15 +184,13 @@ spectrogram:
 
 # Visualizer Layout Settings
 # Controls the order and visibility of visualizers
+# Comment out visualizers you don't want to see
+# Their order from top to bottom will determine the order of the windows from left to right.
 visualizers:
-  # FFT spectrum visualizer order
-  fft_order: 2
-  # Lissajous curve visualizer order
-  lissajous_order: 0
-  # Oscilloscope visualizer order
-  oscilloscope_order: 1
-  # Spectrogram visualizer order (-1 = disabled)
-  spectrogram_order: -1
+  - lissajous
+  - oscilloscope
+  - spectrum_analyzer
+  - spectrogram
 
 # Window Settings
 # Controls the main application window

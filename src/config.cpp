@@ -41,7 +41,7 @@ void copyFiles() {
 
   // Copy theme files
   std::string themeSource = std::string(PULSE_DATA_DIR) + "/themes";
-  if (std::filesystem::exists(themeSource) && !std::filesystem::exists(themeSource + "/_TEMPLATE.txt")) {
+  if (std::filesystem::exists(themeSource) && !std::filesystem::exists(userThemeDir + "/_TEMPLATE.txt")) {
     try {
       for (const auto& entry : std::filesystem::directory_iterator(themeSource)) {
         if (entry.is_regular_file() && entry.path().extension() == ".txt") {
@@ -90,6 +90,12 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
   return getNode(root[section], sub);
 }
 
+/**
+ * @brief Get a value from the configuration
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type T
+ */
 template <typename T> T get(const YAML::Node& root, const std::string& path) {
   auto node = getNode(root, path);
   if (node.has_value())
@@ -98,6 +104,59 @@ template <typename T> T get(const YAML::Node& root, const std::string& path) {
   std::cerr << path << " is missing." << std::endl;
 
   return T {};
+}
+
+/**
+ * @brief Get a boolean value from the configuration with better type conversion
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type bool
+ */
+template <> bool get<bool>(const YAML::Node& root, const std::string& path) {
+  auto node = getNode(root, path);
+  if (!node.has_value())
+    return false;
+
+  const YAML::Node& value = node.value();
+
+  try {
+    return value.as<bool>();
+  } catch (...) {
+    try {
+      std::string str = value.as<std::string>();
+      if (str == "true" || str == "yes" || str == "on")
+        return true;
+      if (str == "false" || str == "no" || str == "off")
+        return false;
+      std::cerr << "Converting " << path << " to bool failed" << std::endl;
+      return false;
+    } catch (...) {
+      try {
+        return value.as<int>() != 0;
+      } catch (...) {
+        std::cerr << "Converting  " << path << " to bool failed" << std::endl;
+        return false;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Get a vector of strings from the configuration
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type std::vector<std::string>
+ */
+template <> std::vector<std::string> get<std::vector<std::string>>(const YAML::Node& root, const std::string& path) {
+  auto node = getNode(root, path);
+  if (!node.has_value() || !node.value().IsSequence())
+    return std::vector<std::string> {};
+
+  std::vector<std::string> result;
+  for (const auto& item : node.value()) {
+    result.push_back(item.as<std::string>());
+  }
+  return result;
 }
 
 void load() {
@@ -113,6 +172,9 @@ void load() {
     inotifyWatch = inotify_add_watch(inotifyFd, path.c_str(), IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF);
   }
 #endif
+
+  // Load visualizer window layouts
+  options.visualizers = get<std::vector<std::string>>(configData, "visualizers");
 
   // Load oscilloscope configuration
   options.oscilloscope.follow_pitch = get<bool>(configData, "oscilloscope.follow_pitch");
@@ -169,12 +231,6 @@ void load() {
   options.audio.gain_db = get<float>(configData, "audio.gain_db");
   options.audio.engine = get<std::string>(configData, "audio.engine");
   options.audio.device = get<std::string>(configData, "audio.device");
-
-  // Load visualizer order configuration
-  options.visualizers.spectrogram_order = get<int>(configData, "visualizers.spectrogram_order");
-  options.visualizers.lissajous_order = get<int>(configData, "visualizers.lissajous_order");
-  options.visualizers.oscilloscope_order = get<int>(configData, "visualizers.oscilloscope_order");
-  options.visualizers.fft_order = get<int>(configData, "visualizers.fft_order");
 
   // Load window configuration
   options.window.default_width = get<int>(configData, "window.default_width");
@@ -240,8 +296,6 @@ bool reload() {
   return false;
 }
 
-// Template instantiations for configuration loading
-template bool get<bool>(const YAML::Node&, const std::string&);
 template int get<int>(const YAML::Node&, const std::string&);
 template float get<float>(const YAML::Node&, const std::string&);
 template std::string get<std::string>(const YAML::Node&, const std::string&);

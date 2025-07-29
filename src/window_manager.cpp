@@ -6,6 +6,9 @@
 #include "include/theme.hpp"
 #include "include/visualizers.hpp"
 
+/**
+ * TODO: Implement separate window containers for multi-window layouts
+ */
 namespace WindowManager {
 
 // Delta time for frame timing
@@ -93,6 +96,9 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 void Splitter::draw() {
   if (SDLWindow::height == 0) [[unlikely]]
     return;
+
+  // Select the window for rendering
+  SDLWindow::selectWindow(windowIndex);
 
   // Set viewport for splitter rendering
   setViewport(x - 5, 10, SDLWindow::height);
@@ -251,6 +257,9 @@ void VisualizerWindow::draw() {
   if (!glIsTexture(phosphor.outputTexture)) [[unlikely]] {
     throw std::runtime_error("WindowManager::VisualizerWindow::draw(): outputTexture is not a Texture");
   }
+
+  // Select the window for rendering
+  SDLWindow::selectWindow(windowIndex);
 
   // Set viewport for this window
   setViewport(x, width, SDLWindow::height);
@@ -415,28 +424,33 @@ void reorder() {
       {Spectrogram::render,      Spectrogram::window     }
   };
 
-  // Get order configuration for each visualizer
-  std::vector<int*> orders = {&Config::options.visualizers.fft_order, &Config::options.visualizers.lissajous_order,
-                              &Config::options.visualizers.oscilloscope_order,
-                              &Config::options.visualizers.spectrogram_order};
+  // Map visualizer names to their indices
+  std::map<std::string, size_t> visualizerMap = {
+      {"spectrum_analyzer", 0},
+      {"lissajous",         1},
+      {"oscilloscope",      2},
+      {"spectrogram",       3}
+  };
 
-  // Create pairs of order values and visualizer indices
-  std::vector<std::pair<int, size_t>> orderIndexPairs;
-  for (size_t i = 0; i < orders.size(); ++i)
-    if (*orders[i] != -1)
-      orderIndexPairs.emplace_back(*orders[i], i);
-
-  // Sort visualizers by their configured order
-  std::sort(orderIndexPairs.begin(), orderIndexPairs.end());
+  if (Config::options.visualizers.empty()) {
+    Config::options.visualizers = {"spectrum_analyzer", "oscilloscope", "spectrogram"};
+  }
 
   // Clear existing windows and splitters
   windows.clear();
   splitters.clear();
-  windows.reserve(orders.size());
+  windows.reserve(Config::options.visualizers.size());
 
-  // Create windows in sorted order
-  for (size_t i = 0; i < orderIndexPairs.size(); ++i) {
-    size_t idx = orderIndexPairs[i].second;
+  // Create windows in the order specified in configuration
+  for (size_t i = 0; i < Config::options.visualizers.size(); ++i) {
+    const std::string& visName = Config::options.visualizers[i];
+    auto it = visualizerMap.find(visName);
+    if (it == visualizerMap.end()) {
+      std::cerr << "Warning: Unknown visualizer '" << visName << "' in configuration" << std::endl;
+      continue;
+    }
+
+    size_t idx = it->second;
     VisualizerWindow vw {};
     // Set aspect ratio for Lissajous (square) visualizer
     vw.aspectRatio = (visualizers[idx].first == Lissajous::render) ? 1.0f : 0.0f;
@@ -445,7 +459,7 @@ void reorder() {
     visualizers[idx].second = &windows.back();
 
     // Create splitter between windows
-    if (i + 1 < orderIndexPairs.size()) {
+    if (i + 1 < Config::options.visualizers.size()) {
       Splitter s;
       // Disable dragging for first splitter if Lissajous is first
       if (i == 0 && vw.aspectRatio != 0.0f)

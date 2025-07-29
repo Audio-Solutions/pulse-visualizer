@@ -14,6 +14,9 @@ std::vector<std::pair<float, float>> pointsAlt;
 WindowManager::VisualizerWindow* window;
 
 void render() {
+  // Select the window for rendering
+  SDLWindow::selectWindow(window->windowIndex);
+
   // Calculate logarithmic frequency scale
   float logMin = log(Config::options.fft.min_freq);
   float logMax = log(Config::options.fft.max_freq);

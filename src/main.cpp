@@ -32,6 +32,8 @@ int main() {
 
   // Initialize SDL and OpenGL
   SDLWindow::init();
+
+  // Clear and display the base window
   SDLWindow::clear();
   SDLWindow::display();
 

@@ -1,6 +1,7 @@
 #include "include/config.hpp"
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
+#include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
 #include "include/visualizers.hpp"
@@ -94,6 +95,9 @@ void render() {
                                DSP::pitchDB > Config::options.audio.silence_threshold);
     window->draw();
   } else {
+    // Select the window for rendering
+    SDLWindow::selectWindow(window->windowIndex);
+
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)
       Graphics::drawLines(window, points, Theme::colors.color);

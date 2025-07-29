@@ -9,6 +9,22 @@ This guide provides comprehensive documentation for configuring Pulse Audio Visu
 
 Most config options update live, so you can change them without restarting Pulse, but some may require a restart.
 
+## Boolean Values
+
+Boolean configuration options accept multiple formats:
+
+**True values:**
+- `true`
+- `yes`
+- `on`
+- `1`
+
+**False values:**
+- `false`
+- `no`
+- `off`
+- `0`
+
 ## Configuration Sections
 
 ### Audio Processing Settings
