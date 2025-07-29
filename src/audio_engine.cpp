@@ -190,7 +190,7 @@ bool init() {
 
 bool read(float* buffer, const size_t& samples) {
   if (!initialized || !paStream)
-    return false;
+    return true;
 
   // Read audio data from PulseAudio
   int err;
@@ -529,7 +529,7 @@ bool init() {
 
 bool read(float*, const size_t& frames) {
   if (!initialized || !stream)
-    return false;
+    return true;
 
   // Wait for enough samples to be available
   std::unique_lock<std::mutex> lock(mutex);
