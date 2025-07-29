@@ -90,4 +90,9 @@ void load(const std::string& name);
  */
 bool reload();
 
+/**
+ * @brief Cleanup inotify resources
+ */
+void cleanup();
+
 } // namespace Theme

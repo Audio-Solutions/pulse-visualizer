@@ -63,53 +63,55 @@ void init() {
 }
 
 void handleEvent(SDL_Event& event) {
-  switch (event.type) {
-  case SDL_QUIT:
-    deinit();
-    running = false;
-    return;
-
-  case SDL_KEYDOWN:
-    switch (event.key.keysym.sym) {
-    case SDLK_q:
-    case SDLK_ESCAPE:
+  // handle events for the base window only
+  if (event.window.windowID == SDL_GetWindowID(wins[0])) {
+    switch (event.type) {
+    case SDL_QUIT:
       deinit();
       running = false;
       return;
 
+    case SDL_KEYDOWN:
+      switch (event.key.keysym.sym) {
+      case SDLK_q:
+      case SDLK_ESCAPE:
+        deinit();
+        running = false;
+        return;
+      default:
+        break;
+      }
+      break;
+
+    case SDL_MOUSEMOTION:
+      mouseX = event.motion.x;
+
+      // Invert Y coordinate because Window is technically upside down
+      mouseY = height - event.motion.y;
+      break;
+
+    case SDL_WINDOWEVENT:
+      switch (event.window.event) {
+      case SDL_WINDOWEVENT_ENTER:
+        focused = true;
+        break;
+
+      case SDL_WINDOWEVENT_LEAVE:
+        focused = false;
+        break;
+
+      case SDL_WINDOWEVENT_RESIZED:
+        width = event.window.data1;
+        height = event.window.data2;
+
+      default:
+        break;
+      }
+      break;
+
     default:
       break;
     }
-    break;
-
-  case SDL_MOUSEMOTION:
-    mouseX = event.motion.x;
-
-    // Invert Y coordinate because Window is technically upside down
-    mouseY = height - event.motion.y;
-    break;
-
-  case SDL_WINDOWEVENT:
-    switch (event.window.event) {
-    case SDL_WINDOWEVENT_ENTER:
-      focused = true;
-      break;
-
-    case SDL_WINDOWEVENT_LEAVE:
-      focused = false;
-      break;
-
-    case SDL_WINDOWEVENT_RESIZED:
-      width = event.window.data1;
-      height = event.window.data2;
-
-    default:
-      break;
-    }
-    break;
-
-  default:
-    break;
   }
 }
 
@@ -122,10 +124,10 @@ void clear() {
   glClear(GL_COLOR_BUFFER_BIT);
 }
 
-size_t createWindow(const std::string& title, int width, int height) {
+size_t createWindow(const std::string& title, int width, int height, uint32_t flags) {
   // Create SDL window with OpenGL support
   SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
-                                     SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+                                     SDL_WINDOW_OPENGL | flags);
   if (!win) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
     return -1;

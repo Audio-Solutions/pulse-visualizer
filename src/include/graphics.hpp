@@ -30,8 +30,8 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
  * @brief Font rendering namespace
  */
 namespace Font {
-extern FT_Face face;
-extern FT_Library ftLib;
+extern std::vector<FT_Face> faces;
+extern std::vector<FT_Library> ftLibs;
 
 /**
  * @brief Glyph texture information
@@ -43,35 +43,49 @@ struct GlyphTexture {
   int advance;
 };
 
-extern std::unordered_map<char, GlyphTexture> glyphCache;
+extern std::vector<std::unordered_map<char, GlyphTexture>> glyphCaches;
 
 /**
- * @brief Load font from file
+ * @brief Load font from file for a specific window
+ * @param sdlWindow Index of the window to load font for
  */
-void load();
+void load(size_t sdlWindow);
 
 /**
- * @brief Cleanup font resources
+ * @brief Cleanup font resources for a specific window
+ * @param sdlWindow Index of the window to cleanup font for
  */
-void cleanup();
+void cleanup(size_t sdlWindow);
 
 /**
- * @brief Get or create glyph texture for character
+ * @brief Get or create glyph texture for character for a specific window
  * @param c Character to get texture for
  * @param size Font size
+ * @param sdlWindow Index of the window to get glyph for
  * @return Glyph texture information
  */
-GlyphTexture& getGlyphTexture(char c, float size);
+GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow);
 
 /**
- * @brief Draw text at specified position
+ * @brief Draw text at specified position for a specific window
  * @param text Text to render
  * @param x X coordinate
  * @param y Y coordinate
  * @param size Font size
  * @param color RGBA color array
+ * @param sdlWindow Index of the window to draw text for
  */
-void drawText(const char* text, const float& x, const float& y, const float& size, const float* color);
+void drawText(const char* text, const float& x, const float& y, const float& size, const float* color,
+              size_t sdlWindow);
+
+/**
+ * @brief Get text dimensions for a specific window
+ * @param text Text to measure
+ * @param size Font size
+ * @param sdlWindow Index of the window to measure text for
+ * @return Pair of (width, height) dimensions
+ */
+std::pair<float, float> getTextSize(const char* text, const float& size, size_t sdlWindow);
 
 } // namespace Font
 

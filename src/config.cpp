@@ -296,6 +296,19 @@ bool reload() {
   return false;
 }
 
+void cleanup() {
+#ifdef __linux__
+  if (inotifyWatch != -1 && inotifyFd != -1) {
+    inotify_rm_watch(inotifyFd, inotifyWatch);
+    inotifyWatch = -1;
+  }
+  if (inotifyFd != -1) {
+    close(inotifyFd);
+    inotifyFd = -1;
+  }
+#endif
+}
+
 template int get<int>(const YAML::Node&, const std::string&);
 template float get<float>(const YAML::Node&, const std::string&);
 template std::string get<std::string>(const YAML::Node&, const std::string&);

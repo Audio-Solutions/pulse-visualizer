@@ -97,7 +97,7 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
 
 void render() {
   // Select the window for rendering
-  SDLWindow::selectWindow(window->windowIndex);
+  SDLWindow::selectWindow(window->sdlWindow);
 
   // Set viewport for rendering
   WindowManager::setViewport(window->x, window->width, SDLWindow::height);

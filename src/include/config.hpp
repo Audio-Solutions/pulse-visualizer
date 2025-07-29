@@ -142,4 +142,9 @@ void load();
  */
 bool reload();
 
+/**
+ * @brief Cleanup inotify resources
+ */
+void cleanup();
+
 } // namespace Config

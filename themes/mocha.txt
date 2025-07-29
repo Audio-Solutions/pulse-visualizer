@@ -8,7 +8,7 @@ selection: 250, 179, 135
 text: 205, 214, 244
 accent: 49, 50, 68
 bg: 17, 17, 27
-bgaccent: 17, 17, 27
+bgaccent: 24, 24, 37
 
 ## Optional Colors:
 ## Omitting these colors defaults them to the values above.

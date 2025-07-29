@@ -15,7 +15,7 @@ WindowManager::VisualizerWindow* window;
 
 void render() {
   // Select the window for rendering
-  SDLWindow::selectWindow(window->windowIndex);
+  SDLWindow::selectWindow(window->sdlWindow);
 
   // Calculate logarithmic frequency scale
   float logMin = log(Config::options.fft.min_freq);
@@ -212,12 +212,12 @@ void render() {
     auto [note, octave, cents] = DSP::toNote(freq, noteNames);
     snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", dB, freq, note.c_str(), octave,
              cents);
-    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text);
+    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->sdlWindow);
   } else if (DSP::pitchDB > Config::options.audio.silence_threshold) {
     auto [note, octave, cents] = DSP::toNote(DSP::pitch, noteNames);
     snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", DSP::pitchDB, DSP::pitch,
              note.c_str(), octave, cents);
-    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text);
+    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->sdlWindow);
   }
 }
 

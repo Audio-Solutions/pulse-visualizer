@@ -45,9 +45,10 @@ void clear();
  * @param title The title of the window
  * @param width The width of the window
  * @param height The height of the window
+ * @param flags The flags for the window (default: SDL_WINDOW_RESIZABLE)
  * @return the index of the created window
  */
-size_t createWindow(const std::string& title, int width, int height);
+size_t createWindow(const std::string& title, int width, int height, uint32_t flags = SDL_WINDOW_RESIZABLE);
 
 /**
  * @brief destroy a window

@@ -19,12 +19,19 @@ std::string expandUserPath(const std::string& path) {
   return path;
 }
 
+/**
+ * TODO: Implement a configuration menu. sometime. idk when
+ */
+
 // Thread synchronization variables for DSP data processing
 std::mutex mainThread;
 std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
 
 int main() {
+  // Set up signal handling for Ctrl+C
+  signal(SIGINT, [](int) { SDLWindow::running = false; });
+
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
   DSP::bufferSide.resize(DSP::bufferSize);
@@ -41,7 +48,6 @@ int main() {
   Config::copyFiles();
   Config::load();
   Theme::load(Config::options.window.theme);
-  Graphics::Font::load();
 
   // Initialize audio and DSP components
   AudioEngine::init();
@@ -51,6 +57,11 @@ int main() {
 
   // Setup window management
   WindowManager::reorder();
+
+  // Load fonts for each visualizer window
+  for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+    Graphics::Font::load(i);
+  }
 
   // Start DSP processing thread
   std::thread DSPThread(DSP::Threads::main);
@@ -63,10 +74,21 @@ int main() {
   while (1) {
     // Handle configuration reloading
     if (Config::reload()) {
+      std::cout << "Config reloaded" << std::endl;
       Theme::load(Config::options.window.theme);
-      Graphics::Font::cleanup();
-      Graphics::Font::load();
+
+      // Cleanup fonts for all windows
+      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+        Graphics::Font::cleanup(i);
+      }
+
       WindowManager::reorder();
+
+      // Load fonts for each visualizer window
+      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+        Graphics::Font::load(i);
+      }
+
       AudioEngine::reconfigure();
       DSP::FFT::recreatePlans();
       DSP::ConstantQ::regenerate();
@@ -74,8 +96,15 @@ int main() {
 
     // Handle theme reloading
     if (Theme::reload()) {
-      Graphics::Font::cleanup();
-      Graphics::Font::load();
+      // Cleanup fonts for all windows
+      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+        Graphics::Font::cleanup(i);
+      }
+
+      // Load fonts for each visualizer window
+      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+        Graphics::Font::load(i);
+      }
     }
 
     // Process SDL events
@@ -131,7 +160,14 @@ int main() {
   DSPThread.join();
   AudioEngine::cleanup();
   DSP::FFT::cleanup();
-  Graphics::Font::cleanup();
+
+  // Cleanup fonts for all windows
+  for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+    Graphics::Font::cleanup(i);
+  }
+
+  Config::cleanup();
+  Theme::cleanup();
   SDLWindow::deinit();
   return 0;
 }

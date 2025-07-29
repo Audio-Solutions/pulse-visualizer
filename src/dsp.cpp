@@ -371,8 +371,8 @@ bool recreatePlans() {
   lastFFTSize = Config::options.fft.size;
   lastCQTState = Config::options.fft.enable_cqt;
 
-  std::lock_guard<std::mutex> lockMid(mutexSide);
-  std::lock_guard<std::mutex> lockSide(mutexMid);
+  std::lock_guard<std::mutex> lockMid(mutexMid);
+  std::lock_guard<std::mutex> lockSide(mutexSide);
 
   cleanup();
   init();

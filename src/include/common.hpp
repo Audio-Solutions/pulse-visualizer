@@ -23,6 +23,9 @@
 #include <unordered_map>
 #include <vector>
 #include FT_FREETYPE_H
+#include <atomic>
+#include <functional>
+#include <signal.h>
 #include <yaml-cpp/yaml.h>
 
 // Define to shut up intellisense
