@@ -46,8 +46,18 @@ float calculateBorderMask(vec2 uv, vec2 texelSize) {
   }
   
   // Apply screen gap factor to create border in the middle
-  float gapOffset = (1.0 - screenGapFactor) * 0.5;
-  vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
+  // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+  vec2 scaledUV = (uv - gapOffset) / visiblePercent;
+
+  // For curved screen, normalize so that the center of each edge maps to the edge after distortion
+  if (enableCurvedScreen != 0) {
+    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+    float scale = 0.5 / edgeNorm;
+    scaledUV = (scaledUV - 0.5) * scale + 0.5;
+  }
   
   if (enableCurvedScreen == 0) {
     // No distortion - simple rectangular border with gap
@@ -82,9 +92,20 @@ float calculateBorderMask(vec2 uv, vec2 texelSize) {
 // Samples multiple points around the distorted coordinate to reduce aliasing
 float sampleAntialiased(vec2 uv, vec2 texelSize) {
   // Apply screen gap factor scaling
-  float gapOffset = (1.0 - screenGapFactor) * 0.5;
-  vec2 scaledUV = (uv - gapOffset) / screenGapFactor;
+  // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+  vec2 scaledUV = (uv - gapOffset) / visiblePercent;
   
+  // For curved screen, normalize so that the center of each edge maps to the edge after distortion
+  if (enableCurvedScreen != 0) {
+    // Compute the scale factor so that crtDistortion(vec2(0.5,0)) = vec2(0.5,0) and similar for other edges
+    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+    float scale = 0.5 / edgeNorm;
+    scaledUV = (scaledUV - 0.5) * scale + 0.5;
+  }
+
   // Check if the scaled coordinate is within the valid range
   if (scaledUV.x < 0.0 || scaledUV.x > 1.0 || scaledUV.y < 0.0 || scaledUV.y > 1.0) {
     return 0.0; // Return black for out-of-bounds

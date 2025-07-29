@@ -44,15 +44,18 @@ phosphor:
   far_blur_intensity: 0.6
   # Energy of the electron beam (affects brightness of phosphor effect)
   beam_energy: 150.0
-  # Slow decay rate of phosphor persistence (higher=longer persistence)
+  # Slow decay rate of phosphor persistence (higher=shorter persistence)
+  # it is used like this: energy *= exp(-dt * decay_slow)
   decay_slow: 7.0
   # Fast decay rate of phosphor persistence (higher=shorter persistence)
+  # it is used like this: energy *= exp(-dt * decay_fast)
   decay_fast: 50.0
   # Spread of the blur effect (higher=more spread, more GPU intensive)
   line_blur_spread: 64
   # Width of the phosphor lines
   line_width: 0.5
-  # Age threshold for phosphor decay (higher=longer persistence)
+  # Age threshold for phosphor decay (higher=shorter persistence)
+  # it defines for how many frames decay_fast is used
   age_threshold: 10
   # Range factor for blur calculations (higher=more blur, more GPU intensive)
   range_factor: 2.0
@@ -68,8 +71,9 @@ phosphor:
   enable_curved_screen: true
   # Curvature intensity for curved screen effect (0.0-1.0)
   screen_curvature: 0.1
-  # Gap factor between screen edges and border (higher=less gap)
-  screen_gap: 1.09
+  # Gap scalar for curved screen effect (0.0-1.0)
+  # in percent, 0.0 = no gap, 1.0 = full gap
+  screen_gap: 0.0
   # Vignette strength (0.0-1.0)
   vignette_strength: 0.3
   # Chromatic aberration strength (0.0-1.0)
