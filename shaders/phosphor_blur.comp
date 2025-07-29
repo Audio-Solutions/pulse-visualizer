@@ -35,7 +35,7 @@ void main() {
     if (blur_direction == 1) {
       imageAtomicAdd(outputTex, coord, value);
     } else {
-      imageStore(outputTex, coord, uvec4(uint(max(0.0, value)), 0, 0, 0));
+      imageStore(outputTex, coord, uvec4(uint(max(0u, value)), 0, 0, 0));
     }
     return;
   }
@@ -51,7 +51,7 @@ void main() {
     if (blur_direction == 1) {
       imageAtomicAdd(outputTex, coord, value);
     } else {
-      imageStore(outputTex, coord, uvec4(uint(max(0.0, value)), 0, 0, 0));
+      imageStore(outputTex, coord, uvec4(uint(max(0u, value)), 0, 0, 0));
     }
     return;
   }
