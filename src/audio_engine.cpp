@@ -204,7 +204,7 @@ bool read(float* buffer, const size_t& samples) {
 }
 
 bool reconfigure() {
-  static std::string lastDevice = 0;
+  static std::string lastDevice = "";
   static uint32_t lastSampleRate = 0;
   static size_t lastFPS = 0;
 
@@ -540,7 +540,7 @@ bool read(float*, const size_t& frames) {
 }
 
 bool reconfigure() {
-  static std::string lastDevice = 0;
+  static std::string lastDevice = "";
   static uint32_t lastSampleRate = 0;
   static size_t lastFPS = 0;
 
