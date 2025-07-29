@@ -27,10 +27,13 @@ std::string expandUserPath(const std::string& path) {
 std::mutex mainThread;
 std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
+std::atomic<bool> quitSignal {false};
 
 int main() {
-  // Set up signal handling for Ctrl+C
-  signal(SIGINT, [](int) { SDLWindow::running = false; });
+  // Set up signal handling for Ctrl+C etc
+  signal(SIGINT, [](int) { quitSignal.store(true); });
+  signal(SIGTERM, [](int) { quitSignal.store(true); });
+  signal(SIGQUIT, [](int) { quitSignal.store(true); });
 
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
@@ -116,7 +119,7 @@ int main() {
       for (auto& window : WindowManager::windows)
         window.handleEvent(event);
     }
-    if (!SDLWindow::running)
+    if (quitSignal.load() || !SDLWindow::running)
       break;
     glUseProgram(0);
     if (SDLWindow::width == 0 || SDLWindow::height == 0)
@@ -157,6 +160,7 @@ int main() {
   }
 
   // Cleanup
+  SDLWindow::running = false;
   DSPThread.join();
   AudioEngine::cleanup();
   DSP::FFT::cleanup();
