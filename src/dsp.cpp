@@ -480,7 +480,8 @@ int FFTMain() {
       size_t i = 0;
       const float riseSpeed = Config::options.fft.rise_speed * WindowManager::dt;
       const float fallSpeed =
-          (SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed : Config::options.fft.fall_speed) *
+          (SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed
+                                                                          : Config::options.fft.fall_speed) *
           WindowManager::dt;
 #ifdef HAVE_AVX2
       // SIMD-optimized smoothing
