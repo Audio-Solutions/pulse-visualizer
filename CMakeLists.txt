@@ -97,7 +97,7 @@ target_link_libraries(Pulse PRIVATE
   PkgConfig::FREETYPE
   OpenGL::GL
   ${GLEW_LIBRARIES}
-  yaml-cpp
+  yaml-cpp::yaml-cpp
 )
 
 # Link audio backends conditionally
