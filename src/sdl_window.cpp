@@ -75,7 +75,6 @@ void handleEvent(SDL_Event& event) {
       switch (event.key.keysym.sym) {
       case SDLK_q:
       case SDLK_ESCAPE:
-        deinit();
         running = false;
         return;
       default:
