@@ -28,9 +28,12 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
 }
 
 namespace Font {
+
+// FreeType handles
 FT_Face face = nullptr;
 FT_Library ftLib = nullptr;
 
+// Glyph texture cache
 std::unordered_map<char, GlyphTexture> glyphCache;
 
 void load() {
@@ -39,15 +42,18 @@ void load() {
   if (stat(path.c_str(), &buf) != 0)
     return;
 
+  // Initialize FreeType library
   if (!ftLib)
     if (FT_Init_FreeType(&ftLib) != 0)
       return;
 
+  // Load font face
   if (FT_New_Face(ftLib, path.c_str(), 0, &face))
     return;
 }
 
 void cleanup() {
+  // Cleanup glyph textures
   for (auto& [ch, glyph] : glyphCache) {
     if (glIsTexture(glyph.textureId)) {
       glDeleteTextures(1, &glyph.textureId);
@@ -62,6 +68,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
     return it->second;
   }
 
+  // Set font size
   FT_Set_Pixel_Sizes(face, 0, size);
 
   if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
@@ -71,6 +78,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
 
   FT_GlyphSlot g = face->glyph;
 
+  // Create OpenGL texture for glyph
   GLuint tex;
   glGenTextures(1, &tex);
   glBindTexture(GL_TEXTURE_2D, tex);
@@ -84,6 +92,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+  // Create glyph texture information
   GlyphTexture glyph = {
       tex,           static_cast<int>(g->bitmap.width),  static_cast<int>(g->bitmap.rows), g->bitmap_left,
       g->bitmap_top, static_cast<int>(g->advance.x >> 6)};
@@ -96,6 +105,7 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
   if (!text || !*text || !face)
     return;
 
+  // Setup OpenGL state for text rendering
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_TEXTURE_2D);
@@ -111,17 +121,20 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
       continue;
     }
 
+    // Get or create glyph texture
     GlyphTexture& glyph = getGlyphTexture(c, size);
     if (glyph.textureId == 0)
       continue;
 
     glBindTexture(GL_TEXTURE_2D, glyph.textureId);
 
+    // Calculate glyph position
     float x0 = _x + static_cast<float>(glyph.bearingX);
     float y0 = _y - static_cast<float>(glyph.height - glyph.bearingY);
     float w = static_cast<float>(glyph.width);
     float h = static_cast<float>(glyph.height);
 
+    // Render glyph quad
     glBegin(GL_QUADS);
     glTexCoord2f(0, 1);
     glVertex2f(x0, y0);
@@ -146,6 +159,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
   std::vector<float> vertexData;
   vertexData.reserve(points.size() * 2);
 
+  // Filter points to reduce vertex count
   float lastX = -10000.f, lastY = -10000.f;
   for (size_t i = 0; i < points.size(); i++) {
     float x = points[i].first;
@@ -161,6 +175,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
   if (vertexData.size() < 4)
     return;
 
+  // Setup viewport and rendering state
   WindowManager::setViewport(window->x, window->width, SDLWindow::height);
 
   glBindBuffer(GL_ARRAY_BUFFER, window->phosphor.vertexBuffer);
@@ -184,9 +199,12 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
 }
 
 namespace Shader {
+
+// Shader program handles
 std::vector<GLuint> shaders(4, 0);
 
 std::string loadFile(const char* path) {
+  // Try local path first
   std::string local = std::string("../") + path;
   std::ifstream lFile(local);
   if (lFile.is_open()) {
@@ -197,6 +215,7 @@ std::string loadFile(const char* path) {
     return content;
   }
 
+  // Try system path
   std::string inst = std::string(PULSE_DATA_DIR) + "/" + path;
   std::ifstream sFile(inst);
   if (sFile.is_open()) {
@@ -216,6 +235,7 @@ GLuint load(const char* path, GLenum type) {
   if (src.empty())
     return 0;
 
+  // Create and compile shader
   GLuint shader = glCreateShader(type);
   auto p = src.c_str();
   glShaderSource(shader, 1, &p, nullptr);
@@ -226,6 +246,7 @@ GLuint load(const char* path, GLenum type) {
   if (tmp != GL_FALSE)
     return shader;
 
+  // Get compilation error
   glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &tmp);
   std::vector<char> log(tmp);
   glGetShaderInfoLog(shader, tmp, &tmp, log.data());
@@ -239,9 +260,11 @@ void ensureShaders() {
   if (std::all_of(shaders.begin(), shaders.end(), [](int x) { return x != 0; }))
     return;
 
+  // Shader file paths
   static std::vector<std::string> shaderPaths = {"shaders/phosphor_compute.comp", "shaders/phosphor_decay.comp",
                                                  "shaders/phosphor_blur.comp", "shaders/phosphor_colormap.comp"};
 
+  // Load and compile all shaders
   for (int i = 0; i < shaders.size(); i++) {
     if (shaders[i])
       continue;
@@ -250,6 +273,7 @@ void ensureShaders() {
     if (!shader)
       continue;
 
+    // Create shader program
     shaders[i] = glCreateProgram();
     glAttachShader(shaders[i], shader);
     glLinkProgram(shaders[i]);
@@ -273,6 +297,7 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   if (!shaders[0])
     return;
 
+  // Dispatch compute shader for phosphor effect
   glUseProgram(shaders[0]);
 
   glUniform2i(glGetUniformLocation(shaders[0], "texSize"), win->width, SDLWindow::height);
@@ -293,6 +318,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   if (!shaders[1])
     return;
 
+  // Dispatch decay shader for phosphor effect
   glUseProgram(shaders[1]);
 
   float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay_slow);
@@ -319,6 +345,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   if (!shaders[2])
     return;
 
+  // Dispatch blur shader for phosphor effect
   glUseProgram(shaders[2]);
 
   glUniform1f(glGetUniformLocation(shaders[2], "line_blur_spread"), Config::options.phosphor.line_blur_spread);
@@ -347,6 +374,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* l
   if (!shaders[3])
     return;
 
+  // Dispatch colormap shader for phosphor effect
   glUseProgram(shaders[3]);
 
   float* bg = Theme::colors.background;
@@ -381,26 +409,32 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   Graphics::Shader::ensureShaders();
 
+  // Copy energy texture for decay processing
   glCopyImageSubData(win->phosphor.energyTexture, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture, GL_TEXTURE_2D,
                      0, 0, 0, 0, win->width, SDLWindow::height, 1);
 
+  // Apply decay to phosphor effect
   Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.tempTexture, win->phosphor.energyTexture);
 
+  // Add new points if rendering is enabled
   if (renderPoints)
     Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), win->phosphor.ageTexture,
                             win->phosphor.vertexBuffer, win->phosphor.energyTexture);
 
+  // Setup framebuffer for blur processing
   glBindFramebuffer(GL_FRAMEBUFFER, win->phosphor.frameBuffer);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2, 0);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+  // Apply multiple blur passes
   for (int k = 0; k < 3; k++) {
     Shader::dispatchBlur(win, 0, k, win->phosphor.energyTexture, win->phosphor.tempTexture);
     Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture, win->phosphor.tempTexture2);
   }
 
+  // Apply colormap to final result
   Shader::dispatchColormap(win, lineColor, win->phosphor.tempTexture2, win->phosphor.outputTexture);
 }
 } // namespace Phosphor

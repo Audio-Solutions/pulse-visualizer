@@ -3,9 +3,12 @@
 #include "include/audio_engine.hpp"
 #include "include/config.hpp"
 #include "include/sdl_window.hpp"
+#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace DSP {
+
+// Aligned memory allocator implementation
 template <typename T, std::size_t Alignment> T* AlignedAllocator<T, Alignment>::allocate(std::size_t n) {
   void* ptr = nullptr;
   if (posix_memalign(&ptr, Alignment, n * sizeof(T)) != 0)
@@ -18,10 +21,12 @@ void AlignedAllocator<T, Alignment>::deallocate(T* p, std::size_t) noexcept {
   free(p);
 }
 
+// Audio buffer data with SIMD alignment
 std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 std::vector<float, AlignedAllocator<float, 32>> bufferSide;
 std::vector<float, AlignedAllocator<float, 32>> bandpassed;
 
+// FFT data buffers
 std::vector<float> fftMidRaw;
 std::vector<float> fftMid;
 std::vector<float> fftSideRaw;
@@ -30,6 +35,7 @@ std::vector<float> fftSide;
 const size_t bufferSize = 32768;
 size_t writePos = 0;
 
+// Pitch detection variables
 float pitch;
 float pitchDB;
 
@@ -37,9 +43,10 @@ std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames) {
   if (freq < Config::options.fft.min_freq || freq > Config::options.fft.max_freq)
     return std::make_tuple("-", 0, 0);
 
+  // Convert frequency to MIDI note number
   float midi = 69.f + 12.f * log2f(freq / 440.f);
 
-  if (midi < 0.f || midi > 127.f)
+  if (midi < 0.f)
     return std::make_tuple("-", 0, 0);
 
   int roundedMidi = static_cast<int>(roundf(midi));
@@ -49,9 +56,12 @@ std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames) {
 }
 
 namespace Butterworth {
+
+// Biquad filter coefficients
 std::vector<Biquad> biquads;
 
 float Biquad::process(float x) {
+  // Direct Form II biquad filter implementation
   float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   x2 = x1;
   x1 = x;
@@ -71,6 +81,7 @@ void design(float center) {
     bw = center * bw / 100.0f;
   float Q = center / bw;
 
+  // Design Butterworth bandpass filter
   for (int k = 0; k < sections; k++) {
     float alpha = sinf(w0) / (2.0f * Q);
 
@@ -81,6 +92,7 @@ void design(float center) {
     float a1 = -2.0f * cosf(w0);
     float a2 = 1.0f - alpha;
 
+    // Normalize coefficients
     b0 /= a0;
     b1 /= a0;
     b2 /= a0;
@@ -94,6 +106,7 @@ void design(float center) {
 void process(float center) {
   design(center);
 
+  // Apply bandpass filter to audio buffer
   for (size_t i = 0; i < bufferSize; i++) {
     size_t readIdx = (writePos + i) % bufferSize;
     float filtered = bufferMid[readIdx];
@@ -105,6 +118,8 @@ void process(float center) {
 } // namespace Butterworth
 
 namespace ConstantQ {
+
+// Constant Q Transform parameters
 float Q;
 size_t bins;
 std::vector<float> frequencies;
@@ -113,6 +128,7 @@ std::vector<std::vector<float, AlignedAllocator<float, 32>>> reals;
 std::vector<std::vector<float, AlignedAllocator<float, 32>>> imags;
 
 void init() {
+  // Calculate number of frequency bins
   float octaves = log2f(Config::options.fft.max_freq / Config::options.fft.min_freq);
   bins = std::clamp(static_cast<size_t>(ceil(octaves * Config::options.fft.cqt_bins_per_octave)),
                     static_cast<size_t>(1), static_cast<size_t>(1000));
@@ -121,6 +137,7 @@ void init() {
   reals.resize(bins);
   imags.resize(bins);
 
+  // Calculate Q factor and frequency bins
   float binRatio = 1.f / Config::options.fft.cqt_bins_per_octave;
   Q = 1.f / (powf(2.f, binRatio) - 1.f);
   for (int k = 0; k < bins; k++) {
@@ -146,6 +163,7 @@ void genMortletKernel(int bin) {
   reals[bin].resize(length);
   imags[bin].resize(length);
 
+  // Generate Mortlet wavelet kernel
   ssize_t center = length / 2;
   float norm = 0.f;
   float cosPhase = cosf(-omega * center * dt);
@@ -165,6 +183,7 @@ void genMortletKernel(int bin) {
     sinPhase = newSin;
   }
 
+  // Normalize kernel
   if (norm > 0.f) {
     float ampNorm = 1.f / norm;
     for (size_t n = 0; n < length; n++) {
@@ -175,6 +194,7 @@ void genMortletKernel(int bin) {
 }
 
 void generate() {
+  // Generate kernels for all frequency bins
   for (int k = 0; k < bins; k++) {
     genMortletKernel(k);
   }
@@ -185,6 +205,7 @@ bool regenerate() {
   static float lastMinFreq = Config::options.fft.min_freq;
   static float lastMaxFreq = Config::options.fft.max_freq;
 
+  // Check if regeneration is needed
   if (lastCQTBins == Config::options.fft.cqt_bins_per_octave && lastMinFreq == Config::options.fft.min_freq &&
       lastMaxFreq == Config::options.fft.max_freq) [[likely]]
     return false;
@@ -203,6 +224,7 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
   out.resize(bins);
 
 #ifdef HAVE_AVX2
+  // SIMD-optimized processing function
   auto process_segment = [](const float* buf, const float* real, const float* imag,
                             size_t length) -> std::pair<float, float> {
     size_t n = 0;
@@ -242,6 +264,7 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
   };
 #endif
 
+  // Process each frequency bin
   for (int k = 0; k < bins; k++) {
     const auto& kReals = reals[k];
     const auto& kImags = imags[k];
@@ -252,6 +275,7 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
     float imagSum = 0.f;
 
 #ifdef HAVE_AVX2
+    // Handle buffer wrapping with SIMD optimization
     if (start + length <= bufferSize) {
       auto result = process_segment(&in[start], kReals.data(), kImags.data(), length);
       realSum = result.first;
@@ -269,6 +293,7 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
       imagSum += result2.second;
     }
 #else
+    // Standard processing without SIMD
     for (size_t n = 0; n < length; n++) {
       size_t bufferIdx = (start + n) % bufferSize;
       float sample = in[bufferIdx];
@@ -282,6 +307,8 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
 } // namespace ConstantQ
 
 namespace FFT {
+
+// FFTW plans and buffers
 std::mutex mutexMid;
 std::mutex mutexSide;
 fftwf_plan mid;
@@ -337,6 +364,7 @@ bool recreatePlans() {
   static size_t lastFFTSize = Config::options.fft.size;
   static bool lastCQTState = Config::options.fft.enable_cqt;
 
+  // Check if FFT plans need to be recreated
   if (lastFFTSize == Config::options.fft.size && lastCQTState == Config::options.fft.enable_cqt) [[likely]]
     return false;
 
@@ -357,6 +385,8 @@ bool recreatePlans() {
 } // namespace FFT
 
 namespace Threads {
+
+// Thread synchronization
 std::mutex mutex;
 std::atomic<bool> dataReadyFFTMain;
 std::atomic<bool> dataReadyFFTAlt;
@@ -370,11 +400,14 @@ int FFTMain() {
       break;
     dataReadyFFTMain = false;
 
+    // Process main channel FFT
     if (Config::options.fft.enable_cqt) {
       ConstantQ::compute(bufferMid, fftMidRaw);
     } else {
       fftMidRaw.resize(Config::options.fft.size);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
+
+      // Apply window function and prepare FFT input
       for (int i = 0; i < Config::options.fft.size; i++) {
         float win = 0.5f * (1.f - cos(2.f * M_PI * i / (Config::options.fft.size)));
         size_t pos = (start + i) % bufferSize;
@@ -384,11 +417,13 @@ int FFTMain() {
           FFT::inMid[i] = bufferMid[pos] * win;
       }
 
+      // Execute FFT
       {
         std::lock_guard<std::mutex> lockFft(FFT::mutexMid);
         fftwf_execute(FFT::mid);
       }
 
+      // Convert to magnitude spectrum
       const float scale = 2.f / Config::options.fft.size;
       for (int i = 0; i < Config::options.fft.size / 2 + 1; i++) {
         float mag = sqrt(FFT::outMid[i][0] * FFT::outMid[i][0] + FFT::outMid[i][1] * FFT::outMid[i][1]) * scale;
@@ -398,6 +433,7 @@ int FFTMain() {
       }
     }
 
+    // Find peak frequency for pitch detection
     float peakDb = -INFINITY;
     float peakFreq = 0.f;
     uint32_t peakBin = 0;
@@ -411,6 +447,7 @@ int FFTMain() {
       }
     };
 
+    // Interpolate peak frequency
     float y1 = fftMidRaw[std::max(0, static_cast<int>(peakBin) - 1)];
     float y2 = fftMidRaw[peakBin];
     float y3 = fftMidRaw[std::min(static_cast<uint32_t>(fftMidRaw.size() - 1), peakBin + 1)];
@@ -436,13 +473,17 @@ int FFTMain() {
     pitch = peakFreq;
     pitchDB = peakDb;
 
+    // Apply smoothing if enabled
     if (Config::options.fft.enable_smoothing) {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;
       const float riseSpeed = Config::options.fft.rise_speed * WindowManager::dt;
-      const float fallSpeed = Config::options.fft.fall_speed * WindowManager::dt;
+      const float fallSpeed =
+          (SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed : Config::options.fft.fall_speed) *
+          WindowManager::dt;
 #ifdef HAVE_AVX2
+      // SIMD-optimized smoothing
       for (; i + 7 < bins; i += 8) {
         __m256 cur = _mm256_loadu_ps(&fftMidRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftMid[i]);
@@ -486,6 +527,7 @@ int FFTMain() {
         fftMid[i] = powf(10.f, newDB / 20.f) - 1e-12f;
       }
 #else
+      // Standard smoothing
       for (; i < bins; ++i) {
         float currentDB = 20.f * log10f(fftMidRaw[i] + 1e-12f);
         float prevDB = 20.f * log10f(fftMid[i] + 1e-12f);
@@ -518,11 +560,14 @@ int FFTAlt() {
     if (Config::options.phosphor.enabled)
       continue;
 
+    // Process alternative channel FFT (for stereo visualization)
     if (Config::options.fft.enable_cqt) {
       ConstantQ::compute(bufferSide, fftSideRaw);
     } else {
       fftSideRaw.resize(Config::options.fft.size);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
+
+      // Apply window function and prepare FFT input
       for (int i = 0; i < Config::options.fft.size; i++) {
         float win = 0.5f * (1.f - cos(2.f * M_PI * i / (Config::options.fft.size)));
         size_t pos = (start + i) % bufferSize;
@@ -532,11 +577,13 @@ int FFTAlt() {
           FFT::inSide[i] = bufferSide[pos] * win;
       }
 
+      // Execute FFT
       {
         std::lock_guard<std::mutex> lockFft(FFT::mutexSide);
         fftwf_execute(FFT::side);
       }
 
+      // Convert to magnitude spectrum
       const float scale = 2.f / Config::options.fft.size;
       for (int i = 0; i < Config::options.fft.size / 2 + 1; i++) {
         float mag = sqrt(FFT::outSide[i][0] * FFT::outSide[i][0] + FFT::outSide[i][1] * FFT::outSide[i][1]) * scale;
@@ -546,14 +593,18 @@ int FFTAlt() {
       }
     }
 
+    // Apply smoothing to alternative channel
     if (Config::options.fft.enable_smoothing) {
       fftSide.resize(fftSideRaw.size());
       size_t bins = fftSide.size();
       size_t i = 0;
       const float riseSpeed = Config::options.fft.rise_speed * WindowManager::dt;
-      const float fallSpeed = Config::options.fft.fall_speed * WindowManager::dt;
+      const float fallSpeed =
+          (SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed : Config::options.fft.fall_speed) *
+          WindowManager::dt;
 
 #ifdef HAVE_AVX2
+      // SIMD-optimized smoothing for alternative channel
       for (; i + 7 < bins; i += 8) {
         __m256 cur = _mm256_loadu_ps(&fftSideRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftSide[i]);
@@ -597,6 +648,7 @@ int FFTAlt() {
         fftSide[i] = powf(10.f, newDB / 20.f) - 1e-12f;
       }
 #else
+      // Standard smoothing for alternative channel
       for (; i < bins; ++i) {
         float currentDB = 20.f * log10f(fftSideRaw[i] + 1e-12f);
         float prevDB = 20.f * log10f(fftSide[i] + 1e-12f);
@@ -622,13 +674,16 @@ int main() {
   Butterworth::design();
   std::vector<float> readBuf;
 
+  // Start FFT processing threads
   std::thread FFTMainThread(Threads::FFTMain);
   std::thread FFTAltThread(Threads::FFTAlt);
 
   while (SDLWindow::running) {
+    // Calculate samples to read based on frame time
     size_t sampleCount = Config::options.audio.sample_rate * WindowManager::dt;
     readBuf.resize(sampleCount * 2);
 
+    // Read audio from engine
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       std::cerr << "Failed to read from audio engine" << std::endl;
       SDLWindow::running = false;
@@ -640,6 +695,7 @@ int main() {
 #if HAVE_PULSEAUDIO
     if (AudioEngine::Pulseaudio::running) {
 #ifdef HAVE_AVX2
+      // SIMD-optimized audio processing for PulseAudio
       size_t simd_samples = (sampleCount * 2) & ~7;
 
       __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
@@ -674,6 +730,7 @@ int main() {
     }
 #endif
 
+    // Signal FFT threads that new data is available
     {
       std::lock_guard<std::mutex> lock(mutex);
       dataReadyFFTMain = true;
@@ -681,9 +738,11 @@ int main() {
       fft.notify_all();
     }
 
+    // Process bandpass filter if pitch is detected
     if (pitch > Config::options.fft.min_freq && pitch < Config::options.fft.max_freq)
       Butterworth::process(pitch);
 
+    // Signal main thread that DSP processing is complete
     {
       std::lock_guard<std::mutex> lock(::mainThread);
       ::dataReady = true;
@@ -697,6 +756,7 @@ int main() {
 }
 } // namespace Threads
 
+// Template instantiations
 template class AlignedAllocator<float, 32>;
 template void ConstantQ::compute<AlignedAllocator<float, 32>>(const std::vector<float, AlignedAllocator<float, 32>>& in,
                                                               std::vector<float>& out);

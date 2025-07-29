@@ -2,6 +2,10 @@
 #include "common.hpp"
 
 namespace Config {
+
+/**
+ * @brief Application configuration options structure
+ */
 struct Options {
   struct Oscilloscope {
     bool follow_pitch = true;
@@ -117,10 +121,36 @@ extern int inotifyFd;
 extern int inotifyWatch;
 #endif
 
+/**
+ * @brief Copy default configuration files to user directory if they don't exist
+ */
 void copyFiles();
+
+/**
+ * @brief Get a nested node from YAML configuration
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired node
+ * @return Optional YAML node if found
+ */
 std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path);
+
+/**
+ * @brief Get a value from YAML configuration with type conversion
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type T
+ */
 template <typename T> T get(const YAML::Node& root, const std::string& path);
+
+/**
+ * @brief Load configuration from file
+ */
 void load();
+
+/**
+ * @brief Check if configuration file has been modified and reload if necessary
+ * @return true if configuration was reloaded, false otherwise
+ */
 bool reload();
 
 } // namespace Config

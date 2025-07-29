@@ -7,14 +7,27 @@
 #include "include/window_manager.hpp"
 
 namespace Spectrogram {
+
+// Spectrogram window
 WindowManager::VisualizerWindow* window;
 
+/**
+ * @brief Normalize decibel value to 0-1 range for spectrogram
+ * @param db Decibel value to normalize
+ * @return Normalized value between 0 and 1
+ */
 float normalize(float db) {
   float norm =
       (db - Config::options.fft.min_db) / (Config::options.spectrogram.max_db - Config::options.spectrogram.min_db);
   return std::clamp(norm, 0.f, 1.f);
 }
 
+/**
+ * @brief Find frequency range indices for given frequency
+ * @param freqs Frequency array
+ * @param f Target frequency
+ * @return Pair of start and end indices
+ */
 std::pair<size_t, size_t> find(const std::vector<float>& freqs, float f) {
   if (freqs.empty())
     return {0, 0};
@@ -30,21 +43,29 @@ std::pair<size_t, size_t> find(const std::vector<float>& freqs, float f) {
   return {idx - 1, idx};
 }
 
+/**
+ * @brief Map spectrum data to visualization format
+ * @param in Input spectrum data
+ * @return Mapped spectrum data
+ */
 std::vector<float>& mapSpectrum(const std::vector<float>& in) {
   static std::vector<float> spectrum;
   spectrum.resize(SDLWindow::height);
 
+  // Calculate frequency mapping parameters
   float logMin = log10f(Config::options.fft.min_freq);
   float logMax = log10f(Config::options.fft.max_freq);
   float logRange = logMax - logMin;
   float freqRange = Config::options.fft.max_freq - Config::options.fft.min_freq;
 
+  // Map each pixel row to a frequency bin
   for (size_t i = 0; i < spectrum.size(); i++) {
     float normalized = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
     float logFreq = logMin + normalized * logRange;
     float linFreq = Config::options.fft.min_freq + normalized * freqRange;
     float target = powf(10.f, Config::options.spectrogram.frequency_scale == "log" ? logFreq : linFreq);
 
+    // Find corresponding frequency bins
     size_t bin1, bin2;
     if (Config::options.fft.enable_cqt) {
       std::tie(bin1, bin2) = find(DSP::ConstantQ::frequencies, target);
@@ -53,6 +74,7 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
       bin2 = bin1 + 1;
     }
 
+    // Interpolate between bins if necessary
     if (bin1 < in.size()) {
       if (bin2 < in.size() && bin1 != bin2) {
         if (Config::options.fft.enable_cqt) {
@@ -74,26 +96,33 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
 }
 
 void render() {
+  // Set viewport for rendering
   WindowManager::setViewport(window->x, window->width, SDLWindow::height);
 
   static size_t current = 0;
 
+  // Calculate time interval for new columns
   float interval = Config::options.spectrogram.time_window / static_cast<float>(window->width);
   static float accumulator = 0;
   accumulator += WindowManager::dt;
+
+  // Add new column when interval is reached
   if (accumulator > interval) {
     accumulator -= interval;
     std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw);
 
+    // Prepare column data for rendering
     static std::vector<float> columnData;
     columnData.resize(SDLWindow::height * 3);
 
+    // Initialize column with background color
     for (size_t i = 0; i < SDLWindow::height; ++i) {
       columnData[i * 3 + 0] = Theme::colors.background[0];
       columnData[i * 3 + 1] = Theme::colors.background[1];
       columnData[i * 3 + 2] = Theme::colors.background[2];
     }
 
+    // Choose rendering color
     bool monochrome = true;
     float* color = Theme::colors.color;
     if (Theme::colors.spectrogram_main[3] > 1e-6f) {

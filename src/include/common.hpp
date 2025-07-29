@@ -32,6 +32,12 @@
 
 #ifdef HAVE_AVX2
 #include <mmintrin.h>
+
+/**
+ * @brief Computes log10 for 8 float values using AVX2
+ * @param x Vector of 8 float values
+ * @return Vector with log10 applied to each element
+ */
 static inline __m256 _mm256_log10_ps(__m256 x) {
   float vals[8];
   _mm256_storeu_ps(vals, x);
@@ -40,6 +46,12 @@ static inline __m256 _mm256_log10_ps(__m256 x) {
   return _mm256_loadu_ps(vals);
 }
 
+/**
+ * @brief Computes power function for 8 float values using AVX2
+ * @param a Base values vector
+ * @param b Exponent values vector
+ * @return Vector with pow(a, b) applied to each element
+ */
 static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
   float va[8], vb[8], vr[8];
   _mm256_storeu_ps(va, a);
@@ -49,6 +61,11 @@ static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
   return _mm256_loadu_ps(vr);
 }
 
+/**
+ * @brief Reduces 8 float values to a single sum using AVX2
+ * @param v Vector of 8 float values
+ * @return Sum of all elements in the vector
+ */
 inline float avx2_reduce_add_ps(__m256 v) {
   __m128 vlow = _mm256_castps256_ps128(v);
   __m128 vhigh = _mm256_extractf128_ps(v, 1);
@@ -59,6 +76,13 @@ inline float avx2_reduce_add_ps(__m256 v) {
 }
 #endif
 
+/**
+ * @brief Linear interpolation between two values
+ * @param a First value
+ * @param b Second value
+ * @param t Interpolation factor (0.0 to 1.0)
+ * @return Interpolated value
+ */
 template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 
 #ifdef __linux__
@@ -83,8 +107,14 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #include <spa/pod/builder.h>
 #endif
 
+// Thread synchronization variables for DSP data processing
 extern std::mutex mainThread;
 extern std::condition_variable mainCv;
 extern std::atomic<bool> dataReady;
 
+/**
+ * @brief Expands a path starting with '~' to the user's home directory
+ * @param path The path to expand
+ * @return The expanded path with home directory substituted
+ */
 std::string expandUserPath(const std::string& path);

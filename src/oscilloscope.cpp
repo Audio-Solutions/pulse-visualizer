@@ -7,10 +7,13 @@
 #include "include/window_manager.hpp"
 
 namespace Oscilloscope {
+
+// Oscilloscope data and window
 std::vector<std::pair<float, float>> points;
 WindowManager::VisualizerWindow* window;
 
 void render() {
+  // Calculate number of samples to display
   size_t samples = Config::options.oscilloscope.time_window * Config::options.audio.sample_rate / 1000;
   if (Config::options.oscilloscope.limit_cycles) {
     samples = Config::options.audio.sample_rate / DSP::pitch * Config::options.oscilloscope.cycles;
@@ -18,15 +21,19 @@ void render() {
                                                     Config::options.audio.sample_rate / 1000.0f));
   }
 
+  // Calculate target position in buffer
   size_t target = (DSP::writePos + DSP::bufferSize - samples);
   size_t range = Config::options.audio.sample_rate / DSP::pitch * 2.f;
   size_t zeroCross = target;
+
+  // Align to zero crossings if pitch following is enabled
   if (Config::options.oscilloscope.follow_pitch) {
     if (Config::options.oscilloscope.alignment == "center")
       target = (target + samples / 2) % DSP::bufferSize;
     else if (Config::options.oscilloscope.alignment == "right")
       target = (target + samples) % DSP::bufferSize;
 
+    // Find zero crossing point
     for (uint32_t i = 0; i < range && i < DSP::bufferSize; i++) {
       size_t pos = (target + DSP::bufferSize - i) % DSP::bufferSize;
       size_t prev = (pos + DSP::bufferSize - 1) % DSP::bufferSize;
@@ -36,19 +43,22 @@ void render() {
       }
     }
 
+    // Apply phase offset for peak alignment
     size_t phaseOffset = (target + DSP::bufferSize - zeroCross) % DSP::bufferSize;
     if (Config::options.oscilloscope.alignment_type == "peak")
       phaseOffset += Config::options.audio.sample_rate / DSP::pitch * 0.75f;
     target = (DSP::writePos + DSP::bufferSize - phaseOffset - samples) % DSP::bufferSize;
   }
 
+  // Generate oscilloscope points
   points.resize(samples);
-
   const float scale = static_cast<float>(window->width) / samples;
   for (size_t i = 0; i < samples; i++) {
     size_t pos = (target + i) % DSP::bufferSize;
     float x = static_cast<float>(i) * scale;
     float y;
+
+    // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
       y = SDLWindow::height * 0.5f + DSP::bandpassed[pos] * 0.5f * SDLWindow::height;
     else
@@ -57,20 +67,24 @@ void render() {
     points[i] = {x, y};
   }
 
-  std::vector<float> vertexData;
+  // Choose rendering color
   float* color = Theme::colors.color;
   if (Theme::colors.oscilloscope_main[3] > 1e-6f)
     color = Theme::colors.oscilloscope_main;
 
+  // Render with phosphor effect if enabled
   if (Config::options.phosphor.enabled) {
+    std::vector<float> vertexData;
     vertexData.reserve(points.size() * 4);
     std::vector<float> energies;
     energies.reserve(points.size());
 
+    // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
     float energy = Config::options.phosphor.beam_energy / REF_AREA * (window->width * SDLWindow::height);
     energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
 
+    // Calculate energy for each line segment
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
       const auto& p2 = points[i + 1];
@@ -83,6 +97,7 @@ void render() {
       energies.push_back(totalE);
     }
 
+    // Prepare vertex data for phosphor rendering
     for (size_t i = 0; i < points.size(); i++) {
       vertexData.push_back(points[i].first);
       vertexData.push_back(points[i].second);
@@ -90,13 +105,16 @@ void render() {
       vertexData.push_back(0);
     }
 
+    // Upload vertex data to GPU
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+    // Render phosphor effect
     Graphics::Phosphor::render(window, points, energies, color, DSP::pitchDB > Config::options.audio.silence_threshold);
     window->draw();
   } else {
+    // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)
       Graphics::drawLines(window, points, color);
   }

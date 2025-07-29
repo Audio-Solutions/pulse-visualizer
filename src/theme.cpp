@@ -3,6 +3,8 @@
 #include "include/config.hpp"
 
 namespace Theme {
+
+// Global theme colors
 Colors colors;
 
 #ifdef __linux__
@@ -25,6 +27,7 @@ void mix(float* a, float* b, float* out, float t) {
 }
 
 void load(const std::string& name) {
+  // Construct theme file path
   std::string path = "~/.config/pulse-visualizer/themes/" + name;
   if (name.find(".txt") == std::string::npos)
     path += ".txt";
@@ -37,6 +40,7 @@ void load(const std::string& name) {
   }
 
 #ifdef __linux__
+  // Setup file watching for theme changes
   currentThemePath = path;
   if (themeInotifyFd == -1) {
     themeInotifyFd = inotify_init1(IN_NONBLOCK);
@@ -47,6 +51,7 @@ void load(const std::string& name) {
   themeInotifyWatch = inotify_add_watch(themeInotifyFd, path.c_str(), IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF);
 #endif
 
+  // Color mapping for array-based colors (RGBA)
   static std::unordered_map<std::string, float*> colorMapArrays = {
       {"color",                             colors.color                            },
       {"selection",                         colors.selection                        },
@@ -78,6 +83,7 @@ void load(const std::string& name) {
       {"loudness_text",                     colors.loudness_text                    },
   };
 
+  // Color mapping for single float values
   static std::unordered_map<std::string, float*> colorMapFloats = {
       {"rgb_waveform_opacity_with_history", &colors.rgb_waveform_opacity_with_history},
       {"spectrogram_low",                   &colors.spectrogram_low                  },
@@ -87,6 +93,7 @@ void load(const std::string& name) {
       {"color_bars_opacity",                &colors.color_bars_opacity               }
   };
 
+  // Parse theme file line by line
   std::string line;
   while (std::getline(file, line)) {
     if (line.empty() || line[0] == '#')
@@ -104,6 +111,7 @@ void load(const std::string& name) {
     value.erase(0, value.find_first_not_of(" \t"));
     value.erase(value.find_last_not_of(" \t") + 1);
 
+    // Parse and store color
     auto parseAndStoreColor = [&]() -> bool {
       auto itA = colorMapArrays.find(key);
       auto itB = colorMapFloats.find(key);

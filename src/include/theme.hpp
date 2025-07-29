@@ -2,6 +2,10 @@
 #include "common.hpp"
 
 namespace Theme {
+
+/**
+ * @brief Color scheme structure containing all theme colors
+ */
 struct Colors {
   float color[4] = {0};
   float selection[4] = {0};
@@ -57,9 +61,33 @@ extern int themeInotifyWatch;
 extern std::string currentThemePath;
 #endif
 
+/**
+ * @brief Apply alpha transparency to a color
+ * @param color Input color array (RGBA)
+ * @param alpha Alpha value to apply
+ * @return Pointer to temporary color with applied alpha
+ */
 float* alpha(float* color, float alpha);
+
+/**
+ * @brief Linear interpolation between two colors
+ * @param a First color array
+ * @param b Second color array
+ * @param out Output color array
+ * @param t Interpolation factor (0.0 to 1.0)
+ */
 void mix(float* a, float* b, float* out, float t);
+
+/**
+ * @brief Load a theme from file
+ * @param name Theme name
+ */
 void load(const std::string& name);
+
+/**
+ * @brief Check if theme file has been modified and reload if necessary
+ * @return true if theme was reloaded, false otherwise
+ */
 bool reload();
 
 } // namespace Theme

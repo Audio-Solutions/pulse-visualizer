@@ -1,6 +1,8 @@
 #include "include/config.hpp"
 
 namespace Config {
+
+// Global configuration options
 Options options;
 
 #ifdef __linux__
@@ -15,6 +17,7 @@ void copyFiles() {
     return;
   }
 
+  // Create user directories
   std::string userCfgDir = std::string(home) + "/.config/pulse-visualizer";
   std::string userThemeDir = userCfgDir + "/themes";
   std::string userFontDir = std::string(home) + "/.local/share/fonts/JetBrainsMono";
@@ -23,6 +26,7 @@ void copyFiles() {
   std::filesystem::create_directories(userThemeDir);
   std::filesystem::create_directories(userFontDir);
 
+  // Copy configuration template if it doesn't exist
   if (!std::filesystem::exists(userCfgDir + "/config.yml")) {
     std::string cfgSource = std::string(PULSE_DATA_DIR) + "/config.yml.template";
     if (std::filesystem::exists(cfgSource)) {
@@ -35,6 +39,7 @@ void copyFiles() {
     }
   }
 
+  // Copy theme files
   std::string themeSource = std::string(PULSE_DATA_DIR) + "/themes";
   if (std::filesystem::exists(themeSource) && !std::filesystem::exists(themeSource + "/_TEMPLATE.txt")) {
     try {
@@ -52,6 +57,7 @@ void copyFiles() {
     }
   }
 
+  // Copy font file
   std::string fontSource = std::string(PULSE_DATA_DIR) + "/fonts/JetBrainsMonoNerdFont-Medium.ttf";
   std::string userFontFile = userFontDir + "/JetBrainsMonoNerdFont-Medium.ttf";
   if (std::filesystem::exists(fontSource)) {
@@ -70,6 +76,7 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
   if (root[path].IsDefined())
     return root[path];
 
+  // Handle nested paths with dot notation
   size_t dotIndex = path.find('.');
   if (dotIndex == std::string::npos)
     return std::nullopt;
@@ -98,6 +105,7 @@ void load() {
   YAML::Node configData = YAML::LoadFile(path);
 
 #ifdef __linux__
+  // Setup file watching for configuration changes
   if (inotifyFd == -1) {
     inotifyFd = inotify_init1(IN_NONBLOCK);
     if (inotifyWatch != -1)
@@ -106,6 +114,7 @@ void load() {
   }
 #endif
 
+  // Load oscilloscope configuration
   options.oscilloscope.follow_pitch = get<bool>(configData, "oscilloscope.follow_pitch");
   options.oscilloscope.alignment = get<std::string>(configData, "oscilloscope.alignment");
   options.oscilloscope.alignment_type = get<std::string>(configData, "oscilloscope.alignment_type");
@@ -115,15 +124,18 @@ void load() {
   options.oscilloscope.time_window = get<float>(configData, "oscilloscope.time_window");
   options.oscilloscope.beam_multiplier = get<float>(configData, "oscilloscope.beam_multiplier");
 
+  // Load bandpass filter configuration
   options.bandpass_filter.bandwidth = get<float>(configData, "bandpass_filter.bandwidth");
   options.bandpass_filter.bandwidth_type = get<std::string>(configData, "bandpass_filter.bandwidth_type");
   options.bandpass_filter.order = get<int>(configData, "bandpass_filter.order");
 
+  // Load Lissajous configuration
   options.lissajous.enable_splines = get<bool>(configData, "lissajous.enable_splines");
   options.lissajous.spline_segments = get<int>(configData, "lissajous.spline_segments");
   options.lissajous.beam_multiplier = get<float>(configData, "lissajous.beam_multiplier");
   options.lissajous.readback_multiplier = get<float>(configData, "lissajous.readback_multiplier");
 
+  // Load FFT configuration
   options.fft.min_freq = get<float>(configData, "fft.min_freq");
   options.fft.max_freq = get<float>(configData, "fft.max_freq");
   options.fft.sample_rate = get<float>(configData, "audio.sample_rate");
@@ -142,6 +154,7 @@ void load() {
   options.fft.beam_multiplier = get<float>(configData, "fft.beam_multiplier");
   options.fft.frequency_markers = get<bool>(configData, "fft.frequency_markers");
 
+  // Load spectrogram configuration
   options.spectrogram.time_window = get<float>(configData, "spectrogram.time_window");
   options.spectrogram.min_db = get<float>(configData, "spectrogram.min_db");
   options.spectrogram.max_db = get<float>(configData, "spectrogram.max_db");
@@ -150,25 +163,30 @@ void load() {
   options.spectrogram.min_freq = get<float>(configData, "spectrogram.min_freq");
   options.spectrogram.max_freq = get<float>(configData, "spectrogram.max_freq");
 
+  // Load audio configuration
   options.audio.silence_threshold = get<float>(configData, "audio.silence_threshold");
   options.audio.sample_rate = get<float>(configData, "audio.sample_rate");
   options.audio.gain_db = get<float>(configData, "audio.gain_db");
   options.audio.engine = get<std::string>(configData, "audio.engine");
   options.audio.device = get<std::string>(configData, "audio.device");
 
+  // Load visualizer order configuration
   options.visualizers.spectrogram_order = get<int>(configData, "visualizers.spectrogram_order");
   options.visualizers.lissajous_order = get<int>(configData, "visualizers.lissajous_order");
   options.visualizers.oscilloscope_order = get<int>(configData, "visualizers.oscilloscope_order");
   options.visualizers.fft_order = get<int>(configData, "visualizers.fft_order");
 
+  // Load window configuration
   options.window.default_width = get<int>(configData, "window.default_width");
   options.window.default_height = get<int>(configData, "window.default_height");
   options.window.theme = get<std::string>(configData, "window.theme");
   options.window.fps_limit = get<int>(configData, "window.fps_limit");
 
+  // Load debug configuration
   options.debug.log_fps = get<bool>(configData, "debug.log_fps");
   options.debug.show_bandpassed = get<bool>(configData, "debug.show_bandpassed");
 
+  // Load phosphor effect configuration
   options.phosphor.enabled = get<bool>(configData, "phosphor.enabled");
   options.phosphor.near_blur_intensity = get<float>(configData, "phosphor.near_blur_intensity");
   options.phosphor.far_blur_intensity = get<float>(configData, "phosphor.far_blur_intensity");
@@ -190,11 +208,13 @@ void load() {
   options.phosphor.vignette_strength = get<float>(configData, "phosphor.vignette_strength");
   options.phosphor.chromatic_aberration_strength = get<float>(configData, "phosphor.chromatic_aberration_strength");
 
+  // Load font configuration
   options.font = get<std::string>(configData, "font");
 }
 
 bool reload() {
 #ifdef __linux__
+  // Check for file changes using inotify
   if (inotifyFd != -1 && inotifyWatch != -1) {
     char buf[sizeof(struct inotify_event) * 16];
     ssize_t len = read(inotifyFd, buf, sizeof(buf));
@@ -204,6 +224,7 @@ bool reload() {
     }
   }
 #else
+  // Check for file changes using stat (non-Linux systems)
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
@@ -219,6 +240,7 @@ bool reload() {
   return false;
 }
 
+// Template instantiations for configuration loading
 template bool get<bool>(const YAML::Node&, const std::string&);
 template int get<int>(const YAML::Node&, const std::string&);
 template float get<float>(const YAML::Node&, const std::string&);

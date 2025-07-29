@@ -4,6 +4,7 @@
 #include "include/dsp.hpp"
 
 namespace AudioEngine {
+
 Type toType(std::string str) {
   std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 
@@ -16,10 +17,13 @@ Type toType(std::string str) {
 
 namespace Pulseaudio {
 #if HAVE_PULSEAUDIO
+
+// PulseAudio stream and state
 pa_simple* paStream;
 bool running = false;
 bool initialized = false;
 
+// Available audio sources and default sink
 std::vector<DeviceInfo> availableSources;
 std::string defaultSink;
 
@@ -27,6 +31,7 @@ void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, vo
   if (eol || !info)
     return;
 
+  // Extract device information from PulseAudio
   DeviceInfo dev;
   dev.index = info->index;
   dev.name = info->name;
@@ -39,6 +44,7 @@ void enumerate() {
   availableSources.clear();
   defaultSink.clear();
 
+  // Create PulseAudio mainloop and context
   pa_mainloop* ml = pa_mainloop_new();
   if (!ml)
     return;
@@ -57,6 +63,7 @@ void enumerate() {
     return;
   }
 
+  // Wait for context to be ready and enumerate devices
   bool done = false;
   do {
     if (pa_mainloop_iterate(ml, 1, nullptr) < 0)
@@ -65,6 +72,7 @@ void enumerate() {
 
     pa_context_state_t state = pa_context_get_state(ctx);
     if (state == PA_CONTEXT_READY) {
+      // Get server info to find default sink
       pa_operation* opServer = pa_context_get_server_info(
           ctx,
           [](pa_context* ctx, const pa_server_info* info, void*) {
@@ -82,6 +90,7 @@ void enumerate() {
         pa_operation_unref(opServer);
       }
 
+      // Get source list
       pa_operation* opSources = pa_context_get_source_info_list(ctx, sourceInfoCallback, nullptr);
       if (opSources) {
         while (pa_operation_get_state(opSources) == PA_OPERATION_RUNNING)
@@ -107,6 +116,7 @@ std::string find(std::string dev) {
     dev = defaultSink + ".monitor";
   }
 
+  // Search for matching device
   for (const auto& source : availableSources) {
     if (source.name.find(dev) != std::string::npos ||
         source.name.find(dev.substr(0, dev.find(".monitor"))) != std::string::npos) {
@@ -133,10 +143,12 @@ bool init() {
 
   enumerate();
 
+  // Configure audio format
   pa_sample_spec sampleSpec;
   sampleSpec.rate = Config::options.audio.sample_rate;
   sampleSpec.channels = 2;
 
+  // Calculate buffer size based on FPS
   uint32_t samples = 0;
   try {
     samples = static_cast<uint32_t>(sampleSpec.rate / Config::options.window.fps_limit);
@@ -147,6 +159,7 @@ bool init() {
   const uint32_t bytesPerSample = sampleSpec.channels * sizeof(float);
   const uint32_t bufferSize = samples * bytesPerSample;
 
+  // Configure buffer attributes
   pa_buffer_attr attr = {.maxlength = bufferSize * 4,
                          .tlength = bufferSize,
                          .prebuf = static_cast<uint32_t>(-1),
@@ -155,6 +168,7 @@ bool init() {
 
   std::string dev = find(Config::options.audio.device);
 
+  // Create PulseAudio stream
   int err = 0;
   paStream = pa_simple_new(nullptr, "Pulse Visualizer", PA_STREAM_RECORD, dev.c_str(), "Pulse Audio Visualizer",
                            &sampleSpec, nullptr, &attr, &err);
@@ -178,6 +192,7 @@ bool read(float* buffer, const size_t& samples) {
   if (!initialized || !paStream)
     return false;
 
+  // Read audio data from PulseAudio
   int err;
   if (pa_simple_read(paStream, buffer, samples * 2 * sizeof(float), &err) < 0) {
     std::cout << "Failed to read from pulseAudio stream: " << pa_strerror(err) << std::endl;
@@ -193,6 +208,7 @@ bool reconfigure() {
   static uint32_t lastSampleRate = Config::options.audio.sample_rate;
   static size_t lastBuffer = DSP::bufferSize;
 
+  // Check if reconfiguration is needed
   if (lastDevice == Config::options.audio.device && lastBuffer == DSP::bufferSize &&
       lastSampleRate == Config::options.audio.sample_rate) [[likely]]
     return false;
@@ -214,6 +230,8 @@ bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 
 namespace PipeWire {
 #if HAVE_PIPEWIRE
+
+// PipeWire handles and state
 struct pw_thread_loop* loop;
 struct pw_context* ctx;
 struct pw_core* core;
@@ -225,6 +243,7 @@ struct spa_hook registryListener;
 bool initialized = false;
 bool running = false;
 
+// Thread synchronization
 std::atomic<uint32_t> writtenSamples;
 std::mutex mutex;
 std::condition_variable cv;
@@ -238,6 +257,7 @@ void registryEventGlobal(void*, uint32_t id, uint32_t perm, const char* type, ui
     const char* desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
     const char* mediaClass = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
 
+    // Add audio sources and sinks to device list
     if (mediaClass && (strcmp(mediaClass, "Audio/Source") == 0 || strcmp(mediaClass, "Audio/Sink") == 0)) {
       DeviceInfo dev;
       dev.id = id;
@@ -284,6 +304,7 @@ void onProcess(void*) {
     return;
   }
 
+  // Process audio data
   float* samples = static_cast<float*>(buf->datas[0].data);
   size_t n_samples = buf->datas[0].chunk->size / sizeof(float);
 
@@ -292,6 +313,7 @@ void onProcess(void*) {
 
   float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
 
+  // Process samples with SIMD optimization if available
 #ifdef HAVE_AVX2
   size_t simd_samples = n_samples & ~7;
   __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
@@ -340,6 +362,7 @@ std::pair<std::string, uint32_t> find(std::string dev) {
     return std::make_pair("default", PW_ID_ANY);
   }
 
+  // Search for matching device
   for (const auto& device : availableDevices) {
     if (device.name.find(dev) != std::string::npos ||
         device.name.find(dev.substr(0, dev.find(".monitor"))) != std::string::npos) {
@@ -397,18 +420,21 @@ bool init() {
 
   pw_init(nullptr, nullptr);
 
+  // Create PipeWire thread loop
   loop = pw_thread_loop_new("pulse-visualizer", nullptr);
   if (!loop) {
     std::cerr << "Failed to create PipeWire thread loop" << std::endl;
     return false;
   }
 
+  // Create PipeWire context
   ctx = pw_context_new(pw_thread_loop_get_loop(loop), nullptr, 0);
   if (!ctx) {
     std::cerr << "Failed to create PipeWire context" << std::endl;
     return false;
   }
 
+  // Connect to PipeWire core
   core = pw_context_connect(ctx, nullptr, 0);
   if (!core) {
     std::cerr << "Failed to connect to PipeWire" << std::endl;
@@ -420,6 +446,7 @@ bool init() {
     return false;
   }
 
+  // Setup registry to enumerate devices
   availableDevices.clear();
   static const struct pw_registry_events registryEvents = {
       .version = PW_VERSION_REGISTRY_EVENTS, .global = registryEventGlobal, .global_remove = registryEventGlobalRemove};
@@ -429,11 +456,13 @@ bool init() {
   pw_registry_add_listener(registry, &registryListener, &registryEvents, nullptr);
   pw_thread_loop_unlock(loop);
 
+  // Wait for device enumeration
   constexpr auto TIMEOUT = std::chrono::milliseconds(300);
   auto start = std::chrono::steady_clock::now();
   while (availableDevices.empty() && std::chrono::steady_clock::now() - start < TIMEOUT)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
+  // Configure audio format
   const struct spa_pod* params[1];
   struct spa_audio_info_raw info = {};
   uint8_t buffer[1024];
@@ -446,11 +475,13 @@ bool init() {
   spa_pod_builder_init(&b, buffer, sizeof(buffer));
   params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 
+  // Setup stream events
   static const struct pw_stream_events streamEvents = {
       .version = PW_VERSION_STREAM_EVENTS, .state_changed = onStreamStateChanged, .process = onProcess};
 
   pw_thread_loop_lock(loop);
 
+  // Calculate buffer size
   size_t targetSamples = info.rate / Config::options.window.fps_limit;
   size_t samples = 1;
   while (samples < targetSamples)
@@ -460,6 +491,7 @@ bool init() {
 
   std::string nodeLatency = std::to_string(samples) + "/" + std::to_string(info.rate);
 
+  // Create PipeWire stream
   stream = pw_stream_new_simple(pw_thread_loop_get_loop(loop), "Pulse Visualizer",
                                 pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
                                                   PW_KEY_MEDIA_ROLE, "Music", PW_KEY_STREAM_CAPTURE_SINK, "true",
@@ -471,6 +503,7 @@ bool init() {
     return false;
   }
 
+  // Connect stream to device
   auto [dev, devId] = find(Config::options.audio.device);
   if (pw_stream_connect(stream, PW_DIRECTION_INPUT, devId,
                         static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS |
@@ -483,6 +516,7 @@ bool init() {
 
   pw_thread_loop_unlock(loop);
 
+  // Wait for stream to be ready
   start = std::chrono::steady_clock::now();
   while (!running && std::chrono::steady_clock::now() - start < TIMEOUT)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -497,6 +531,7 @@ bool read(float*, const size_t& frames) {
   if (!initialized || !stream)
     return false;
 
+  // Wait for enough samples to be available
   std::unique_lock<std::mutex> lock(mutex);
   cv.wait(lock, [&] { return writtenSamples > frames; });
   writtenSamples = 0;
@@ -509,6 +544,7 @@ bool reconfigure() {
   static uint32_t lastSampleRate = Config::options.audio.sample_rate;
   static size_t lastBuffer = DSP::bufferSize;
 
+  // Check if reconfiguration is needed
   if (lastDevice == Config::options.audio.device && lastBuffer == DSP::bufferSize &&
       lastSampleRate == Config::options.audio.sample_rate) [[likely]]
     return false;
@@ -531,6 +567,7 @@ bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 std::optional<Type> init() {
   Type engine = toType(Config::options.audio.engine);
 
+  // Check for available backends
 #if !HAVE_PULSEAUDIO
   if (engine == Type::PULSEAUDIO) {
     std::cerr << "Pulse not compiled with Pulseaudio support. Using auto" << std::endl;
@@ -545,6 +582,7 @@ std::optional<Type> init() {
   }
 #endif
 
+  // Initialize selected backend
   switch (engine) {
   case Type::AUTO:
 #if HAVE_PIPEWIRE
