@@ -114,6 +114,9 @@ void render() {
     Graphics::Phosphor::render(window, points, energies, color, DSP::pitchDB > Config::options.audio.silence_threshold);
     window->draw();
   } else {
+    // Select the window for rendering
+    SDLWindow::selectWindow(window->sdlWindow);
+
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)
       Graphics::drawLines(window, points, color);

@@ -17,6 +17,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)
+- Configurable order at runtime (lost on exit for now)
 - Separate FFT/CQT threads for mid/side channels
 - Extensive SIMD (AVX2) acceleration
 - Live config and theme hot-reloading (no restart needed, mostly)

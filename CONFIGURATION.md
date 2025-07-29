@@ -9,6 +9,22 @@ This guide provides comprehensive documentation for configuring Pulse Audio Visu
 
 Most config options update live, so you can change them without restarting Pulse, but some may require a restart.
 
+## Boolean Values
+
+Boolean configuration options accept multiple formats:
+
+**True values:**
+- `true`
+- `yes`
+- `on`
+- `1`
+
+**False values:**
+- `false`
+- `no`
+- `off`
+- `0`
+
 ## Configuration Sections
 
 ### Audio Processing Settings
@@ -297,20 +313,15 @@ spectrogram:
 ### Visualizer Layout Settings
 
 Controls the order and visibility of visualizers.
+Comment out visualizers you don't want to see.
+Their order from top to bottom will determine the order of the windows from left to right.
 
 ```yaml
 visualizers:
-  # FFT spectrum visualizer order
-  fft_order: 2
-  
-  # Lissajous curve visualizer order
-  lissajous_order: 0
-  
-  # Oscilloscope visualizer order
-  oscilloscope_order: 1
-  
-  # Spectrogram visualizer order (-1 = disabled)
-  spectrogram_order: -1
+  - lissajous
+  - oscilloscope
+  - spectrum_analyzer
+# - spectrogram
 ```
 
 ### Window Settings

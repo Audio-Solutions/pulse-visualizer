@@ -29,54 +29,77 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
 
 namespace Font {
 
-// FreeType handles
-FT_Face face = nullptr;
-FT_Library ftLib = nullptr;
+// FreeType handles - per window
+std::vector<FT_Face> faces;
+std::vector<FT_Library> ftLibs;
 
-// Glyph texture cache
-std::unordered_map<char, GlyphTexture> glyphCache;
+// Glyph texture cache - per window
+std::vector<std::unordered_map<char, GlyphTexture>> glyphCaches;
 
-void load() {
+void load(size_t sdlWindow) {
+  // Ensure vectors are large enough
+  if (sdlWindow >= faces.size()) {
+    faces.resize(sdlWindow + 1, nullptr);
+    ftLibs.resize(sdlWindow + 1, nullptr);
+    glyphCaches.resize(sdlWindow + 1);
+  }
+
   std::string path = expandUserPath(Config::options.font);
   struct stat buf;
   if (stat(path.c_str(), &buf) != 0)
     return;
 
-  // Initialize FreeType library
-  if (!ftLib)
-    if (FT_Init_FreeType(&ftLib) != 0)
+  // Initialize FreeType library for this window
+  if (!ftLibs[sdlWindow])
+    if (FT_Init_FreeType(&ftLibs[sdlWindow]) != 0)
       return;
 
-  // Load font face
-  if (FT_New_Face(ftLib, path.c_str(), 0, &face))
+  // Load font face for this window
+  if (FT_New_Face(ftLibs[sdlWindow], path.c_str(), 0, &faces[sdlWindow]))
     return;
 }
 
-void cleanup() {
-  // Cleanup glyph textures
-  for (auto& [ch, glyph] : glyphCache) {
+void cleanup(size_t sdlWindow) {
+  if (sdlWindow >= faces.size())
+    return;
+
+  // Cleanup glyph textures for this window
+  for (auto& [ch, glyph] : glyphCaches[sdlWindow]) {
     if (glIsTexture(glyph.textureId)) {
       glDeleteTextures(1, &glyph.textureId);
     }
   }
-  glyphCache.clear();
+  glyphCaches[sdlWindow].clear();
+
+  // Cleanup FreeType resources for this window
+  if (faces[sdlWindow]) {
+    FT_Done_Face(faces[sdlWindow]);
+    faces[sdlWindow] = nullptr;
+  }
+  if (ftLibs[sdlWindow]) {
+    FT_Done_FreeType(ftLibs[sdlWindow]);
+    ftLibs[sdlWindow] = nullptr;
+  }
 }
 
-GlyphTexture& getGlyphTexture(char c, float size) {
-  auto it = glyphCache.find(c);
-  if (it != glyphCache.end()) {
+GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow) {
+  if (sdlWindow >= glyphCaches.size() || !faces[sdlWindow])
+    return glyphCaches[0][c]; // Fallback to first window
+
+  auto it = glyphCaches[sdlWindow].find(c);
+  if (it != glyphCaches[sdlWindow].end()) {
     return it->second;
   }
 
   // Set font size
-  FT_Set_Pixel_Sizes(face, 0, size);
+  FT_Set_Pixel_Sizes(faces[sdlWindow], 0, size);
 
-  if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+  if (FT_Load_Char(faces[sdlWindow], c, FT_LOAD_RENDER)) {
     static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
     return empty;
   }
 
-  FT_GlyphSlot g = face->glyph;
+  FT_GlyphSlot g = faces[sdlWindow]->glyph;
 
   // Create OpenGL texture for glyph
   GLuint tex;
@@ -97,12 +120,13 @@ GlyphTexture& getGlyphTexture(char c, float size) {
       tex,           static_cast<int>(g->bitmap.width),  static_cast<int>(g->bitmap.rows), g->bitmap_left,
       g->bitmap_top, static_cast<int>(g->advance.x >> 6)};
 
-  glyphCache[c] = glyph;
-  return glyphCache[c];
+  glyphCaches[sdlWindow][c] = glyph;
+  return glyphCaches[sdlWindow][c];
 }
 
-void drawText(const char* text, const float& x, const float& y, const float& size, const float* color) {
-  if (!text || !*text || !face)
+void drawText(const char* text, const float& x, const float& y, const float& size, const float* color,
+              size_t sdlWindow) {
+  if (!text || !*text || sdlWindow >= faces.size() || !faces[sdlWindow])
     return;
 
   // Setup OpenGL state for text rendering
@@ -122,7 +146,7 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
     }
 
     // Get or create glyph texture
-    GlyphTexture& glyph = getGlyphTexture(c, size);
+    GlyphTexture& glyph = getGlyphTexture(c, size, sdlWindow);
     if (glyph.textureId == 0)
       continue;
 
@@ -152,6 +176,36 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
   glBindTexture(GL_TEXTURE_2D, 0);
   glDisable(GL_TEXTURE_2D);
 }
+
+std::pair<float, float> getTextSize(const char* text, const float& size, size_t sdlWindow) {
+  if (!text || !*text || sdlWindow >= faces.size() || !faces[sdlWindow])
+    return {0.0f, 0.0f};
+
+  float totalWidth = 0.0f;
+  float maxHeight = 0.0f;
+  float currentLineWidth = 0.0f;
+  float lineHeight = size;
+
+  for (const char* p = text; *p; p++) {
+    const char& c = *p;
+    if (c == '\n') {
+      totalWidth = std::max(totalWidth, currentLineWidth);
+      currentLineWidth = 0.0f;
+      continue;
+    }
+
+    GlyphTexture& glyph = getGlyphTexture(c, size, sdlWindow);
+    if (glyph.textureId == 0)
+      continue;
+
+    currentLineWidth += static_cast<float>(glyph.advance);
+    maxHeight = std::max(maxHeight, static_cast<float>(glyph.height));
+  }
+
+  totalWidth = std::max(totalWidth, currentLineWidth);
+  return {totalWidth, maxHeight};
+}
+
 } // namespace Font
 
 void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<std::pair<float, float>> points,

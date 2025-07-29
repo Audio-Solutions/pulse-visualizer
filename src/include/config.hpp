@@ -69,12 +69,7 @@ struct Options {
     std::string device = "auto";
   } audio;
 
-  struct Visualizers {
-    int spectrogram_order = 0;
-    int lissajous_order = 1;
-    int oscilloscope_order = 2;
-    int fft_order = 3;
-  } visualizers;
+  std::vector<std::string> visualizers;
 
   struct Window {
     int default_width = 1080;
@@ -134,12 +129,6 @@ void copyFiles();
  */
 std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path);
 
-/**
- * @brief Get a value from YAML configuration with type conversion
- * @param root Root YAML node
- * @param path Dot-separated path to the desired value
- * @return Value of type T
- */
 template <typename T> T get(const YAML::Node& root, const std::string& path);
 
 /**
@@ -152,5 +141,10 @@ void load();
  * @return true if configuration was reloaded, false otherwise
  */
 bool reload();
+
+/**
+ * @brief Cleanup inotify resources
+ */
+void cleanup();
 
 } // namespace Config

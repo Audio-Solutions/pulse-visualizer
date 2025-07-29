@@ -20,7 +20,7 @@ void setViewport(int x, int width, int height);
  * @brief Window splitter for resizing visualizer windows
  */
 struct Splitter {
-  SDL_Window* win = nullptr;
+  size_t sdlWindow = 0;
   int x, dx;
   bool draggable = true;
   bool dragging = false;
@@ -42,11 +42,13 @@ struct Splitter {
  * @brief Visualizer window with phosphor effect support
  */
 struct VisualizerWindow {
-  SDL_Window* win = nullptr;
+  size_t sdlWindow = 0;
   int x, width;
   float aspectRatio = 0;
   size_t pointCount;
   bool hovering = false;
+  constexpr static size_t buttonSize = 20;
+  constexpr static size_t buttonPadding = 10;
 
   /**
    * @brief Phosphor effect rendering components
@@ -63,7 +65,29 @@ struct VisualizerWindow {
     int textureHeight = 0;
   } phosphor;
 
-  void (*render)() = nullptr;
+  std::function<void()> render;
+
+  /**
+   * @brief Draw an arrow for the swap button
+   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   */
+  void drawArrow(int dir);
+
+  /**
+   * @brief Check if the swap button is pressed
+   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   * @param mouseX X position of the mouse
+   * @param mouseY Y position of the mouse
+   */
+  bool buttonPressed(int dir, int mouseX, int mouseY);
+
+  /**
+   * @brief Check if the swap button is hovering
+   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   * @param mouseX X position of the mouse
+   * @param mouseY Y position of the mouse
+   */
+  bool buttonHovering(int dir, int mouseX, int mouseY);
 
   /**
    * @brief Handle SDL events for the window
@@ -89,6 +113,11 @@ struct VisualizerWindow {
    * @brief Draw the visualizer window
    */
   void draw();
+
+  /**
+   * @brief Cleanup OpenGL resources
+   */
+  void cleanup();
 };
 
 // Global window management
@@ -132,5 +161,16 @@ void updateSplitters();
  * @brief Reorder visualizer windows based on configuration
  */
 void reorder();
+
+/**
+ * @brief Direction for swapping visualizers
+ */
+enum Direction { Left = -1, Right = 1 };
+
+/**
+ * @brief Swap visualizer at index with its neighbor in the given direction
+ * @param index Index of visualizer to swap
+ */
+template <Direction direction> void swapVisualizer(size_t index);
 
 } // namespace WindowManager

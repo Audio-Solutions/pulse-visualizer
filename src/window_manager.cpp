@@ -6,6 +6,9 @@
 #include "include/theme.hpp"
 #include "include/visualizers.hpp"
 
+/**
+ * TODO: Implement separate window containers for multi-window layouts
+ */
 namespace WindowManager {
 
 // Delta time for frame timing
@@ -74,18 +77,22 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     hovering = (event.motion.x >= x && event.motion.x < x + width);
     break;
 
-  case SDL_WINDOWEVENT:
-    switch (event.window.event) {
-    case SDL_WINDOWEVENT_LEAVE:
-      // Disable hover state when mouse leaves the window
-      hovering = false;
-      break;
-    default:
-      break;
+  case SDL_MOUSEBUTTONDOWN:
+    if (event.button.button == SDL_BUTTON_LEFT) {
+      if (event.button.x >= x && event.button.x < x + width) {
+        size_t index = this - &windows[0];
+
+        if (buttonPressed(-1, event.button.x, event.button.y))
+          swapVisualizer<Direction::Left>(index);
+        else if (buttonPressed(1, event.button.x, event.button.y))
+          swapVisualizer<Direction::Right>(index);
+      }
     }
     break;
 
-  default:
+  case SDL_WINDOWEVENT:
+    if (event.window.event == SDL_WINDOWEVENT_LEAVE)
+      hovering = false;
     break;
   }
 }
@@ -93,6 +100,9 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 void Splitter::draw() {
   if (SDLWindow::height == 0) [[unlikely]]
     return;
+
+  // Select the window for rendering
+  SDLWindow::selectWindow(sdlWindow);
 
   // Set viewport for splitter rendering
   setViewport(x - 5, 10, SDLWindow::height);
@@ -182,8 +192,8 @@ void VisualizerWindow::resizeTextures() {
   bool sizeChanged = (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::height);
 
   // Array of phosphor effect texture handles
-  GLuint* textures[] = {&phosphor.energyTexture, &phosphor.ageTexture,    &phosphor.tempTexture,
-                        &phosphor.tempTexture2,  &phosphor.outputTexture, &phosphor.frameBuffer};
+  GLuint* textures[] = {&phosphor.energyTexture, &phosphor.ageTexture, &phosphor.tempTexture, &phosphor.tempTexture2,
+                        &phosphor.outputTexture};
 
   // Check if any textures are uninitialized
   bool textureUninitialized = [textures]() -> bool {
@@ -252,6 +262,9 @@ void VisualizerWindow::draw() {
     throw std::runtime_error("WindowManager::VisualizerWindow::draw(): outputTexture is not a Texture");
   }
 
+  // Select the window for rendering
+  SDLWindow::selectWindow(sdlWindow);
+
   // Set viewport for this window
   setViewport(x, width, SDLWindow::height);
 
@@ -284,6 +297,49 @@ void VisualizerWindow::draw() {
               << std::endl;
 }
 
+void VisualizerWindow::drawArrow(int dir) {
+  if (SDLWindow::height == 0) [[unlikely]]
+    return;
+
+  SDLWindow::selectWindow(sdlWindow);
+  setViewport(x, width, SDLWindow::height);
+
+  int arrowX = (dir == -1) ? buttonPadding : width - buttonPadding - buttonSize;
+  int arrowY = buttonPadding;
+
+  // Draw background
+  Graphics::drawFilledRect(arrowX, arrowY, buttonSize, buttonSize, Theme::colors.bgaccent);
+
+  // Draw arrow
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_POLYGON_SMOOTH);
+
+  glColor4fv(Theme::colors.text);
+  glBegin(GL_TRIANGLES);
+  float x1 = arrowX + buttonSize * (0.5f - 0.2f * dir);
+  float y1 = arrowY + buttonSize * 0.3f;
+  float x2 = arrowX + buttonSize * (0.5f + 0.2f * dir);
+  float y2 = arrowY + buttonSize * 0.5f;
+  float x3 = arrowX + buttonSize * (0.5f - 0.2f * dir);
+  float y3 = arrowY + buttonSize * 0.7f;
+  glVertex2f(x1, y1);
+  glVertex2f(x2, y2);
+  glVertex2f(x3, y3);
+
+  glEnd();
+  glDisable(GL_POLYGON_SMOOTH);
+  glDisable(GL_BLEND);
+}
+
+bool VisualizerWindow::buttonPressed(int dir, int mouseX, int mouseY) {
+  int arrowX = (dir == -1) ? buttonPadding : width - buttonPadding - buttonSize;
+  int arrowY = SDLWindow::height - buttonPadding - buttonSize;
+  return (mouseX >= x + arrowX && mouseX < x + arrowX + buttonSize && mouseY >= arrowY && mouseY < arrowY + buttonSize);
+}
+
+bool VisualizerWindow::buttonHovering(int dir, int mouseX, int mouseY) { return buttonPressed(dir, mouseX, mouseY); }
+
 void drawSplitters() {
   // Draw all window splitters
   for (Splitter& splitter : splitters)
@@ -295,6 +351,14 @@ void renderAll() {
   for (VisualizerWindow& window : windows)
     if (window.render)
       window.render();
+
+  // Draw arrows for each window
+  for (auto& window : windows) {
+    if (window.hovering) {
+      window.drawArrow(-1);
+      window.drawArrow(1);
+    }
+  }
 }
 
 void resizeTextures() {
@@ -406,46 +470,88 @@ void updateSplitters() {
   moveSplitter(movingSplitterIndex);
 }
 
+void VisualizerWindow::cleanup() {
+  // Cleanup phosphor effect textures
+  if (phosphor.energyTexture) {
+    glDeleteTextures(1, &phosphor.energyTexture);
+    phosphor.energyTexture = 0;
+  }
+  if (phosphor.ageTexture) {
+    glDeleteTextures(1, &phosphor.ageTexture);
+    phosphor.ageTexture = 0;
+  }
+  if (phosphor.tempTexture) {
+    glDeleteTextures(1, &phosphor.tempTexture);
+    phosphor.tempTexture = 0;
+  }
+  if (phosphor.tempTexture2) {
+    glDeleteTextures(1, &phosphor.tempTexture2);
+    phosphor.tempTexture2 = 0;
+  }
+  if (phosphor.outputTexture) {
+    glDeleteTextures(1, &phosphor.outputTexture);
+    phosphor.outputTexture = 0;
+  }
+  if (phosphor.frameBuffer) {
+    glDeleteFramebuffers(1, &phosphor.frameBuffer);
+    phosphor.frameBuffer = 0;
+  }
+  if (phosphor.vertexBuffer) {
+    glDeleteBuffers(1, &phosphor.vertexBuffer);
+    phosphor.vertexBuffer = 0;
+  }
+}
+
 void reorder() {
   // Define visualizer render functions and their window pointers
-  std::vector<std::pair<void (*)(), WindowManager::VisualizerWindow*&>> visualizers = {
+  std::vector<std::pair<std::function<void()>, WindowManager::VisualizerWindow*&>> visualizers = {
       {SpectrumAnalyzer::render, SpectrumAnalyzer::window},
       {Lissajous::render,        Lissajous::window       },
       {Oscilloscope::render,     Oscilloscope::window    },
       {Spectrogram::render,      Spectrogram::window     }
   };
 
-  // Get order configuration for each visualizer
-  std::vector<int*> orders = {&Config::options.visualizers.fft_order, &Config::options.visualizers.lissajous_order,
-                              &Config::options.visualizers.oscilloscope_order,
-                              &Config::options.visualizers.spectrogram_order};
+  // Map visualizer names to their indices
+  std::map<std::string, size_t> visualizerMap = {
+      {"spectrum_analyzer", 0},
+      {"lissajous",         1},
+      {"oscilloscope",      2},
+      {"spectrogram",       3}
+  };
 
-  // Create pairs of order values and visualizer indices
-  std::vector<std::pair<int, size_t>> orderIndexPairs;
-  for (size_t i = 0; i < orders.size(); ++i)
-    if (*orders[i] != -1)
-      orderIndexPairs.emplace_back(*orders[i], i);
+  if (Config::options.visualizers.empty()) {
+    Config::options.visualizers = {"spectrum_analyzer", "oscilloscope", "spectrogram"};
+  }
 
-  // Sort visualizers by their configured order
-  std::sort(orderIndexPairs.begin(), orderIndexPairs.end());
+  // Cleanup existing windows before clearing
+  for (auto& window : windows) {
+    window.cleanup();
+  }
 
   // Clear existing windows and splitters
   windows.clear();
   splitters.clear();
-  windows.reserve(orders.size());
+  windows.reserve(Config::options.visualizers.size());
 
-  // Create windows in sorted order
-  for (size_t i = 0; i < orderIndexPairs.size(); ++i) {
-    size_t idx = orderIndexPairs[i].second;
+  // Create windows in the order specified in configuration
+  for (size_t i = 0; i < Config::options.visualizers.size(); ++i) {
+    const std::string& visName = Config::options.visualizers[i];
+    auto it = visualizerMap.find(visName);
+    if (it == visualizerMap.end()) {
+      std::cerr << "Warning: Unknown visualizer '" << visName << "' in configuration" << std::endl;
+      continue;
+    }
+
+    size_t idx = it->second;
     VisualizerWindow vw {};
     // Set aspect ratio for Lissajous (square) visualizer
-    vw.aspectRatio = (visualizers[idx].first == Lissajous::render) ? 1.0f : 0.0f;
+    vw.aspectRatio = (visName == "lissajous") ? 1.0f : 0.0f;
     vw.render = visualizers[idx].first;
     windows.push_back(vw);
     visualizers[idx].second = &windows.back();
 
     // Create splitter between windows
-    if (i + 1 < orderIndexPairs.size()) {
+    if (i + 1 < Config::options.visualizers.size()) {
       Splitter s;
       // Disable dragging for first splitter if Lissajous is first
       if (i == 0 && vw.aspectRatio != 0.0f)
@@ -457,6 +563,14 @@ void reorder() {
   // Disable dragging for last splitter if Lissajous is last
   if (!windows.empty() && !splitters.empty() && windows.back().aspectRatio != 0.0f)
     splitters.back().draggable = false;
+}
+
+template <Direction direction> void swapVisualizer(size_t index) {
+  if (index < 0 || index >= windows.size() || index + direction < 0 || index + direction >= windows.size())
+    return;
+
+  std::swap(Config::options.visualizers[index], Config::options.visualizers[index + direction]);
+  reorder();
 }
 
 } // namespace WindowManager

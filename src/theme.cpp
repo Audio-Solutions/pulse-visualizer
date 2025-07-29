@@ -204,4 +204,17 @@ bool reload() {
   return false;
 }
 
+void cleanup() {
+#ifdef __linux__
+  if (themeInotifyWatch != -1 && themeInotifyFd != -1) {
+    inotify_rm_watch(themeInotifyFd, themeInotifyWatch);
+    themeInotifyWatch = -1;
+  }
+  if (themeInotifyFd != -1) {
+    close(themeInotifyFd);
+    themeInotifyFd = -1;
+  }
+#endif
+}
+
 } // namespace Theme
