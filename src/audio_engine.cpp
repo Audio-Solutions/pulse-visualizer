@@ -204,9 +204,9 @@ bool read(float* buffer, const size_t& samples) {
 }
 
 bool reconfigure() {
-  static std::string lastDevice = Config::options.audio.device;
-  static uint32_t lastSampleRate = Config::options.audio.sample_rate;
-  static size_t lastFPS = Config::options.window.fps_limit;
+  static std::string lastDevice = 0;
+  static uint32_t lastSampleRate = 0;
+  static size_t lastFPS = 0;
 
   // Check if reconfiguration is needed
   if (lastDevice == Config::options.audio.device && lastFPS == Config::options.window.fps_limit &&
@@ -540,9 +540,9 @@ bool read(float*, const size_t& frames) {
 }
 
 bool reconfigure() {
-  static std::string lastDevice = Config::options.audio.device;
-  static uint32_t lastSampleRate = Config::options.audio.sample_rate;
-  static size_t lastFPS = Config::options.window.fps_limit;
+  static std::string lastDevice = 0;
+  static uint32_t lastSampleRate = 0;
+  static size_t lastFPS = 0;
 
   // Check if reconfiguration is needed
   if (lastDevice == Config::options.audio.device && lastFPS == Config::options.window.fps_limit &&
