@@ -55,14 +55,14 @@ void render() {
       float nx = (point.first - halfW) / halfW;
       float ny = (point.second - halfW) / halfW;
 
-      if (Config::options.lissajous.mode == "circle") {
+      if (Config::options.lissajous.mode == "circle" || Config::options.lissajous.mode == "pulsar") {
         // Circle mode
         float u = nx * sqrtf(1.0f - ny * ny / 2.0f) * sqrtf(2.0f);
         float v = ny * sqrtf(1.0f - nx * nx / 2.0f) * sqrtf(2.0f);
         nx = u;
         ny = v;
-
-      } else if (Config::options.lissajous.mode == "pulsar") {
+      }
+      if (Config::options.lissajous.mode == "pulsar") {
         // Pulsar mode (no clue how it works)
         nx *= 0.2f;
         ny *= 0.2f;
