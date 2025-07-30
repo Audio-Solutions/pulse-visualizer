@@ -61,7 +61,7 @@ float calculateBorderMask(vec2 uv, vec2 texelSize) {
   
   if (enableCurvedScreen == 0) {
     // No distortion - simple rectangular border with gap
-    vec2 border = texelSize * 2.0; // Border thickness
+    vec2 border = texelSize * 8.0;
     vec2 mask = smoothstep(0.0, border.x, scaledUV) * smoothstep(1.0, 1.0 - border.x, scaledUV) *
                 smoothstep(0.0, border.y, scaledUV) * smoothstep(1.0, 1.0 - border.y, scaledUV);
     return mask.x * mask.y;
@@ -77,7 +77,7 @@ float calculateBorderMask(vec2 uv, vec2 texelSize) {
   float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
   
   // Adaptive border thickness based on distortion
-  float borderThickness = texelSize.x * 2.0 / max(area, 0.1);
+  float borderThickness = texelSize.x * 8.0;
   
   // Check if we're inside the distorted screen area
   float insideX = smoothstep(0.0, borderThickness, distortedUV.x) * 

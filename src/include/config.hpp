@@ -30,6 +30,7 @@ struct Options {
     int spline_segments = 8;
     float beam_multiplier = 1.0f;
     float readback_multiplier = 1.0f;
+    std::string mode = "none";
   } lissajous;
 
   struct FFT {

@@ -8,7 +8,6 @@
 #include "include/window_manager.hpp"
 
 namespace Lissajous {
-
 // Lissajous figure data and window
 std::vector<std::pair<float, float>> points;
 WindowManager::VisualizerWindow* window;
@@ -32,14 +31,12 @@ void render() {
   for (size_t i = 0; i < readCount; i++) {
     size_t idx = (start + i) % DSP::bufferSize;
 
-    // Convert mid/side to left/right channels
     float left = DSP::bufferMid[idx] + DSP::bufferSide[idx];
     float right = DSP::bufferMid[idx] - DSP::bufferSide[idx];
 
-    // Map to screen coordinates
+    // Basic mapping to screen coordinates
     float x = (1.f + left) * window->width / 2.f;
     float y = (1.f + right) * window->width / 2.f;
-
     points[i] = {x, y};
   }
 
@@ -47,6 +44,45 @@ void render() {
   if (Config::options.lissajous.enable_splines)
     points = Spline::generate(points, Config::options.lissajous.spline_segments, {1.f, 0.f},
                               {window->width - 1, window->width});
+
+  // Apply stretch mode if enabled
+  if (Config::options.lissajous.mode == "rotate" || Config::options.lissajous.mode == "pulsar" ||
+      Config::options.lissajous.mode == "circle") {
+    float halfW = window->width / 2.0f;
+    float angle = M_PI / 4.0f;
+    float scale = 1.0f / sqrtf(2.0f);
+    for (auto& point : points) {
+      float nx = (point.first - halfW) / halfW;
+      float ny = (point.second - halfW) / halfW;
+
+      if (Config::options.lissajous.mode == "circle") {
+        // Circle mode
+        float u = nx * sqrtf(1.0f - ny * ny / 2.0f) * sqrtf(2.0f);
+        float v = ny * sqrtf(1.0f - nx * nx / 2.0f) * sqrtf(2.0f);
+        nx = u;
+        ny = v;
+
+      } else if (Config::options.lissajous.mode == "pulsar") {
+        // Pulsar mode (no clue how it works)
+        nx *= 0.2f;
+        ny *= 0.2f;
+        float d = sqrtf(nx * nx + ny * ny);
+        float s = -(logf(d + 0.1f) + 1.0f) / d;
+        nx *= s;
+        ny *= s;
+      }
+
+      // Apply rotation
+      float sx = halfW + nx * halfW;
+      float sy = halfW + ny * halfW;
+      float dx = sx - halfW;
+      float dy = sy - halfW;
+      float rx = (dx * cosf(angle) - dy * sinf(angle)) * scale;
+      float ry = (dx * sinf(angle) + dy * cosf(angle)) * scale;
+      point.first = halfW + rx;
+      point.second = halfW + ry;
+    }
+  }
 
   // Render with phosphor effect if enabled
   if (Config::options.phosphor.enabled) {

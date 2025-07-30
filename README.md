@@ -13,7 +13,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - Curved screen, vignette, grain, chromatic aberration (toggle as you like)
   - Blur, light spread, and overdrive are all tweakable
 - Multiple visualizer styles:
-  - Lissajous curve (with fancy spline interpolation)
+  - Lissajous curve (with fancy spline interpolation and stretch modes)
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)

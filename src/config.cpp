@@ -228,6 +228,7 @@ void load() {
   options.lissajous.spline_segments = get<int>(configData, "lissajous.spline_segments");
   options.lissajous.beam_multiplier = get<float>(configData, "lissajous.beam_multiplier");
   options.lissajous.readback_multiplier = get<float>(configData, "lissajous.readback_multiplier");
+  options.lissajous.mode = get<std::string>(configData, "lissajous.mode");
 
   // Load FFT configuration
   options.fft.min_freq = get<float>(configData, "fft.min_freq");

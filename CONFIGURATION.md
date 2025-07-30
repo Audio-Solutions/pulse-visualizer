@@ -233,6 +233,14 @@ lissajous:
   # Higher value means more data is redrawn, which stabilizes the lissajous.
   # Caveat is a minor increase in CPU usage.
   readback_multiplier: 3.0
+  
+  # Options: "circle", "pulsar", "rotate", "none"
+  # rotate is a 45 degree rotation of the curve
+  # circle is the rotated curve stretched to a circle
+  # pulsar is all of the above, makes the outside be silent
+  # and the inside be loud which looks really cool
+  # none is the default mode
+  mode: none
 ```
 
 ### Oscilloscope Settings
