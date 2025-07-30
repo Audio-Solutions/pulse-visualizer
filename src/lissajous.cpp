@@ -51,6 +51,28 @@ void render() {
     float halfW = window->width / 2.0f;
     float angle = M_PI / 4.0f;
     float scale = 1.0f / sqrtf(2.0f);
+
+    // Pre-compute pulsar mode constants
+    // This scales the input such that the point (1, 0) ends up at the origin (0, 0)
+    // And scales the output such that the point near origin (1e-6, 0) ends up at (1, 0)
+    // Sub scales the logarythmic space to make the points distribute more to the outer edge
+    float k = 0.0f, kPost = 0.0f, sub = 0.35f;
+    if (Config::options.lissajous.mode == "pulsar") {
+
+      // Scale k calculation
+      k = (std::exp(-1.0f) - sub) / std::sqrt(2.0f);
+
+      // Nonlinear pre-transform (near origin)
+      float nxRef = 1e-6f * std::sqrt(2.0f) * k;
+
+      // Calculate d and s for logarithmic scaling
+      float dRef = std::abs(nxRef);
+      float sRef = -(std::log(dRef + sub) + 1.0f) / dRef;
+
+      // Compute post-scale factor
+      kPost = 1.0f / std::abs(nxRef * sRef);
+    }
+
     for (auto& point : points) {
       float nx = (point.first - halfW) / halfW;
       float ny = (point.second - halfW) / halfW;
@@ -63,13 +85,15 @@ void render() {
         ny = v;
       }
       if (Config::options.lissajous.mode == "pulsar") {
-        // Pulsar mode (no clue how it works)
-        nx *= 0.2f;
-        ny *= 0.2f;
-        float d = sqrtf(nx * nx + ny * ny);
-        float s = -(logf(d + 0.1f) + 1.0f) / d;
-        nx *= s;
-        ny *= s;
+        // Apply normalized scaling to current point
+        nx *= k;
+        ny *= k;
+
+        // Funny math
+        float d = std::sqrt(nx * nx + ny * ny);
+        float s = -(std::log(d + sub) + 1.0f) / d;
+        nx = nx * s * kPost * sqrtf(2.0f);
+        ny = ny * s * kPost * sqrtf(2.0f);
       }
 
       // Apply rotation
