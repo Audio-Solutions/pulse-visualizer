@@ -53,6 +53,9 @@ int main() {
   Config::load();
   Theme::load(Config::options.window.theme);
 
+  // Set window decorations
+  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations ? SDL_TRUE : SDL_FALSE);
+
   // Initialize audio and DSP components
   AudioEngine::init();
   DSP::ConstantQ::init();
@@ -93,6 +96,9 @@ int main() {
       for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
         Graphics::Font::load(i);
       }
+
+      // Set window decorations
+      SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations ? SDL_TRUE : SDL_FALSE);
 
       AudioEngine::reconfigure();
       DSP::FFT::recreatePlans();

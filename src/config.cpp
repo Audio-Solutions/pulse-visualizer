@@ -269,6 +269,7 @@ void load() {
   options.window.default_height = get<int>(configData, "window.default_height");
   options.window.theme = get<std::string>(configData, "window.theme");
   options.window.fps_limit = get<int>(configData, "window.fps_limit");
+  options.window.decorations = get<bool>(configData, "window.decorations");
 
   // Load debug configuration
   options.debug.log_fps = get<bool>(configData, "debug.log_fps");

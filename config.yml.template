@@ -213,6 +213,8 @@ window:
   fps_limit: 240
   # Default theme file (from themes/ directory)
   theme: mocha.txt 
+  # Enable window decorations in your desktop environment
+  decorations: true
 
 # Lowpass Filter Settings
 # Controls the lowpass filter applied to the audio signal used for oscilloscope

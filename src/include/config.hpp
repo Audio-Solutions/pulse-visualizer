@@ -77,6 +77,7 @@ struct Options {
     int default_height = 200;
     std::string theme = "mocha.txt";
     int fps_limit = 240;
+    bool decorations = true;
   } window;
 
   struct Debug {
