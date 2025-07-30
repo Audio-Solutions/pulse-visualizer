@@ -52,8 +52,6 @@ void render() {
 
   if (isStretchMode) {
     float halfW = window->width / 2.0f;
-    float angle = M_PI / 4.0f;
-    float scale = 1.0f / sqrtf(2.0f);
 
     // Pre-compute pulsar mode constants
     // This scales the input such that the point (1, 0) ends up at the origin (0, 0)
@@ -86,14 +84,14 @@ void render() {
         float r, theta;
         if (fabs(nx) > fabs(ny)) {
           r = nx;
-          theta = (M_PI / 4) * (ny / nx);
+          theta = M_PI_4 * (ny / nx);
         } else {
           r = ny;
-          theta = (M_PI / 2) - (M_PI / 4) * (nx / ny);
+          theta = M_PI_2 - M_PI_4 * (nx / ny);
         }
 
-        nx = r * cosf(theta) * sqrtf(2.0f);
-        ny = r * sinf(theta) * sqrtf(2.0f);
+        nx = r * cosf(theta) * M_SQRT2;
+        ny = r * sinf(theta) * M_SQRT2;
       }
       if (isPulsarMode) {
         // Apply normalized scaling to current point
@@ -103,8 +101,8 @@ void render() {
         // Funny math
         float d = std::sqrt(nx * nx + ny * ny);
         float s = -(std::log(d + singularity) + 1.0f) / d;
-        nx = nx * s * kPost * sqrtf(2.0f);
-        ny = ny * s * kPost * sqrtf(2.0f);
+        nx = nx * s * kPost * M_SQRT2;
+        ny = ny * s * kPost * M_SQRT2;
       }
 
       // Apply rotation
@@ -112,8 +110,8 @@ void render() {
       float sy = halfW + ny * halfW;
       float dx = sx - halfW;
       float dy = sy - halfW;
-      float rx = (dx * cosf(angle) - dy * sinf(angle)) * scale;
-      float ry = (dx * sinf(angle) + dy * cosf(angle)) * scale;
+      float rx = (dx * M_SQRT1_2 - dy * M_SQRT1_2) * M_SQRT1_2;
+      float ry = (dx * M_SQRT1_2 + dy * M_SQRT1_2) * M_SQRT1_2;
       point.first = halfW + rx;
       point.second = halfW + ry;
     }
