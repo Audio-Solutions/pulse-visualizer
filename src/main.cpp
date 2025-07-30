@@ -41,17 +41,19 @@ int main() {
   DSP::bandpassed.resize(DSP::bufferSize);
   DSP::lowpassed.resize(DSP::bufferSize);
 
+  // Setup configuration
+  Config::copyFiles();
+  Config::load();
+
+  // Setup theme
+  Theme::load();
+
   // Initialize SDL and OpenGL
   SDLWindow::init();
 
   // Clear and display the base window
   SDLWindow::clear();
   SDLWindow::display();
-
-  // Setup configuration and theme
-  Config::copyFiles();
-  Config::load();
-  Theme::load(Config::options.window.theme);
 
   // Set window decorations
   SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations ? SDL_TRUE : SDL_FALSE);
@@ -83,7 +85,7 @@ int main() {
     // Handle configuration reloading
     if (Config::reload()) {
       std::cout << "Config reloaded" << std::endl;
-      Theme::load(Config::options.window.theme);
+      Theme::load();
 
       // Cleanup fonts for all windows
       for (size_t i = 0; i < WindowManager::windows.size(); ++i) {

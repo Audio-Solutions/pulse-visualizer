@@ -26,10 +26,10 @@ void mix(float* a, float* b, float* out, float t) {
   }
 }
 
-void load(const std::string& name) {
+void load() {
   // Construct theme file path
-  std::string path = "~/.config/pulse-visualizer/themes/" + name;
-  if (name.find(".txt") == std::string::npos)
+  std::string path = "~/.config/pulse-visualizer/themes/" + Config::options.window.theme;
+  if (Config::options.window.theme.find(".txt") == std::string::npos)
     path += ".txt";
 
   path = expandUserPath(path);
@@ -52,7 +52,7 @@ void load(const std::string& name) {
   }
 #endif
 
-  currentThemePath = path;
+  currentThemePath = Config::options.window.theme;
 
   // Color mapping for array-based colors (RGBA)
   static std::unordered_map<std::string, float*> colorMapArrays = {
@@ -179,12 +179,12 @@ bool reload() {
         // check if the inotify got freed (file gets moved, deleted etc), kernel fires IN_IGNORED when that happens
         if ((event->mask & IN_IGNORED) == IN_IGNORED) {
           // if(event->wd == themeInotifyWatch) {
-            themeInotifyWatch = -1;
+          themeInotifyWatch = -1;
           // }
         }
       }
 
-      load(Config::options.window.theme);
+      load();
       return true;
     }
   }
@@ -197,7 +197,7 @@ bool reload() {
   static time_t lastThemeMTime = 0;
   if (st.st_mtime != lastThemeMTime) {
     lastThemeMTime = st.st_mtime;
-    load(Config::options.window.theme);
+    load();
     return true;
   }
 #endif
