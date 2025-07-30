@@ -122,9 +122,6 @@ phosphor:
   # Grain strength (Spatial noise)
   grain_strength: 0.1
   
-  # Density of spline points for phosphor rendering (higher=smoother curves)
-  spline_density: 8
-  
   # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
   tension: 0.5
   
@@ -221,9 +218,6 @@ Controls the Lissajous curve visualization (X-Y plot of left vs right channel).
 lissajous:
   # Enable Catmull-Rom spline interpolation for smoother curves
   enable_splines: true
-  
-  # Number of segments per spline (higher=smoother curves)
-  spline_segments: 8
   
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
@@ -367,6 +361,9 @@ window:
   
   # theme file (from themes/ directory)
   theme: mocha.txt
+
+  # Enable window decorations in your desktop environment
+  decorations: true
 ```
 
 ## Troubleshooting
