@@ -131,11 +131,12 @@ lissajous:
   # Higher value means more data is redrawn, which stabilizes the lissajous.
   # Caveat is a minor increase in CPU usage.
   readback_multiplier: 3.0
-  # Options: "circle", "pulsar", "rotate", "none"
+  # Options: "circle", "pulsar", "rotate", "black_hole", "none"
   # rotate is a 45 degree rotation of the curve
   # circle is the rotated curve stretched to a circle
   # pulsar is all of the above, makes the outside be silent
   # and the inside be loud which looks really cool
+  # black_hole is a rotated circle with a black hole-like effect
   # none is the default mode
   mode: none
 
