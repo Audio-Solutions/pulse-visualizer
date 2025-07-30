@@ -64,10 +64,10 @@ void render() {
     if (isPulsarMode) {
 
       // Scale k calculation
-      k = (std::exp(-1.0f) - singularity) / (singularity > 1.0f / M_E ? std::sqrt(2.0f) / 2.0f : std::sqrt(2.0f));
+      k = (std::exp(-1.0f) - singularity) / (mode == "black_hole" ? std::sqrt(2.0f) / 2.0f : std::sqrt(2.0f));
 
       // Nonlinear pre-transform
-      float nxRef = (singularity > 1.0f / M_E ? 1.f : 1e-6f) * std::sqrt(2.0f) * k;
+      float nxRef = (mode == "black_hole" ? 1.f : 1e-6f) * std::sqrt(2.0f) * k;
 
       // Calculate d and s for logarithmic scaling
       float dRef = std::abs(nxRef);
@@ -82,11 +82,18 @@ void render() {
       float ny = (point.second - halfW) / halfW;
 
       if (isCircleMode) {
-        // Circle mode
-        float u = nx * sqrtf(1.0f - ny * ny / 2.0f) * sqrtf(2.0f);
-        float v = ny * sqrtf(1.0f - nx * nx / 2.0f) * sqrtf(2.0f);
-        nx = u;
-        ny = v;
+        // Circle transform with Density-constant linear mapping
+        float r, theta;
+        if (fabs(nx) > fabs(ny)) {
+          r = nx;
+          theta = (M_PI / 4) * (ny / nx);
+        } else {
+          r = ny;
+          theta = (M_PI / 2) - (M_PI / 4) * (nx / ny);
+        }
+
+        nx = r * cosf(theta) * sqrtf(2.0f);
+        ny = r * sinf(theta) * sqrtf(2.0f);
       }
       if (isPulsarMode) {
         // Apply normalized scaling to current point
