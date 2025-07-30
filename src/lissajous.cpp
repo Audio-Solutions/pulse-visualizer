@@ -35,8 +35,8 @@ void render() {
     float right = DSP::bufferMid[idx] - DSP::bufferSide[idx];
 
     // Basic mapping to screen coordinates
-    float x = (1.f + left) * window->width / 2.f;
-    float y = (1.f + right) * window->width / 2.f;
+    float x = (1.f + right) * window->width / 2.f;
+    float y = (1.f + left) * window->width / 2.f;
     points[i] = {x, y};
   }
 
