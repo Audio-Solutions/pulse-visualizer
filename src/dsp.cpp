@@ -181,6 +181,28 @@ std::vector<size_t> lengths;
 std::vector<std::vector<float, AlignedAllocator<float, 32>>> reals;
 std::vector<std::vector<float, AlignedAllocator<float, 32>>> imags;
 
+std::pair<size_t, size_t> find(float f) {
+  size_t n = frequencies.size();
+  if (n == 0)
+    return {0, 0};
+  if (f <= frequencies[0])
+    return {0, 0};
+  if (f >= frequencies[n - 1])
+    return {n - 1, n - 1};
+
+  size_t left = 0, right = n - 1;
+  while (left < right) {
+    size_t mid = left + ((right - left) >> 1);
+    if (frequencies[mid] < f)
+      left = mid + 1;
+    else
+      right = mid;
+  }
+  if (left == 0)
+    return {0, 0};
+  return {left - 1, left};
+}
+
 void init() {
   // Calculate number of frequency bins
   float octaves = log2f(Config::options.fft.max_freq / Config::options.fft.min_freq);

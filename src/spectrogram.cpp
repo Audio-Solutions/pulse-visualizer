@@ -23,27 +23,6 @@ float normalize(float db) {
 }
 
 /**
- * @brief Find frequency range indices for given frequency
- * @param freqs Frequency array
- * @param f Target frequency
- * @return Pair of start and end indices
- */
-std::pair<size_t, size_t> find(const std::vector<float>& freqs, float f) {
-  if (freqs.empty())
-    return {0, 0};
-  if (f <= freqs.front())
-    return {0, 0};
-  if (f >= freqs.back())
-    return {freqs.size() - 1, freqs.size() - 1};
-
-  auto it = std::lower_bound(freqs.begin(), freqs.end(), f);
-  size_t idx = std::distance(freqs.begin(), it);
-  if (it == freqs.begin())
-    return {0, 0};
-  return {idx - 1, idx};
-}
-
-/**
  * @brief Map spectrum data to visualization format
  * @param in Input spectrum data
  * @return Mapped spectrum data
@@ -68,7 +47,7 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
     // Find corresponding frequency bins
     size_t bin1, bin2;
     if (Config::options.fft.enable_cqt) {
-      std::tie(bin1, bin2) = find(DSP::ConstantQ::frequencies, target);
+      std::tie(bin1, bin2) = DSP::ConstantQ::find(target);
     } else {
       bin1 = target / (Config::options.audio.sample_rate * 0.5f / in.size());
       bin2 = bin1 + 1;

@@ -126,6 +126,13 @@ extern std::vector<std::vector<float, AlignedAllocator<float, 32>>> reals;
 extern std::vector<std::vector<float, AlignedAllocator<float, 32>>> imags;
 
 /**
+ * @brief Find frequency range indices in Constant Q Transform
+ * @param f Target frequency
+ * @return Pair of start and end indices
+ */
+std::pair<size_t, size_t> find(float f);
+
+/**
  * @brief Initialize Constant Q Transform
  */
 void init();

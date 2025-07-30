@@ -173,6 +173,13 @@ void render() {
   float x = 10.0f;
   float y = SDLWindow::height - 20.0f;
 
+  auto drawNoteInfo = [&](float freq, float dB) {
+    auto [note, octave, cents] = DSP::toNote(freq, noteNames);
+    snprintf(overlay, sizeof(overlay), "%6.2f dB | %8.2f Hz | %-2s%2d | %3d Cents", dB, freq, note.c_str(), octave,
+             cents);
+    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->sdlWindow);
+  };
+
   // Convert mouse coordinates to window-relative coordinates
   float mouseXRel = SDLWindow::mouseX - window->x;
   float mouseYRel = SDLWindow::mouseY;
@@ -208,16 +215,9 @@ void render() {
     float gain = powf(freq * 1.0f / (440.0f * 2.0f), -k);
     dB += 20.f * log10f(gain);
 
-    // Get note information and display
-    auto [note, octave, cents] = DSP::toNote(freq, noteNames);
-    snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", dB, freq, note.c_str(), octave,
-             cents);
-    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->sdlWindow);
+    drawNoteInfo(freq, dB);
   } else if (DSP::pitchDB > Config::options.audio.silence_threshold) {
-    auto [note, octave, cents] = DSP::toNote(DSP::pitch, noteNames);
-    snprintf(overlay, sizeof(overlay), "%6.2f dB  |  %7.2f Hz  |  %s%d %+d Cents", DSP::pitchDB, DSP::pitch,
-             note.c_str(), octave, cents);
-    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->sdlWindow);
+    drawNoteInfo(DSP::pitch, DSP::pitchDB);
   }
 }
 
