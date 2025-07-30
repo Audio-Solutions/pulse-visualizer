@@ -45,8 +45,12 @@ void render() {
     points = Spline::generate<10>(points, {1.f, 0.f}, {window->width - 1, window->width});
 
   // Apply stretch mode if enabled
-  if (Config::options.lissajous.mode == "rotate" || Config::options.lissajous.mode == "pulsar" ||
-      Config::options.lissajous.mode == "circle") {
+  const std::string& mode = Config::options.lissajous.mode;
+  bool isStretchMode = (mode == "rotate" || mode == "pulsar" || mode == "circle" || mode == "black_hole");
+  bool isCircleMode = (mode == "circle" || mode == "pulsar" || mode == "black_hole");
+  bool isPulsarMode = (mode == "pulsar" || mode == "black_hole");
+
+  if (isStretchMode) {
     float halfW = window->width / 2.0f;
     float angle = M_PI / 4.0f;
     float scale = 1.0f / sqrtf(2.0f);
@@ -54,19 +58,20 @@ void render() {
     // Pre-compute pulsar mode constants
     // This scales the input such that the point (1, 0) ends up at the origin (0, 0)
     // And scales the output such that the point near origin (1e-6, 0) ends up at (1, 0)
-    // Sub scales the logarythmic space to make the points distribute more to the outer edge
-    float k = 0.0f, kPost = 0.0f, sub = 0.35f;
-    if (Config::options.lissajous.mode == "pulsar") {
+    // Singularity scales the logarythmic space to make the points distribute more to the outer edge
+    // Transformation is nullified at exactly 1/e, below makes it a pulsar, above it makes a black hole
+    float k = 0.0f, kPost = 0.0f, singularity = 1.0f / M_E + (mode == "pulsar" ? -1e-3f : 1e-3f);
+    if (isPulsarMode) {
 
       // Scale k calculation
-      k = (std::exp(-1.0f) - sub) / std::sqrt(2.0f);
+      k = (std::exp(-1.0f) - singularity) / (singularity > 1.0f / M_E ? std::sqrt(2.0f) / 2.0f : std::sqrt(2.0f));
 
-      // Nonlinear pre-transform (near origin)
-      float nxRef = 1e-6f * std::sqrt(2.0f) * k;
+      // Nonlinear pre-transform
+      float nxRef = (singularity > 1.0f / M_E ? 1.f : 1e-6f) * std::sqrt(2.0f) * k;
 
       // Calculate d and s for logarithmic scaling
       float dRef = std::abs(nxRef);
-      float sRef = -(std::log(dRef + sub) + 1.0f) / dRef;
+      float sRef = -(std::log(dRef + singularity) + 1.0f) / dRef;
 
       // Compute post-scale factor
       kPost = 1.0f / std::abs(nxRef * sRef);
@@ -76,21 +81,21 @@ void render() {
       float nx = (point.first - halfW) / halfW;
       float ny = (point.second - halfW) / halfW;
 
-      if (Config::options.lissajous.mode == "circle" || Config::options.lissajous.mode == "pulsar") {
+      if (isCircleMode) {
         // Circle mode
         float u = nx * sqrtf(1.0f - ny * ny / 2.0f) * sqrtf(2.0f);
         float v = ny * sqrtf(1.0f - nx * nx / 2.0f) * sqrtf(2.0f);
         nx = u;
         ny = v;
       }
-      if (Config::options.lissajous.mode == "pulsar") {
+      if (isPulsarMode) {
         // Apply normalized scaling to current point
         nx *= k;
         ny *= k;
 
         // Funny math
         float d = std::sqrt(nx * nx + ny * ny);
-        float s = -(std::log(d + sub) + 1.0f) / d;
+        float s = -(std::log(d + singularity) + 1.0f) / d;
         nx = nx * s * kPost * sqrtf(2.0f);
         ny = ny * s * kPost * sqrtf(2.0f);
       }
