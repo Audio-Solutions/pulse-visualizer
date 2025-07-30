@@ -39,6 +39,7 @@ int main() {
   DSP::bufferMid.resize(DSP::bufferSize);
   DSP::bufferSide.resize(DSP::bufferSize);
   DSP::bandpassed.resize(DSP::bufferSize);
+  DSP::lowpassed.resize(DSP::bufferSize);
 
   // Initialize SDL and OpenGL
   SDLWindow::init();
@@ -57,6 +58,7 @@ int main() {
   DSP::ConstantQ::init();
   DSP::ConstantQ::generate();
   DSP::FFT::init();
+  DSP::Lowpass::init();
 
   // Setup window management
   WindowManager::reorder();
@@ -95,6 +97,7 @@ int main() {
       AudioEngine::reconfigure();
       DSP::FFT::recreatePlans();
       DSP::ConstantQ::regenerate();
+      DSP::Lowpass::reconfigure();
     }
 
     // Handle theme reloading

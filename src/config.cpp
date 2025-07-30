@@ -216,6 +216,7 @@ void load() {
   options.oscilloscope.min_cycle_time = get<float>(configData, "oscilloscope.min_cycle_time");
   options.oscilloscope.time_window = get<float>(configData, "oscilloscope.time_window");
   options.oscilloscope.beam_multiplier = get<float>(configData, "oscilloscope.beam_multiplier");
+  options.oscilloscope.enable_lowpass = get<bool>(configData, "oscilloscope.enable_lowpass");
 
   // Load bandpass filter configuration
   options.bandpass_filter.bandwidth = get<float>(configData, "bandpass_filter.bandwidth");
@@ -293,6 +294,10 @@ void load() {
   options.phosphor.grain_strength = get<float>(configData, "phosphor.grain_strength");
   options.phosphor.vignette_strength = get<float>(configData, "phosphor.vignette_strength");
   options.phosphor.chromatic_aberration_strength = get<float>(configData, "phosphor.chromatic_aberration_strength");
+
+  // Load lowpass configuration
+  options.lowpass.cutoff = get<float>(configData, "lowpass.cutoff");
+  options.lowpass.order = get<int>(configData, "lowpass.order");
 
   // Load font configuration
   options.font = get<std::string>(configData, "font");

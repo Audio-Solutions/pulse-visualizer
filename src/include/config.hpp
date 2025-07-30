@@ -16,6 +16,7 @@ struct Options {
     float min_cycle_time = 16.0f;
     float time_window = 64.0f;
     float beam_multiplier = 1.0f;
+    bool enable_lowpass = false;
   } oscilloscope;
 
   struct BandpassFilter {
@@ -104,6 +105,11 @@ struct Options {
     float vignette_strength = 0.3f;
     float chromatic_aberration_strength = 0.003f;
   } phosphor;
+
+  struct Lowpass {
+    float cutoff = 20000.0f;
+    int order = 1;
+  } lowpass;
 
   std::string font;
 };

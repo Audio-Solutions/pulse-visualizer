@@ -264,6 +264,9 @@ oscilloscope:
   
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
+  
+  # Enable lowpass filter for oscilloscope
+  enable_lowpass: false
 ```
 
 ### Bandpass Filter Settings
@@ -308,6 +311,18 @@ spectrogram:
   
   # Time window for spectrogram in seconds
   time_window: 4.0
+```
+
+### Lowpass Filter Settings
+
+Controls the lowpass filter applied to the audio signal used for oscilloscope.
+
+```yaml
+lowpass:
+  # Cutoff frequency in Hz
+  cutoff: 200.0
+  # Order of the lowpass filter (higher = steeper filter, more CPU usage)
+  order: 4
 ```
 
 ### Visualizer Layout Settings

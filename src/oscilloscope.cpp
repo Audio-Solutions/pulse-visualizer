@@ -61,6 +61,8 @@ void render() {
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
       y = SDLWindow::height * 0.5f + DSP::bandpassed[pos] * 0.5f * SDLWindow::height;
+    else if (Config::options.oscilloscope.enable_lowpass)
+      y = SDLWindow::height * 0.5f + DSP::lowpassed[pos] * 0.5f * SDLWindow::height;
     else
       y = SDLWindow::height * 0.5f + DSP::bufferMid[pos] * 0.5f * SDLWindow::height;
 

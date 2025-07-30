@@ -27,6 +27,7 @@ template <typename T, std::size_t Alignment> struct AlignedAllocator {
 extern std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 extern std::vector<float, AlignedAllocator<float, 32>> bufferSide;
 extern std::vector<float, AlignedAllocator<float, 32>> bandpassed;
+extern std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 
 // FFT data
 extern std::vector<float> fftMidRaw;
@@ -90,6 +91,28 @@ void design(float center = 10.0f);
 void process(float center);
 
 } // namespace Butterworth
+
+/**
+ * @brief Lowpass filter implementation using Butterworth filter
+ */
+namespace Lowpass {
+
+/**
+ * @brief Initialize lowpass filter
+ */
+void init();
+
+/**
+ * @brief Reconfigure lowpass filter if parameters have changed
+ */
+void reconfigure();
+
+/**
+ * @brief Process audio through lowpass filter
+ */
+void process();
+
+} // namespace Lowpass
 
 /**
  * @brief Constant Q Transform implementation

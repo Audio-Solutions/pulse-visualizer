@@ -38,15 +38,15 @@ void main() {
   vec2 nextPos = nextVertex.xy;
 
   // Calculate direction and distance
-  vec2 direction = nextPos - pos;
-  float distance = length(direction);
+  vec2 delta = nextPos - pos;
+  float distance = length(delta);
 
   // Early exit if no distance to avoid division by zero
   if (distance <= 0.0) return;
 
-  direction *= 1.0 / distance; // Normalize direction
+  // Calculate number of steps needed based on distance
   int numSteps = min(256, max(1, int(ceil(distance))));
-  vec2 stepSize = direction * (distance / float(numSteps));
+  vec2 stepSize = delta / float(numSteps);
   
   // Total energy for this segment is proportional to its length
   uint totalSegmentEnergy = uint(segmentEnergyLinear * distance * 4.29e9);

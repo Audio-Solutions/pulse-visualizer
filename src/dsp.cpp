@@ -25,6 +25,7 @@ void AlignedAllocator<T, Alignment>::deallocate(T* p, std::size_t) noexcept {
 std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 std::vector<float, AlignedAllocator<float, 32>> bufferSide;
 std::vector<float, AlignedAllocator<float, 32>> bandpassed;
+std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 
 // FFT data buffers
 std::vector<float> fftMidRaw;
@@ -116,6 +117,59 @@ void process(float center) {
   }
 }
 } // namespace Butterworth
+
+namespace Lowpass {
+std::vector<Butterworth::Biquad> biquads;
+
+void init() {
+  biquads.clear();
+  int sections = Config::options.lowpass.order / 2;
+  float w0 = 2.f * M_PI * Config::options.lowpass.cutoff / Config::options.audio.sample_rate;
+  for (int k = 0; k < sections; ++k) {
+    float theta = M_PI * (2.f * k + 1.f) / (2.f * Config::options.lowpass.order);
+    float sin_theta = sinf(theta);
+    float cos_theta = cosf(theta);
+    float alpha = sinf(w0) / (2.f * sin_theta);
+    float b0 = (1.f - cosf(w0)) / 2.f;
+    float b1 = 1.f - cosf(w0);
+    float b2 = (1.f - cosf(w0)) / 2.f;
+    float a0 = 1.f + alpha;
+    float a1 = -2.f * cosf(w0);
+    float a2 = 1.f - alpha;
+    b0 /= a0;
+    b1 /= a0;
+    b2 /= a0;
+    a1 /= a0;
+    a2 /= a0;
+    biquads.push_back({b0, b1, b2, a1, a2});
+  }
+  for (auto& bq : biquads)
+    bq.reset();
+}
+
+void reconfigure() {
+  static float lastCutoff = Config::options.lowpass.cutoff;
+  static float lastSampleRate = Config::options.audio.sample_rate;
+  static int lastOrder = Config::options.lowpass.order;
+  if (lastCutoff == Config::options.lowpass.cutoff && lastSampleRate == Config::options.audio.sample_rate &&
+      lastOrder == Config::options.lowpass.order)
+    return;
+  lastCutoff = Config::options.lowpass.cutoff;
+  lastSampleRate = Config::options.audio.sample_rate;
+  lastOrder = Config::options.lowpass.order;
+  init();
+}
+
+void process() {
+  for (size_t i = 0; i < bufferSize; i++) {
+    size_t readIdx = (writePos + i) % bufferSize;
+    float filtered = bufferMid[readIdx];
+    for (auto& bq : biquads)
+      filtered = bq.process(filtered);
+    lowpassed[readIdx] = filtered;
+  }
+}
+}; // namespace Lowpass
 
 namespace ConstantQ {
 
@@ -742,6 +796,10 @@ int main() {
     // Process bandpass filter if pitch is detected
     if (pitch > Config::options.fft.min_freq && pitch < Config::options.fft.max_freq)
       Butterworth::process(pitch);
+
+    // Process lowpass filter if enabled
+    if (Config::options.oscilloscope.enable_lowpass)
+      Lowpass::process();
 
     // Signal main thread that DSP processing is complete
     {
