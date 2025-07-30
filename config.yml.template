@@ -63,8 +63,6 @@ phosphor:
   enable_grain: true
   # Grain strength (Spatial noise)
   grain_strength: 0.1
-  # Density of spline points for phosphor rendering (higher=smoother curves)
-  spline_density: 8
   # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
   tension: 0.5
   # Enable curved phosphor screen effect (simulates curved CRT monitor)
@@ -126,8 +124,6 @@ font: ~/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf
 lissajous:
   # Enable Catmull-Rom spline interpolation for smoother curves
   enable_splines: true
-  # Number of segments per spline (higher=smoother curves)
-  spline_segments: 8
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
   # Readback multiplier of the data

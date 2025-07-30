@@ -27,7 +27,6 @@ struct Options {
 
   struct Lissajous {
     bool enable_splines = true;
-    int spline_segments = 8;
     float beam_multiplier = 1.0f;
     float readback_multiplier = 1.0f;
     std::string mode = "none";
@@ -97,7 +96,6 @@ struct Options {
     int age_threshold = 256;
     float range_factor = 5.0f;
     bool enable_grain = true;
-    int spline_density = 20;
     float tension = 0.5f;
     bool enable_curved_screen = false;
     float screen_curvature = 0.3f;

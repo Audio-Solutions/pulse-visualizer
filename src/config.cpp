@@ -225,7 +225,6 @@ void load() {
 
   // Load Lissajous configuration
   options.lissajous.enable_splines = get<bool>(configData, "lissajous.enable_splines");
-  options.lissajous.spline_segments = get<int>(configData, "lissajous.spline_segments");
   options.lissajous.beam_multiplier = get<float>(configData, "lissajous.beam_multiplier");
   options.lissajous.readback_multiplier = get<float>(configData, "lissajous.readback_multiplier");
   options.lissajous.mode = get<std::string>(configData, "lissajous.mode");
@@ -287,7 +286,6 @@ void load() {
   options.phosphor.age_threshold = get<int>(configData, "phosphor.age_threshold");
   options.phosphor.range_factor = get<float>(configData, "phosphor.range_factor");
   options.phosphor.enable_grain = get<bool>(configData, "phosphor.enable_grain");
-  options.phosphor.spline_density = get<int>(configData, "phosphor.spline_density");
   options.phosphor.tension = get<float>(configData, "phosphor.tension");
   options.phosphor.enable_curved_screen = get<bool>(configData, "phosphor.enable_curved_screen");
   options.phosphor.screen_curvature = get<float>(configData, "phosphor.screen_curvature");

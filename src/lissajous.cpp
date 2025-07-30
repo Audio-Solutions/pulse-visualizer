@@ -42,8 +42,7 @@ void render() {
 
   // Apply spline smoothing if enabled
   if (Config::options.lissajous.enable_splines)
-    points = Spline::generate(points, Config::options.lissajous.spline_segments, {1.f, 0.f},
-                              {window->width - 1, window->width});
+    points = Spline::generate<10>(points, {1.f, 0.f}, {window->width - 1, window->width});
 
   // Apply stretch mode if enabled
   if (Config::options.lissajous.mode == "rotate" || Config::options.lissajous.mode == "pulsar" ||
@@ -120,7 +119,7 @@ void render() {
     float energy = Config::options.phosphor.beam_energy / REF_AREA * (window->width * window->width);
 
     energy *= Config::options.lissajous.beam_multiplier / (1.f + Config::options.lissajous.readback_multiplier) /
-              Config::options.phosphor.spline_density;
+              (Config::options.lissajous.enable_splines ? 10 : 1);
 
     float dt = 1.f / Config::options.audio.sample_rate;
 
