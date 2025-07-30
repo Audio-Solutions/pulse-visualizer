@@ -80,9 +80,8 @@ void mix(float* a, float* b, float* out, float t);
 
 /**
  * @brief Load a theme from file
- * @param name Theme name
  */
-void load(const std::string& name);
+void load();
 
 /**
  * @brief Check if theme file has been modified and reload if necessary
