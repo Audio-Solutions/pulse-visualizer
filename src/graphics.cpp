@@ -44,6 +44,9 @@ void load(size_t sdlWindow) {
     glyphCaches.resize(sdlWindow + 1);
   }
 
+  // Select the window for loading
+  SDLWindow::selectWindow(sdlWindow);
+
   std::string path = expandUserPath(Config::options.font);
   struct stat buf;
   if (stat(path.c_str(), &buf) != 0)
@@ -63,7 +66,10 @@ void cleanup(size_t sdlWindow) {
   if (sdlWindow >= faces.size())
     return;
 
-  // Cleanup glyph textures for this window
+  // Select the window for cleanup
+  SDLWindow::selectWindow(sdlWindow);
+
+  // Cleanup glyph textures
   for (auto& [ch, glyph] : glyphCaches[sdlWindow]) {
     if (glIsTexture(glyph.textureId)) {
       glDeleteTextures(1, &glyph.textureId);

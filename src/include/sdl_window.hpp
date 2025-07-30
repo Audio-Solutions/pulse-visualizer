@@ -8,7 +8,7 @@ extern std::vector<SDL_Window*> wins;
 extern std::vector<SDL_GLContext> glContexts;
 extern size_t currentWindow;
 extern bool focused;
-extern bool running;
+extern std::atomic<bool> running;
 extern int width, height;
 
 // Mouse coordinates

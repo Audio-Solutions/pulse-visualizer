@@ -10,7 +10,7 @@ std::vector<SDL_Window*> wins;
 std::vector<SDL_GLContext> glContexts;
 size_t currentWindow = 0;
 bool focused = false;
-bool running = false;
+std::atomic<bool> running {false};
 int width, height;
 
 // Mouse coordinates
@@ -59,13 +59,13 @@ void init() {
   // Initialise window size
   SDL_GetWindowSize(wins[currentWindow], &width, &height);
 
-  running = true;
+  running.store(true);
 }
 
 void handleEvent(SDL_Event& event) {
   // handle events for the base window only except for quit
   if (event.type == SDL_QUIT) {
-    running = false;
+    running.store(false);
     return;
   }
 
@@ -75,7 +75,7 @@ void handleEvent(SDL_Event& event) {
       switch (event.key.keysym.sym) {
       case SDLK_q:
       case SDLK_ESCAPE:
-        running = false;
+        running.store(false);
         return;
       default:
         break;

@@ -163,16 +163,13 @@ int main() {
   }
 
   // Cleanup
-  SDLWindow::running = false;
-  DSPThread.join();
-  AudioEngine::cleanup();
-  DSP::FFT::cleanup();
-
-  // Cleanup fonts for all windows
+  SDLWindow::running.store(false);
   for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
     Graphics::Font::cleanup(i);
   }
-
+  DSPThread.join();
+  AudioEngine::cleanup();
+  DSP::FFT::cleanup();
   Config::cleanup();
   Theme::cleanup();
   SDLWindow::deinit();

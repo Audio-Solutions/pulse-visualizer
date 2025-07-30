@@ -344,12 +344,18 @@ bool VisualizerWindow::buttonPressed(int dir, int mouseX, int mouseY) {
 bool VisualizerWindow::buttonHovering(int dir, int mouseX, int mouseY) { return buttonPressed(dir, mouseX, mouseY); }
 
 void drawSplitters() {
+  // Select the window for rendering
+  SDLWindow::selectWindow(0);
+
   // Draw all window splitters
   for (Splitter& splitter : splitters)
     splitter.draw();
 }
 
 void renderAll() {
+  // Select the window for rendering
+  SDLWindow::selectWindow(0);
+
   // Render all visualizer windows
   for (VisualizerWindow& window : windows)
     if (window.render)

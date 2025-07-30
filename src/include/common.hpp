@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include FT_FREETYPE_H
 #include <atomic>
