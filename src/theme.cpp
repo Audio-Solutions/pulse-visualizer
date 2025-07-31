@@ -96,6 +96,14 @@ void load() {
       {"color_bars_opacity",                &colors.color_bars_opacity               }
   };
 
+  // Clear all colors
+  for (auto& it : colorMapArrays) {
+    memset(it.second, 0, 4 * sizeof(float));
+  }
+  for (auto& it : colorMapFloats) {
+    *it.second = 0.0f;
+  }
+
   // Parse theme file line by line
   std::string line;
   while (std::getline(file, line)) {
