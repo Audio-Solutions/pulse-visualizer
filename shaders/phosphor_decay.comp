@@ -3,9 +3,8 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // Input and output textures
-layout(binding = 0, r32ui) uniform uimage2D inputTex;
-layout(binding = 1, r32ui) uniform uimage2D outputTex;
-layout(binding = 2, r32ui) uniform uimage2D ageTex;
+layout(binding = 0, r32ui) uniform uimage2D energyTex;
+layout(binding = 1, r32ui) uniform uimage2D ageTex;
 
 uniform float decaySlow;
 uniform float decayFast;
@@ -13,10 +12,10 @@ uniform uint ageThreshold;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  ivec2 texSize = imageSize(inputTex);
+  ivec2 texSize = imageSize(energyTex);
 
   // Read current linear energy value from input texture
-  uint currentEnergyLinear = imageLoad(inputTex, coord).r;
+  uint currentEnergyLinear = imageLoad(energyTex, coord).r;
 
   // Read age in frames from ageTex
   uint age = imageLoad(ageTex, coord).r; 
@@ -42,5 +41,5 @@ void main() {
   uint newEnergyLinear = uint(currentEnergyLinear * decay);
 
   // Write decayed energy to output texture
-  imageStore(outputTex, coord, uvec4(newEnergyLinear, 0, 0, 0));
+  imageStore(energyTex, coord, uvec4(newEnergyLinear, 0, 0, 0));
 }

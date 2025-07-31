@@ -373,8 +373,7 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   glUseProgram(0);
 }
 
-void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& in,
-                   const GLuint& out) {
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTex) {
   if (!shaders[1])
     return;
 
@@ -388,9 +387,8 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   glUniform1f(glGetUniformLocation(shaders[1], "decayFast"), decayFast);
   glUniform1ui(glGetUniformLocation(shaders[1], "ageThreshold"), Config::options.phosphor.age_threshold);
 
-  glBindImageTexture(0, in, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
-  glBindImageTexture(1, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
-  glBindImageTexture(2, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(0, energyTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(1, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
   GLuint gY = (SDLWindow::height + 7) / 8;
@@ -469,19 +467,15 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   Graphics::Shader::ensureShaders();
 
-  // Copy energy texture for decay processing
-  glCopyImageSubData(win->phosphor.energyTexture, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture, GL_TEXTURE_2D,
-                     0, 0, 0, 0, win->width, SDLWindow::height, 1);
-
   // Apply decay to phosphor effect
-  Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.tempTexture, win->phosphor.energyTexture);
+  Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.energyTexture);
 
   // Add new points if rendering is enabled
   if (renderPoints)
     Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), win->phosphor.ageTexture,
                             win->phosphor.vertexBuffer, win->phosphor.energyTexture);
 
-  // Setup framebuffer for blur processing
+  // Clear temp texture
   glBindFramebuffer(GL_FRAMEBUFFER, win->phosphor.frameBuffer);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2, 0);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

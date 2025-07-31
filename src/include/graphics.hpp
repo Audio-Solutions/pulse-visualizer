@@ -142,8 +142,7 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
  * @param in Input texture
  * @param out Output texture
  */
-void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& in,
-                   const GLuint& out);
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTex);
 
 /**
  * @brief Dispatch blur shader
