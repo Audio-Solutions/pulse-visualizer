@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Neon Purple - Modern Cyberpunk Style"
+color: 147, 51, 234
+selection: 168, 85, 247
+text: 196, 181, 253
+accent: 30, 10, 50
+bg: 15, 5, 25
+bgaccent: 25, 8, 40 

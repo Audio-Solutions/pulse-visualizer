@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Phosphor Yellow - Classic P3 Monitor Style"
+color: 255, 255, 51
+selection: 255, 255, 0
+text: 255, 255, 112
+accent: 20, 20, 0
+bg: 8, 8, 0
+bgaccent: 15, 15, 0 

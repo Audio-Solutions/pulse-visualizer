@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Phosphor Cyan - Classic P7 Monitor Style"
+color: 51, 255, 255
+selection: 0, 255, 255
+text: 112, 255, 255
+accent: 0, 20, 20
+bg: 0, 8, 8
+bgaccent: 0, 15, 15 

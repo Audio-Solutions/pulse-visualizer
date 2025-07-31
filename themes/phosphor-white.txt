@@ -1,0 +1,11 @@
+## All RGB & RGBA colors follow a 0-255 range. Including the Alpha channel. For instance full white is 255,255,255,255 or 255,255,255.
+
+## Primary Colors:
+
+credit: "Phosphor White - High Contrast P4 Monitor Style"
+color: 255, 255, 255
+selection: 240, 240, 240
+text: 220, 220, 220
+accent: 20, 20, 20
+bg: 0, 0, 0
+bgaccent: 8, 8, 8 
