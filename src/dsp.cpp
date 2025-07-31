@@ -763,7 +763,14 @@ int main() {
     // Read audio from engine
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       std::cerr << "Failed to read from audio engine" << std::endl;
-      SDLWindow::running = false;
+      SDLWindow::running.store(false);
+
+      // Wake all threads
+      dataReady.store(true);
+      dataReadyFFTMain.store(true);
+      dataReadyFFTAlt.store(true);
+      mainCv.notify_all();
+      fft.notify_all();
       break;
     }
 
@@ -826,8 +833,8 @@ int main() {
     // Signal main thread that DSP processing is complete
     {
       std::lock_guard<std::mutex> lock(::mainThread);
-      ::dataReady = true;
-      ::mainCv.notify_one();
+      dataReady = true;
+      mainCv.notify_one();
     }
   }
 
