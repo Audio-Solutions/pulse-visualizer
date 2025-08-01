@@ -56,6 +56,9 @@ This will:
 
 On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
 
+#### Note 
+ Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and use `sudo ninja install` only for the install step.
+
 ## Dependencies & Platform Support
 
 **You need:**
