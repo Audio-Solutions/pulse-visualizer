@@ -152,13 +152,49 @@ void render() {
       vectorData.push_back(pointsMain[i].second);
       vectorData.push_back(i < energies.size() ? energies[i] : 0);
       vectorData.push_back(0);
-      float x = pointsMain[i].first;
-      float t = Config::options.fft.min_freq *
-                powf(Config::options.fft.max_freq / Config::options.fft.min_freq, x / window->width);
-      t /= 1000.0f;
-      float r = 0.7f + 0.3f * sinf(6.2831853f * t + 0.0f);
-      float g = 0.7f + 0.3f * sinf(6.2831853f * t + 2.0944f);
-      float b = 0.7f + 0.3f * sinf(6.2831853f * t + 4.1888f);
+
+      // Calculate direction-based gradient using HSV
+      float hue = 0.0f;
+      float saturation = 0.6f;
+      float value = 1.0f;
+
+      if (i > 0) {
+        const auto& prev = pointsMain[i - 1];
+        const auto& curr = pointsMain[i];
+        float dx = curr.first - prev.first;
+        float dy = curr.second - prev.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+        hue = (angle + M_PI_2) / M_PI;
+
+        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+        hue = squish + 0.77f;
+      } else if (i < pointsMain.size() - 1) {
+        // For first point, use direction to next point
+        const auto& curr = pointsMain[i];
+        const auto& next = pointsMain[i + 1];
+        float dx = next.first - curr.first;
+        float dy = next.second - curr.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+        hue = (angle + M_PI_2) / M_PI;
+
+        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+        hue = squish + 0.77f;
+      }
+
+      // Convert HSV to RGB using existing functions
+      float hsva[4] = {hue, saturation, value, 1.0f};
+      float rgba[4];
+      Graphics::hsvaToRgba(hsva, rgba);
+
+      float r = rgba[0];
+      float g = rgba[1];
+      float b = rgba[2];
       vertexColors.push_back(r);
       vertexColors.push_back(g);
       vertexColors.push_back(b);

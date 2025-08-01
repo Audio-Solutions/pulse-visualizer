@@ -35,8 +35,8 @@ void render() {
     float right = DSP::bufferMid[idx] - DSP::bufferSide[idx];
 
     // Basic mapping to screen coordinates
-    float x = (1.f + right) * window->width / 2.f;
-    float y = (1.f + left) * window->width / 2.f;
+    float x = (1.f + left) * window->width / 2.f;
+    float y = (1.f + right) * window->width / 2.f;
     points[i] = {x, y};
   }
 
@@ -156,10 +156,42 @@ void render() {
       vertexData.push_back(points[i].second);
       vertexData.push_back(i < energies.size() ? energies[i] : 0);
       vertexData.push_back(0);
-      float t = static_cast<float>(i) / ((points.size() - 1) / (1.f + Config::options.lissajous.readback_multiplier));
-      float r = 0.7f + 0.3f * sinf(6.2831853f * t);
-      float g = 0.7f + 0.3f * sinf(6.2831853f * t + 2.0944f);
-      float b = 0.7f + 0.3f * sinf(6.2831853f * t + 4.1888f);
+
+      // Calculate direction-based gradient using HSV
+      float hue = 0.0f;
+      float saturation = 0.6f;
+      float value = 1.0f;
+
+      if (i > 0) {
+        const auto& prev = points[i - 1];
+        const auto& curr = points[i];
+        float dx = curr.first - prev.first;
+        float dy = curr.second - prev.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to hue using full -π to π range
+        // Map -π to π range to 0 to 1 hue range
+        hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+      } else if (i < points.size() - 1) {
+        // For first point, use direction to next point
+        const auto& curr = points[i];
+        const auto& next = points[i + 1];
+        float dx = next.first - curr.first;
+        float dy = next.second - curr.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to hue using full -π to π range
+        hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+      }
+
+      // Convert HSV to RGB using existing functions
+      float hsva[4] = {hue, saturation, value, 1.0f};
+      float rgba[4];
+      Graphics::hsvaToRgba(hsva, rgba);
+
+      float r = rgba[0];
+      float g = rgba[1];
+      float b = rgba[2];
       vertexColors.push_back(r);
       vertexColors.push_back(g);
       vertexColors.push_back(b);
