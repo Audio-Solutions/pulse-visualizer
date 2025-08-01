@@ -11,10 +11,16 @@ layout(std430, binding = 0) restrict readonly buffer SplineVertexBuffer {
   vec3 vertices[]; // x, y, intensityLinear
 };
 
+// Input buffer: spline colors
+layout(std430, binding = 1) restrict readonly buffer SplineColorBuffer {
+  vec4 colors[]; // r, g, b, a
+};
+
 // Output texture: single-channel R32UI for linear energy accumulation
-layout(r32ui, binding = 0) restrict uniform uimage2D energyTex;
-// Output texture: single-channel R32UI for age accumulation
-layout(r32ui, binding = 1) restrict uniform uimage2D ageTex;
+layout(r32ui, binding = 0) restrict uniform uimage2D energyTexR;
+layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
+layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
+layout(r32ui, binding = 3) restrict uniform uimage2D ageTex;
 
 bool inBounds(ivec2 coord) {
   return coord.x >= 0 && coord.x < texSize.x && coord.y >= 0 && coord.y < texSize.y;
@@ -28,6 +34,7 @@ void main() {
   if (index >= vertexCount) return;
 
   vec3 vertex = vertices[index];
+  vec4 color = colors[index];
   vec2 pos = vertex.xy;
   float segmentEnergyLinear = vertex.z;
   
@@ -70,7 +77,9 @@ void main() {
     ivec2 coord00 = baseCoord;
     uint energy = uint(float(energyPerStep) * (inv_fx * inv_fy));
     if (energy > 100u && inBounds(coord00)) {
-      imageAtomicAdd(energyTex, coord00, energy);
+      imageAtomicAdd(energyTexR, coord00, uint(float(energy) * color.r));
+      imageAtomicAdd(energyTexG, coord00, uint(float(energy) * color.g));
+      imageAtomicAdd(energyTexB, coord00, uint(float(energy) * color.b));
       imageStore(ageTex, coord00, uvec4(0));
     }
     
@@ -78,7 +87,9 @@ void main() {
     ivec2 coord10 = baseCoord + ivec2(1, 0);
     energy = uint(float(energyPerStep) * (fract.x * inv_fy));
     if (energy > 100u && inBounds(coord10)) {
-      imageAtomicAdd(energyTex, coord10, energy);
+      imageAtomicAdd(energyTexR, coord10, uint(float(energy) * color.r));
+      imageAtomicAdd(energyTexG, coord10, uint(float(energy) * color.g));
+      imageAtomicAdd(energyTexB, coord10, uint(float(energy) * color.b));
       imageStore(ageTex, coord10, uvec4(0));
     }
     
@@ -86,7 +97,9 @@ void main() {
     ivec2 coord01 = baseCoord + ivec2(0, 1);
     energy = uint(float(energyPerStep) * (inv_fx * fract.y));
     if (energy > 100u && inBounds(coord01)) {
-      imageAtomicAdd(energyTex, coord01, energy);
+      imageAtomicAdd(energyTexR, coord01, uint(float(energy) * color.r));
+      imageAtomicAdd(energyTexG, coord01, uint(float(energy) * color.g));
+      imageAtomicAdd(energyTexB, coord01, uint(float(energy) * color.b));
       imageStore(ageTex, coord01, uvec4(0));
     }
 
@@ -94,7 +107,9 @@ void main() {
     ivec2 coord11 = baseCoord + ivec2(1, 1);
     energy = uint(float(energyPerStep) * (fract.x * fract.y));
     if (energy > 100u && inBounds(coord11)) {
-      imageAtomicAdd(energyTex, coord11, energy);
+      imageAtomicAdd(energyTexR, coord11, uint(float(energy) * color.r));
+      imageAtomicAdd(energyTexG, coord11, uint(float(energy) * color.g));
+      imageAtomicAdd(energyTexB, coord11, uint(float(energy) * color.b));
       imageStore(ageTex, coord11, uvec4(0));
     }
   }

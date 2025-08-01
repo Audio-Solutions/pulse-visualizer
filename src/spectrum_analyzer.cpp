@@ -121,6 +121,7 @@ void render() {
   // Render with phosphor effect if enabled
   if (Config::options.phosphor.enabled) {
     std::vector<float> vectorData;
+    std::vector<float> vertexColors;
     std::vector<float> energies;
     energies.reserve(pointsMain.size());
     vectorData.reserve(pointsMain.size() * 4);
@@ -151,13 +152,26 @@ void render() {
       vectorData.push_back(pointsMain[i].second);
       vectorData.push_back(i < energies.size() ? energies[i] : 0);
       vectorData.push_back(0);
+      float x = pointsMain[i].first;
+      float t = Config::options.fft.min_freq *
+                powf(Config::options.fft.max_freq / Config::options.fft.min_freq, x / window->width);
+      t /= 1000.0f;
+      float r = 0.7f + 0.3f * sinf(6.2831853f * t + 0.0f);
+      float g = 0.7f + 0.3f * sinf(6.2831853f * t + 2.0944f);
+      float b = 0.7f + 0.3f * sinf(6.2831853f * t + 4.1888f);
+      vertexColors.push_back(r);
+      vertexColors.push_back(g);
+      vertexColors.push_back(b);
+      vertexColors.push_back(1.0f);
     }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vectorData.size() * sizeof(float), vectorData.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    Graphics::Phosphor::render(window, pointsMain, energies, color);
+    Graphics::Phosphor::render(window, pointsMain);
     window->draw();
   } else {
     Graphics::drawLines(window, pointsAlt, colorAlt);

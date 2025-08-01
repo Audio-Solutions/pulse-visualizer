@@ -2,56 +2,66 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-// Input: inputTex (phosphor energy)
-layout(binding = 0, r32ui) uniform uimage2D inputTex;
-// Output: outputTex (phosphor energy)
-layout(binding = 1, r32ui) uniform uimage2D outputTex;
+layout(binding = 0, r32ui) uniform uimage2D inputTexR;
+layout(binding = 1, r32ui) uniform uimage2D inputTexG;
+layout(binding = 2, r32ui) uniform uimage2D inputTexB;
+layout(binding = 3, r32ui) uniform uimage2D outputTexR;
+layout(binding = 4, r32ui) uniform uimage2D outputTexG;
+layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
 uniform float line_blur_spread;
 uniform float line_width;
 uniform float range_factor;
 uniform vec2 texSize;
-uniform int blur_direction; // 0 = horizontal, 1 = vertical
-uniform int kernel_type; // 0 = E kernel, 1 = F kernel, 2 = G kernel
+uniform int blur_direction;
+uniform int kernel_type;
 uniform float f_intensity;
 uniform float g_intensity;
 
 const float PI = 3.14159265359;
-const float INV_2PI = 0.15915494309; // 1/(2*PI)
+const float INV_2PI = 0.15915494309;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSizeInt = ivec2(texSize);
 
-  // Early bounds check
   if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y) {
     return;
   }
 
-  // Early exit for very small blur spreads
   if (line_blur_spread < 0.01) {
-    uint value = imageLoad(inputTex, coord).r;
+    uint valueR = imageLoad(inputTexR, coord).r;
+    uint valueG = imageLoad(inputTexG, coord).r;
+    uint valueB = imageLoad(inputTexB, coord).r;
     
     if (blur_direction == 1) {
-      imageAtomicAdd(outputTex, coord, value);
+      imageAtomicAdd(outputTexR, coord, valueR);
+      imageAtomicAdd(outputTexG, coord, valueG);
+      imageAtomicAdd(outputTexB, coord, valueB);
     } else {
-      imageStore(outputTex, coord, uvec4(uint(max(0u, value)), 0, 0, 0));
+      imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
+      imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
+      imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
     }
     return;
   }
 
-  // Calculate filter size and clamp to prevent excessive divergence
   int range_filter = int(ceil(range_factor * line_blur_spread)) * 2 + 1;
   int half_range = range_filter / 2;
   
-  // Fast exit for zero radius
   if (half_range == 0) {
-    uint value = imageLoad(inputTex, coord).r;
+    uint valueR = imageLoad(inputTexR, coord).r;
+    uint valueG = imageLoad(inputTexG, coord).r;
+    uint valueB = imageLoad(inputTexB, coord).r;
 
     if (blur_direction == 1) {
-      imageAtomicAdd(outputTex, coord, value);
+      imageAtomicAdd(outputTexR, coord, valueR);
+      imageAtomicAdd(outputTexG, coord, valueG);
+      imageAtomicAdd(outputTexB, coord, valueB);
     } else {
-      imageStore(outputTex, coord, uvec4(uint(max(0u, value)), 0, 0, 0));
+      imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
+      imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
+      imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
     }
     return;
   }
@@ -59,26 +69,24 @@ void main() {
   float inv_2variance, norm_factor;
   
   if (kernel_type == 0) {
-    // E kernel (line_width based)
     float variance = line_width * line_width;
     inv_2variance = 1.0 / (2.0 * variance);
     norm_factor = INV_2PI / variance;
   } else if (kernel_type == 1) {
-    // F kernel (line_blur_spread based)
     float equivalent_width = 0.693147 * (line_blur_spread * 0.1);
     float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
     inv_2variance = 1.0 / (2.0 * variance);
     norm_factor = INV_2PI / variance;
   } else {
-    // G kernel (range_filter based)
     float equivalent_width = 0.693147 * (float(range_filter) / 8.0);
     float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
     inv_2variance = 1.0 / (2.0 * variance);
     norm_factor = INV_2PI / variance;
   }
 
-  // Single kernel accumulation based on kernel_type
-  float sample_sum = 0.0;
+  float sample_sumR = 0.0;
+  float sample_sumG = 0.0;
+  float sample_sumB = 0.0;
   float effective_kernel_sum = 0.0;
 
   if (half_range <= 3) {
@@ -89,21 +97,21 @@ void main() {
       float distance_sq = float(i * i);
       float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
       
-      // Check if this sample would be in bounds
       bool in_bounds = (sample_coord.x >= 0 && sample_coord.x < texSizeInt.x && 
                        sample_coord.y >= 0 && sample_coord.y < texSizeInt.y);
       
       if (in_bounds) {
-        float sample_value = float(imageLoad(inputTex, sample_coord).r);
-        sample_sum += sample_value * kernel_weight;
+        float sample_valueR = float(imageLoad(inputTexR, sample_coord).r);
+        float sample_valueG = float(imageLoad(inputTexG, sample_coord).r);
+        float sample_valueB = float(imageLoad(inputTexB, sample_coord).r);
+        sample_sumR += sample_valueR * kernel_weight;
+        sample_sumG += sample_valueG * kernel_weight;
+        sample_sumB += sample_valueB * kernel_weight;
       }
       
-      // Always accumulate kernel weight for proper normalization
-      // This simulates the "missing" energy from out-of-bounds samples
       effective_kernel_sum += kernel_weight;
     }
   } else {
-    // General case for larger kernels
     for (int i = -half_range; i <= half_range; ++i) {
       ivec2 sample_coord;
       if (blur_direction == 0) {
@@ -115,35 +123,44 @@ void main() {
       float distance_sq = float(i * i);
       float kernel_weight = norm_factor * exp(-distance_sq * inv_2variance);
       
-      // Check if this sample would be in bounds
       bool in_bounds = (sample_coord.x >= 0 && sample_coord.x < texSizeInt.x && 
                        sample_coord.y >= 0 && sample_coord.y < texSizeInt.y);
       
       if (in_bounds) {
-        float sample_value = float(imageLoad(inputTex, sample_coord).r);
-        sample_sum += sample_value * kernel_weight;
+        float sample_valueR = float(imageLoad(inputTexR, sample_coord).r);
+        float sample_valueG = float(imageLoad(inputTexG, sample_coord).r);
+        float sample_valueB = float(imageLoad(inputTexB, sample_coord).r);
+        sample_sumR += sample_valueR * kernel_weight;
+        sample_sumG += sample_valueG * kernel_weight;
+        sample_sumB += sample_valueB * kernel_weight;
       }
       
-      // Always accumulate kernel weight for proper normalization
-      // This simulates the "missing" energy from out-of-bounds samples
       effective_kernel_sum += kernel_weight;
     }
   }
 
-  // Normalize by effective kernel sum which accounts for out-of-bounds samples
-  // This prevents edge brightness explosion by properly accounting for missing energy
-  float result = sample_sum / max(effective_kernel_sum, 1e-6);
+  float resultR = sample_sumR / max(effective_kernel_sum, 1e-6);
+  float resultG = sample_sumG / max(effective_kernel_sum, 1e-6);
+  float resultB = sample_sumB / max(effective_kernel_sum, 1e-6);
 
   if (kernel_type == 1) {
-    result *= f_intensity;
+    resultR *= f_intensity;
+    resultG *= f_intensity;
+    resultB *= f_intensity;
   } else if (kernel_type == 2) {
-    result *= g_intensity;
+    resultR *= g_intensity;
+    resultG *= g_intensity;
+    resultB *= g_intensity;
   }
 
-  // Write result
   if (blur_direction == 1) {
-    imageAtomicAdd(outputTex, coord, uint(max(0.0, result)));
+    imageAtomicAdd(outputTexR, coord, uint(max(0.0, resultR)));
+    imageAtomicAdd(outputTexG, coord, uint(max(0.0, resultG)));
+    imageAtomicAdd(outputTexB, coord, uint(max(0.0, resultB)));
   } else {
-    imageStore(outputTex, coord, uvec4(uint(max(0.0, result)), 0, 0, 0));
+    imageStore(outputTexR, coord, uvec4(uint(max(0.0, resultR)), 0, 0, 0));
+    imageStore(outputTexG, coord, uvec4(uint(max(0.0, resultG)), 0, 0, 0));
+    imageStore(outputTexB, coord, uvec4(uint(max(0.0, resultB)), 0, 0, 0));
   }
 }
+

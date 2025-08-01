@@ -123,6 +123,8 @@ void render() {
   if (Config::options.phosphor.enabled) {
     std::vector<float> vertexData;
     vertexData.reserve(points.size() * 4);
+    std::vector<float> vertexColors;
+    vertexColors.reserve(points.size() * 4);
     std::vector<float> energies;
     energies.reserve(points.size());
 
@@ -154,16 +156,25 @@ void render() {
       vertexData.push_back(points[i].second);
       vertexData.push_back(i < energies.size() ? energies[i] : 0);
       vertexData.push_back(0);
+      float t = static_cast<float>(i) / ((points.size() - 1) / (1.f + Config::options.lissajous.readback_multiplier));
+      float r = 0.7f + 0.3f * sinf(6.2831853f * t);
+      float g = 0.7f + 0.3f * sinf(6.2831853f * t + 2.0944f);
+      float b = 0.7f + 0.3f * sinf(6.2831853f * t + 4.1888f);
+      vertexColors.push_back(r);
+      vertexColors.push_back(g);
+      vertexColors.push_back(b);
+      vertexColors.push_back(1.0f);
     }
 
     // Upload vertex data to GPU
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Render phosphor effect
-    Graphics::Phosphor::render(window, points, energies, Theme::colors.color,
-                               DSP::pitchDB > Config::options.audio.silence_threshold);
+    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold);
     window->draw();
   } else {
     // Select the window for rendering

@@ -191,14 +191,13 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
 }
 
 void VisualizerWindow::resizeTextures() {
-  // Check if texture resize is needed
   bool sizeChanged = (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::height);
 
-  // Array of phosphor effect texture handles
-  GLuint* textures[] = {&phosphor.energyTexture, &phosphor.ageTexture, &phosphor.tempTexture, &phosphor.tempTexture2,
-                        &phosphor.outputTexture};
+  GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
+                        &phosphor.ageTexture,     &phosphor.tempTextureR,   &phosphor.tempTextureG,
+                        &phosphor.tempTextureB,   &phosphor.tempTexture2R,  &phosphor.tempTexture2G,
+                        &phosphor.tempTexture2B,  &phosphor.outputTexture};
 
-  // Check if any textures are uninitialized
   bool textureUninitialized = [textures]() -> bool {
     for (auto texture : textures) {
       if (*texture == 0)
@@ -211,7 +210,6 @@ void VisualizerWindow::resizeTextures() {
     return;
   }
 
-  // Synchronize OpenGL state before texture operations
   glFinish();
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -219,12 +217,10 @@ void VisualizerWindow::resizeTextures() {
   glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
-  // Store old textures for data transfer
   std::vector<GLuint> oldTextures;
-  oldTextures.reserve(5);
+  oldTextures.reserve(11);
 
-  // Recreate all phosphor textures
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 11; ++i) {
     oldTextures.push_back(*textures[i]);
     GLuint newTexture = 0;
     glGenTextures(1, &newTexture);
@@ -233,8 +229,7 @@ void VisualizerWindow::resizeTextures() {
       throw std::runtime_error(
           "WindowManager::VisualizerWindow::resizeTextures(): OpenGL error during texture generation: " +
           std::to_string(err));
-    // Transfer texture data with appropriate format
-    if (i == 4)
+    if (i == 10)
       transferTexture(oldTextures[i], newTexture, GL_RGBA, GL_UNSIGNED_BYTE);
     else
       transferTexture(oldTextures[i], newTexture, GL_RED_INTEGER, GL_UNSIGNED_INT);
@@ -244,11 +239,9 @@ void VisualizerWindow::resizeTextures() {
     *textures[i] = newTexture;
   }
 
-  // Update texture dimensions
   phosphor.textureHeight = SDLWindow::height;
   phosphor.textureWidth = width;
 
-  // Recreate framebuffer and vertex buffer
   glBindTexture(GL_TEXTURE_2D, 0);
   if (phosphor.frameBuffer)
     glDeleteFramebuffers(1, &phosphor.frameBuffer);
@@ -257,6 +250,10 @@ void VisualizerWindow::resizeTextures() {
   if (phosphor.vertexBuffer)
     glDeleteBuffers(1, &phosphor.vertexBuffer);
   glGenBuffers(1, &phosphor.vertexBuffer);
+
+  if (phosphor.vertexColorBuffer)
+    glDeleteBuffers(1, &phosphor.vertexColorBuffer);
+  glGenBuffers(1, &phosphor.vertexColorBuffer);
 }
 
 void VisualizerWindow::draw() {
@@ -481,21 +478,45 @@ void updateSplitters() {
 
 void VisualizerWindow::cleanup() {
   // Cleanup phosphor effect textures
-  if (phosphor.energyTexture) {
-    glDeleteTextures(1, &phosphor.energyTexture);
-    phosphor.energyTexture = 0;
+  if (phosphor.energyTextureR) {
+    glDeleteTextures(1, &phosphor.energyTextureR);
+    phosphor.energyTextureR = 0;
+  }
+  if (phosphor.energyTextureG) {
+    glDeleteTextures(1, &phosphor.energyTextureG);
+    phosphor.energyTextureG = 0;
+  }
+  if (phosphor.energyTextureB) {
+    glDeleteTextures(1, &phosphor.energyTextureB);
+    phosphor.energyTextureB = 0;
   }
   if (phosphor.ageTexture) {
     glDeleteTextures(1, &phosphor.ageTexture);
     phosphor.ageTexture = 0;
   }
-  if (phosphor.tempTexture) {
-    glDeleteTextures(1, &phosphor.tempTexture);
-    phosphor.tempTexture = 0;
+  if (phosphor.tempTextureR) {
+    glDeleteTextures(1, &phosphor.tempTextureR);
+    phosphor.tempTextureR = 0;
   }
-  if (phosphor.tempTexture2) {
-    glDeleteTextures(1, &phosphor.tempTexture2);
-    phosphor.tempTexture2 = 0;
+  if (phosphor.tempTextureG) {
+    glDeleteTextures(1, &phosphor.tempTextureG);
+    phosphor.tempTextureG = 0;
+  }
+  if (phosphor.tempTextureB) {
+    glDeleteTextures(1, &phosphor.tempTextureB);
+    phosphor.tempTextureB = 0;
+  }
+  if (phosphor.tempTexture2R) {
+    glDeleteTextures(1, &phosphor.tempTexture2R);
+    phosphor.tempTexture2R = 0;
+  }
+  if (phosphor.tempTexture2G) {
+    glDeleteTextures(1, &phosphor.tempTexture2G);
+    phosphor.tempTexture2G = 0;
+  }
+  if (phosphor.tempTexture2B) {
+    glDeleteTextures(1, &phosphor.tempTexture2B);
+    phosphor.tempTexture2B = 0;
   }
   if (phosphor.outputTexture) {
     glDeleteTextures(1, &phosphor.outputTexture);
@@ -508,6 +529,10 @@ void VisualizerWindow::cleanup() {
   if (phosphor.vertexBuffer) {
     glDeleteBuffers(1, &phosphor.vertexBuffer);
     phosphor.vertexBuffer = 0;
+  }
+  if (phosphor.vertexColorBuffer) {
+    glDeleteBuffers(1, &phosphor.vertexColorBuffer);
+    phosphor.vertexColorBuffer = 0;
   }
 }
 

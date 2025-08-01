@@ -54,13 +54,20 @@ struct VisualizerWindow {
    * @brief Phosphor effect rendering components
    */
   struct Phosphor {
-    GLuint energyTexture = 0;
+    GLuint energyTextureR = 0;
+    GLuint energyTextureG = 0;
+    GLuint energyTextureB = 0;
     GLuint ageTexture = 0;
-    GLuint tempTexture = 0;
-    GLuint tempTexture2 = 0;
+    GLuint tempTextureR = 0;
+    GLuint tempTextureG = 0;
+    GLuint tempTextureB = 0;
+    GLuint tempTexture2R = 0;
+    GLuint tempTexture2G = 0;
+    GLuint tempTexture2B = 0;
     GLuint outputTexture = 0;
     GLuint frameBuffer = 0;
     GLuint vertexBuffer = 0;
+    GLuint vertexColorBuffer = 0;
     int textureWidth = 0;
     int textureHeight = 0;
   } phosphor;

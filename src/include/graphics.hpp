@@ -133,7 +133,8 @@ void ensureShaders();
  * @param out Output texture
  */
 void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
-                     const GLuint& vertexBuffer, const GLuint& out);
+                     const GLuint& vertexBuffer, const GLuint& vertexColorBuffer, const GLuint& energyTexR,
+                     const GLuint& energyTexG, const GLuint& energyTexB);
 
 /**
  * @brief Dispatch decay shader for phosphor effect
@@ -142,7 +143,8 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
  * @param in Input texture
  * @param out Output texture
  */
-void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTex);
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTexR,
+                   const GLuint& energyTexG, const GLuint& energyTexB);
 
 /**
  * @brief Dispatch blur shader
@@ -152,18 +154,18 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
  * @param in Input texture
  * @param out Output texture
  */
-void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& in,
-                  const GLuint& out);
+void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
+                  const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB);
 
 /**
  * @brief Dispatch colormap shader
  * @param win Visualizer window
- * @param lineColor Line color
+ * @param colorMap Color map texture
  * @param in Input texture
  * @param out Output texture
  */
-void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* lineColor, const GLuint& in,
-                      const GLuint& out);
+void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& inR, const GLuint& inG,
+                      const GLuint& inB, const GLuint& out);
 
 } // namespace Shader
 
@@ -181,7 +183,7 @@ namespace Phosphor {
  * @param renderPoints Whether to render individual points
  */
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
-            const std::vector<float>& energies, const float* lineColor, bool renderPoints = true);
+            bool renderPoints = true);
 
 } // namespace Phosphor
 
