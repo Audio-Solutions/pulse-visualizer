@@ -176,6 +176,21 @@ template <> std::vector<std::string> get<std::vector<std::string>>(const YAML::N
   return result;
 }
 
+/**
+ * @brief Get a rotation value from the configuration from a int
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type Rotation
+ */
+template <> Rotation get<Rotation>(const YAML::Node& root, const std::string& path) {
+  try {
+    return static_cast<Rotation>(get<int>(root, path));
+  } catch (...) {
+    std::cerr << "Converting " << path << " to Rotation failed" << std::endl;
+    return ROTATION_0;
+  }
+}
+
 void load() {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
@@ -217,6 +232,8 @@ void load() {
   options.oscilloscope.time_window = get<float>(configData, "oscilloscope.time_window");
   options.oscilloscope.beam_multiplier = get<float>(configData, "oscilloscope.beam_multiplier");
   options.oscilloscope.enable_lowpass = get<bool>(configData, "oscilloscope.enable_lowpass");
+  options.oscilloscope.rotation = get<Rotation>(configData, "oscilloscope.rotation");
+  options.oscilloscope.flip_x = get<bool>(configData, "oscilloscope.flip_x");
 
   // Load bandpass filter configuration
   options.bandpass_filter.bandwidth = get<float>(configData, "bandpass_filter.bandwidth");
@@ -228,6 +245,7 @@ void load() {
   options.lissajous.beam_multiplier = get<float>(configData, "lissajous.beam_multiplier");
   options.lissajous.readback_multiplier = get<float>(configData, "lissajous.readback_multiplier");
   options.lissajous.mode = get<std::string>(configData, "lissajous.mode");
+  options.lissajous.rotation = get<Rotation>(configData, "lissajous.rotation");
 
   // Load FFT configuration
   options.fft.min_freq = get<float>(configData, "fft.min_freq");
@@ -247,6 +265,8 @@ void load() {
   options.fft.size = get<int>(configData, "fft.size");
   options.fft.beam_multiplier = get<float>(configData, "fft.beam_multiplier");
   options.fft.frequency_markers = get<bool>(configData, "fft.frequency_markers");
+  options.fft.rotation = get<Rotation>(configData, "fft.rotation");
+  options.fft.flip_x = get<bool>(configData, "fft.flip_x");
 
   // Load spectrogram configuration
   options.spectrogram.time_window = get<float>(configData, "spectrogram.time_window");

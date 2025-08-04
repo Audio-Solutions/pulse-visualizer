@@ -30,8 +30,38 @@ void render() {
       if (f < Config::options.fft.min_freq || f > Config::options.fft.max_freq)
         return;
       float logX = (log(f) - logMin) / (logMax - logMin);
-      float x = logX * window->width;
-      Graphics::drawLine(x, 0, x, SDLWindow::height, Theme::colors.accent, 1.f);
+      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                                Config::options.fft.rotation == Config::ROTATION_270
+                            ? static_cast<float>(SDLWindow::height)
+                            : static_cast<float>(window->width));
+      float height =
+          Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+              ? window->width
+              : SDLWindow::height;
+
+      // Apply rotation transformation to marker coordinates
+      float x1, y1, x2, y2;
+      switch (Config::options.fft.rotation) {
+      case Config::ROTATION_0:
+        x1 = x2 = x;
+        y1 = 0;
+        y2 = height;
+        break;
+      case Config::ROTATION_90:
+        x1 = x2 = window->width - height;
+        y1 = y2 = x;
+        break;
+      case Config::ROTATION_180:
+        x1 = x2 = window->width - x;
+        y1 = 0;
+        y2 = height;
+        break;
+      case Config::ROTATION_270:
+        x1 = x2 = height;
+        y1 = y2 = SDLWindow::height - x;
+        break;
+      }
+      Graphics::drawLine(x1, y1, x2, y2, Theme::colors.accent, 1.f);
     };
 
     // Draw frequency lines for each decade
@@ -68,7 +98,10 @@ void render() {
 
     // Convert to logarithmic X coordinate
     float logX = (log(f) - logMin) / (logMax - logMin);
-    float x = logX * window->width;
+    float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                              Config::options.fft.rotation == Config::ROTATION_270
+                          ? static_cast<float>(SDLWindow::height)
+                          : static_cast<float>(window->width));
     float mag = inMain[bin];
 
     // Apply slope correction
@@ -78,9 +111,30 @@ void render() {
 
     // Convert to decibels and map to Y coordinate
     float dB = 20.f * log10f(mag + 1e-12f);
-    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) *
-              SDLWindow::height;
-    pointsMain[bin] = {x, y};
+    float height =
+        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+            ? window->width
+            : SDLWindow::height;
+    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
+
+    if (Config::options.fft.flip_x)
+      y = height - y;
+
+    // Apply rotation transformation
+    switch (Config::options.fft.rotation) {
+    case Config::ROTATION_0:
+      pointsMain[bin] = {x, y};
+      break;
+    case Config::ROTATION_90:
+      pointsMain[bin] = {window->width - y, x};
+      break;
+    case Config::ROTATION_180:
+      pointsMain[bin] = {window->width - x, SDLWindow::height - y};
+      break;
+    case Config::ROTATION_270:
+      pointsMain[bin] = {y, SDLWindow::height - x};
+      break;
+    }
   }
 
   // Generate alternative spectrum points (for stereo visualization)
@@ -94,7 +148,10 @@ void render() {
 
     // Convert to logarithmic X coordinate
     float logX = (log(f) - logMin) / (logMax - logMin);
-    float x = logX * window->width;
+    float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                              Config::options.fft.rotation == Config::ROTATION_270
+                          ? static_cast<float>(SDLWindow::height)
+                          : static_cast<float>(window->width));
     float mag = inAlt[bin];
 
     // Apply slope correction
@@ -104,9 +161,30 @@ void render() {
 
     // Convert to decibels and map to Y coordinate
     float dB = 20.f * log10f(mag + 1e-12f);
-    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) *
-              SDLWindow::height;
-    pointsAlt[bin] = {x, y};
+    float height =
+        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+            ? window->width
+            : SDLWindow::height;
+    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
+
+    if (Config::options.fft.flip_x)
+      y = height - y;
+
+    // Apply rotation transformation
+    switch (Config::options.fft.rotation) {
+    case Config::ROTATION_0:
+      pointsAlt[bin] = {x, y};
+      break;
+    case Config::ROTATION_90:
+      pointsAlt[bin] = {window->width - y, x};
+      break;
+    case Config::ROTATION_180:
+      pointsAlt[bin] = {window->width - x, SDLWindow::height - y};
+      break;
+    case Config::ROTATION_270:
+      pointsAlt[bin] = {y, SDLWindow::height - x};
+      break;
+    }
   }
 
   // Choose rendering colors
@@ -252,14 +330,43 @@ void render() {
 
     glEnd();
 
+    // Transform mouse coordinates back to unrotated coordinate system
+    float unrotatedX, unrotatedY;
+    switch (Config::options.fft.rotation) {
+    case Config::ROTATION_0:
+      unrotatedX = mouseXRel;
+      unrotatedY = mouseYRel;
+      break;
+    case Config::ROTATION_90:
+      unrotatedX = mouseYRel;
+      unrotatedY = window->width - mouseXRel;
+      break;
+    case Config::ROTATION_180:
+      unrotatedX = window->width - mouseXRel;
+      unrotatedY = SDLWindow::height - mouseYRel;
+      break;
+    case Config::ROTATION_270:
+      unrotatedX = SDLWindow::height - mouseYRel;
+      unrotatedY = mouseXRel;
+      break;
+    }
+
     // Convert coordinates to frequency and dB
     float logMin = log(Config::options.fft.min_freq);
     float logMax = log(Config::options.fft.max_freq);
-    float logX = mouseXRel / window->width;
+    float effectiveWidth =
+        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+            ? SDLWindow::height
+            : window->width;
+    float effectiveHeight =
+        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+            ? window->width
+            : SDLWindow::height;
+    float logX = unrotatedX / effectiveWidth;
     float logFreq = logMin + logX * (logMax - logMin);
     float freq = exp(logFreq);
 
-    float normalizedY = mouseYRel / SDLWindow::height;
+    float normalizedY = unrotatedY / effectiveHeight;
     float dB = Config::options.fft.min_db + normalizedY * (Config::options.fft.max_db - Config::options.fft.min_db);
     float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
     float gain = powf(freq * 1.0f / (440.0f * 2.0f), -k);

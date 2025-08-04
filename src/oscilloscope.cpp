@@ -52,21 +52,46 @@ void render() {
 
   // Generate oscilloscope points
   points.resize(samples);
-  const float scale = static_cast<float>(window->width) / samples;
+  const float scale = (Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
+                               Config::options.oscilloscope.rotation == Config::ROTATION_270
+                           ? static_cast<float>(SDLWindow::height)
+                           : static_cast<float>(window->width)) /
+                      samples;
   for (size_t i = 0; i < samples; i++) {
     size_t pos = (target + i) % DSP::bufferSize;
     float x = static_cast<float>(i) * scale;
     float y;
 
+    float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
+                           Config::options.oscilloscope.rotation == Config::ROTATION_270
+                       ? window->width
+                       : SDLWindow::height;
+
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
-      y = SDLWindow::height * 0.5f + DSP::bandpassed[pos] * 0.5f * SDLWindow::height;
+      y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height;
     else if (Config::options.oscilloscope.enable_lowpass)
-      y = SDLWindow::height * 0.5f + DSP::lowpassed[pos] * 0.5f * SDLWindow::height;
+      y = height * 0.5f + DSP::lowpassed[pos] * 0.5f * height;
     else
-      y = SDLWindow::height * 0.5f + DSP::bufferMid[pos] * 0.5f * SDLWindow::height;
+      y = height * 0.5f + DSP::bufferMid[pos] * 0.5f * height;
 
-    points[i] = {x, y};
+    if (Config::options.oscilloscope.flip_x)
+      y = height - y;
+
+    switch (Config::options.oscilloscope.rotation) {
+    case Config::ROTATION_0:
+      points[i] = {x, y};
+      break;
+    case Config::ROTATION_90:
+      points[i] = {window->width - y, x};
+      break;
+    case Config::ROTATION_180:
+      points[i] = {window->width - x, SDLWindow::height - y};
+      break;
+    case Config::ROTATION_270:
+      points[i] = {y, SDLWindow::height - x};
+      break;
+    }
   }
 
   // Choose rendering color

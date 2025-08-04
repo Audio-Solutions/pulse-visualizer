@@ -37,7 +37,20 @@ void render() {
     // Basic mapping to screen coordinates
     float x = (1.f + left) * window->width / 2.f;
     float y = (1.f + right) * window->width / 2.f;
-    points[i] = {x, y};
+    switch (Config::options.lissajous.rotation) {
+    case Config::ROTATION_0:
+      points[i] = {x, y};
+      break;
+    case Config::ROTATION_90:
+      points[i] = {window->width - y, x};
+      break;
+    case Config::ROTATION_180:
+      points[i] = {window->width - x, window->width - y};
+      break;
+    case Config::ROTATION_270:
+      points[i] = {y, window->width - x};
+      break;
+    }
   }
 
   // Apply spline smoothing if enabled

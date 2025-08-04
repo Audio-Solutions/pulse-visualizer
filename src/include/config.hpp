@@ -3,6 +3,8 @@
 
 namespace Config {
 
+enum Rotation { ROTATION_0 = 0, ROTATION_90 = 1, ROTATION_180 = 2, ROTATION_270 = 3 };
+
 /**
  * @brief Application configuration options structure
  */
@@ -17,6 +19,8 @@ struct Options {
     float time_window = 64.0f;
     float beam_multiplier = 1.0f;
     bool enable_lowpass = false;
+    Rotation rotation = ROTATION_0;
+    bool flip_x = false;
   } oscilloscope;
 
   struct BandpassFilter {
@@ -30,6 +34,7 @@ struct Options {
     float beam_multiplier = 1.0f;
     float readback_multiplier = 1.0f;
     std::string mode = "none";
+    Rotation rotation = ROTATION_0;
   } lissajous;
 
   struct FFT {
@@ -50,6 +55,8 @@ struct Options {
     int size = 4096;
     float beam_multiplier = 1.0f;
     bool frequency_markers = false;
+    Rotation rotation = ROTATION_0;
+    bool flip_x = false;
   } fft;
 
   struct Spectrogram {

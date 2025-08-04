@@ -139,6 +139,11 @@ phosphor:
   
   # Chromatic aberration strength (0.0-1.0)
   chromatic_aberration_strength: 0.005
+
+  # Enable color beam effect (true/false)
+  # This will make the beam color rotate around the hue depending on the direction its going.
+  # This is extremely gpu intensive, so it is disabled by default.
+  colorbeam: false
 ```
 
 ### FFT (Fast Fourier Transform) Settings
@@ -196,6 +201,16 @@ fft:
   
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
+
+  # Rotation of the FFT display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
+
+  # Flip the FFT display along the frequency axis
+  flip_x: false
 ```
 
 ### Font Settings
@@ -236,6 +251,13 @@ lissajous:
   # black_hole is a rotated circle with a black hole-like effect
   # none is the default mode
   mode: none
+
+  # Rotation of the lissajous display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
 ```
 
 ### Oscilloscope Settings
@@ -270,6 +292,16 @@ oscilloscope:
   
   # Enable lowpass filter for oscilloscope
   enable_lowpass: false
+
+  # Rotation of the oscilloscope display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
+
+  # Flip the oscilloscope display along the time axis
+  flip_x: false
 ```
 
 ### Bandpass Filter Settings
