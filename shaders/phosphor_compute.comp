@@ -3,9 +3,6 @@
 // Input: spline vertices with position and energy
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-// Uniforms
-uniform ivec2 texSize; // Size of the energy texture
-
 // Input buffer: spline vertices with position and energy
 layout(std430, binding = 0) restrict readonly buffer SplineVertexBuffer {
   vec3 vertices[]; // x, y, intensityLinear
@@ -23,6 +20,7 @@ layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 layout(r32ui, binding = 3) restrict uniform uimage2D ageTex;
 
 bool inBounds(ivec2 coord) {
+  ivec2 texSize = imageSize(ageTex);
   return coord.x >= 0 && coord.x < texSize.x && coord.y >= 0 && coord.y < texSize.y;
 }
 

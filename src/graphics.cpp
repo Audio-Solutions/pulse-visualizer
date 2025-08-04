@@ -360,8 +360,6 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
   glUseProgram(shaders[0]);
 
-  glUniform2i(glGetUniformLocation(shaders[0], "texSize"), win->width, SDLWindow::height);
-
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
