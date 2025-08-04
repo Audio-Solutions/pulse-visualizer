@@ -165,7 +165,7 @@ void render() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Render phosphor effect
-    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold);
+    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold, color);
     window->draw();
   } else {
     // Select the window for rendering

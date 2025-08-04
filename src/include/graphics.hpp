@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include "window_manager.hpp"
+#include "theme.hpp"
 
 namespace Graphics {
 
@@ -164,8 +165,8 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
  * @param in Input texture
  * @param out Output texture
  */
-void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& inR, const GLuint& inG,
-                      const GLuint& inB, const GLuint& out);
+void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
+                      const GLuint& inG, const GLuint& inB, const GLuint& out);
 
 } // namespace Shader
 
@@ -183,7 +184,7 @@ namespace Phosphor {
  * @param renderPoints Whether to render individual points
  */
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
-            bool renderPoints = true);
+            bool renderPoints = true, const float* beamColor = Theme::colors.color);
 
 } // namespace Phosphor
 

@@ -76,6 +76,9 @@ phosphor:
   vignette_strength: 0.3
   # Chromatic aberration strength (0.0-1.0)
   chromatic_aberration_strength: 0.005
+  # Enable color beam effect (simulates color phosphor)
+  # this is extremely gpu intensive, so it is disabled by default
+  colorbeam: false
 
 # FFT (Fast Fourier Transform) Settings
 # Controls frequency analysis and spectrum visualization

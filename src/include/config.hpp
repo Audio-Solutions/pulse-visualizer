@@ -104,6 +104,7 @@ struct Options {
     float grain_strength = 0.5f;
     float vignette_strength = 0.3f;
     float chromatic_aberration_strength = 0.003f;
+    bool colorbeam = false;
   } phosphor;
 
   struct Lowpass {

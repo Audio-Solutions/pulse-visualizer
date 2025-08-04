@@ -17,6 +17,7 @@ uniform int blur_direction;
 uniform int kernel_type;
 uniform float f_intensity;
 uniform float g_intensity;
+uniform bool colorbeam;
 
 const float PI = 3.14159265359;
 const float INV_2PI = 0.15915494309;
@@ -31,17 +32,21 @@ void main() {
 
   if (line_blur_spread < 0.01) {
     uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = imageLoad(inputTexG, coord).r;
-    uint valueB = imageLoad(inputTexB, coord).r;
+    uint valueG = colorbeam ? imageLoad(inputTexG, coord).r : 0u;
+    uint valueB = colorbeam ? imageLoad(inputTexB, coord).r : 0u;
     
     if (blur_direction == 1) {
       imageAtomicAdd(outputTexR, coord, valueR);
-      imageAtomicAdd(outputTexG, coord, valueG);
-      imageAtomicAdd(outputTexB, coord, valueB);
+      if (colorbeam) {
+        imageAtomicAdd(outputTexG, coord, valueG);
+        imageAtomicAdd(outputTexB, coord, valueB);
+      }
     } else {
       imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
-      imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
-      imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
+      if (colorbeam) {
+        imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
+        imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
+      }
     }
     return;
   }
@@ -51,17 +56,21 @@ void main() {
   
   if (half_range == 0) {
     uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = imageLoad(inputTexG, coord).r;
-    uint valueB = imageLoad(inputTexB, coord).r;
+    uint valueG = colorbeam ? imageLoad(inputTexG, coord).r : 0u;
+    uint valueB = colorbeam ? imageLoad(inputTexB, coord).r : 0u;
 
     if (blur_direction == 1) {
       imageAtomicAdd(outputTexR, coord, valueR);
-      imageAtomicAdd(outputTexG, coord, valueG);
-      imageAtomicAdd(outputTexB, coord, valueB);
+      if (colorbeam) {
+        imageAtomicAdd(outputTexG, coord, valueG);
+        imageAtomicAdd(outputTexB, coord, valueB);
+      }
     } else {
       imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
-      imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
-      imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
+      if (colorbeam) {
+        imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
+        imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
+      }
     }
     return;
   }
@@ -102,11 +111,14 @@ void main() {
       
       if (in_bounds) {
         float sample_valueR = float(imageLoad(inputTexR, sample_coord).r);
-        float sample_valueG = float(imageLoad(inputTexG, sample_coord).r);
-        float sample_valueB = float(imageLoad(inputTexB, sample_coord).r);
+        float sample_valueG = colorbeam ? float(imageLoad(inputTexG, sample_coord).r) : 0.0;
+        float sample_valueB = colorbeam ? float(imageLoad(inputTexB, sample_coord).r) : 0.0;
+        
         sample_sumR += sample_valueR * kernel_weight;
-        sample_sumG += sample_valueG * kernel_weight;
-        sample_sumB += sample_valueB * kernel_weight;
+        if (colorbeam) {
+          sample_sumG += sample_valueG * kernel_weight;
+          sample_sumB += sample_valueB * kernel_weight;
+        }
       }
       
       effective_kernel_sum += kernel_weight;
@@ -128,11 +140,14 @@ void main() {
       
       if (in_bounds) {
         float sample_valueR = float(imageLoad(inputTexR, sample_coord).r);
-        float sample_valueG = float(imageLoad(inputTexG, sample_coord).r);
-        float sample_valueB = float(imageLoad(inputTexB, sample_coord).r);
+        float sample_valueG = colorbeam ? float(imageLoad(inputTexG, sample_coord).r) : 0.0;
+        float sample_valueB = colorbeam ? float(imageLoad(inputTexB, sample_coord).r) : 0.0;
+        
         sample_sumR += sample_valueR * kernel_weight;
-        sample_sumG += sample_valueG * kernel_weight;
-        sample_sumB += sample_valueB * kernel_weight;
+        if (colorbeam) {
+          sample_sumG += sample_valueG * kernel_weight;
+          sample_sumB += sample_valueB * kernel_weight;
+        }
       }
       
       effective_kernel_sum += kernel_weight;
@@ -155,12 +170,16 @@ void main() {
 
   if (blur_direction == 1) {
     imageAtomicAdd(outputTexR, coord, uint(max(0.0, resultR)));
-    imageAtomicAdd(outputTexG, coord, uint(max(0.0, resultG)));
-    imageAtomicAdd(outputTexB, coord, uint(max(0.0, resultB)));
+    if (colorbeam) {
+      imageAtomicAdd(outputTexG, coord, uint(max(0.0, resultG)));
+      imageAtomicAdd(outputTexB, coord, uint(max(0.0, resultB)));
+    }
   } else {
     imageStore(outputTexR, coord, uvec4(uint(max(0.0, resultR)), 0, 0, 0));
-    imageStore(outputTexG, coord, uvec4(uint(max(0.0, resultG)), 0, 0, 0));
-    imageStore(outputTexB, coord, uvec4(uint(max(0.0, resultB)), 0, 0, 0));
+    if (colorbeam) {
+      imageStore(outputTexG, coord, uvec4(uint(max(0.0, resultG)), 0, 0, 0));
+      imageStore(outputTexB, coord, uvec4(uint(max(0.0, resultB)), 0, 0, 0));
+    }
   }
 }
 

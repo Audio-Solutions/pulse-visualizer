@@ -19,6 +19,8 @@ layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 layout(r32ui, binding = 3) restrict uniform uimage2D ageTex;
 
+uniform bool colorbeam;
+
 bool inBounds(ivec2 coord) {
   ivec2 texSize = imageSize(ageTex);
   return coord.x >= 0 && coord.x < texSize.x && coord.y >= 0 && coord.y < texSize.y;
@@ -76,8 +78,10 @@ void main() {
     uint energy = uint(float(energyPerStep) * (inv_fx * inv_fy));
     if (energy > 100u && inBounds(coord00)) {
       imageAtomicAdd(energyTexR, coord00, uint(float(energy) * color.r));
-      imageAtomicAdd(energyTexG, coord00, uint(float(energy) * color.g));
-      imageAtomicAdd(energyTexB, coord00, uint(float(energy) * color.b));
+      if (colorbeam) {
+        imageAtomicAdd(energyTexG, coord00, uint(float(energy) * color.g));
+        imageAtomicAdd(energyTexB, coord00, uint(float(energy) * color.b));
+      }
       imageStore(ageTex, coord00, uvec4(0));
     }
     
@@ -86,8 +90,10 @@ void main() {
     energy = uint(float(energyPerStep) * (fract.x * inv_fy));
     if (energy > 100u && inBounds(coord10)) {
       imageAtomicAdd(energyTexR, coord10, uint(float(energy) * color.r));
-      imageAtomicAdd(energyTexG, coord10, uint(float(energy) * color.g));
-      imageAtomicAdd(energyTexB, coord10, uint(float(energy) * color.b));
+      if (colorbeam) {
+        imageAtomicAdd(energyTexG, coord10, uint(float(energy) * color.g));
+        imageAtomicAdd(energyTexB, coord10, uint(float(energy) * color.b));
+      }
       imageStore(ageTex, coord10, uvec4(0));
     }
     
@@ -96,8 +102,10 @@ void main() {
     energy = uint(float(energyPerStep) * (inv_fx * fract.y));
     if (energy > 100u && inBounds(coord01)) {
       imageAtomicAdd(energyTexR, coord01, uint(float(energy) * color.r));
-      imageAtomicAdd(energyTexG, coord01, uint(float(energy) * color.g));
-      imageAtomicAdd(energyTexB, coord01, uint(float(energy) * color.b));
+      if (colorbeam) {
+        imageAtomicAdd(energyTexG, coord01, uint(float(energy) * color.g));
+        imageAtomicAdd(energyTexB, coord01, uint(float(energy) * color.b));
+      }
       imageStore(ageTex, coord01, uvec4(0));
     }
 
@@ -106,8 +114,10 @@ void main() {
     energy = uint(float(energyPerStep) * (fract.x * fract.y));
     if (energy > 100u && inBounds(coord11)) {
       imageAtomicAdd(energyTexR, coord11, uint(float(energy) * color.r));
-      imageAtomicAdd(energyTexG, coord11, uint(float(energy) * color.g));
-      imageAtomicAdd(energyTexB, coord11, uint(float(energy) * color.b));
+      if (colorbeam) {
+        imageAtomicAdd(energyTexG, coord11, uint(float(energy) * color.g));
+        imageAtomicAdd(energyTexB, coord11, uint(float(energy) * color.b));
+      }
       imageStore(ageTex, coord11, uvec4(0));
     }
   }

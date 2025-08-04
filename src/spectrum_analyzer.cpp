@@ -207,7 +207,7 @@ void render() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    Graphics::Phosphor::render(window, pointsMain);
+    Graphics::Phosphor::render(window, pointsMain, true, color);
     window->draw();
   } else {
     Graphics::drawLines(window, pointsAlt, colorAlt);

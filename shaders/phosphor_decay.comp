@@ -10,19 +10,19 @@ layout(binding = 3, r32ui) uniform uimage2D ageTex;
 uniform float decaySlow;
 uniform float decayFast;
 uniform uint ageThreshold;
+uniform bool colorbeam;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSize = imageSize(energyTexR);
 
-  // Early exit if out of bounds
   if (coord.x >= texSize.x || coord.y >= texSize.y) {
     return;
   }
 
   uint currentEnergyR = imageLoad(energyTexR, coord).r;
-  uint currentEnergyG = imageLoad(energyTexG, coord).r;
-  uint currentEnergyB = imageLoad(energyTexB, coord).r;
+  uint currentEnergyG = colorbeam ? imageLoad(energyTexG, coord).r : 0u;
+  uint currentEnergyB = colorbeam ? imageLoad(energyTexB, coord).r : 0u;
 
   uint age = imageLoad(ageTex, coord).r; 
 
@@ -46,6 +46,8 @@ void main() {
   uint newEnergyB = uint(currentEnergyB * decay);
 
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
-  imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
-  imageStore(energyTexB, coord, uvec4(newEnergyB, 0, 0, 0));
+  if (colorbeam) {
+    imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
+    imageStore(energyTexB, coord, uvec4(newEnergyB, 0, 0, 0));
+  }
 }

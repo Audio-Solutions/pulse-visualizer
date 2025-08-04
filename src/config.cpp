@@ -294,6 +294,7 @@ void load() {
   options.phosphor.grain_strength = get<float>(configData, "phosphor.grain_strength");
   options.phosphor.vignette_strength = get<float>(configData, "phosphor.vignette_strength");
   options.phosphor.chromatic_aberration_strength = get<float>(configData, "phosphor.chromatic_aberration_strength");
+  options.phosphor.colorbeam = get<bool>(configData, "phosphor.colorbeam");
 
   // Load lowpass configuration
   options.lowpass.cutoff = get<float>(configData, "lowpass.cutoff");

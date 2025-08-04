@@ -7,6 +7,7 @@ layout(binding = 1, r32ui) uniform uimage2D energyTexG;
 layout(binding = 2, r32ui) uniform uimage2D energyTexB;
 layout(binding = 3, rgba8) uniform image2D colorTex;
 
+uniform vec3 beamColor;
 uniform vec3 blackColor;
 uniform int enablePhosphorGrain;
 uniform int enableCurvedScreen;
@@ -16,6 +17,7 @@ uniform float grainStrength;
 uniform float vignetteStrength;
 uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
+uniform bool colorbeam;
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
@@ -230,33 +232,42 @@ void main() {
 
   if (enableCurvedScreen == 1) {
     energyR = sampleAntialiased(uvR, texelSize, 0);
-    energyG = sampleAntialiased(uvG, texelSize, 1);
-    energyB = sampleAntialiased(uvB, texelSize, 2);
+    energyG = colorbeam ? sampleAntialiased(uvG, texelSize, 1) : 0.0;
+    energyB = colorbeam ? sampleAntialiased(uvB, texelSize, 2) : 0.0;
   } else {
-    // 1:1 mapping, no UV math, no gap, no antialiasing
     energyR = float(imageLoad(energyTexR, coord).r);
-    energyG = float(imageLoad(energyTexG, coord).r);
-    energyB = float(imageLoad(energyTexB, coord).r);
+    energyG = colorbeam ? float(imageLoad(energyTexG, coord).r) : 0.0;
+    energyB = colorbeam ? float(imageLoad(energyTexB, coord).r) : 0.0;
   }
 
   // Apply normalized spatial grain to the energy, affecting both brighter and darker directions
   if (enablePhosphorGrain == 1) {
     float grain = spatialGrain(vec2(coord));
     energyR *= (1.0 + grain);
-    energyG *= (1.0 + grain);
-    energyB *= (1.0 + grain);
+    if (colorbeam) {
+      energyG *= (1.0 + grain);
+      energyB *= (1.0 + grain);
+    }
   }
 
   // Scale energy for tanh mapping
   energyR /= TANH_DIV_FACTOR;
-  energyG /= TANH_DIV_FACTOR;
-  energyB /= TANH_DIV_FACTOR;
+  if (colorbeam) {
+    energyG /= TANH_DIV_FACTOR;
+    energyB /= TANH_DIV_FACTOR;
+  }
 
   // Map to color using tanhColormap per channel
   vec3 screenColor;
-  screenColor.r = tanhColormapChannel(energyR);
-  screenColor.g = tanhColormapChannel(energyG);
-  screenColor.b = tanhColormapChannel(energyB);
+  if (colorbeam) {
+    screenColor.r = tanhColormapChannel(energyR);
+    screenColor.g = tanhColormapChannel(energyG);
+    screenColor.b = tanhColormapChannel(energyB);
+  } else {
+    screenColor.r = tanhColormapChannel(energyR * beamColor.r);
+    screenColor.g = tanhColormapChannel(energyR * beamColor.g);
+    screenColor.b = tanhColormapChannel(energyR * beamColor.b);
+  }
 
   // add bg
   screenColor = screenColor + blackColor;

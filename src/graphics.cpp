@@ -360,6 +360,8 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
   glUseProgram(shaders[0]);
 
+  glUniform1i(glGetUniformLocation(shaders[0], "colorbeam"), Config::options.phosphor.colorbeam);
+
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -387,6 +389,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   glUniform1f(glGetUniformLocation(shaders[1], "decaySlow"), decaySlow);
   glUniform1f(glGetUniformLocation(shaders[1], "decayFast"), decayFast);
   glUniform1ui(glGetUniformLocation(shaders[1], "ageThreshold"), Config::options.phosphor.age_threshold);
+  glUniform1i(glGetUniformLocation(shaders[1], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -417,6 +420,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glUniform1f(glGetUniformLocation(shaders[2], "g_intensity"), Config::options.phosphor.far_blur_intensity);
   glUniform2f(glGetUniformLocation(shaders[2], "texSize"), static_cast<float>(win->width),
               static_cast<float>(SDLWindow::height));
+  glUniform1i(glGetUniformLocation(shaders[2], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -433,8 +437,8 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glUseProgram(0);
 }
 
-void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& inR, const GLuint& inG,
-                      const GLuint& inB, const GLuint& out) {
+void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
+                      const GLuint& inG, const GLuint& inB, const GLuint& out) {
   if (!shaders[3])
     return;
 
@@ -442,6 +446,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& 
 
   float* bg = Theme::colors.background;
 
+  glUniform3f(glGetUniformLocation(shaders[3], "beamColor"), beamColor[0], beamColor[1], beamColor[2]);
   glUniform3f(glGetUniformLocation(shaders[3], "blackColor"), bg[0], bg[1], bg[2]);
   glUniform1i(glGetUniformLocation(shaders[3], "enablePhosphorGrain"), Config::options.phosphor.enable_grain);
   glUniform1i(glGetUniformLocation(shaders[3], "enableCurvedScreen"), Config::options.phosphor.enable_curved_screen);
@@ -452,6 +457,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& 
   glUniform1f(glGetUniformLocation(shaders[3], "vignetteStrength"), Config::options.phosphor.vignette_strength);
   glUniform1f(glGetUniformLocation(shaders[3], "chromaticAberrationStrength"),
               Config::options.phosphor.chromatic_aberration_strength);
+  glUniform1i(glGetUniformLocation(shaders[3], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -469,7 +475,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const GLuint& 
 
 namespace Phosphor {
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
-            bool renderPoints) {
+            bool renderPoints, const float* beamColor) {
 
   Graphics::Shader::ensureShaders();
 
@@ -519,8 +525,8 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
   }
 
   // Apply colormap to final result
-  Shader::dispatchColormap(win, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G, win->phosphor.tempTexture2B,
-                           win->phosphor.outputTexture);
+  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
+                           win->phosphor.tempTexture2B, win->phosphor.outputTexture);
 }
 } // namespace Phosphor
 
