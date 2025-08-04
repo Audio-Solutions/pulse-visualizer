@@ -6,10 +6,6 @@
 
 Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL2, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
 
-## EXPERIMENTAL!
-
-This is an experimental branch attempting to use 3 energy textures to achieve dynamically colored beam paths. It is extremely gpu intensive and may not work on all systems.
-
 ## Features
 
 - Experimental colorful beam
