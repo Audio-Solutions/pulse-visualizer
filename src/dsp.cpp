@@ -589,21 +589,7 @@ int FFTMain() {
 
         _mm256_storeu_ps(&fftMid[i], newVal);
       }
-      for (; i < bins; ++i) {
-        float currentDB = 20.f * log10f(fftMidRaw[i] + 1e-12f);
-        float prevDB = 20.f * log10f(fftMid[i] + 1e-12f);
-        float diff = currentDB - prevDB;
-        float speed = diff > 0 ? riseSpeed : fallSpeed;
-        float absDiff = std::abs(diff);
-        float change = std::min(absDiff, speed) * (diff > 0.f ? 1.f : -1.f);
-        float newDB;
-        if (absDiff <= speed)
-          newDB = currentDB;
-        else
-          newDB = prevDB + change;
-        fftMid[i] = powf(10.f, newDB / 20.f) - 1e-12f;
-      }
-#else
+#endif
       // Standard smoothing
       for (; i < bins; ++i) {
         float currentDB = 20.f * log10f(fftMidRaw[i] + 1e-12f);
@@ -619,7 +605,6 @@ int FFTMain() {
           newDB = prevDB + change;
         fftMid[i] = powf(10.f, newDB / 20.f) - 1e-12f;
       }
-#endif
     }
   }
 
@@ -710,37 +695,22 @@ int FFTAlt() {
 
         _mm256_storeu_ps(&fftSide[i], newVal);
       }
-      for (; i < bins; ++i) {
-        float currentDB = 20.f * log10f(fftSideRaw[i] + 1e-12f);
-        float prevDB = 20.f * log10f(fftSide[i] + 1e-12f);
-        float diff = currentDB - prevDB;
-        float speed = diff > 0 ? riseSpeed : fallSpeed;
-        float absDiff = std::abs(diff);
-        float change = std::min(absDiff, speed) * (diff > 0.f ? 1.f : -1.f);
-        float newDB;
-        if (absDiff <= speed)
-          newDB = currentDB;
-        else
-          newDB = prevDB + change;
-        fftSide[i] = powf(10.f, newDB / 20.f) - 1e-12f;
-      }
-#else
-      // Standard smoothing for alternative channel
-      for (; i < bins; ++i) {
-        float currentDB = 20.f * log10f(fftSideRaw[i] + 1e-12f);
-        float prevDB = 20.f * log10f(fftSide[i] + 1e-12f);
-        float diff = currentDB - prevDB;
-        float speed = diff > 0 ? riseSpeed : fallSpeed;
-        float absDiff = std::abs(diff);
-        float change = std::min(absDiff, speed) * (diff > 0.f ? 1.f : -1.f);
-        float newDB;
-        if (absDiff <= speed)
-          newDB = currentDB;
-        else
-          newDB = prevDB + change;
-        fftSide[i] = powf(10.f, newDB / 20.f) - 1e-12f;
-      }
 #endif
+      // Standard smoothing
+      for (; i < bins; ++i) {
+        float currentDB = 20.f * log10f(fftSideRaw[i] + 1e-12f);
+        float prevDB = 20.f * log10f(fftSide[i] + 1e-12f);
+        float diff = currentDB - prevDB;
+        float speed = diff > 0 ? riseSpeed : fallSpeed;
+        float absDiff = std::abs(diff);
+        float change = std::min(absDiff, speed) * (diff > 0.f ? 1.f : -1.f);
+        float newDB;
+        if (absDiff <= speed)
+          newDB = currentDB;
+        else
+          newDB = prevDB + change;
+        fftSide[i] = powf(10.f, newDB / 20.f) - 1e-12f;
+      }
     }
   }
 
@@ -778,6 +748,7 @@ int main() {
 
 #if HAVE_PULSEAUDIO
     if (AudioEngine::Pulseaudio::running) {
+      size_t i = 0;
 #ifdef HAVE_AVX2
       // SIMD-optimized audio processing for PulseAudio
       size_t simd_samples = (sampleCount * 2) & ~7;
@@ -787,7 +758,7 @@ int main() {
 
       __m256 vgain = _mm256_set1_ps(0.5f * gain);
 
-      for (size_t i = 0; i < simd_samples; i += 8) {
+      for (; i < simd_samples; i += 8) {
         __m256 samples = _mm256_loadu_ps(&readBuf[i]);
 
         __m256 left = _mm256_permutevar8x32_ps(samples, left_idx);
@@ -800,11 +771,8 @@ int main() {
         _mm_storeu_ps(&bufferSide[writePos], _mm256_castps256_ps128(side));
         writePos = (writePos + 4) % bufferSize;
       }
-
-      for (size_t i = simd_samples; i < sampleCount * 2; i += 2) {
-#else
-      for (int i = 0; i < sampleCount * 2; i += 2) {
 #endif
+      for (; i < sampleCount * 2; i += 2) {
         float left = readBuf[i] * gain;
         float right = readBuf[i + 1] * gain;
         bufferMid[writePos] = (left + right) / 2.f;
