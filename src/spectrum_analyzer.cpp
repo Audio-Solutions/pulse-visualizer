@@ -121,6 +121,7 @@ void render() {
   // Render with phosphor effect if enabled
   if (Config::options.phosphor.enabled) {
     std::vector<float> vectorData;
+    std::vector<float> vertexColors;
     std::vector<float> energies;
     energies.reserve(pointsMain.size());
     vectorData.reserve(pointsMain.size() * 4);
@@ -151,13 +152,62 @@ void render() {
       vectorData.push_back(pointsMain[i].second);
       vectorData.push_back(i < energies.size() ? energies[i] : 0);
       vectorData.push_back(0);
+
+      // Calculate direction-based gradient using HSV
+      float hue = 0.0f;
+      float saturation = 0.6f;
+      float value = 1.0f;
+
+      if (i > 0) {
+        const auto& prev = pointsMain[i - 1];
+        const auto& curr = pointsMain[i];
+        float dx = curr.first - prev.first;
+        float dy = curr.second - prev.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+        hue = (angle + M_PI_2) / M_PI;
+
+        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+        hue = squish + 0.77f;
+      } else if (i < pointsMain.size() - 1) {
+        // For first point, use direction to next point
+        const auto& curr = pointsMain[i];
+        const auto& next = pointsMain[i + 1];
+        float dx = next.first - curr.first;
+        float dy = next.second - curr.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+        hue = (angle + M_PI_2) / M_PI;
+
+        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+        hue = squish + 0.77f;
+      }
+
+      // Convert HSV to RGB using existing functions
+      float hsva[4] = {hue, saturation, value, 1.0f};
+      float rgba[4];
+      Graphics::hsvaToRgba(hsva, rgba);
+
+      float r = rgba[0];
+      float g = rgba[1];
+      float b = rgba[2];
+      vertexColors.push_back(r);
+      vertexColors.push_back(g);
+      vertexColors.push_back(b);
+      vertexColors.push_back(1.0f);
     }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vectorData.size() * sizeof(float), vectorData.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    Graphics::Phosphor::render(window, pointsMain, energies, color);
+    Graphics::Phosphor::render(window, pointsMain, true, color);
     window->draw();
   } else {
     Graphics::drawLines(window, pointsAlt, colorAlt);

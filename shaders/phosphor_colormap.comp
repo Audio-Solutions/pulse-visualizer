@@ -2,11 +2,13 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout(binding = 0, r32ui) uniform uimage2D energyTex;
-layout(binding = 1, rgba8) uniform image2D colorTex;
+layout(binding = 0, r32ui) uniform uimage2D energyTexR;
+layout(binding = 1, r32ui) uniform uimage2D energyTexG;
+layout(binding = 2, r32ui) uniform uimage2D energyTexB;
+layout(binding = 3, rgba8) uniform image2D colorTex;
 
-uniform vec3 blackColor;
 uniform vec3 beamColor;
+uniform vec3 blackColor;
 uniform int enablePhosphorGrain;
 uniform int enableCurvedScreen;
 uniform float screenCurvature;
@@ -15,6 +17,7 @@ uniform float grainStrength;
 uniform float vignetteStrength;
 uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
+uniform bool colorbeam;
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
@@ -80,7 +83,7 @@ float calculateBorderMask(vec2 uv, vec2 texelSize) {
 
 // Antialiased sampling function
 // Samples multiple points around the distorted coordinate to reduce aliasing
-float sampleAntialiased(vec2 uv, vec2 texelSize) {
+float sampleAntialiased(vec2 uv, vec2 texelSize, int channel) {
   // Only apply screen gap when curved screen is enabled
   vec2 scaledUV = uv;
   
@@ -139,7 +142,15 @@ float sampleAntialiased(vec2 uv, vec2 texelSize) {
         // Sample the energy texture at the distorted coordinate
         ivec2 sampleCoord = ivec2(distortedSampleUV * vec2(texSize));
         sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-        float energy = float(imageLoad(energyTex, sampleCoord).r);
+        
+        float energy;
+        if (channel == 0) {
+          energy = float(imageLoad(energyTexR, sampleCoord).r);
+        } else if (channel == 1) {
+          energy = float(imageLoad(energyTexG, sampleCoord).r);
+        } else {
+          energy = float(imageLoad(energyTexB, sampleCoord).r);
+        }
         
         float weight = 1.0 / 64.0;
         result += energy * weight;
@@ -191,18 +202,8 @@ float fast_tanh(float x) {
 // Tanh-based color mapping function
 // Equivalent to MATLAB: map = [tanh(map_index*RGB(1)*multfactor);tanh(map_index*RGB(2)*multfactor);tanh(map_index*RGB(3)*multfactor)]'
 // map = min(map,1);
-vec3 tanhColormap(float mapIndex, vec3 baseColor) {
-  vec3 result;
-  result.r = fast_tanh(mapIndex * baseColor.r);
-  result.g = fast_tanh(mapIndex * baseColor.g);
-  result.b = fast_tanh(mapIndex * baseColor.b);
-  
-  // Clamp to [0,1] range (equivalent to min(map,1) in MATLAB)
-  return clamp(result, 0.0, 1.0);
-}
-
-float tanhColormapChannel(float mapIndex, float baseColor) {
-  return clamp(fast_tanh(mapIndex * baseColor), 0.0, 1.0);
+float tanhColormapChannel(float mapIndex) {
+  return clamp(fast_tanh(mapIndex), 0.0, 1.0);
 }
 
 void main() {
@@ -230,34 +231,43 @@ void main() {
   float energyR, energyG, energyB;
 
   if (enableCurvedScreen == 1) {
-    energyR = sampleAntialiased(uvR, texelSize);
-    energyG = sampleAntialiased(uvG, texelSize);
-    energyB = sampleAntialiased(uvB, texelSize);
+    energyR = sampleAntialiased(uvR, texelSize, 0);
+    energyG = colorbeam ? sampleAntialiased(uvG, texelSize, 1) : 0.0;
+    energyB = colorbeam ? sampleAntialiased(uvB, texelSize, 2) : 0.0;
   } else {
-    // 1:1 mapping, no UV math, no gap, no antialiasing
-    energyR = float(imageLoad(energyTex, coord).r);
-    energyG = float(imageLoad(energyTex, coord).r);
-    energyB = float(imageLoad(energyTex, coord).r);
+    energyR = float(imageLoad(energyTexR, coord).r);
+    energyG = colorbeam ? float(imageLoad(energyTexG, coord).r) : 0.0;
+    energyB = colorbeam ? float(imageLoad(energyTexB, coord).r) : 0.0;
   }
 
   // Apply normalized spatial grain to the energy, affecting both brighter and darker directions
   if (enablePhosphorGrain == 1) {
     float grain = spatialGrain(vec2(coord));
     energyR *= (1.0 + grain);
-    energyG *= (1.0 + grain);
-    energyB *= (1.0 + grain);
+    if (colorbeam) {
+      energyG *= (1.0 + grain);
+      energyB *= (1.0 + grain);
+    }
   }
 
   // Scale energy for tanh mapping
   energyR /= TANH_DIV_FACTOR;
-  energyG /= TANH_DIV_FACTOR;
-  energyB /= TANH_DIV_FACTOR;
+  if (colorbeam) {
+    energyG /= TANH_DIV_FACTOR;
+    energyB /= TANH_DIV_FACTOR;
+  }
 
   // Map to color using tanhColormap per channel
   vec3 screenColor;
-  screenColor.r = tanhColormapChannel(energyR, beamColor.r);
-  screenColor.g = tanhColormapChannel(energyG, beamColor.g);
-  screenColor.b = tanhColormapChannel(energyB, beamColor.b);
+  if (colorbeam) {
+    screenColor.r = tanhColormapChannel(energyR);
+    screenColor.g = tanhColormapChannel(energyG);
+    screenColor.b = tanhColormapChannel(energyB);
+  } else {
+    screenColor.r = tanhColormapChannel(energyR * beamColor.r);
+    screenColor.g = tanhColormapChannel(energyR * beamColor.g);
+    screenColor.b = tanhColormapChannel(energyR * beamColor.b);
+  }
 
   // add bg
   screenColor = screenColor + blackColor;

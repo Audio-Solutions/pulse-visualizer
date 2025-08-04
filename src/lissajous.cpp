@@ -123,6 +123,8 @@ void render() {
   if (Config::options.phosphor.enabled) {
     std::vector<float> vertexData;
     vertexData.reserve(points.size() * 4);
+    std::vector<float> vertexColors;
+    vertexColors.reserve(points.size() * 4);
     std::vector<float> energies;
     energies.reserve(points.size());
 
@@ -154,16 +156,58 @@ void render() {
       vertexData.push_back(points[i].second);
       vertexData.push_back(i < energies.size() ? energies[i] : 0);
       vertexData.push_back(0);
+
+      // Calculate direction-based gradient using HSV
+      float hue = 0.0f;
+      float saturation = 0.6f;
+      float value = 1.0f;
+
+      if (i > 0) {
+        const auto& prev = points[i - 1];
+        const auto& curr = points[i];
+        float dx = curr.first - prev.first;
+        float dy = curr.second - prev.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to hue using full -π to π range
+        // Map -π to π range to 0 to 1 hue range
+        hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+      } else if (i < points.size() - 1) {
+        // For first point, use direction to next point
+        const auto& curr = points[i];
+        const auto& next = points[i + 1];
+        float dx = next.first - curr.first;
+        float dy = next.second - curr.second;
+        float angle = atan2f(dy, dx);
+
+        // Convert angle to hue using full -π to π range
+        hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+      }
+
+      // Convert HSV to RGB using existing functions
+      float hsva[4] = {hue, saturation, value, 1.0f};
+      float rgba[4];
+      Graphics::hsvaToRgba(hsva, rgba);
+
+      float r = rgba[0];
+      float g = rgba[1];
+      float b = rgba[2];
+      vertexColors.push_back(r);
+      vertexColors.push_back(g);
+      vertexColors.push_back(b);
+      vertexColors.push_back(1.0f);
     }
 
     // Upload vertex data to GPU
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Render phosphor effect
-    Graphics::Phosphor::render(window, points, energies, Theme::colors.color,
-                               DSP::pitchDB > Config::options.audio.silence_threshold);
+    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold,
+                               Theme::colors.color);
     window->draw();
   } else {
     // Select the window for rendering
