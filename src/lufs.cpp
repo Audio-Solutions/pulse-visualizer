@@ -87,8 +87,8 @@ void render() {
     float clampedRightDB = std::max(-70.0f, rightDB);
 
     // Calculate positions for peak bars
-    float leftPos = std::max(0.0f, std::min(1.0f, (clampedLeftDB + 70.0f) / 70.0f));
-    float rightPos = std::max(0.0f, std::min(1.0f, (clampedRightDB + 70.0f) / 70.0f));
+    float leftPos = std::max(0.0f, (clampedLeftDB + 70.0f) / 70.0f);
+    float rightPos = std::max(0.0f, (clampedRightDB + 70.0f) / 70.0f);
 
     size_t leftBarHeight = leftPos * barHeight;
     size_t rightBarHeight = rightPos * barHeight;
