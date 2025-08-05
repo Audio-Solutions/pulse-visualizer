@@ -444,10 +444,8 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
 
   glUseProgram(shaders[3]);
 
-  float* bg = Theme::colors.background;
-
-  glUniform3f(glGetUniformLocation(shaders[3], "beamColor"), beamColor[0], beamColor[1], beamColor[2]);
-  glUniform3f(glGetUniformLocation(shaders[3], "blackColor"), bg[0], bg[1], bg[2]);
+  glUniform3fv(glGetUniformLocation(shaders[3], "beamColor"), 1, beamColor);
+  glUniform3fv(glGetUniformLocation(shaders[3], "blackColor"), 1, Theme::colors.background);
   glUniform1i(glGetUniformLocation(shaders[3], "enablePhosphorGrain"), Config::options.phosphor.enable_grain);
   glUniform1i(glGetUniformLocation(shaders[3], "enableCurvedScreen"), Config::options.phosphor.enable_curved_screen);
   glUniform1f(glGetUniformLocation(shaders[3], "screenCurvature"), Config::options.phosphor.screen_curvature);
