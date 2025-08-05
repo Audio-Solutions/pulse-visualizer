@@ -54,7 +54,7 @@ void render() {
 
   // Calculate layout positions
   const size_t topHeight =
-      Config::options.lufs.label == "compact" ? 50 : SDLWindow::height * (TOP_HEIGHT_PERCENT / 100.0f);
+      SDLWindow::height * (TOP_HEIGHT_PERCENT / 100.0f) + (Config::options.lufs.label == "compact" ? 30 : 0);
   const size_t barHeight = SDLWindow::height - topHeight;
 
   // Peak bars positions
@@ -65,11 +65,17 @@ void render() {
   const size_t lufsBarX = LABEL_WIDTH + LABEL_GAP + PEAK_BAR_WIDTH + PEAK_BARS_GAP + PEAK_BAR_WIDTH + LUFS_BAR_GAP;
 
   // Draw background bar
-  Graphics::drawFilledRect(lufsBarX, 0, LUFS_BAR_WIDTH, SDLWindow::height, Theme::colors.bgaccent);
+  Graphics::drawFilledRect(lufsBarX, 0, LUFS_BAR_WIDTH,
+                           SDLWindow::height - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           Theme::colors.bgaccent);
 
   // Draw peak background bars
-  Graphics::drawFilledRect(leftPeakX, 0, PEAK_BAR_WIDTH, SDLWindow::height, Theme::colors.bgaccent);
-  Graphics::drawFilledRect(rightPeakX, 0, PEAK_BAR_WIDTH, SDLWindow::height, Theme::colors.bgaccent);
+  Graphics::drawFilledRect(leftPeakX, 0, PEAK_BAR_WIDTH,
+                           SDLWindow::height - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           Theme::colors.bgaccent);
+  Graphics::drawFilledRect(rightPeakX, 0, PEAK_BAR_WIDTH,
+                           SDLWindow::height - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           Theme::colors.bgaccent);
 
   // Draw zero lines in each background rect at barHeight
   Graphics::drawLine(lufsBarX, barHeight, lufsBarX + LUFS_BAR_WIDTH, barHeight, Theme::colors.accent, 1);
@@ -175,7 +181,7 @@ void render() {
     size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
     size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
     size_t boxX = boxWidth > window->width ? 0 : (window->width - boxWidth) / 2;
-    size_t boxY = SDLWindow::height - (topHeight - boxHeight / 2) + 10;
+    size_t boxY = SDLWindow::height - (40 - boxHeight / 2);
 
     // Calculate text position relative to box
     size_t textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
