@@ -24,6 +24,22 @@ constexpr size_t TOP_HEIGHT_PERCENT = 10;
 constexpr size_t FONT_SIZE_LABELS = 10;
 constexpr size_t FONT_SIZE_LUFS = 14;
 
+float scaleDB(float db) {
+  if (Config::options.lufs.scale == "log") {
+    // Use the same logarithmic mapping as frequency in spectrum analyzer
+    // Map dB range from -70 to 0, similar to frequency range
+    float logMin = logf(1.0f);
+    float logMax = logf(70.0f);
+    float logDB = logf(fabsf(db) + 1.0f);
+
+    // Invert the mapping so 0dB is at top, -70dB is at bottom
+    return 1.0f - (logDB - logMin) / (logMax - logMin);
+  } else {
+    // Linear scaling (original behavior)
+    return std::max(0.0f, (db + 70.0f) / 70.0f);
+  }
+}
+
 void render() {
   if (!window)
     return;
@@ -60,10 +76,12 @@ void render() {
   Graphics::drawLine(rightPeakX, barHeight, rightPeakX + PEAK_BAR_WIDTH, barHeight, Theme::colors.accent, 1);
 
   // Draw dB labels on the left
-  const std::vector<float> labels {0, -6, -12, -24, -48};
+  const std::vector<float> linLabels {0, -12, -24, -36, -48, -60};
+  const std::vector<float> logLabels {0, -1, -3, -6, -12, -24, -48};
+  const std::vector<float>& labels = Config::options.lufs.scale == "log" ? logLabels : linLabels;
   for (const auto& label : labels) {
     // Calculate y position based on dB value (0dB at top, -70dB at bottom)
-    float normalizedPos = (label + 70.0f) / 70.0f;
+    float normalizedPos = scaleDB(label);
     size_t y = SDLWindow::height - (topHeight + (1.0f - normalizedPos) * barHeight);
 
     // Draw label (right aligned)
@@ -87,8 +105,8 @@ void render() {
     float clampedRightDB = std::max(-70.0f, rightDB);
 
     // Calculate positions for peak bars
-    float leftPos = std::max(0.0f, (clampedLeftDB + 70.0f) / 70.0f);
-    float rightPos = std::max(0.0f, (clampedRightDB + 70.0f) / 70.0f);
+    float leftPos = scaleDB(clampedLeftDB);
+    float rightPos = scaleDB(clampedRightDB);
 
     size_t leftBarHeight = leftPos * barHeight;
     size_t rightBarHeight = rightPos * barHeight;
@@ -107,7 +125,7 @@ void render() {
     return;
 
   // Calculate bar height based on LUFS value
-  float normalizedPos = std::max(0.0f, (lufs + 70.0f) / 70.0f);
+  float normalizedPos = scaleDB(lufs);
   size_t barFillHeight = normalizedPos * barHeight;
   size_t barFillY = SDLWindow::height - (topHeight + barHeight);
 

@@ -116,6 +116,7 @@ struct Options {
 
   struct LUFS {
     std::string mode = "momentary";
+    std::string scale = "linear";
   } lufs;
 
   struct Lowpass {

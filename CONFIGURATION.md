@@ -359,6 +359,9 @@ lufs:
   # shortterm is over a 3s window
   # integrated is over the entire recording
   mode: shortterm
+
+  # Scale: "log" or "linear"
+  scale: log
 ```
 
 ### Lowpass Filter Settings
