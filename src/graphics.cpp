@@ -9,15 +9,20 @@ namespace Graphics {
 
 void drawLine(const float& x1, const float& y1, const float& x2, const float& y2, const float* color,
               const float& thickness) {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glColor4fv(color);
   glLineWidth(thickness);
   glBegin(GL_LINES);
   glVertex2f(x1, y1);
   glVertex2f(x2, y2);
   glEnd();
+  glDisable(GL_BLEND);
 }
 
 void drawFilledRect(const float& x, const float& y, const float& width, const float& height, const float* color) {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glColor4fv(color);
   glBegin(GL_QUADS);
   glVertex2f(x, y);
@@ -25,6 +30,7 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
   glVertex2f(x + width, y + height);
   glVertex2f(x, y + height);
   glEnd();
+  glDisable(GL_BLEND);
 }
 
 namespace Font {
