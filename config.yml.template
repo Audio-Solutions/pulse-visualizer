@@ -215,11 +215,20 @@ spectrogram:
   # Time window for spectrogram in seconds
   time_window: 4.0
 
+# LUFS Settings
+lufs:
+  # Mode: "shortterm", "momentary", "integrated"
+  # momentary is over a 400ms window
+  # shortterm is over a 3s window
+  # integrated is over the entire recording
+  mode: shortterm
+
 # Visualizer Layout Settings
 # Controls the order and visibility of visualizers
 # Comment out visualizers you don't want to see
 # Their order from top to bottom will determine the order of the windows from left to right.
 visualizers:
+  - lufs
   - lissajous
   - oscilloscope
   - spectrum_analyzer

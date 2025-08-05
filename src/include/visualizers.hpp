@@ -74,3 +74,14 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in);
 void render();
 
 } // namespace Spectrogram
+
+namespace LUFS {
+
+// LUFS window
+extern WindowManager::VisualizerWindow* window;
+
+/**
+ * @brief Render the LUFS visualization
+ */
+void render();
+} // namespace LUFS

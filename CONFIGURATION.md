@@ -348,6 +348,19 @@ spectrogram:
   time_window: 4.0
 ```
 
+### LUFS Settings
+
+Controls the LUFS (Loudness Units) visualization.
+
+```yaml
+lufs:
+  # Mode: "shortterm", "momentary", "integrated"
+  # momentary is over a 400ms window
+  # shortterm is over a 3s window
+  # integrated is over the entire recording
+  mode: shortterm
+```
+
 ### Lowpass Filter Settings
 
 Controls the lowpass filter applied to the audio signal used for oscilloscope.
@@ -368,6 +381,7 @@ Their order from top to bottom will determine the order of the windows from left
 
 ```yaml
 visualizers:
+  - lufs
   - lissajous
   - oscilloscope
   - spectrum_analyzer

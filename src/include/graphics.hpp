@@ -1,7 +1,7 @@
 #pragma once
 #include "common.hpp"
-#include "window_manager.hpp"
 #include "theme.hpp"
+#include "window_manager.hpp"
 
 namespace Graphics {
 
@@ -44,7 +44,16 @@ struct GlyphTexture {
   int advance;
 };
 
-extern std::vector<std::unordered_map<char, GlyphTexture>> glyphCaches;
+// Hash function for std::pair<char, float>
+struct PairHash {
+  template <class T1, class T2> std::size_t operator()(const std::pair<T1, T2>& p) const {
+    auto h1 = std::hash<T1> {}(p.first);
+    auto h2 = std::hash<T2> {}(p.second);
+    return h1 ^ (h2 << 1);
+  }
+};
+
+extern std::vector<std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
 
 /**
  * @brief Load font from file for a specific window

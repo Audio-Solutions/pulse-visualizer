@@ -25,7 +25,10 @@
 #include <vector>
 #include FT_FREETYPE_H
 #include <atomic>
+#include <deque>
+#include <ebur128.h>
 #include <functional>
+#include <numeric>
 #include <signal.h>
 #include <yaml-cpp/yaml.h>
 

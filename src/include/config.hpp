@@ -114,6 +114,10 @@ struct Options {
     bool colorbeam = false;
   } phosphor;
 
+  struct LUFS {
+    std::string mode = "momentary";
+  } lufs;
+
   struct Lowpass {
     float cutoff = 20000.0f;
     int order = 1;

@@ -719,6 +719,7 @@ int FFTAlt() {
 
 int main() {
   Butterworth::design();
+  LUFS::init();
   std::vector<float> readBuf;
 
   // Start FFT processing threads
@@ -798,6 +799,13 @@ int main() {
     if (Config::options.oscilloscope.enable_lowpass)
       Lowpass::process();
 
+    // Add samples to LUFS calculation from processed buffers and process LUFS
+    LUFS::addSamples(sampleCount);
+    LUFS::process();
+
+    // Process peak detection
+    Peak::process();
+
     // Signal main thread that DSP processing is complete
     {
       std::lock_guard<std::mutex> lock(::mainThread);
@@ -816,9 +824,107 @@ int main() {
 
   FFTMainThread.join();
   FFTAltThread.join();
+  LUFS::reset();
   return 0;
 }
 } // namespace Threads
+
+namespace LUFS {
+
+// LUFS value
+float lufs = -70.0f;
+
+// libebur128 state
+ebur128_state* state = nullptr;
+
+void init() {
+  if (state) {
+    ebur128_destroy(&state);
+  }
+
+  state = ebur128_init(2, Config::options.audio.sample_rate, EBUR128_MODE_M | EBUR128_MODE_S | EBUR128_MODE_I);
+  if (!state) {
+    std::cerr << "Failed to initialize libebur128" << std::endl;
+  }
+}
+
+void addSamples(size_t count) {
+  if (!state)
+    return;
+
+  // Convert float samples to double for libebur128
+  std::vector<double> doubleSamples(count * 2);
+
+  // Get samples from the most recent buffer positions
+  size_t startPos = (writePos - count + bufferSize) % bufferSize;
+
+  for (size_t i = 0; i < count; i++) {
+    size_t bufferIdx = (startPos + i) % bufferSize;
+
+    // Convert mid/side back to left/right channels
+    float mid = bufferMid[bufferIdx];
+    float side = bufferSide[bufferIdx];
+    float left = mid + side;
+    float right = mid - side;
+
+    doubleSamples[i * 2] = static_cast<double>(left);      // Left channel
+    doubleSamples[i * 2 + 1] = static_cast<double>(right); // Right channel
+  }
+
+  ebur128_add_frames_double(state, doubleSamples.data(), count);
+}
+
+void process() {
+  if (!state)
+    return;
+
+  double lufsd;
+  if (Config::options.lufs.mode == "shortterm")
+    ebur128_loudness_shortterm(state, &lufsd);
+  else if (Config::options.lufs.mode == "momentary")
+    ebur128_loudness_momentary(state, &lufsd);
+  else if (Config::options.lufs.mode == "integrated")
+    ebur128_loudness_global(state, &lufsd);
+  else
+    ebur128_loudness_momentary(state, &lufsd);
+  lufs = static_cast<float>(lufsd);
+}
+
+void reset() {
+  if (state) {
+    ebur128_destroy(&state);
+    state = nullptr;
+  }
+}
+
+} // namespace LUFS
+
+namespace Peak {
+float left;
+float right;
+
+void process() {
+  static size_t lastWritePos = 0;
+  size_t numSamples = (writePos >= lastWritePos) ? (writePos - lastWritePos) : (bufferSize - lastWritePos + writePos);
+  left = 0.0f;
+  right = 0.0f;
+  for (size_t i = 0; i < numSamples; ++i) {
+    size_t bufferIdx = (lastWritePos + i) % bufferSize;
+    float sampleMid = bufferMid[bufferIdx];
+    float sampleSide = bufferSide[bufferIdx];
+    float sampleLeft = sampleMid + sampleSide;
+    float sampleRight = sampleMid - sampleSide;
+    float absLeft = std::abs(sampleLeft);
+    float absRight = std::abs(sampleRight);
+    if (absLeft > left)
+      left = absLeft;
+    if (absRight > right)
+      right = absRight;
+  }
+  lastWritePos = writePos;
+}
+
+} // namespace Peak
 
 // Template instantiations
 template class AlignedAllocator<float, 32>;

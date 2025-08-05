@@ -93,6 +93,10 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
   case SDL_WINDOWEVENT:
     if (event.window.event == SDL_WINDOWEVENT_LEAVE)
       hovering = false;
+    for (auto& window : windows)
+      window.hovering = false;
+    for (auto& splitter : splitters)
+      splitter.hovering = false;
     break;
   }
 }
@@ -109,7 +113,7 @@ void Splitter::draw() {
 
   // Draw splitter line
   float color[4] = {0.5, 0.5, 0.5, 1.0};
-  Graphics::drawLine(5, 0, 5, SDLWindow::height, Theme::colors.accent, 2.0f);
+  Graphics::drawLine(5, 0, 5, SDLWindow::height, Theme::colors.bgaccent, 2.0f);
 
   // Draw hover highlight if mouse is over splitter
   if (hovering) {
@@ -411,26 +415,49 @@ int moveSplitter(int index, int targetX) {
 
   // Prevent infinite loops
   if (++iter > 20) {
-    std::cerr << "Unable to solve splitters, max iterations reached." << std::endl;
     return -1;
   }
 
   // Lambda function to handle splitter movement constraints
   auto move = [&](Splitter* neighborSplitter, VisualizerWindow* neighborWindow, int direction, int boundary) -> bool {
     bool solved = true;
-    if (neighborWindow && neighborWindow->aspectRatio != 0.0f) {
-      // Handle aspect ratio constraints
-      int forceWidth = std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::height),
-                                static_cast<int>(SDLWindow::width - (windows.size() - 1) * MIN_WIDTH));
-      if (neighborSplitter) {
-        if (direction * (neighborSplitter->x - splitter->x) != forceWidth) {
-          moveSplitter(index + direction, splitter->x + direction * forceWidth);
-          solved = false;
+    if (neighborWindow) {
+      int forceWidth = 0;
+
+      // Handle forceWidth property if nonzero
+      if (neighborWindow->forceWidth != 0) {
+        forceWidth = neighborWindow->forceWidth;
+      }
+      // Handle aspect ratio constraints if no forceWidth or forceWidth is 0
+      else if (neighborWindow->aspectRatio != 0.0f) {
+        forceWidth = std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::height),
+                              static_cast<int>(SDLWindow::width - (windows.size() - 1) * MIN_WIDTH));
+      }
+
+      if (forceWidth > 0) {
+        if (neighborSplitter) {
+          if (direction * (neighborSplitter->x - splitter->x) != forceWidth) {
+            moveSplitter(index + direction, splitter->x + direction * forceWidth);
+            solved = false;
+          }
+        } else {
+          if (direction * (boundary - splitter->x) != forceWidth) {
+            splitter->x = boundary - direction * forceWidth;
+            solved = false;
+          }
         }
       } else {
-        if (direction * (boundary - splitter->x) != forceWidth) {
-          splitter->x = boundary - direction * forceWidth;
-          solved = false;
+        // Handle minimum width constraints
+        if (neighborSplitter) {
+          if (direction * (neighborSplitter->x - splitter->x) < MIN_WIDTH) {
+            moveSplitter(index + direction, splitter->x + direction * MIN_WIDTH);
+            solved = false;
+          }
+        } else {
+          if (direction * (boundary - splitter->x) < MIN_WIDTH) {
+            splitter->x = boundary - direction * MIN_WIDTH;
+            solved = false;
+          }
         }
       }
     } else {
@@ -542,7 +569,8 @@ void reorder() {
       {SpectrumAnalyzer::render, SpectrumAnalyzer::window},
       {Lissajous::render,        Lissajous::window       },
       {Oscilloscope::render,     Oscilloscope::window    },
-      {Spectrogram::render,      Spectrogram::window     }
+      {Spectrogram::render,      Spectrogram::window     },
+      {LUFS::render,             LUFS::window            }
   };
 
   // Map visualizer names to their indices
@@ -550,7 +578,8 @@ void reorder() {
       {"spectrum_analyzer", 0},
       {"lissajous",         1},
       {"oscilloscope",      2},
-      {"spectrogram",       3}
+      {"spectrogram",       3},
+      {"lufs",              4}
   };
 
   if (Config::options.visualizers.empty()) {
@@ -580,6 +609,7 @@ void reorder() {
     VisualizerWindow vw {};
     // Set aspect ratio for Lissajous (square) visualizer
     vw.aspectRatio = (visName == "lissajous") ? 1.0f : 0.0f;
+    vw.forceWidth = (visName == "lufs") ? 150 : 0;
     vw.render = visualizers[idx].first;
     windows.push_back(vw);
     visualizers[idx].second = &windows.back();
@@ -587,16 +617,33 @@ void reorder() {
     // Create splitter between windows
     if (i + 1 < Config::options.visualizers.size()) {
       Splitter s;
-      // Disable dragging for first splitter if Lissajous is first
-      if (i == 0 && vw.aspectRatio != 0.0f)
+      // Disable dragging for first splitter if Lissajous or LUFS is first
+      if (i == 0 && (vw.aspectRatio != 0.0f || vw.forceWidth != 0))
         s.draggable = false;
       splitters.push_back(s);
     }
   }
 
-  // Disable dragging for last splitter if Lissajous is last
-  if (!windows.empty() && !splitters.empty() && windows.back().aspectRatio != 0.0f)
+  // Disable dragging for last splitter if Lissajous or LUFS is last
+  if (!windows.empty() && !splitters.empty() && (windows.back().aspectRatio != 0.0f || windows.back().forceWidth != 0))
     splitters.back().draggable = false;
+
+  // Propagate fixed splitters from outside inwards
+  if (splitters.size() > 1) {
+    // Propagate from left to right
+    for (size_t i = 1; i < splitters.size(); ++i) {
+      if (!splitters[i - 1].draggable && (windows[i].aspectRatio != 0.0f || windows[i].forceWidth != 0)) {
+        splitters[i].draggable = false;
+      }
+    }
+
+    // Propagate from right to left
+    for (int i = static_cast<int>(splitters.size()) - 2; i >= 0; --i) {
+      if (!splitters[i + 1].draggable && (windows[i + 1].aspectRatio != 0.0f || windows[i + 1].forceWidth != 0)) {
+        splitters[i].draggable = false;
+      }
+    }
+  }
 
   // Spread splitters evenly across the window width
   size_t n = windows.size();

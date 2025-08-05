@@ -223,4 +223,44 @@ int main();
 
 } // namespace Threads
 
+/**
+ * @brief LUFS measurement using libebur128
+ */
+namespace LUFS {
+extern float lufs;
+
+/**
+ * @brief Initialize LUFS measurement
+ */
+void init();
+
+/**
+ * @brief Add audio samples for LUFS calculation from processed buffers
+ * @param count Number of samples to process
+ */
+void addSamples(size_t count);
+
+/**
+ * @brief Process LUFS calculation
+ */
+void process();
+
+/**
+ * @brief Reset LUFS measurement
+ */
+void reset();
+
+} // namespace LUFS
+
+namespace Peak {
+extern float left;
+extern float right;
+
+/**
+ * @brief Process peak detection
+ */
+void process();
+
+} // namespace Peak
+
 } // namespace DSP

@@ -80,6 +80,9 @@ find_package(GLEW REQUIRED)
 # Find YAML-CPP
 find_package(yaml-cpp REQUIRED)
 
+# Find libebur128
+pkg_check_modules(EBUR128 REQUIRED IMPORTED_TARGET libebur128)
+
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
@@ -98,6 +101,7 @@ target_link_libraries(Pulse PRIVATE
   OpenGL::GL
   ${GLEW_LIBRARIES}
   yaml-cpp::yaml-cpp
+  PkgConfig::EBUR128
 )
 
 # Link audio backends conditionally

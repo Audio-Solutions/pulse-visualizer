@@ -45,6 +45,7 @@ struct VisualizerWindow {
   size_t sdlWindow = 0;
   int x, width;
   float aspectRatio = 0;
+  size_t forceWidth = 0;
   size_t pointCount;
   bool hovering = false;
   constexpr static size_t buttonSize = 20;

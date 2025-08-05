@@ -64,6 +64,7 @@ int main() {
   DSP::ConstantQ::generate();
   DSP::FFT::init();
   DSP::Lowpass::init();
+  DSP::LUFS::init();
 
   // Setup window management
   WindowManager::reorder();
@@ -106,6 +107,7 @@ int main() {
       DSP::FFT::recreatePlans();
       DSP::ConstantQ::regenerate();
       DSP::Lowpass::reconfigure();
+      DSP::LUFS::init();
     }
 
     // Handle theme reloading

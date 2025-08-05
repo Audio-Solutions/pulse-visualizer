@@ -316,6 +316,9 @@ void load() {
   options.phosphor.chromatic_aberration_strength = get<float>(configData, "phosphor.chromatic_aberration_strength");
   options.phosphor.colorbeam = get<bool>(configData, "phosphor.colorbeam");
 
+  // Load LUFS configuration
+  options.lufs.mode = get<std::string>(configData, "lufs.mode");
+
   // Load lowpass configuration
   options.lowpass.cutoff = get<float>(configData, "lowpass.cutoff");
   options.lowpass.order = get<int>(configData, "lowpass.order");

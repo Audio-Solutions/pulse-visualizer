@@ -34,7 +34,7 @@ std::vector<FT_Face> faces;
 std::vector<FT_Library> ftLibs;
 
 // Glyph texture cache - per window
-std::vector<std::unordered_map<char, GlyphTexture>> glyphCaches;
+std::vector<std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
 
 void load(size_t sdlWindow) {
   // Ensure vectors are large enough
@@ -70,7 +70,7 @@ void cleanup(size_t sdlWindow) {
   SDLWindow::selectWindow(sdlWindow);
 
   // Cleanup glyph textures
-  for (auto& [ch, glyph] : glyphCaches[sdlWindow]) {
+  for (auto& [key, glyph] : glyphCaches[sdlWindow]) {
     if (glIsTexture(glyph.textureId)) {
       glDeleteTextures(1, &glyph.textureId);
     }
@@ -90,9 +90,10 @@ void cleanup(size_t sdlWindow) {
 
 GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow) {
   if (sdlWindow >= glyphCaches.size() || !faces[sdlWindow])
-    return glyphCaches[0][c]; // Fallback to first window
+    return glyphCaches[0][std::make_pair(c, size)]; // Fallback to first window
 
-  auto it = glyphCaches[sdlWindow].find(c);
+  auto key = std::make_pair(c, size);
+  auto it = glyphCaches[sdlWindow].find(key);
   if (it != glyphCaches[sdlWindow].end()) {
     return it->second;
   }
@@ -126,8 +127,8 @@ GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow) {
       tex,           static_cast<int>(g->bitmap.width),  static_cast<int>(g->bitmap.rows), g->bitmap_left,
       g->bitmap_top, static_cast<int>(g->advance.x >> 6)};
 
-  glyphCaches[sdlWindow][c] = glyph;
-  return glyphCaches[sdlWindow][c];
+  glyphCaches[sdlWindow][key] = glyph;
+  return glyphCaches[sdlWindow][key];
 }
 
 void drawText(const char* text, const float& x, const float& y, const float& size, const float* color,

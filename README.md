@@ -18,6 +18,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)
+  - Peak and LUFS (shortterm, momentary, integrated)
 - Configurable order at runtime (lost on exit for now)
 - Separate FFT/CQT threads for mid/side channels
 - Extensive SIMD (AVX2) acceleration
@@ -72,12 +73,13 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 - OpenGL
 - GLEW
 - YAML-CPP
+- libebur128
 - Ninja-build
 
 Fedora:  
-```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel```  
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
 Debian:  
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja```
+```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```
 
 **Works on:**
 - Linux (PulseAudio or PipeWire)
