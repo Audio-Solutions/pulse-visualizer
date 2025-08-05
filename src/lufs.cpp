@@ -53,7 +53,8 @@ void render() {
     color = Theme::colors.loudness_main;
 
   // Calculate layout positions
-  const size_t topHeight = SDLWindow::height * (TOP_HEIGHT_PERCENT / 100.0f);
+  const size_t topHeight =
+      Config::options.lufs.label == "compact" ? 50 : SDLWindow::height * (TOP_HEIGHT_PERCENT / 100.0f);
   const size_t barHeight = SDLWindow::height - topHeight;
 
   // Peak bars positions
@@ -132,6 +133,9 @@ void render() {
   // Draw the LUFS bar
   Graphics::drawFilledRect(lufsBarX, barFillY, LUFS_BAR_WIDTH, barFillHeight, color);
 
+  if (Config::options.lufs.label == "off")
+    return;
+
   // Draw LUFS text label with colored box
   char lufsBuffer[16];
   if (lufs >= -9.9f) {
@@ -141,29 +145,48 @@ void render() {
   }
   auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->sdlWindow);
 
-  // Calculate text position based on LUFS bar height, centered on the bar
-  size_t textY = barFillY + barFillHeight - static_cast<size_t>(h / 2);
+  if (Config::options.lufs.label == "on") {
+    // Calculate text position based on LUFS bar height, centered on the bar
+    size_t textY = barFillY + barFillHeight - static_cast<size_t>(h / 2);
 
-  // Calculate box dimensions
-  size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
-  size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
+    // Calculate box dimensions
+    size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
+    size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
 
-  // Calculate initial box position
-  size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
-  size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
+    // Calculate initial box position
+    size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
+    size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
 
-  // Clamp box position to stay within window bounds
-  boxY = std::max(0, std::min(SDLWindow::height - static_cast<int>(boxHeight), static_cast<int>(boxY)));
+    // Clamp box position to stay within window bounds
+    boxY = std::max(0, std::min(SDLWindow::height - static_cast<int>(boxHeight), static_cast<int>(boxY)));
 
-  // Update text position to match clamped box position
-  textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
+    // Update text position to match clamped box position
+    textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
 
-  // Draw colored box background
-  Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
+    // Draw colored box background
+    Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
 
-  // Draw text
-  Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                           window->sdlWindow);
+    // Draw text
+    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
+                             window->sdlWindow);
+  } else if (Config::options.lufs.label == "compact") {
+    // Calculate text position centered in the top area
+    // Position the box in the center of the top area
+    size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
+    size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
+    size_t boxX = boxWidth > window->width ? 0 : (window->width - boxWidth) / 2;
+    size_t boxY = SDLWindow::height - (topHeight - boxHeight / 2) + 10;
+
+    // Calculate text position relative to box
+    size_t textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
+
+    // Draw colored box background
+    Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
+
+    // Draw text
+    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
+                             window->sdlWindow);
+  }
 }
 
 } // namespace LUFS

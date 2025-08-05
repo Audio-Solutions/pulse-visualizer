@@ -224,6 +224,8 @@ lufs:
   mode: shortterm
   # Scale: "log" or "linear"
   scale: log
+  # LUFS label: "on", "off", "compact"
+  label: off
 
 # Visualizer Layout Settings
 # Controls the order and visibility of visualizers

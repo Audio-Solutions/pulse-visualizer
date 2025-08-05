@@ -609,7 +609,15 @@ void reorder() {
     VisualizerWindow vw {};
     // Set aspect ratio for Lissajous (square) visualizer
     vw.aspectRatio = (visName == "lissajous") ? 1.0f : 0.0f;
-    vw.forceWidth = (visName == "lufs") ? 150 : 0;
+    vw.forceWidth = 0;
+    if (visName == "lufs") {
+      if (Config::options.lufs.label == "on")
+        vw.forceWidth = 150;
+      else if (Config::options.lufs.label == "compact")
+        vw.forceWidth = 100;
+      else
+        vw.forceWidth = 70;
+    }
     vw.render = visualizers[idx].first;
     windows.push_back(vw);
     visualizers[idx].second = &windows.back();

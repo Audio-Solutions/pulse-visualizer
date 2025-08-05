@@ -319,6 +319,7 @@ void load() {
   // Load LUFS configuration
   options.lufs.mode = get<std::string>(configData, "lufs.mode");
   options.lufs.scale = get<std::string>(configData, "lufs.scale");
+  options.lufs.label = get<std::string>(configData, "lufs.label");
 
   // Load lowpass configuration
   options.lowpass.cutoff = get<float>(configData, "lowpass.cutoff");
