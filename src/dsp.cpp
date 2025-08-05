@@ -735,12 +735,12 @@ int main() {
       std::cerr << "Failed to read from audio engine" << std::endl;
       SDLWindow::running.store(false);
 
-      // Wake all threads
-      dataReady.store(true);
-      dataReadyFFTMain.store(true);
-      dataReadyFFTAlt.store(true);
-      mainCv.notify_all();
-      fft.notify_all();
+      // Signal main thread to exit
+      {
+        std::lock_guard<std::mutex> lock(::mainThread);
+        dataReady.store(true);
+        mainCv.notify_all();
+      }
       break;
     }
 
@@ -804,6 +804,14 @@ int main() {
       dataReady = true;
       mainCv.notify_one();
     }
+  }
+
+  // Ensure FFT threads are notified to exit
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    dataReadyFFTMain = true;
+    dataReadyFFTAlt = true;
+    fft.notify_all();
   }
 
   FFTMainThread.join();
