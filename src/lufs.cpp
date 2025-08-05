@@ -103,41 +103,42 @@ void render() {
   }
 
   // Draw LUFS bar if value is valid
-  if (lufs > -70.0f) {
-    // Calculate bar height based on LUFS value
-    float normalizedPos = std::max(0.0f, (lufs + 70.0f) / 70.0f);
-    size_t barFillHeight = normalizedPos * barHeight;
-    size_t barFillY = SDLWindow::height - (topHeight + barHeight);
+  if (lufs < -70.0f)
+    return;
 
-    // Draw the LUFS bar
-    Graphics::drawFilledRect(lufsBarX, barFillY, LUFS_BAR_WIDTH, barFillHeight, color);
+  // Calculate bar height based on LUFS value
+  float normalizedPos = std::max(0.0f, (lufs + 70.0f) / 70.0f);
+  size_t barFillHeight = normalizedPos * barHeight;
+  size_t barFillY = SDLWindow::height - (topHeight + barHeight);
 
-    // Draw LUFS text label with colored box
-    char lufsBuffer[16];
-    if (lufs >= -9.9f) {
-      snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.2fLUFS", lufs);
-    } else {
-      snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.1fLUFS", lufs);
-    }
-    auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->sdlWindow);
+  // Draw the LUFS bar
+  Graphics::drawFilledRect(lufsBarX, barFillY, LUFS_BAR_WIDTH, barFillHeight, color);
 
-    // Calculate text position based on LUFS bar height, centered on the bar
-    size_t textY = barFillY + barFillHeight - static_cast<size_t>(h / 2);
-
-    // Clamp text position to stay within window bounds
-    textY = std::max(topHeight, std::min(SDLWindow::height - static_cast<size_t>(h), textY));
-
-    // Draw colored box background
-    size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
-    size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
-    size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
-    size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
-    Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
-
-    // Draw text
-    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                             window->sdlWindow);
+  // Draw LUFS text label with colored box
+  char lufsBuffer[16];
+  if (lufs >= -9.9f) {
+    snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.2fLUFS", lufs);
+  } else {
+    snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.1fLUFS", lufs);
   }
+  auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->sdlWindow);
+
+  // Calculate text position based on LUFS bar height, centered on the bar
+  size_t textY = barFillY + barFillHeight - static_cast<size_t>(h / 2);
+
+  // Clamp text position to stay within window bounds
+  textY = std::max(topHeight, std::min(SDLWindow::height - static_cast<size_t>(h), textY));
+
+  // Draw colored box background
+  size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
+  size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
+  size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
+  size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
+  Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
+
+  // Draw text
+  Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
+                           window->sdlWindow);
 }
 
 } // namespace LUFS
