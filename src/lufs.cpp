@@ -126,14 +126,21 @@ void render() {
   // Calculate text position based on LUFS bar height, centered on the bar
   size_t textY = barFillY + barFillHeight - static_cast<size_t>(h / 2);
 
-  // Clamp text position to stay within window bounds
-  textY = std::max(topHeight, std::min(SDLWindow::height - static_cast<size_t>(h), textY));
-
-  // Draw colored box background
-  size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
-  size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
+  // Calculate box dimensions
   size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
   size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
+
+  // Calculate initial box position
+  size_t boxX = lufsBarX + LUFS_BAR_WIDTH + 2;
+  size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
+
+  // Clamp box position to stay within window bounds
+  boxY = std::max(0, std::min(SDLWindow::height - static_cast<int>(boxHeight), static_cast<int>(boxY)));
+
+  // Update text position to match clamped box position
+  textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
+
+  // Draw colored box background
   Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
 
   // Draw text
