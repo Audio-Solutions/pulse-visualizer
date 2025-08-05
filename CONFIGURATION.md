@@ -362,6 +362,12 @@ lufs:
 
   # Scale: "log" or "linear"
   scale: log
+
+  # Label: "on", "off", "compact"
+  # on = full label following the LUFS bar on the right
+  # off = no label
+  # compact = compact label in the top area
+  label: compact
 ```
 
 ### Lowpass Filter Settings
