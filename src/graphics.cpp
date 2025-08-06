@@ -20,6 +20,20 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
   if (length < 0.001f)
     return;
 
+  if (thickness <= 2.01f) {
+    glColor4fv(color);
+    glLineWidth(thickness);
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+    glBegin(GL_LINES);
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y2);
+    glEnd();
+    glDisable(GL_LINE_SMOOTH);
+    glDisable(GL_BLEND);
+    return;
+  }
+
   float halfThickness = thickness * 0.5f;
   float nx = -dy / length;
   float ny = dx / length;

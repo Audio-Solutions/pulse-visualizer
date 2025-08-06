@@ -65,8 +65,9 @@ void render() {
     // Draw background bar
     Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, SDLWindow::height - topHeight, Theme::colors.bgaccent);
 
-    // Draw zero line in background rect at barHeight
-    Graphics::drawLine(vuBarX, barHeight, vuBarX + VU_BAR_WIDTH, barHeight, Theme::colors.accent, 1);
+    // Draw zero line in background rect at 0dB
+    float zeroLineY = SDLWindow::height - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
+    Graphics::drawLine(vuBarX, zeroLineY, vuBarX + VU_BAR_WIDTH, zeroLineY, Theme::colors.accent, 1);
 
     // Draw dB labels on the left
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -18};
