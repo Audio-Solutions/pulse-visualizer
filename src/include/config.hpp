@@ -120,6 +120,17 @@ struct Options {
     std::string label = "off";
   } lufs;
 
+  struct VU {
+    float time_window = 0.3f;
+    std::string style = "digital";
+    float calibration_db = 0.0f;
+    std::string scale = "linear";
+    bool enable_momentum = false;
+    float spring_constant = 0.01f;
+    float damping_ratio = 0.1f;
+    float needle_width = 5.0f;
+  } vu;
+
   struct Lowpass {
     float cutoff = 20000.0f;
     int order = 1;

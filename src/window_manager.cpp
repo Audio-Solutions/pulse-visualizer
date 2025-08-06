@@ -570,7 +570,8 @@ void reorder() {
       {Lissajous::render,        Lissajous::window       },
       {Oscilloscope::render,     Oscilloscope::window    },
       {Spectrogram::render,      Spectrogram::window     },
-      {LUFS::render,             LUFS::window            }
+      {LUFS::render,             LUFS::window            },
+      {VU::render,               VU::window              }
   };
 
   // Map visualizer names to their indices
@@ -579,7 +580,8 @@ void reorder() {
       {"lissajous",         1},
       {"oscilloscope",      2},
       {"spectrogram",       3},
-      {"lufs",              4}
+      {"lufs",              4},
+      {"vu",                5}
   };
 
   if (Config::options.visualizers.empty()) {
@@ -617,6 +619,12 @@ void reorder() {
         vw.forceWidth = 100;
       else
         vw.forceWidth = 70;
+    }
+    if (visName == "vu") {
+      if (Config::options.vu.style == "digital")
+        vw.forceWidth = 60;
+      else
+        vw.aspectRatio = 2.0f;
     }
     vw.render = visualizers[idx].first;
     windows.push_back(vw);

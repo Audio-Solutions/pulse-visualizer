@@ -84,6 +84,9 @@ void load() {
       {"color_bars_main",                   colors.color_bars_main                  },
       {"loudness_main",                     colors.loudness_main                    },
       {"loudness_text",                     colors.loudness_text                    },
+      {"vu_main",                           colors.vu_main                          },
+      {"vu_caution",                        colors.vu_caution                       },
+      {"vu_clip",                           colors.vu_clip                          },
   };
 
   // Color mapping for single float values

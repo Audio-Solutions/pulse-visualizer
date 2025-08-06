@@ -28,6 +28,20 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
 void drawFilledRect(const float& x, const float& y, const float& width, const float& height, const float* color);
 
 /**
+ * @brief Draw an arc with specified color and thickness
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param radius Radius of the arc
+ * @param startAngle Start angle in degrees
+ * @param endAngle End angle in degrees
+ * @param color RGBA color array
+ * @param thickness Line thickness
+ * @param segments Number of segments to use for the arc
+ */
+void drawArc(const float& x, const float& y, const float& radius, const float& startAngle, const float& endAngle,
+             const float* color, const float& thickness, const int& segments = 100);
+
+/**
  * @brief Font rendering namespace
  */
 namespace Font {

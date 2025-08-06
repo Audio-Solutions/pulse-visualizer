@@ -263,4 +263,13 @@ void process();
 
 } // namespace Peak
 
+namespace RMS {
+extern float rms;
+
+/**
+ * @brief process RMS calculation
+ */
+void process();
+} // namespace RMS
+
 } // namespace DSP

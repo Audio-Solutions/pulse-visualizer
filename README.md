@@ -19,6 +19,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, interpolation)
   - Peak and LUFS (shortterm, momentary, integrated)
+  - VU meter (digital and analog)
 - Configurable order at runtime (lost on exit for now)
 - Separate FFT/CQT threads for mid/side channels
 - Extensive SIMD (AVX2) acceleration

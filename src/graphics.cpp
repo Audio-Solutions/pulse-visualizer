@@ -7,16 +7,44 @@
 
 namespace Graphics {
 
+// pain and suffering for antialiased lines
 void drawLine(const float& x1, const float& y1, const float& x2, const float& y2, const float* color,
               const float& thickness) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glColor4fv(color);
-  glLineWidth(thickness);
-  glBegin(GL_LINES);
-  glVertex2f(x1, y1);
-  glVertex2f(x2, y2);
-  glEnd();
+
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float length = sqrt(dx * dx + dy * dy);
+
+  if (length < 0.001f)
+    return;
+
+  float halfThickness = thickness * 0.5f;
+  float nx = -dy / length;
+  float ny = dx / length;
+
+  const int antialiasPasses = 5;
+  const float antialiasWidth = 2.0f;
+
+  for (int pass = 0; pass < antialiasPasses; ++pass) {
+    float offset = (pass - antialiasPasses / 2.0f) * (antialiasWidth / antialiasPasses);
+    float currentThickness = thickness + offset;
+    float currentHalfThickness = currentThickness * 0.5f;
+
+    float distance = abs(offset) / (antialiasWidth * 0.5f);
+    float alpha = color[3] * (1.0f - distance * 0.8f);
+    float passColor[4] = {color[0], color[1], color[2], alpha};
+    glColor4fv(passColor);
+
+    glBegin(GL_TRIANGLE_STRIP);
+    glVertex2f(x1 + nx * currentHalfThickness, y1 + ny * currentHalfThickness);
+    glVertex2f(x1 - nx * currentHalfThickness, y1 - ny * currentHalfThickness);
+    glVertex2f(x2 + nx * currentHalfThickness, y2 + ny * currentHalfThickness);
+    glVertex2f(x2 - nx * currentHalfThickness, y2 - ny * currentHalfThickness);
+    glEnd();
+  }
+
   glDisable(GL_BLEND);
 }
 
@@ -30,6 +58,50 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
   glVertex2f(x + width, y + height);
   glVertex2f(x, y + height);
   glEnd();
+  glDisable(GL_BLEND);
+}
+
+// pain and suffering for antialiased arcs
+void drawArc(const float& x, const float& y, const float& radius, const float& startAngle, const float& endAngle,
+             const float* color, const float& thickness, const int& segments) {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  float startRad = (startAngle)*M_PI / 180.0f;
+  float endRad = (endAngle)*M_PI / 180.0f;
+  float halfThickness = thickness * 0.5f;
+
+  const int antialiasPasses = 5;
+  const float antialiasWidth = 2.0f;
+
+  for (int pass = 0; pass < antialiasPasses; ++pass) {
+    float offset = (pass - antialiasPasses / 2.0f) * (antialiasWidth / antialiasPasses);
+    float currentThickness = thickness + offset;
+    float currentHalfThickness = currentThickness * 0.5f;
+
+    float distance = abs(offset) / (antialiasWidth * 0.5f);
+    float alpha = color[3] * (1.0f - distance * 0.8f);
+    float passColor[4] = {color[0], color[1], color[2], alpha};
+    glColor4fv(passColor);
+
+    glBegin(GL_TRIANGLE_STRIP);
+    for (int i = 0; i <= segments; ++i) {
+      float t = static_cast<float>(i) / segments;
+      float angle = startRad + (endRad - startRad) * t;
+      float dx = cos(angle);
+      float dy = sin(angle);
+
+      float px_outer = x + (radius + currentHalfThickness) * dx;
+      float py_outer = y + (radius + currentHalfThickness) * dy;
+      float px_inner = x + (radius - currentHalfThickness) * dx;
+      float py_inner = y + (radius - currentHalfThickness) * dy;
+
+      glVertex2f(px_outer, py_outer);
+      glVertex2f(px_inner, py_inner);
+    }
+    glEnd();
+  }
+
   glDisable(GL_BLEND);
 }
 

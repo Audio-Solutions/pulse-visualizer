@@ -734,15 +734,6 @@ int main() {
     // Read audio from engine
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       std::cerr << "Failed to read from audio engine" << std::endl;
-      SDLWindow::running.store(false);
-
-      // Signal main thread to exit
-      {
-        std::lock_guard<std::mutex> lock(::mainThread);
-        dataReady.store(true);
-        mainCv.notify_all();
-      }
-      break;
     }
 
     float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
@@ -805,6 +796,9 @@ int main() {
 
     // Process peak detection
     Peak::process();
+
+    // Process RMS calculation
+    RMS::process();
 
     // Signal main thread that DSP processing is complete
     {
@@ -925,6 +919,24 @@ void process() {
 }
 
 } // namespace Peak
+
+namespace RMS {
+float rms;
+
+void process() {
+  size_t samples = Config::options.audio.sample_rate * Config::options.vu.time_window / 1000.0f;
+  size_t start = (writePos - samples + bufferSize) % bufferSize;
+  rms = 0.0f;
+  for (size_t i = 0; i < samples; ++i) {
+    size_t bufferIdx = (start + i) % bufferSize;
+    float& sample = bufferMid[bufferIdx];
+    rms += sample * sample;
+  }
+  rms /= samples;
+  rms = sqrt(rms);
+}
+
+} // namespace RMS
 
 // Template instantiations
 template class AlignedAllocator<float, 32>;

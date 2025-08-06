@@ -68,3 +68,8 @@ bgaccent: 43,48,55
 ## These are the values for the Loudness Meter (currently named Peak/LUFS)
 loudness_main: 255,255,255
 loudness_text: 0,0,0
+
+## These are the values for the VU Meter
+vu_main: 0, 255, 0
+vu_caution: 255,255,0
+vu_clip: 255,0,0

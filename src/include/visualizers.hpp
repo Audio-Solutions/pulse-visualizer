@@ -85,3 +85,14 @@ extern WindowManager::VisualizerWindow* window;
  */
 void render();
 } // namespace LUFS
+
+namespace VU {
+
+// VU window
+extern WindowManager::VisualizerWindow* window;
+
+/**
+ * @brief Render the VU visualization
+ */
+void render();
+} // namespace VU

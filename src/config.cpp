@@ -321,6 +321,16 @@ void load() {
   options.lufs.scale = get<std::string>(configData, "lufs.scale");
   options.lufs.label = get<std::string>(configData, "lufs.label");
 
+  // Load VU configuration
+  options.vu.time_window = get<float>(configData, "vu.time_window");
+  options.vu.style = get<std::string>(configData, "vu.style");
+  options.vu.calibration_db = get<float>(configData, "vu.calibration_db");
+  options.vu.scale = get<std::string>(configData, "vu.scale");
+  options.vu.enable_momentum = get<bool>(configData, "vu.enable_momentum");
+  options.vu.spring_constant = get<float>(configData, "vu.spring_constant");
+  options.vu.damping_ratio = get<float>(configData, "vu.damping_ratio");
+  options.vu.needle_width = get<float>(configData, "vu.needle_width");
+
   // Load lowpass configuration
   options.lowpass.cutoff = get<float>(configData, "lowpass.cutoff");
   options.lowpass.order = get<int>(configData, "lowpass.order");

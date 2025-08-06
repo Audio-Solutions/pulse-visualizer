@@ -370,6 +370,32 @@ lufs:
   label: compact
 ```
 
+### VU Meter Settings
+
+Controls the VU meter visualization.
+
+```yaml
+
+vu:
+  # Time window for VU meter in ms
+  time_window: 100.0
+  # Style: "analog" or "digital"
+  style: digital
+  # Calibration dB level
+  # a calibration of 3dB means a 0dB pure sine wave is at 0dB in the meter
+  calibration_db: 3.0
+  # Scale: "log" or "linear"
+  scale: log
+  # Enable momentum for analog VU meter
+  enable_momentum: true
+  # Spring constant of needle
+  spring_constant: 500.0
+  # Damping ratio of needle
+  damping_ratio: 10.0
+  # Needle width
+  needle_width: 2.0
+```
+
 ### Lowpass Filter Settings
 
 Controls the lowpass filter applied to the audio signal used for oscilloscope.
@@ -391,6 +417,7 @@ Their order from top to bottom will determine the order of the windows from left
 ```yaml
 visualizers:
   - lufs
+  - vu
   - lissajous
   - oscilloscope
   - spectrum_analyzer
