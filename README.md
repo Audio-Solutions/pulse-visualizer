@@ -40,6 +40,14 @@ Just grab it from the AUR as `pulse-visualizer-git`:
 yay -S pulse-visualizer-git
 ```
 
+### NixOS
+
+A `shell.nix` and `pulse-visualizer.nix` is provided in this repo. To add it to your shell run this in the project root:
+
+```bash
+nix-shell
+```
+
 ### Other Distros (Manual Build)
 
 Clone, build, install:
