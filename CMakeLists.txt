@@ -86,6 +86,9 @@ pkg_check_modules(EBUR128 REQUIRED IMPORTED_TARGET libebur128)
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
+# Set installation prefix to /usr
+set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)
+
 # Define data directory for shader loading
 add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visualizer")
 
