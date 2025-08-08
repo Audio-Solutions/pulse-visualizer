@@ -94,10 +94,10 @@ add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visu
 
 # Add executable
 file(GLOB SRC_FILES src/*.cpp)
-add_executable(Pulse ${SRC_FILES})
+add_executable(pulse-visualizer ${SRC_FILES})
 
 # Link libraries
-target_link_libraries(Pulse PRIVATE
+target_link_libraries(pulse-visualizer PRIVATE
   ${SDL2_LIBRARIES}
   PkgConfig::FFTW
   PkgConfig::FREETYPE
@@ -109,23 +109,23 @@ target_link_libraries(Pulse PRIVATE
 
 # Link audio backends conditionally
 if(PULSE_FOUND)
-  target_link_libraries(Pulse PRIVATE ${PULSE_LIBRARIES})
-  target_include_directories(Pulse PRIVATE ${PULSE_INCLUDE_DIRS})
-  target_compile_options(Pulse PRIVATE ${PULSE_CFLAGS_OTHER})
+  target_link_libraries(pulse-visualizer PRIVATE ${PULSE_LIBRARIES})
+  target_include_directories(pulse-visualizer PRIVATE ${PULSE_INCLUDE_DIRS})
+  target_compile_options(pulse-visualizer PRIVATE ${PULSE_CFLAGS_OTHER})
 endif()
 
 if(PIPEWIRE_FOUND)
-  target_link_libraries(Pulse PRIVATE ${PIPEWIRE_LIBRARIES})
-  target_include_directories(Pulse PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
-  target_compile_options(Pulse PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
-  target_compile_options(Pulse PRIVATE -Wno-nan-infinity-disabled)
+  target_link_libraries(pulse-visualizer PRIVATE ${PIPEWIRE_LIBRARIES})
+  target_include_directories(pulse-visualizer PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
+  target_compile_options(pulse-visualizer PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
+  target_compile_options(pulse-visualizer PRIVATE -Wno-nan-infinity-disabled)
 endif()
 
 # Installation targets
 include(GNUInstallDirs)
 
 # Install the executable
-install(TARGETS Pulse
+install(TARGETS pulse-visualizer
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
