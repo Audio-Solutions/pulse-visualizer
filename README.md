@@ -50,7 +50,28 @@ nix-shell
 
 ### Other Distros 
 
-You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest) or build it yourself:
+You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest). There is an install script in the tarball, make sure to run it as root before running the binary:
+
+```bash
+tar -xvf pulse-visualizer-<version>.tar.gz
+cd pulse-visualizer-<version>
+chmod +x install.sh
+sudo ./install.sh
+```
+
+Alternatively, you can build from source:
+
+#### Build dependencies
+
+- C++17 compiler
+- CMake 3.10+
+- Ninja-build
+- Development headers for: SDL2, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
+
+Fedora:  
+```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
+Debian:  
+```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
 
 ```bash
 mkdir build
@@ -60,11 +81,6 @@ ninja
 sudo ninja install
 ```
 
-This will:
-- Put the executable in `/usr/local/bin/pulse-visualizer`
-- Install system files to `/usr/local/share/pulse-visualizer/`
-- Set up desktop integration and man page
-
 On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
 
 #### Note 
@@ -72,9 +88,6 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 
 ## Dependencies & Platform Support
 
-**You need:**
-- C++17 compiler
-- CMake 3.10+
 - SDL2
 - PulseAudio **or** PipeWire (0.3+)
 - FFTW3
@@ -83,12 +96,6 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 - GLEW
 - YAML-CPP
 - libebur128
-- Ninja-build
-
-Fedora:  
-```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
-Debian:  
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```
 
 **Works on:**
 - Linux (PulseAudio or PipeWire)
@@ -151,4 +158,4 @@ MIT. See [LICENSE](LICENSE).
 
 - [MiniMeters](https://minimeters.app/) for inspiration
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
-- SDL2, PulseAudio, PipeWire, FFTW, FreeType, and everyone else who made this possible
+- SDL2, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone else who made this possible
