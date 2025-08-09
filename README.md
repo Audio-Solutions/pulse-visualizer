@@ -48,9 +48,9 @@ A `shell.nix` and `pulse-visualizer.nix` is provided in this repo. To add it to 
 nix-shell
 ```
 
-### Other Distros (Manual Build)
+### Other Distros 
 
-Clone, build, install:
+You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest) or build it yourself:
 
 ```bash
 mkdir build
@@ -61,14 +61,14 @@ sudo ninja install
 ```
 
 This will:
-- Put the executable in `/usr/local/bin/Pulse`
+- Put the executable in `/usr/local/bin/pulse-visualizer`
 - Install system files to `/usr/local/share/pulse-visualizer/`
 - Set up desktop integration and man page
 
 On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
 
 #### Note 
- Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and use `sudo ninja install` only for the install step.
+ Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and only use `sudo ninja install` for the install step.
 
 ## Dependencies & Platform Support
 
