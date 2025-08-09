@@ -4,11 +4,11 @@
 pulse-visualizer \- Real-time audio visualizer with analog CRT phosphor emulation
 
 .SH SYNOPSIS
-.B Pulse
+.B pulse-visualizer
 [\fIOPTIONS\fR]
 
 .SH DESCRIPTION
-Pulse is a real-time audio visualizer that transforms system audio from PulseAudio or PipeWire
+pulse-visualizer is a real-time audio visualizer that transforms system audio from PulseAudio or PipeWire
 into eye-catching visual effects. It features hardware-accelerated graphics with multiple
 visualization styles including Lissajous curves, oscilloscope displays, FFT spectrum analysis,
 and spectrograms. The application includes authentic analog CRT phosphor emulation powered by
