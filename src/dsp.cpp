@@ -75,30 +75,36 @@ void Biquad::reset() { x1 = x2 = y1 = y2 = 0.0f; }
 
 void design(float center) {
   biquads.clear();
-  int sections = Config::options.bandpass_filter.order / 2;
-  float w0 = 2.f * M_PI * center / Config::options.audio.sample_rate;
+  int order = Config::options.bandpass_filter.order;
+  int sections = order / 2;
+  float fs = Config::options.audio.sample_rate;
   float bw = Config::options.bandpass_filter.bandwidth;
   if (Config::options.bandpass_filter.bandwidth_type == "percent")
     bw = center * bw / 100.0f;
-  float Q = center / bw;
 
-  // Design Butterworth bandpass filter
-  for (int k = 0; k < sections; k++) {
-    float alpha = sinf(w0) / (2.0f * Q);
+  // Pre-warp center frequency and bandwidth for exact bilinear transform
+  float Bw_pre = 2.f * fs * tanf(M_PI * bw / fs);
+  float w0_pre = 2.f * fs * tanf(M_PI * center / fs);
+  float p = 2.f * fs;
 
-    float b0 = alpha;
-    float b1 = 0.0f;
-    float b2 = -alpha;
-    float a0 = 1.0f + alpha;
-    float a1 = -2.0f * cosf(w0);
-    float a2 = 1.0f - alpha;
+  for (int k = 0; k < sections; ++k) {
+    float theta = M_PI * (2.f * k + 1.f) / (2.f * order);
 
-    // Normalize coefficients
-    b0 /= a0;
-    b1 /= a0;
-    b2 /= a0;
-    a1 /= a0;
-    a2 /= a0;
+    // Analog bandpass biquad
+    float a_analog = 2.f * Bw_pre * sinf(theta);
+    float b_analog = w0_pre * w0_pre;
+    float c_analog = Bw_pre;
+
+    // Bilinear transform
+    float d0 = p * p + a_analog * p + b_analog;
+    float d1 = -2.f * p * p + 2.f * b_analog;
+    float d2 = p * p - a_analog * p + b_analog;
+
+    float b0 = (c_analog * p) / d0;
+    float b1 = 0.f;
+    float b2 = -b0;
+    float a1 = d1 / d0;
+    float a2 = d2 / d0;
 
     biquads.push_back({b0, b1, b2, a1, a2});
   }
