@@ -30,10 +30,10 @@ void render() {
       if (f < Config::options.fft.min_freq || f > Config::options.fft.max_freq)
         return;
       float logX = (log(f) - logMin) / (logMax - logMin);
-      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
-                                Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(SDLWindow::height)
-                            : static_cast<float>(window->width));
+      float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                                       Config::options.fft.rotation == Config::ROTATION_270
+                                   ? static_cast<float>(SDLWindow::height)
+                                   : static_cast<float>(window->width)));
       float height =
           Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
               ? window->width
