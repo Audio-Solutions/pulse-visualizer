@@ -33,7 +33,7 @@ float scaleDB(float db) {
     float logDB = logf(fabsf(db) + 1.0f);
 
     // Invert the mapping so 0dB is at top, -70dB is at bottom
-    return 1.0f - (logDB - logMin) / (logMax - logMin);
+    return 1.0f - (logDB - logMin) / (logMax - logMin) * (db > 0.0f ? -1.0f : 1.0f);
   } else {
     // Linear scaling (original behavior)
     return std::max(0.0f, (db + 70.0f) / 70.0f);
