@@ -1,6 +1,6 @@
-# Pulse - Audio Visualizer
+# pulse-visualizer - Audio Visualizer
 
-![Pulse Audio Visualizer in Phosphor Mode](media/viz.gif)
+![pulse-visualizer in Phosphor Mode](media/viz.gif)
 
 ## What Even Is This?
 
@@ -26,7 +26,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - Live config and theme hot-reloading (no restart needed, mostly)
 - Draggable splitters for custom layout
 - Mouse interaction: hover FFT for note readout, drag splitters, etc.
-- Cross-platform: PulseAudio **and** PipeWire
+- Cross-platform: PulseAudio and PipeWire
 - Hardware-accelerated graphics (OpenGL)
 - A pile of ready-made themes (see `themes/`)
 
@@ -119,7 +119,7 @@ The most important settings to configure:
 
 For all available options and detailed descriptions, see `/usr/local/share/pulse-visualizer/config.yml.template`.
 
-### Themeing
+### Theming
 
 To pick a theme, edit the `theme` field in your config:
 
@@ -149,14 +149,17 @@ Pulse
 
 Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
 
-If you like Pulse, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
+See [CONTRIBUTORS](CONTRIBUTORS) for a list of contributors to this project.
+
+If you like pulse-visualizer, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
 - [MiniMeters](https://minimeters.app/) for inspiration
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
+- [JetBrains](https://www.jetbrains.com/) and the [Nerd Fonts](https://www.nerdfonts.com/) project for the JetBrains Mono Nerd Font
 - SDL2, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone else who made this possible

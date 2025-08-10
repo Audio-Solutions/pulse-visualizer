@@ -65,7 +65,7 @@ stdenv.mkDerivation (finalAttrs: {
   meta = with lib; {
     description = "Real-time audio visualizer using SDL2, OpenGL, PulseAudio/PipeWire";
     homepage = "https://github.com/Beacroxx/pulse-visualizer";
-    license = licenses.mit;
+    license = licenses.gpl3;
     maintainers = [ maintainers.miyu ];
     platforms = [ "x86_64-linux" "aarch64-linux" ];
     mainProgram = "pulse-visualizer";
