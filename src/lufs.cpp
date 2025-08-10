@@ -26,14 +26,12 @@ constexpr size_t FONT_SIZE_LUFS = 14;
 
 float scaleDB(float db) {
   if (Config::options.lufs.scale == "log") {
-    // Use the same logarithmic mapping as frequency in spectrum analyzer
-    // Map dB range from -70 to 0, similar to frequency range
-    float logMin = logf(1.0f);
-    float logMax = logf(70.0f);
+    // Map dB range from -70 to 0
+    float logMax = 4.262679f; // logf(71.0f)
     float logDB = logf(fabsf(db) + 1.0f);
 
-    // Invert the mapping so 0dB is at top, -70dB is at bottom
-    return 1.0f - (logDB - logMin) / (logMax - logMin) * (db > 0.0f ? -1.0f : 1.0f);
+    // mapping so 0dB is at top, -70dB is at bottom
+    return 1.0f - (logDB) / (logMax) * (db > 0.0f ? -1.0f : 1.0f);
   } else {
     // Linear scaling (original behavior)
     return std::max(0.0f, (db + 70.0f) / 70.0f);

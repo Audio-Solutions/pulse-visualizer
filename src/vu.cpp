@@ -19,30 +19,18 @@ constexpr size_t TOP_HEIGHT_PERCENT = 10;
 constexpr size_t FONT_SIZE_LABELS = 10;
 
 float scaleDB(float db) {
-  float min_db = -20.0f;
-  float max_db = 3.0f;
-  float a = 1.5f; // curve strength
+  if (Config::options.lufs.scale == "log") {
+    // Map dB range from -20 to 0
+    float logMax = 3.044522f; // logf(21.0f)
+    float logDB = logf(fabsf(db) + 1.0f);
 
-  if (Config::options.vu.scale == "log") {
-    float M = std::max(std::abs(min_db), max_db);
-
-    auto sign = [](float x) -> float { return (x > 0) - (x < 0); };
-
-    auto curve = [&](float x) -> float {
-      float absx = std::abs(x);
-      float exponent = 1.0f / a;
-      float val = (std::pow(absx, exponent) - 0.0f) / (std::pow(M, exponent) - 0.0f);
-      return sign(x) * val;
-    };
-
-    float g_min = curve(min_db);
-    float g_max = curve(max_db);
-
-    float g_db = curve(db);
-
-    return (g_db - g_min) / (g_max - g_min);
+    // mapping so 3dB is at top, -20dB is at bottom
+    float val = 1.0f - (logDB) / (logMax) * (db > 0.0f ? -1.0f : 1.0f);
+    float neg3dB = 1.0f + 1.386294f / logMax; // 1.386294 = logf(3.0f + 1.0f)
+    return val / neg3dB;
   } else {
-    return std::max(0.0f, (db - min_db) / (max_db - min_db));
+    // Linear scaling (original behavior)
+    return std::max(0.0f, (db + 20.0f) / 20.0f);
   }
 }
 
@@ -71,7 +59,7 @@ void render() {
 
     // Draw dB labels on the left
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -18};
-    const std::vector<float> logLabels {3, 1, 0, -1, -3, -6, -9, -12, -18};
+    const std::vector<float> logLabels {3, 1, 0, -1, -3, -6, -12};
     const std::vector<float>& labels = Config::options.vu.scale == "log" ? logLabels : linLabels;
 
     for (const auto& label : labels) {
@@ -168,7 +156,7 @@ void render() {
 
     // draw label lines perpendicular to the arc
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -20};
-    const std::vector<float> logLabels {3, 1, 0, -1, -3, -6, -9, -12, -15, -20};
+    const std::vector<float> logLabels {3, 1, 0, -1, -3, -6, -12, -20};
     const std::vector<float>& labels = Config::options.vu.scale == "log" ? logLabels : linLabels;
     for (const auto& label : labels) {
       float angle = toAngle(label);
