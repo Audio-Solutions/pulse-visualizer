@@ -33,32 +33,33 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 ## Installation
 
 ### Arch Linux (AUR)
-
 Just grab it from the AUR as `pulse-visualizer-git`:
-
 ```bash
 yay -S pulse-visualizer-git
 ```
-
 ### NixOS
+Download the `pulse-visualizer.nix` and add this to your flake:
+```nix
+nixpkgs.config.packageOverrides = pkgs: {
+  pulse-visualizer = pkgs.callPackage ~/flake/pulse-visualizer.nix { };
+};
 
-A `shell.nix` and `pulse-visualizer.nix` is provided in this repo. To add it to your shell run this in the project root:
+environment.systemPackages = [ pkgs.pulse-visualizer ];
+```
 
+### Nix
+Change directory to the project root and add it to your shell via:
 ```bash
 nix-shell
 ```
-
 ### Other Distros 
-
 You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest). There is an install script in the tarball, make sure to run it as root before running the binary:
-
 ```bash
 tar -xvf pulse-visualizer-<version>.tar.gz
 cd pulse-visualizer-<version>
 chmod +x install.sh
 sudo ./install.sh
 ```
-
 Alternatively, you can build from source:
 
 #### Build dependencies
