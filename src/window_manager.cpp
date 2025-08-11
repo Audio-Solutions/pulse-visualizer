@@ -169,33 +169,22 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
     int dstOffsetX = std::max(0, (width - phosphor.textureWidth) / 2);
     int dstOffsetY = std::max(0, (SDLWindow::height - phosphor.textureHeight) / 2);
 
-#ifdef HAVE_AVX2
-    // SIMD-optimized texture transfer
-    int rowBytes = minWidth * 4;
-    constexpr int SIMD_WIDTH = 32;
-
     for (int y = 0; y < minHeight; ++y) {
-      int oldRow = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
-      int newRow = (y + dstOffsetY) * width * 4 + dstOffsetX * 4;
-
+      int oldRowBase = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
+      int newRowBase = (y + dstOffsetY) * width * 4 + dstOffsetX * 4;
       int x = 0;
-      for (; x + SIMD_WIDTH <= rowBytes; x += SIMD_WIDTH) {
-        __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&oldData[oldRow + x]));
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&newData[newRow + x]), v);
+
+#ifdef HAVE_AVX2
+      // SIMD-optimized texture transfer
+      for (; x + 32 <= minWidth * 4; x += 32) {
+        __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&oldData[oldRowBase + x]));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&newData[newRowBase + x]), v);
       }
-      for (; x < rowBytes; x += 4) {
-        newData[newRow + x + 0] = oldData[oldRow + x + 0];
-        newData[newRow + x + 1] = oldData[oldRow + x + 1];
-        newData[newRow + x + 2] = oldData[oldRow + x + 2];
-        newData[newRow + x + 3] = oldData[oldRow + x + 3];
-      }
-    }
-#else
-    // Standard texture transfer without SIMD
-    for (int y = 0; y < minHeight; ++y) {
-      for (int x = 0; x < minWidth; ++x) {
-        int oldIdx = ((y + srcOffsetY) * phosphor.textureWidth + (x + srcOffsetX)) * 4;
-        int newIdx = ((y + dstOffsetY) * width + (x + dstOffsetX)) * 4;
+#endif
+      // Standard processing for remaining pixels
+      for (; x < minWidth * 4; x += 4) {
+        int oldIdx = oldRowBase + x;
+        int newIdx = newRowBase + x;
         if (newIdx + 3 < newData.size() && oldIdx + 3 < oldData.size()) {
           newData[newIdx] = oldData[oldIdx];
           newData[newIdx + 1] = oldData[oldIdx + 1];
@@ -204,7 +193,6 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
         }
       }
     }
-#endif
   }
   // Create new texture with transferred data
   glBindTexture(GL_TEXTURE_2D, newTex);
