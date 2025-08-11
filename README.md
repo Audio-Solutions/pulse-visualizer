@@ -41,7 +41,7 @@ yay -S pulse-visualizer-git
 Download the `pulse-visualizer.nix` and add this to your flake:
 ```nix
 nixpkgs.config.packageOverrides = pkgs: {
-  pulse-visualizer = pkgs.callPackage ~/flake/pulse-visualizer.nix { };
+  pulse-visualizer = pkgs.callPackage /home/user/flake/pulse-visualizer.nix { };
 };
 
 environment.systemPackages = [ pkgs.pulse-visualizer ];
@@ -137,7 +137,7 @@ Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for 
 Just run:
 
 ```bash
-Pulse
+pulse-visualizer
 ```
 
 - Drag splitters to resize/rearrange visualizers

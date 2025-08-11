@@ -18,13 +18,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "unstable-2025-08-08";
+  version = "1.0.1";
 
   src = fetchFromGitHub {
     owner = "Beacroxx";
     repo = "pulse-visualizer";
-    rev = "feeaa8dff66b5d199e25a8ddde58a145ff5f97e5";
-    hash = "sha256-rUlTDUDyo7D2qT4mTPbjF98d5CnOBghmn9jYXsPvLzk=";
+    rev = "882d6072f651ae00fcba66c9c2d5df2835b6cf61";
+    hash = "sha256-OR7ahdKaj5vPB6ab8TTAX4cb4DApND0XcWUX22sJ5is=";
   };
 
   nativeBuildInputs = [
@@ -53,14 +53,11 @@ stdenv.mkDerivation (finalAttrs: {
       --replace-warn " -march=native" "" \
       --replace-warn " -mtune=native" "" \
       --replace-warn "-Wl,-s" "" \
-      --replace-warn " -s" ""
+      --replace-warn " -s" "" \
+      --replace-warn 'set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)' ""
   '';
 
   cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" ];
-
-  postInstall = ''
-    ln -s "$out/bin/Pulse" "$out/bin/pulse-visualizer"
-  '';
 
   meta = with lib; {
     description = "Real-time audio visualizer using SDL2, OpenGL, PulseAudio/PipeWire";
@@ -68,6 +65,5 @@ stdenv.mkDerivation (finalAttrs: {
     license = licenses.gpl3;
     maintainers = [ maintainers.miyu ];
     platforms = [ "x86_64-linux" "aarch64-linux" ];
-    mainProgram = "pulse-visualizer";
   };
 })
