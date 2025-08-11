@@ -116,7 +116,7 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     for (auto& splitter : splitters)
       splitter.hovering = false;
     break;
-    
+
   default:
     break;
   }
@@ -163,9 +163,11 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
     glBindTexture(GL_TEXTURE_2D, oldTex);
     glGetTexImage(GL_TEXTURE_2D, 0, format, type, oldData.data());
 
-    // Calculate offset for centering texture
-    int offsetX = std::max(0, (width - phosphor.textureWidth) / 2);
-    int offsetY = std::max(0, (SDLWindow::height - phosphor.textureHeight) / 2);
+    // Calculate offsets for centering texture in both directions
+    int srcOffsetX = std::max(0, (phosphor.textureWidth - width) / 2);
+    int srcOffsetY = std::max(0, (phosphor.textureHeight - SDLWindow::height) / 2);
+    int dstOffsetX = std::max(0, (width - phosphor.textureWidth) / 2);
+    int dstOffsetY = std::max(0, (SDLWindow::height - phosphor.textureHeight) / 2);
 
 #ifdef HAVE_AVX2
     // SIMD-optimized texture transfer
@@ -173,8 +175,8 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
     constexpr int SIMD_WIDTH = 32;
 
     for (int y = 0; y < minHeight; ++y) {
-      int oldRow = y * phosphor.textureWidth * 4;
-      int newRow = (y + offsetY) * width * 4 + offsetX * 4;
+      int oldRow = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
+      int newRow = (y + dstOffsetY) * width * 4 + dstOffsetX * 4;
 
       int x = 0;
       for (; x + SIMD_WIDTH <= rowBytes; x += SIMD_WIDTH) {
@@ -192,8 +194,8 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
     // Standard texture transfer without SIMD
     for (int y = 0; y < minHeight; ++y) {
       for (int x = 0; x < minWidth; ++x) {
-        int oldIdx = (y * phosphor.textureWidth + x) * 4;
-        int newIdx = ((y + offsetY) * width + (x + offsetX)) * 4;
+        int oldIdx = ((y + srcOffsetY) * phosphor.textureWidth + (x + srcOffsetX)) * 4;
+        int newIdx = ((y + dstOffsetY) * width + (x + dstOffsetX)) * 4;
         if (newIdx + 3 < newData.size() && oldIdx + 3 < oldData.size()) {
           newData[newIdx] = oldData[oldIdx];
           newData[newIdx + 1] = oldData[oldIdx + 1];
