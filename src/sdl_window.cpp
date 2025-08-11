@@ -38,14 +38,17 @@ int mouseX = 0, mouseY = 0;
 void deinit() {
   for (size_t i = 0; i < wins.size(); i++) {
     SDL_DestroyWindow(wins[i]);
-    SDL_GL_DeleteContext(glContexts[i]);
+    SDL_GL_DestroyContext(glContexts[i]);
   }
   SDL_Quit();
 }
 
 void init() {
+  // Prefer wayland natively
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland");
+
   // Initialize SDL video subsystem
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
     exit(1);
   }
@@ -83,16 +86,16 @@ void init() {
 
 void handleEvent(SDL_Event& event) {
   // handle events for the base window only except for quit
-  if (event.type == SDL_QUIT) {
+  if (event.type == SDL_EVENT_QUIT) {
     running.store(false);
     return;
   }
 
   if (event.window.windowID == SDL_GetWindowID(wins[0])) {
     switch (event.type) {
-    case SDL_KEYDOWN:
-      switch (event.key.keysym.sym) {
-      case SDLK_q:
+    case SDL_EVENT_KEY_DOWN:
+      switch (event.key.key) {
+      case SDLK_Q:
       case SDLK_ESCAPE:
         running.store(false);
         return;
@@ -101,30 +104,22 @@ void handleEvent(SDL_Event& event) {
       }
       break;
 
-    case SDL_MOUSEMOTION:
+    case SDL_EVENT_MOUSE_MOTION:
       mouseX = event.motion.x;
-
-      // Invert Y coordinate because Window is technically upside down
       mouseY = height - event.motion.y;
       break;
 
-    case SDL_WINDOWEVENT:
-      switch (event.window.event) {
-      case SDL_WINDOWEVENT_ENTER:
-        focused = true;
-        break;
+    case SDL_EVENT_WINDOW_MOUSE_ENTER:
+      focused = true;
+      break;
 
-      case SDL_WINDOWEVENT_LEAVE:
-        focused = false;
-        break;
+    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+      focused = false;
+      break;
 
-      case SDL_WINDOWEVENT_RESIZED:
-        width = event.window.data1;
-        height = event.window.data2;
-
-      default:
-        break;
-      }
+    case SDL_EVENT_WINDOW_RESIZED:
+      width = event.window.data1;
+      height = event.window.data2;
       break;
 
     default:
@@ -144,8 +139,7 @@ void clear() {
 
 size_t createWindow(const std::string& title, int width, int height, uint32_t flags) {
   // Create SDL window with OpenGL support
-  SDL_Window* win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
-                                     SDL_WINDOW_OPENGL | flags);
+  SDL_Window* win = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | flags);
   if (!win) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
     return -1;
@@ -167,7 +161,7 @@ bool destroyWindow(size_t index) {
   if (index >= wins.size())
     return false;
   SDL_DestroyWindow(wins[index]);
-  SDL_GL_DeleteContext(glContexts[index]);
+  SDL_GL_DestroyContext(glContexts[index]);
   wins.erase(wins.begin() + index);
   glContexts.erase(glContexts.begin() + index);
   if (currentWindow == index)

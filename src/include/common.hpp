@@ -20,8 +20,9 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_opengl.h>
 #include <algorithm>
 #include <any>
 #include <chrono>
@@ -57,7 +58,7 @@
 #endif
 
 #ifdef HAVE_AVX2
-#include <mmintrin.h>
+#include <immintrin.h>
 
 /**
  * @brief Computes log10 for 8 float values using AVX2

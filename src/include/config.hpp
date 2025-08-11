@@ -104,6 +104,7 @@ struct Options {
     std::string theme = "mocha.txt";
     int fps_limit = 240;
     bool decorations = true;
+    bool always_on_top = false;
   } window;
 
   struct Debug {

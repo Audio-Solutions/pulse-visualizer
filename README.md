@@ -4,7 +4,7 @@
 
 ## What Even Is This?
 
-Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL2, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
+Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL3, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
 
 ## Features
 
@@ -67,12 +67,12 @@ Alternatively, you can build from source:
 - C++17 compiler
 - CMake 3.10+
 - Ninja-build
-- Development headers for: SDL2, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
+- Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
 
 Fedora:  
-```sudo dnf5 install SDL2-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
+```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
 Debian:  
-```sudo apt install clang cmake libsdl2-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
+```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
 
 ```bash
 mkdir build
@@ -89,7 +89,7 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 
 ## Dependencies & Platform Support
 
-- SDL2
+- SDL3
 - PulseAudio **or** PipeWire (0.3+)
 - FFTW3
 - FreeType2
@@ -162,4 +162,4 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - [MiniMeters](https://minimeters.app/) for inspiration
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
 - [JetBrains](https://www.jetbrains.com/) and the [Nerd Fonts](https://www.nerdfonts.com/) project for the JetBrains Mono Nerd Font
-- SDL2, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone else who made this possible
+- SDL3, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone else who made this possible

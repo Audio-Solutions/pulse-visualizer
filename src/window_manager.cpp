@@ -54,7 +54,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
     return;
   int mouseX;
   switch (event.type) {
-  case SDL_MOUSEMOTION:
+  case SDL_EVENT_MOUSE_MOTION:
     mouseX = event.motion.x;
     // Check if mouse is hovering over splitter
     if (!dragging)
@@ -66,7 +66,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
     }
     break;
 
-  case SDL_MOUSEBUTTONDOWN:
+  case SDL_EVENT_MOUSE_BUTTON_DOWN:
     if (event.button.button == SDL_BUTTON_LEFT) {
       mouseX = event.button.x;
       // Start dragging if mouse is over splitter
@@ -76,7 +76,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
     }
     break;
 
-  case SDL_MOUSEBUTTONUP:
+  case SDL_EVENT_MOUSE_BUTTON_UP:
     if (event.button.button == SDL_BUTTON_LEFT) {
       mouseX = event.button.x;
       dragging = false;
@@ -91,12 +91,12 @@ void Splitter::handleEvent(const SDL_Event& event) {
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
   switch (event.type) {
-  case SDL_MOUSEMOTION:
+  case SDL_EVENT_MOUSE_MOTION:
     // Check if mouse is hovering over this window
     hovering = (event.motion.x >= x && event.motion.x < x + width);
     break;
 
-  case SDL_MOUSEBUTTONDOWN:
+  case SDL_EVENT_MOUSE_BUTTON_DOWN:
     if (event.button.button == SDL_BUTTON_LEFT) {
       if (event.button.x >= x && event.button.x < x + width) {
         size_t index = this - &windows[0];
@@ -109,13 +109,15 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     }
     break;
 
-  case SDL_WINDOWEVENT:
-    if (event.window.event == SDL_WINDOWEVENT_LEAVE)
-      hovering = false;
+  case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+    hovering = false;
     for (auto& window : windows)
       window.hovering = false;
     for (auto& splitter : splitters)
       splitter.hovering = false;
+    break;
+    
+  default:
     break;
   }
 }

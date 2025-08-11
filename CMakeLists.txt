@@ -31,8 +31,8 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel;Profile" 
 # Find pkg-config
 find_package(PkgConfig REQUIRED)
 
-# Find SDL2 package
-find_package(SDL2 REQUIRED)
+# Find SDL3 package
+find_package(SDL3 REQUIRED)
 
 # Find audio backends - check for both PulseAudio and PipeWire
 set(AUDIO_BACKENDS_FOUND FALSE)
@@ -84,7 +84,7 @@ find_package(yaml-cpp REQUIRED)
 pkg_check_modules(EBUR128 REQUIRED IMPORTED_TARGET libebur128)
 
 # Include directories
-include_directories(${SDL2_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
+include_directories(${SDL3_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
 # Set installation prefix to /usr
 set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)
@@ -98,7 +98,7 @@ add_executable(pulse-visualizer ${SRC_FILES})
 
 # Link libraries
 target_link_libraries(pulse-visualizer PRIVATE
-  ${SDL2_LIBRARIES}
+  ${SDL3_LIBRARIES}
   PkgConfig::FFTW
   PkgConfig::FREETYPE
   OpenGL::GL

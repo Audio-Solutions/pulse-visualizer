@@ -75,7 +75,8 @@ int main() {
   SDLWindow::display();
 
   // Set window decorations
-  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations ? SDL_TRUE : SDL_FALSE);
+  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
+  SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
 
   // Initialize audio and DSP components
   AudioEngine::init();
@@ -120,7 +121,8 @@ int main() {
       }
 
       // Set window decorations
-      SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations ? SDL_TRUE : SDL_FALSE);
+      SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
+      SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
 
       AudioEngine::reconfigure();
       DSP::FFT::recreatePlans();
