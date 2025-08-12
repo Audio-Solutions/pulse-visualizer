@@ -201,11 +201,11 @@ install(DIRECTORY themes/
 )
 
 # Install icon
-install(FILES pulsar.png
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/icons
+install(FILES pulse-visualizer.png
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
 )
 
-if(!WIN32)
+if(NOT WIN32)
   # Create a desktop entry
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
