@@ -131,7 +131,6 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #define NOMINMAX
 #include <comdef.h>
 #include <cstddef>
-#include <endpointvolume.h>
 // clang-format off
 #include <propsys.h>
 #include <functiondiscoverykeys_devpkey.h>
