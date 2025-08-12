@@ -128,7 +128,9 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #endif
 
 #ifdef _WIN32
+#include <comdef.h>
 #include <cstddef> // For ptrdiff_t
+#include <functiondiscoverykeys_devpkey.h>
 
 typedef ptrdiff_t ssize_t;
 #endif

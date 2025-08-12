@@ -22,9 +22,6 @@
 #include "include/config.hpp"
 #include "include/dsp.hpp"
 
-#include <comdef.h>
-#include <functiondiscoverykeys_devpkey.h>
-
 namespace AudioEngine {
 
 Type toType(std::string str) {
