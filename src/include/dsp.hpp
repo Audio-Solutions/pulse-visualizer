@@ -246,6 +246,8 @@ int main();
  * @brief LUFS measurement using libebur128
  */
 namespace LUFS {
+extern std::mutex mutex;
+extern ebur128_state* state;
 extern float lufs;
 
 /**

@@ -753,7 +753,7 @@ int main() {
 
   while (SDLWindow::running) {
     // Calculate samples to read based on frame time
-    size_t sampleCount = Config::options.audio.sample_rate * WindowManager::dt;
+    size_t sampleCount = Config::options.audio.sample_rate / Config::options.window.fps_limit;
     readBuf.resize(sampleCount * 2);
 
     // Read audio from engine
@@ -816,8 +816,11 @@ int main() {
       Lowpass::process();
 
     // Add samples to LUFS calculation from processed buffers and process LUFS
-    LUFS::addSamples(sampleCount);
-    LUFS::process();
+    {
+      std::lock_guard<std::mutex> lock(LUFS::mutex);
+      LUFS::addSamples(sampleCount);
+      LUFS::process();
+    }
 
     // Process peak detection
     Peak::process();
@@ -850,6 +853,8 @@ int main() {
 
 namespace LUFS {
 
+std::mutex mutex;
+
 // LUFS value
 float lufs = -70.0f;
 
@@ -857,6 +862,7 @@ float lufs = -70.0f;
 ebur128_state* state = nullptr;
 
 void init() {
+  std::lock_guard<std::mutex> lock(mutex);
   if (state) {
     ebur128_destroy(&state);
   }
