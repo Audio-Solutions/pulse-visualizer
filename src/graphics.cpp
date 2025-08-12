@@ -147,6 +147,21 @@ std::vector<FT_Library> ftLibs;
 // Glyph texture cache - per window
 std::vector<std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
 
+std::string findFont(const std::string& path) {
+  // Try expandUserPath(path) first
+  std::string expanded = expandUserPath(path);
+  struct stat buf;
+  if (stat(expanded.c_str(), &buf) == 0)
+    return expanded;
+
+  // Try system path
+  std::string inst = Config::getInstallDir() + "/" + path;
+  if (stat(inst.c_str(), &buf) == 0)
+    return inst;
+
+  return "";
+}
+
 void load(size_t sdlWindow) {
   // Ensure vectors are large enough
   if (sdlWindow >= faces.size()) {
@@ -158,9 +173,8 @@ void load(size_t sdlWindow) {
   // Select the window for loading
   SDLWindow::selectWindow(sdlWindow);
 
-  std::string path = expandUserPath(Config::options.font);
-  struct stat buf;
-  if (stat(path.c_str(), &buf) != 0)
+  std::string path = findFont(Config::options.font);
+  if (path.empty())
     return;
 
   // Initialize FreeType library for this window
