@@ -61,6 +61,8 @@
 #ifdef HAVE_AVX2
 #include <immintrin.h>
 
+#ifndef _MSC_VER
+
 /**
  * @brief Computes log10 for 8 float values using AVX2
  * @param x Vector of 8 float values
@@ -88,6 +90,8 @@ static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
     vr[i] = powf(va[i], vb[i]);
   return _mm256_loadu_ps(vr);
 }
+
+#endif
 
 /**
  * @brief Reduces 8 float values to a single sum using AVX2
