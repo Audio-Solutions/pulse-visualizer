@@ -17,7 +17,6 @@
         "lhs": "${hostSystemName}",
         "rhs": "Linux"
       }
-      //"vendor": { "microsoft.com/VisualStudioRemoteSettings/CMake/2.0": { "remoteSourceRootDir": "$env{HOME}/.vs/$ms{projectDirName}" } }
     },
     {
       "name": "linux-debug",
