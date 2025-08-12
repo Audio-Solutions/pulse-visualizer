@@ -104,7 +104,7 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 
 ## Configuration
 
-Pulse doesn't have a settings menu (and probably never will), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`.
+Pulse doesn't have a settings menu (and probably never will), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`. On windows it will be installed to `C:\Users\user\.config\pulse-visualizer\config.yml`.
 
 For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURATION.md).
 
