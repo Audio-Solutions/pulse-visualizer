@@ -478,13 +478,16 @@ void cleanup() {
 bool recreatePlans() {
   static size_t lastFFTSize = Config::options.fft.size;
   static bool lastCQTState = Config::options.fft.enable_cqt;
+  static float lastSampleRate = Config::options.audio.sample_rate;
 
   // Check if FFT plans need to be recreated
-  if (lastFFTSize == Config::options.fft.size && lastCQTState == Config::options.fft.enable_cqt) [[likely]]
+  if (lastFFTSize == Config::options.fft.size && lastCQTState == Config::options.fft.enable_cqt &&
+      lastSampleRate == Config::options.audio.sample_rate) [[likely]]
     return false;
 
   lastFFTSize = Config::options.fft.size;
   lastCQTState = Config::options.fft.enable_cqt;
+  lastSampleRate = Config::options.audio.sample_rate;
 
   std::lock_guard<std::mutex> lockMid(mutexMid);
   std::lock_guard<std::mutex> lockSide(mutexSide);
