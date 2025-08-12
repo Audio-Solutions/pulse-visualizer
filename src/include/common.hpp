@@ -61,7 +61,7 @@
 #ifdef HAVE_AVX2
 #include <immintrin.h>
 
-#ifndef _MSC_VER
+#ifndef HAVE_MM256_LOG10_PS
 
 /**
  * @brief Computes log10 for 8 float values using AVX2
@@ -75,6 +75,10 @@ static inline __m256 _mm256_log10_ps(__m256 x) {
     vals[i] = log10f(vals[i]);
   return _mm256_loadu_ps(vals);
 }
+
+#endif
+
+#ifndef HAVE_MM256_POW_PS
 
 /**
  * @brief Computes power function for 8 float values using AVX2

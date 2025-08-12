@@ -237,3 +237,31 @@ elseif(COMPILER_SUPPORTS_ARCH_AVX2)
   add_compile_definitions(HAVE_AVX2)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
 endif()
+
+check_cxx_source_compiles("
+  #include <immintrin.h>
+  int main() {
+    __m256 x = _mm256_set1_ps(1.0f);
+    __m256 y = _mm256_log10_ps(x);
+    (void)y;
+    return 0;
+  }
+" HAS_MM256_LOG10_PS)
+
+check_cxx_source_compiles("
+  #include <immintrin.h>
+  int main() {
+    __m256 x = _mm256_set1_ps(1.0f);
+    __m256 y = _mm256_pow_ps(x);
+    (void)y;
+    return 0;
+  }
+" HAS_MM256_POW_PS)
+
+if(HAS_MM256_LOG10_PS)
+  add_compile_definitions(HAVE_MM256_LOG10_PS)
+endif()
+
+if(HAS_MM256_POW_PS)
+  add_compile_definitions(HAVE_MM256_POW_PS)
+endif()
