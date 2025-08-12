@@ -130,9 +130,11 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #ifdef _WIN32
 #define NOMINMAX
 #include <comdef.h>
-#include <cstddef> // For ptrdiff_t
-#include <functiondiscoverykeys_devpkey.h>
+#include <cstddef>
+// clang-format off
 #include <propsys.h>
+#include <functiondiscoverykeys_devpkey.h>
+// clang-format on
 
 typedef ptrdiff_t ssize_t;
 #endif
@@ -160,7 +162,6 @@ typedef ptrdiff_t ssize_t;
 #include <assert.h>
 #include <audioclient.h>
 #include <initguid.h>
-// #include <functiondiscoverykeys_devpkey.h>
 #include <mmdeviceapi.h>
 
 #endif
