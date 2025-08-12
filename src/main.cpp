@@ -63,8 +63,10 @@ int main(int argc, char** argv) {
 #endif
 
 #ifdef _WIN32
-  // Close console window
-  FreeConsole();
+  // Close console window if needed
+  if (argc > 1 && std::string(argv[1]) == "--console") {
+    FreeConsole();
+  }
 #endif
 
   // Initialize DSP buffers
