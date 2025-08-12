@@ -101,6 +101,7 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 **Works on:**
 - Linux (PulseAudio or PipeWire)
 - BSD (PulseAudio)
+- Windows (WASAPI)
 
 ## Configuration
 
