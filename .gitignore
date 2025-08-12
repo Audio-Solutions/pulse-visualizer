@@ -40,6 +40,7 @@ Testing/
 Pulse
 
 # IDE specific files
+.vs/
 .vscode/
 .idea/
 *.swp
@@ -75,3 +76,6 @@ deps/
 # Config file symlink
 config.yml
 config
+
+# vcpkg stuff
+vcpkg_installed/

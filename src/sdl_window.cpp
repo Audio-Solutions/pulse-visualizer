@@ -44,8 +44,10 @@ void deinit() {
 }
 
 void init() {
+#ifdef __linux
   // Prefer wayland natively
   SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland");
+#endif
 
   // Initialize SDL video subsystem
   if (!SDL_Init(SDL_INIT_VIDEO)) {

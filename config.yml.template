@@ -13,7 +13,7 @@ audio:
   # Threshold below which audio is considered silent (in dB)
   # Lower values = more sensitive to quiet sounds
   silence_threshold: -90.0
-  # Audio backend: "pulseaudio", "pipewire", or "auto" (auto-detects best available)
+  # Audio backend: "pulseaudio", "pipewire", "wasapi", or "auto" (auto-detects best available)
   # "auto" is recommended for most systems
   engine: pipewire
   # Audio device name (see system audio devices)

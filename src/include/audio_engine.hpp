@@ -25,7 +25,7 @@ namespace AudioEngine {
 /**
  * @brief Audio backend types
  */
-enum Type { PULSEAUDIO, PIPEWIRE, AUTO };
+enum class Type { PULSEAUDIO, PIPEWIRE, WASAPI, AUTO };
 
 /**
  * @brief Convert string to audio backend type
@@ -215,6 +215,74 @@ bool reconfigure(const std::string&, uint32_t, size_t);
 #endif
 
 } // namespace PipeWire
+
+/**
+ * @brief WASAPI backend implementation
+ */
+namespace WASAPI {
+#if HAVE_WASAPI
+extern struct IMMDevice* currentDevice;
+extern WAVEFORMATEX* wfx;
+extern struct IAudioClient* audioClient;
+extern struct IAudioCaptureClient* captureClient;
+extern HANDLE captureEvent;
+extern UINT32 bufferFrameCount;
+
+extern bool initialized;
+extern bool running;
+
+// Thread synchronization
+extern std::atomic<uint32_t> writtenSamples;
+extern std::mutex mutex;
+extern std::condition_variable cv;
+
+extern std::thread wasapiThread;
+
+/**
+ * @brief WASAPI read thread
+ */
+void threadFunc();
+
+/**
+ * @brief Find audio device by name
+ * @param targetName Device name
+ * @param outDevice Device pointer
+ * @return Success status
+ */
+bool select(const std::string& targetName, IMMDevice** outDevice);
+
+/**
+ * @brief Cleanup WASAPI resources
+ */
+void cleanup();
+
+/**
+ * @brief Initialize WASAPI backend
+ * @return true if successful
+ */
+bool init();
+
+/**
+ * @brief Read audio samples from WASAPI
+ * @param buffer Output buffer
+ * @param frames Number of frames to read
+ * @return true if successful
+ */
+bool read(float*, const size_t& frames);
+
+/**
+ * @brief Reconfigure PipeWire stream
+ * @return true if successful
+ */
+bool reconfigure();
+
+#else
+bool init();
+bool read(float*, size_t);
+bool reconfigure(const std::string&, uint32_t, size_t);
+#endif
+
+} // namespace WASAPI
 
 /**
  * @brief Initialize audio engine with best available backend

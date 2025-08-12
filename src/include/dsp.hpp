@@ -238,7 +238,7 @@ int FFTAlt();
  * @brief Main DSP processing thread
  * @return Thread exit code
  */
-int main();
+int mainThread();
 
 } // namespace Threads
 
