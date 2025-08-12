@@ -926,7 +926,7 @@ bool init() {
   // start thread
   wasapiThread = std::thread(threadFunc);
 
-  std::cout << "Connected to WASAPI (" << bufferFrameCount << " samples)" << std::endl;
+  std::cout << "Connected to WASAPI" << std::endl;
 
   initialized = true;
   return true;
