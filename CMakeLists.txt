@@ -200,6 +200,11 @@ install(DIRECTORY themes/
   FILES_MATCHING PATTERN "*.txt"
 )
 
+# Install icon
+install(FILES pulse-visualizer.png
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/icons
+)
+
 if(!WIN32)
   # Create a desktop entry
   configure_file(
