@@ -9,10 +9,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
   set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -s")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
+  set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto /DEBUG:NONE")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
   set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -Wl,-s")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast /GL /DNDEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast /GL /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
+  set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG /DEBUG:NONE")
 endif()
 
 # Add custom Profile build type for profiling with perf
@@ -27,6 +35,10 @@ set(CMAKE_EXE_LINKER_FLAGS_PROFILE "")
 
 # Set available build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel;Profile" CACHE STRING "" FORCE)
+
+if(WIN32)
+  include("PkgConfigWindows.cmake")
+endif()
 
 # Find pkg-config
 find_package(PkgConfig REQUIRED)
@@ -59,6 +71,14 @@ else()
   add_compile_definitions(HAVE_PIPEWIRE=0)
 endif()
 
+# "Find" WASAPI
+if(WIN32)
+  set(AUDIO_BACKENDS_FOUND TRUE)
+  add_compile_definitions(HAVE_WASAPI=1)
+else()
+  add_compile_definitions(HAVE_WASAPI=0)
+endif()
+
 # Ensure at least one audio backend is available
 if(NOT AUDIO_BACKENDS_FOUND)
   message(FATAL_ERROR "No audio backends found! Please install either PulseAudio (libpulse-simple-dev) or PipeWire (libpipewire-0.3-dev)")
@@ -86,11 +106,18 @@ pkg_check_modules(EBUR128 REQUIRED IMPORTED_TARGET libebur128)
 # Include directories
 include_directories(${SDL3_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
-# Set installation prefix to /usr
-set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)
-
-# Define data directory for shader loading
-add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visualizer")
+if(WIN32)
+  # Set installation prefix to C:\Program Files\pulse-visualizer
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files" CACHE PATH "Installation prefix" FORCE)
+  
+  add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/pulse-visualizer")
+else()
+  # Set installation prefix to /usr
+  set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)
+  
+  # Define data directory for shader loading
+  add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visualizer")
+endif()
 
 # Add executable
 file(GLOB SRC_FILES src/*.cpp)
@@ -106,6 +133,10 @@ target_link_libraries(pulse-visualizer PRIVATE
   yaml-cpp::yaml-cpp
   PkgConfig::EBUR128
 )
+
+if(WIN32)
+  target_link_libraries(pulse-visualizer PRIVATE ole32 uuid avrt)
+endif()
 
 # Link audio backends conditionally
 if(PULSE_FOUND)
@@ -124,10 +155,23 @@ endif()
 # Installation targets
 include(GNUInstallDirs)
 
+if(WIN32)
+  set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/pulse-visualizer")
+  set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}")
+endif()
+
 # Install the executable
 install(TARGETS pulse-visualizer
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# Install the DLL's on Windows
+if(WIN32)
+  file(GLOB DLLS "${CMAKE_BINARY_DIR}/*.dll")
+  install(FILES ${DLLS}
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+  )
+endif()
 
 # Install README and LICENSE
 install(FILES README.md LICENSE
@@ -156,29 +200,73 @@ install(DIRECTORY themes/
   FILES_MATCHING PATTERN "*.txt"
 )
 
-# Create a desktop entry
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
-  @ONLY
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
-)
-
-# Create a man page
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
-  @ONLY
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
-  DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
-)
+if(!WIN32)
+  # Create a desktop entry
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+    @ONLY
+  )
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+  )
+  
+  # Create a man page
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+    @ONLY
+  )
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  )
+endif()
 
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
-if(COMPILER_SUPPORTS_AVX2)
+
+# Check for GCC/Clang-style AVX2 support
+check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_MAVX2)
+
+# Check for MSVC-style AVX2 support
+check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_ARCH_AVX2)
+
+if(COMPILER_SUPPORTS_MAVX2)
   add_compile_definitions(HAVE_AVX2)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
+elseif(COMPILER_SUPPORTS_ARCH_AVX2)
+  add_compile_definitions(HAVE_AVX2)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+endif()
+
+unset(HAS_MM256_LOG10_PS CACHE)
+unset(HAS_MM256_POW_PS CACHE)
+
+include(CheckCXXSourceCompiles)
+
+check_cxx_source_compiles("
+  #include <immintrin.h>
+  int main() {
+    __m256 x = _mm256_set1_ps(1.0f);
+    __m256 y = _mm256_log10_ps(x);
+    (void)y;
+    return 0;
+  }
+" HAS_MM256_LOG10_PS)
+
+check_cxx_source_compiles("
+  #include <immintrin.h>
+  int main() {
+    __m256 x = _mm256_set1_ps(1.0f);
+    __m256 y = _mm256_pow_ps(x, x);
+    (void)y;
+    return 0;
+  }
+" HAS_MM256_POW_PS)
+
+if(HAS_MM256_LOG10_PS)
+  add_compile_definitions(HAVE_MM256_LOG10_PS)
+endif()
+
+if(HAS_MM256_POW_PS)
+  add_compile_definitions(HAVE_MM256_POW_PS)
 endif()

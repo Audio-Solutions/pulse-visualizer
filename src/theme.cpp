@@ -29,8 +29,9 @@ Colors colors;
 #ifdef __linux__
 int themeInotifyFd = -1;
 int themeInotifyWatch = -1;
-std::string currentThemePath;
 #endif
+
+std::string currentThemePath;
 
 float* alpha(float* color, float alpha) {
   static float tmp[4];
@@ -219,12 +220,23 @@ bool reload() {
     }
   }
 #else
+  std::string path = "~/.config/pulse-visualizer/themes/" + Config::options.window.theme;
+  if (Config::options.window.theme.find(".txt") == std::string::npos)
+    path += ".txt";
+
+  path = expandUserPath(path);
+
+#ifdef _WIN32
+  struct _stat st;
+  if (_stat(path.c_str(), &st) != 0) {
+#else
   struct stat st;
-  if (stat(currentThemePath.c_str(), &st) != 0) {
+  if (stat(path.c_str(), &st) != 0) {
+#endif
     std::cerr << "Warning: could not stat theme file." << std::endl;
     return false;
   }
-  static time_t lastThemeMTime = 0;
+  static time_t lastThemeMTime = st.st_mtime;
   if (st.st_mtime != lastThemeMTime) {
     lastThemeMTime = st.st_mtime;
     load();

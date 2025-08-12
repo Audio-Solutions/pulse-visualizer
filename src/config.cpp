@@ -30,9 +30,17 @@ int inotifyWatch = -1;
 #endif
 
 void copyFiles() {
+#ifdef _WIN32
+  const char* home = getenv("USERPROFILE");
+#else
   const char* home = getenv("HOME");
+#endif
   if (!home) {
+#ifdef _WIN32
+    std::cerr << "Warning: USERPROFILE environment variable not set, cannot setup user config" << std::endl;
+#else
     std::cerr << "Warning: HOME environment variable not set, cannot setup user config" << std::endl;
+#endif
     return;
   }
 
@@ -383,13 +391,19 @@ bool reload() {
 #else
   // Check for file changes using stat (non-Linux systems)
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
+#ifdef _WIN32
+  struct _stat st;
+  if (_stat(path.c_str(), &st) != 0) {
+#else
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
+#endif
     std::cerr << "Warning: could not stat config file." << std::endl;
     return false;
   }
-  static time_t lastConfigMTime = 0;
+  static time_t lastConfigMTime = st.st_mtime;
   if (st.st_mtime != lastConfigMTime) {
+    lastConfigMTime = st.st_mtime;
     load();
     return true;
   }

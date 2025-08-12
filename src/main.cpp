@@ -28,9 +28,15 @@
 #include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
+#include <SDL3/SDL_main.h>
+
 std::string expandUserPath(const std::string& path) {
   if (!path.empty() && path[0] == '~') {
+#ifdef _WIN32
+    const char* home = getenv("USERPROFILE");
+#else
     const char* home = getenv("HOME");
+#endif
     if (home) {
       return std::string(home) + path.substr(1);
     }
@@ -48,11 +54,18 @@ std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
 std::atomic<bool> quitSignal {false};
 
-int main() {
+int main(int argc, char** argv) {
   // Set up signal handling for Ctrl+C etc
   signal(SIGINT, [](int) { quitSignal.store(true); });
   signal(SIGTERM, [](int) { quitSignal.store(true); });
+#ifndef _WIN32
   signal(SIGQUIT, [](int) { quitSignal.store(true); });
+#endif
+
+#ifdef _WIN32
+  // Close console window
+  FreeConsole();
+#endif
 
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
@@ -95,7 +108,7 @@ int main() {
   }
 
   // Start DSP processing thread
-  std::thread DSPThread(DSP::Threads::main);
+  std::thread DSPThread(DSP::Threads::mainThread);
 
   // Frame timing variables
   auto lastTime = std::chrono::steady_clock::now();

@@ -19,9 +19,10 @@
 
 #pragma once
 
+#define _USE_MATH_DEFINES
+
 #include <GL/glew.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
 #include <SDL3/SDL_opengl.h>
 #include <algorithm>
 #include <any>
@@ -60,6 +61,8 @@
 #ifdef HAVE_AVX2
 #include <immintrin.h>
 
+#ifndef HAVE_MM256_LOG10_PS
+
 /**
  * @brief Computes log10 for 8 float values using AVX2
  * @param x Vector of 8 float values
@@ -72,6 +75,10 @@ static inline __m256 _mm256_log10_ps(__m256 x) {
     vals[i] = log10f(vals[i]);
   return _mm256_loadu_ps(vals);
 }
+
+#endif
+
+#ifndef HAVE_MM256_POW_PS
 
 /**
  * @brief Computes power function for 8 float values using AVX2
@@ -87,6 +94,8 @@ static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
     vr[i] = powf(va[i], vb[i]);
   return _mm256_loadu_ps(vr);
 }
+
+#endif
 
 /**
  * @brief Reduces 8 float values to a single sum using AVX2
@@ -118,6 +127,12 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#include <cstddef> // For ptrdiff_t
+
+typedef ptrdiff_t ssize_t;
+#endif
+
 #if HAVE_PULSEAUDIO
 #include <pulse/context.h>
 #include <pulse/error.h>
@@ -132,6 +147,19 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #include <pipewire/thread-loop.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/builder.h>
+#endif
+
+#if HAVE_WASAPI
+
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <assert.h>
+#include <audioclient.h>
+#include <initguid.h>
+// #include <functiondiscoverykeys_devpkey.h>
+#include <mmdeviceapi.h>
+
 #endif
 
 // Thread synchronization variables for DSP data processing
