@@ -29,6 +29,23 @@ int inotifyFd = -1;
 int inotifyWatch = -1;
 #endif
 
+std::string getInstallDir() {
+#ifdef _WIN32
+  char buffer[MAX_PATH];
+  DWORD length = GetModuleFileNameA(NULL, buffer, MAX_PATH);
+  if (length == 0)
+    return std::string();
+
+  std::string path(buffer);
+  size_t pos = path.find_last_of("\\/");
+  if (pos != std::string::npos)
+    return path.substr(0, pos);
+  return std::string();
+#else
+  return std::string(PULSE_DATA_DIR);
+#endif
+}
+
 void copyFiles() {
 #ifdef _WIN32
   const char* home = getenv("USERPROFILE");
@@ -53,9 +70,11 @@ void copyFiles() {
   std::filesystem::create_directories(userThemeDir);
   std::filesystem::create_directories(userFontDir);
 
+  std::string installDir = getInstallDir();
+
   // Copy configuration template if it doesn't exist
   if (!std::filesystem::exists(userCfgDir + "/config.yml")) {
-    std::string cfgSource = std::string(PULSE_DATA_DIR) + "/config.yml.template";
+    std::string cfgSource = installDir + "/config.yml.template";
     if (std::filesystem::exists(cfgSource)) {
       try {
         std::filesystem::copy_file(cfgSource, userCfgDir + "/config.yml");
@@ -67,7 +86,7 @@ void copyFiles() {
   }
 
   // Copy theme files
-  std::string themeSource = std::string(PULSE_DATA_DIR) + "/themes";
+  std::string themeSource = installDir + "/themes";
   if (std::filesystem::exists(themeSource) && !std::filesystem::exists(userThemeDir + "/_TEMPLATE.txt")) {
     try {
       for (const auto& entry : std::filesystem::directory_iterator(themeSource)) {
@@ -85,7 +104,7 @@ void copyFiles() {
   }
 
   // Copy font file
-  std::string fontSource = std::string(PULSE_DATA_DIR) + "/fonts/JetBrainsMonoNerdFont-Medium.ttf";
+  std::string fontSource = installDir + "/fonts/JetBrainsMonoNerdFont-Medium.ttf";
   std::string userFontFile = userFontDir + "/JetBrainsMonoNerdFont-Medium.ttf";
   if (std::filesystem::exists(fontSource)) {
     try {

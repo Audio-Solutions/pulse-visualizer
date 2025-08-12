@@ -197,4 +197,9 @@ bool reload();
  */
 void cleanup();
 
+/**
+ * @brief Get the installation directory
+ * @return Installation directory
+ */
+std::string getInstallDir();
 } // namespace Config

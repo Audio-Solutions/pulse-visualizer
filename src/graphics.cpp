@@ -388,7 +388,7 @@ std::string loadFile(const char* path) {
   }
 
   // Try system path
-  std::string inst = std::string(PULSE_DATA_DIR) + "/" + path;
+  std::string inst = Config::getInstallDir() + "/" + path;
   std::ifstream sFile(inst);
   if (sFile.is_open()) {
     std::string content;
