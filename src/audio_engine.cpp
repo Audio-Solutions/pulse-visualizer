@@ -610,8 +610,14 @@ void threadFunc() {
   running = true;
 
   while (running) {
-    // dont busywait because that sux :)
-    WaitForSingleObject(captureEvent, 1);
+    // Wait for audio data (no busy wait now)
+    DWORD waitResult = WaitForSingleObject(captureEvent, 50);
+
+    if (waitResult == WAIT_TIMEOUT) {
+      // No audio data available, notify read call
+      cv.notify_one();
+      continue;
+    }
 
     UINT32 packetSize = 0;
     hr = captureClient->GetNextPacketSize(&packetSize);
@@ -885,9 +891,9 @@ bool init() {
 
   // Create the audio client
   // AUDCLNT_STREAMFLAGS_LOOPBACK is needed for output devices to work
-  DWORD streamFlags = 0;
+  DWORD streamFlags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
   if (flow == eRender)
-    streamFlags = AUDCLNT_STREAMFLAGS_LOOPBACK;
+    streamFlags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
 
   hr = audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, streamFlags, hnsBufferDuration, 0, wfx, NULL);
   if (!SUCCEEDED(hr)) {
@@ -930,9 +936,9 @@ bool read(float*, const size_t& frames) {
   if (!initialized)
     return true;
 
-  // Wait for enough samples to be available or timeout after 100ms
+  // Wait for enough samples to be available or timeout after 50ms
   std::unique_lock<std::mutex> lock(mutex);
-  if (!cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return writtenSamples > frames; })) {
+  if (!cv.wait_for(lock, std::chrono::milliseconds(50), [&] { return writtenSamples > frames; })) {
     return true;
   }
   writtenSamples = 0;
