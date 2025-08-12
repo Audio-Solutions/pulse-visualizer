@@ -238,6 +238,11 @@ elseif(COMPILER_SUPPORTS_ARCH_AVX2)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
 endif()
 
+unset(HAS_MM256_LOG10_PS CACHE)
+unset(HAS_MM256_POW_PS CACHE)
+
+include(CheckCXXSourceCompiles)
+
 check_cxx_source_compiles("
   #include <immintrin.h>
   int main() {
