@@ -62,6 +62,11 @@ int main(int argc, char** argv) {
   signal(SIGQUIT, [](int) { quitSignal.store(true); });
 #endif
 
+#ifdef _WIN32
+  // Close console window
+  FreeConsole();
+#endif
+
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
   DSP::bufferSide.resize(DSP::bufferSize);
