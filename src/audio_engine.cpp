@@ -930,9 +930,11 @@ bool read(float*, const size_t& frames) {
   if (!initialized)
     return true;
 
-  // Wait for enough samples to be available
+  // Wait for enough samples to be available or timeout after 100ms
   std::unique_lock<std::mutex> lock(mutex);
-  cv.wait(lock, [&] { return writtenSamples > frames; });
+  if (!cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return writtenSamples > frames; })) {
+    return true;
+  }
   writtenSamples = 0;
 
   return true;
