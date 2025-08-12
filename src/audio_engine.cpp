@@ -22,6 +22,8 @@
 #include "include/config.hpp"
 #include "include/dsp.hpp"
 
+#define HAVE_WASAPI 1
+
 namespace AudioEngine {
 
 Type toType(std::string str) {
@@ -623,6 +625,12 @@ void threadFunc() {
     hr = captureClient->GetNextPacketSize(&packetSize);
     assert(SUCCEEDED(hr));
 
+    IAudioEndpointVolume* endpointVolume = nullptr;
+    hr = currentDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, NULL, (void**)&endpointVolume);
+    float preGain = 0.0f;
+    endpointVolume->GetMasterVolumeLevelScalar(&preGain);
+    endpointVolume->Release();
+
     while (packetSize > 0) {
       BYTE* pData;
       UINT32 numFrames;
@@ -635,6 +643,8 @@ void threadFunc() {
         size_t n_samples = numFrames * 2;
 
         float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
+        if (preGain > 1e-6f)
+          gain /= preGain; // Invert gain to cancel out system volume
 
         // Process samples with SIMD optimization if available
 #ifdef HAVE_AVX2
