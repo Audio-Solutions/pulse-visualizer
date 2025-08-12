@@ -636,7 +636,6 @@ void threadFunc() {
         float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
 
         // Process samples with SIMD optimization if available
-                                                                                                                   \
 #ifdef HAVE_AVX2
         size_t simd_samples = n_samples & ~7;
         __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
