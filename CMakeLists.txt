@@ -252,7 +252,7 @@ check_cxx_source_compiles("
   #include <immintrin.h>
   int main() {
     __m256 x = _mm256_set1_ps(1.0f);
-    __m256 y = _mm256_pow_ps(x);
+    __m256 y = _mm256_pow_ps(x, x);
     (void)y;
     return 0;
   }
