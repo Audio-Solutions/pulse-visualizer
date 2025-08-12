@@ -201,7 +201,7 @@ install(DIRECTORY themes/
 )
 
 # Install icon
-install(FILES pulse-visualizer.png
+install(FILES pulsar.png
   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons
 )
 
