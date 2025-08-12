@@ -111,14 +111,14 @@
     },
     {
       "name": "win64-relwithdebinfo-msvc",
-      "displayName": "Windows x64 RelWithDebInfo",
+      "displayName": "Windows x64 RelWithDebInfo with MSVC",
       "description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
       "inherits": "win64-debug-msvc",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     },
     {
       "name": "win64-release-msvc",
-      "displayName": "Windows x64 Release",
+      "displayName": "Windows x64 Release with MSVC",
       "description": "Target Windows (64-bit) with the Visual Studio development environment. (Release)",
       "inherits": "win64-debug-msvc",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }

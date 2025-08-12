@@ -10,8 +10,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -s")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
-  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast -flto /DNDEBUG")
-  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast -flto /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
+  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG")
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto /DEBUG:NONE")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
