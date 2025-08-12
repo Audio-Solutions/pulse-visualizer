@@ -631,11 +631,12 @@ void threadFunc() {
       if (SUCCEEDED(hr)) {
         // Process audio data
         float* samples = reinterpret_cast<float*>(pData);
-        size_t n_samples = numFrames;
+        size_t n_samples = numFrames * 2;
 
         float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
 
         // Process samples with SIMD optimization if available
+/*                                                                                                                   \
 #ifdef HAVE_AVX2
         size_t simd_samples = n_samples & ~7;
         __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
@@ -660,9 +661,9 @@ void threadFunc() {
         }
 
         for (size_t i = simd_samples; i + 1 < n_samples; i += 2) {
-#else
+#else*/
         for (size_t i = 0; i + 1 < n_samples; i += 2) {
-#endif
+//#endif
           float left = samples[i] * gain;
           float right = samples[i + 1] * gain;
           DSP::bufferMid[DSP::writePos] = (left + right) / 2.0f;
