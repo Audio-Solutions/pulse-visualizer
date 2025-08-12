@@ -128,9 +128,11 @@ template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
 #endif
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <comdef.h>
 #include <cstddef> // For ptrdiff_t
 #include <functiondiscoverykeys_devpkey.h>
+#include <propsys.h>
 
 typedef ptrdiff_t ssize_t;
 #endif
@@ -153,7 +155,6 @@ typedef ptrdiff_t ssize_t;
 
 #if HAVE_WASAPI
 
-#define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <assert.h>
