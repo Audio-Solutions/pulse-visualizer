@@ -605,8 +605,6 @@ std::condition_variable cv;
 
 std::thread wasapiThread;
 
-#include <immintrin.h>
-
 void threadFunc() {
   HRESULT hr;
   running = true;
@@ -936,7 +934,7 @@ bool read(float*, const size_t& frames) {
   std::unique_lock<std::mutex> lock(mutex);
   cv.wait(lock, [&] { return writtenSamples > frames; });
   writtenSamples = 0;
-  
+
   return true;
 }
 
