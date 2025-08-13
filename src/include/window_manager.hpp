@@ -101,6 +101,13 @@ struct VisualizerWindow {
   void (*render)();
 
   /**
+   * @brief Direction to arrowX and arrowY
+   * @param dir Direction of the arrow
+   * @returns pair of ints for arrowX and arrowY
+   */
+  std::pair<int, int> getArrowPos(int dir);
+
+  /**
    * @brief Draw an arrow for the swap button
    * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    */
@@ -204,7 +211,7 @@ void reorder();
 /**
  * @brief Direction for swapping visualizers
  */
-enum Direction { Left = -1, Right = 1, Up = 2 };
+enum Direction { Left = -1, Right = 1, Up = 2, Down = -2 };
 
 /**
  * @brief Swap visualizer at index with its neighbor in the given direction

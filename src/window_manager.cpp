@@ -370,14 +370,13 @@ void VisualizerWindow::drawArrow(int dir) {
   if (SDLWindow::windowSizes[sdlWindow].second == 0) [[unlikely]]
     return;
 
-  SDLWindow::selectWindow(sdlWindow);
-  setViewport(x, width, SDLWindow::windowSizes[sdlWindow].second);
+  // Don't draw dock arrow in main window
+  if (sdlWindow == 0 && dir == -2)
+    return;
 
-  int arrowX = (dir == -1)   ? buttonPadding
-               : (dir == 2)  ? width - buttonPadding - buttonSize * 2
-               : (dir == -2) ? buttonPadding + buttonSize
-                             : width - buttonPadding - buttonSize;
-  int arrowY = buttonPadding;
+  auto [arrowX, arrowY] = getArrowPos(dir);
+  if (arrowX == -1 && arrowY == -1)
+    return;
 
   float* bgcolor = Theme::colors.bgaccent;
   if (buttonHovering(dir, SDLWindow::mousePos[sdlWindow].first,
@@ -415,12 +414,13 @@ void VisualizerWindow::drawArrow(int dir) {
 }
 
 bool VisualizerWindow::buttonPressed(int dir, int mouseX, int mouseY) {
-  int arrowX = (dir == -1)   ? buttonPadding
-               : (dir == 2)  ? width - buttonPadding - buttonSize * 2
-               : (dir == -2) ? buttonPadding + buttonSize
-                             : width - buttonPadding - buttonSize;
-  int arrowY = SDLWindow::windowSizes[sdlWindow].second - buttonPadding - buttonSize;
-  return (mouseX >= x + arrowX && mouseX < x + arrowX + buttonSize && mouseY >= arrowY && mouseY < arrowY + buttonSize);
+  auto [arrowX, arrowY] = getArrowPos(dir);
+  if (arrowX == -1 && arrowY == -1)
+    return false;
+
+  return (mouseX >= x + arrowX && mouseX < x + arrowX + buttonSize &&
+          SDLWindow::windowSizes[sdlWindow].second - mouseY >= arrowY &&
+          SDLWindow::windowSizes[sdlWindow].second - mouseY < arrowY + buttonSize);
 }
 
 bool VisualizerWindow::buttonHovering(int dir, int mouseX, int mouseY) { return buttonPressed(dir, mouseX, mouseY); }
@@ -847,6 +847,44 @@ void deleteMarkedWindows() {
     splitters.erase(key);
   }
   markedForDeletion.clear();
+}
+
+std::pair<int, int> VisualizerWindow::getArrowPos(int dir) {
+  // hide arrows if first or last window in windows array
+  std::string groupKey;
+  for (auto& [k, vec] : windows) {
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (SDL_GetWindowID(SDLWindow::wins[vec[i].sdlWindow]) == SDL_GetWindowID(SDLWindow::wins[sdlWindow])) {
+        groupKey = k;
+        break;
+      }
+    }
+  }
+  size_t winIdx = this - windows[groupKey].data();
+  bool isLast = winIdx == windows[groupKey].size() - 1;
+  bool isFirst = winIdx == 0;
+  if ((isLast && dir == 1) || (isFirst && dir == -1))
+    return {-1, -1};
+
+  SDLWindow::selectWindow(sdlWindow);
+  setViewport(x, width, SDLWindow::windowSizes[sdlWindow].second);
+
+  bool wideEnough = width > buttonPadding * 2 + buttonSize * 4;
+
+  int arrowX = (dir == -1 || (dir == -2 && !wideEnough)) ? buttonPadding
+               : (dir == 2 && wideEnough)                ? width - buttonPadding - buttonSize * 2
+               : (dir == -2)                             ? buttonPadding + buttonSize
+                                                         : width - buttonPadding - buttonSize;
+  int arrowY = !wideEnough && abs(dir) == 2 ? SDLWindow::windowSizes[sdlWindow].second - buttonPadding - buttonSize
+                                            : buttonPadding;
+
+  if (isLast && dir == 2 && wideEnough)
+    arrowX += buttonSize;
+
+  if (isFirst && dir == -2 && wideEnough)
+    arrowX -= buttonSize;
+
+  return {arrowX, arrowY};
 }
 
 } // namespace WindowManager
