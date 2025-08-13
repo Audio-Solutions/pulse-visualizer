@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  std::cout << "pulse-visualizer " << VERSION_STRING << " commit " << VERSION_COMMIT << std::endl;
+  std::cout << "pulse-visualizer v" << VERSION_STRING << " commit " << VERSION_COMMIT << std::endl;
 
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
