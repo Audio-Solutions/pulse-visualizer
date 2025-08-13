@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: repolevedavaj/install-nsis@v1.0.1
+      - uses: repolevedavaj/install-nsis@v1.0.3
         with:
           nsis-version: '3.11'
 
@@ -53,8 +53,10 @@ jobs:
 
       - name: Find executable
         id: find_exe
+        shell: pwsh
         run: |
-          echo "file=$(ls build/pulse-visualizer-*-win64.exe)" >> $GITHUB_OUTPUT
+          $file = Get-ChildItem build/pulse-visualizer-*-win64.exe | Select-Object -First 1
+          echo "file=$($file.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
