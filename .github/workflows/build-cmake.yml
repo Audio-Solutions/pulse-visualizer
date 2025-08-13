@@ -2,11 +2,10 @@ name: CMake build
 
 on:
   push:
-    #tags:
-    #  - 'v*'         # Matches tags like v1.2.3
-    branches:
-      - main
-      - test-workflow-2
+    tags:
+     - 'v*'         # Matches tags like v1.2.3
+    # branches:
+      # - main
 #   pull_request:
     # branches: [ "main" ]
     
