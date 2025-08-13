@@ -59,6 +59,7 @@ jobs:
 
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 2
+      SDL_BRANCH: "release-3.2.20"
 
     steps:
       - uses: actions/checkout@v4
@@ -73,11 +74,28 @@ jobs:
             libdrm-dev libgbm-dev
           version: 1.0
 
+      - name: Cache SDL3
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: |
+            ${{ github.workspace }}/SDL
+          key: sdl3-${{ runner.os }}-${{ env.SDL_BRANCH }}
+          restore-keys: |
+            sdl3-${{ runner.os }}-
+
       - name: Build SDL3 from source
         run: |
-          git clone https://github.com/libsdl-org/SDL.git --branch main --depth 1
+          if [ -d SDL ]; then
+            cd SDL
+            git fetch --depth 1 origin tag "${{ env.SDL_BRANCH }}"
+            git checkout "tags/${{ env.SDL_BRANCH }}"
+            cd ..
+          else
+            git clone https://github.com/libsdl-org/SDL.git --branch "${{ env.SDL_BRANCH }}" --depth 1
+          fi
           cd SDL
-          mkdir build && cd build
+          mkdir -p build && cd build
           cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF
           make -j2
           sudo make install

@@ -22,7 +22,7 @@
 			"name": "linux-debug",
 			"displayName": "Linux x64 Debug",
 			"description": "Target Linux (64-bit) with the clang. (Debug)",
-			"inherits": "windows-clang",
+			"inherits": "linux-base",
 			"architecture": {
 				"value": "x64",
 				"strategy": "external"
