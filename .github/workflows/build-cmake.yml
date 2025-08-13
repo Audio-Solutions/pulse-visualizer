@@ -74,7 +74,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt install libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev
+        run: |
+          sudo apt update
+          sudo apt install libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja-build libebur128-dev
+
+      - name: Build SDL3 from source
+        run: |
+          git clone https://github.com/libsdl-org/SDL.git --branch main --depth 1
+          cd SDL
+          mkdir build && cd build
+          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF
+          make -j2
+          sudo make install
 
       - name: Configure CMake
         run: cmake -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset linux-release
