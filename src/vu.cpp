@@ -171,11 +171,15 @@ void render() {
       velocity = 0.0f;
     }
 
+    float* arcClip = Theme::colors.accent;
+    if (Theme::colors.vu_clip[3] > 1e-6f)
+      arcClip = Theme::colors.vu_clip;
+
     // draw arcs
     Graphics::drawArc(x0, y0, SDLWindow::windowSizes[window->sdlWindow].second, toAngle(-20.0f), toAngle(0.0),
                       Theme::colors.accent, 5, 100);
-    Graphics::drawArc(x0, y0, SDLWindow::windowSizes[window->sdlWindow].second, toAngle(0.0f), toAngle(3.0f),
-                      Theme::colors.vu_clip, 5, 100);
+    Graphics::drawArc(x0, y0, SDLWindow::windowSizes[window->sdlWindow].second, toAngle(0.0f), toAngle(3.0f), arcClip,
+                      5, 100);
 
     // draw label lines perpendicular to the arc
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -20};
@@ -195,7 +199,7 @@ void render() {
       float x2 = x1 + 12 * cos(angle * M_PI / 180.0f);
       float y2 = y1 + 12 * sin(angle * M_PI / 180.0f);
 
-      float* color = label > 0.0f ? Theme::colors.vu_clip : Theme::colors.accent;
+      float* color = label > 0.0f ? arcClip : Theme::colors.accent;
 
       // draw line from arc to outside point
       Graphics::drawLine(xArc, yArc, x1, y1, color, 2);
