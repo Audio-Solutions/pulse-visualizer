@@ -332,8 +332,8 @@ void render() {
   float mouseXRel = SDLWindow::mousePos[window->sdlWindow].first - window->x;
   float mouseYRel = SDLWindow::mousePos[window->sdlWindow].second;
 
-  if (SDLWindow::focused[window->sdlWindow] && window->hovering && mouseXRel >= 0 && mouseXRel < window->width &&
-      mouseYRel >= 0 && mouseYRel < SDLWindow::windowSizes[window->sdlWindow].second) {
+  if (SDLWindow::focused[window->sdlWindow] && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
+      mouseYRel < SDLWindow::windowSizes[window->sdlWindow].second) {
     // Check if mouse is within window bounds
     // Draw crosshair
     glColor4fv(color);
