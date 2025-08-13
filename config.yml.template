@@ -248,16 +248,22 @@ vu:
   needle_width: 2.0
 
 # Visualizer Layout Settings
-# Controls the order and visibility of visualizers
-# Comment out visualizers you don't want to see
-# Their order from top to bottom will determine the order of the windows from left to right.
+# Controls the order and visibility of visualizers in window groups
+# Each group (like "main") creates a window with visualizers arranged left-to-right
+# Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
+# Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
+# Only one instance of a visualizer can exist at a time.
 visualizers:
-  - lufs
-  - vu
-  - lissajous
-  - oscilloscope
-  - spectrum_analyzer
-  - spectrogram
+  main:
+    - lufs
+    - vu
+    - lissajous
+    - oscilloscope
+    - spectrum_analyzer
+    - spectrogram
+# additional_window: # remove the spectrum analyzer and oscilloscope from the main window!!
+#   - spectrum_analyzer
+#   - oscilloscope
 
 # Window Settings
 # Controls the main application window

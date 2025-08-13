@@ -362,7 +362,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
     return;
 
   // Setup viewport and rendering state
-  WindowManager::setViewport(window->x, window->width, SDLWindow::height);
+  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
 
   glBindBuffer(GL_ARRAY_BUFFER, window->phosphor.vertexBuffer);
   glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
@@ -387,7 +387,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
 namespace Shader {
 
 // Shader program handles
-std::vector<GLuint> shaders(4, 0);
+std::vector<std::vector<GLuint>> shaders;
 
 std::string loadFile(const char* path) {
   // Try local path first
@@ -442,8 +442,12 @@ GLuint load(const char* path, GLenum type) {
   return 0;
 }
 
-void ensureShaders() {
-  if (std::all_of(shaders.begin(), shaders.end(), [](int x) { return x != 0; }))
+void ensureShaders(size_t sdlWindow) {
+  shaders.resize(SDLWindow::wins.size());
+  for (size_t i = 0; i < shaders.size(); i++)
+    shaders[i].resize(4, 0);
+
+  if (std::all_of(shaders[sdlWindow].begin(), shaders[sdlWindow].end(), [](int x) { return x != 0; }))
     return;
 
   // Shader file paths
@@ -451,8 +455,8 @@ void ensureShaders() {
                                                  "shaders/phosphor_blur.comp", "shaders/phosphor_colormap.comp"};
 
   // Load and compile all shaders
-  for (int i = 0; i < shaders.size(); i++) {
-    if (shaders[i])
+  for (int i = 0; i < shaders[sdlWindow].size(); i++) {
+    if (shaders[sdlWindow][i])
       continue;
 
     GLuint shader = load(shaderPaths[i].c_str(), GL_COMPUTE_SHADER);
@@ -460,18 +464,18 @@ void ensureShaders() {
       continue;
 
     // Create shader program
-    shaders[i] = glCreateProgram();
-    glAttachShader(shaders[i], shader);
-    glLinkProgram(shaders[i]);
+    shaders[sdlWindow][i] = glCreateProgram();
+    glAttachShader(shaders[sdlWindow][i], shader);
+    glLinkProgram(shaders[sdlWindow][i]);
 
     GLint tmp;
-    glGetProgramiv(shaders[i], GL_LINK_STATUS, &tmp);
+    glGetProgramiv(shaders[sdlWindow][i], GL_LINK_STATUS, &tmp);
     if (!tmp) {
       char log[512];
-      glGetProgramInfoLog(shaders[i], 512, NULL, log);
+      glGetProgramInfoLog(shaders[sdlWindow][i], 512, NULL, log);
       std::cerr << "Shader linking failed:" << log << std::endl;
-      glDeleteProgram(shaders[i]);
-      shaders[i] = 0;
+      glDeleteProgram(shaders[sdlWindow][i]);
+      shaders[sdlWindow][i] = 0;
     }
 
     glDeleteShader(shader);
@@ -481,12 +485,12 @@ void ensureShaders() {
 void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
                      const GLuint& vertexBuffer, const GLuint& vertexColorBuffer, const GLuint& energyTexR,
                      const GLuint& energyTexG, const GLuint& energyTexB) {
-  if (!shaders[0])
+  if (!shaders[win->sdlWindow][0])
     return;
 
-  glUseProgram(shaders[0]);
+  glUseProgram(shaders[win->sdlWindow][0]);
 
-  glUniform1i(glGetUniformLocation(shaders[0], "colorbeam"), Config::options.phosphor.colorbeam);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][0], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -504,18 +508,19 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
 void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTexR,
                    const GLuint& energyTexG, const GLuint& energyTexB) {
-  if (!shaders[1])
+  if (!shaders[win->sdlWindow][1])
     return;
 
-  glUseProgram(shaders[1]);
+  glUseProgram(shaders[win->sdlWindow][1]);
 
   float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay_slow);
   float decayFast = exp(-WindowManager::dt * Config::options.phosphor.decay_fast);
 
-  glUniform1f(glGetUniformLocation(shaders[1], "decaySlow"), decaySlow);
-  glUniform1f(glGetUniformLocation(shaders[1], "decayFast"), decayFast);
-  glUniform1ui(glGetUniformLocation(shaders[1], "ageThreshold"), Config::options.phosphor.age_threshold);
-  glUniform1i(glGetUniformLocation(shaders[1], "colorbeam"), Config::options.phosphor.colorbeam);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][1], "decaySlow"), decaySlow);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][1], "decayFast"), decayFast);
+  glUniform1ui(glGetUniformLocation(shaders[win->sdlWindow][1], "ageThreshold"),
+               Config::options.phosphor.age_threshold);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][1], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -523,7 +528,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   glBindImageTexture(3, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::height + 7) / 8;
+  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -532,21 +537,24 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
 
 void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
                   const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB) {
-  if (!shaders[2])
+  if (!shaders[win->sdlWindow][2])
     return;
 
-  glUseProgram(shaders[2]);
+  glUseProgram(shaders[win->sdlWindow][2]);
 
-  glUniform1f(glGetUniformLocation(shaders[2], "line_blur_spread"), Config::options.phosphor.line_blur_spread);
-  glUniform1f(glGetUniformLocation(shaders[2], "line_width"), Config::options.phosphor.line_width);
-  glUniform1f(glGetUniformLocation(shaders[2], "range_factor"), Config::options.phosphor.range_factor);
-  glUniform1i(glGetUniformLocation(shaders[2], "blur_direction"), dir);
-  glUniform1i(glGetUniformLocation(shaders[2], "kernel_type"), kernel);
-  glUniform1f(glGetUniformLocation(shaders[2], "f_intensity"), Config::options.phosphor.near_blur_intensity);
-  glUniform1f(glGetUniformLocation(shaders[2], "g_intensity"), Config::options.phosphor.far_blur_intensity);
-  glUniform2f(glGetUniformLocation(shaders[2], "texSize"), static_cast<float>(win->width),
-              static_cast<float>(SDLWindow::height));
-  glUniform1i(glGetUniformLocation(shaders[2], "colorbeam"), Config::options.phosphor.colorbeam);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "line_blur_spread"),
+              Config::options.phosphor.line_blur_spread);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "line_width"), Config::options.phosphor.line_width);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "range_factor"), Config::options.phosphor.range_factor);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "blur_direction"), dir);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "kernel_type"), kernel);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "f_intensity"),
+              Config::options.phosphor.near_blur_intensity);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "g_intensity"),
+              Config::options.phosphor.far_blur_intensity);
+  glUniform2f(glGetUniformLocation(shaders[win->sdlWindow][2], "texSize"), static_cast<float>(win->width),
+              static_cast<float>(SDLWindow::windowSizes[win->sdlWindow].second));
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -556,7 +564,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glBindImageTexture(5, outB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::height + 7) / 8;
+  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -565,23 +573,29 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
 void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
                       const GLuint& inG, const GLuint& inB, const GLuint& out) {
-  if (!shaders[3])
+  if (!shaders[win->sdlWindow][3])
     return;
 
-  glUseProgram(shaders[3]);
+  glUseProgram(shaders[win->sdlWindow][3]);
 
-  glUniform3fv(glGetUniformLocation(shaders[3], "beamColor"), 1, beamColor);
-  glUniform3fv(glGetUniformLocation(shaders[3], "blackColor"), 1, Theme::colors.background);
-  glUniform1i(glGetUniformLocation(shaders[3], "enablePhosphorGrain"), Config::options.phosphor.enable_grain);
-  glUniform1i(glGetUniformLocation(shaders[3], "enableCurvedScreen"), Config::options.phosphor.enable_curved_screen);
-  glUniform1f(glGetUniformLocation(shaders[3], "screenCurvature"), Config::options.phosphor.screen_curvature);
-  glUniform1f(glGetUniformLocation(shaders[3], "screenGapFactor"), Config::options.phosphor.screen_gap);
-  glUniform1f(glGetUniformLocation(shaders[3], "grainStrength"), Config::options.phosphor.grain_strength);
-  glUniform2i(glGetUniformLocation(shaders[3], "texSize"), win->width, SDLWindow::height);
-  glUniform1f(glGetUniformLocation(shaders[3], "vignetteStrength"), Config::options.phosphor.vignette_strength);
-  glUniform1f(glGetUniformLocation(shaders[3], "chromaticAberrationStrength"),
+  glUniform3fv(glGetUniformLocation(shaders[win->sdlWindow][3], "beamColor"), 1, beamColor);
+  glUniform3fv(glGetUniformLocation(shaders[win->sdlWindow][3], "blackColor"), 1, Theme::colors.background);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][3], "enablePhosphorGrain"),
+              Config::options.phosphor.enable_grain);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][3], "enableCurvedScreen"),
+              Config::options.phosphor.enable_curved_screen);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "screenCurvature"),
+              Config::options.phosphor.screen_curvature);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "screenGapFactor"), Config::options.phosphor.screen_gap);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "grainStrength"),
+              Config::options.phosphor.grain_strength);
+  glUniform2i(glGetUniformLocation(shaders[win->sdlWindow][3], "texSize"), win->width,
+              SDLWindow::windowSizes[win->sdlWindow].second);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "vignetteStrength"),
+              Config::options.phosphor.vignette_strength);
+  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "chromaticAberrationStrength"),
               Config::options.phosphor.chromatic_aberration_strength);
-  glUniform1i(glGetUniformLocation(shaders[3], "colorbeam"), Config::options.phosphor.colorbeam);
+  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][3], "colorbeam"), Config::options.phosphor.colorbeam);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -589,19 +603,32 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glBindImageTexture(3, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::height + 7) / 8;
+  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
   glUseProgram(0);
 }
+
+void cleanup(size_t sdlWindow) {
+  if (sdlWindow >= shaders.size())
+    return;
+
+  for (int i = 0; i < shaders[sdlWindow].size(); i++) {
+    if (shaders[sdlWindow][i])
+      glDeleteProgram(shaders[sdlWindow][i]);
+  }
+
+  shaders.erase(shaders.begin() + sdlWindow);
+}
+
 } // namespace Shader
 
 namespace Phosphor {
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
             bool renderPoints, const float* beamColor) {
 
-  Graphics::Shader::ensureShaders();
+  Graphics::Shader::ensureShaders(win->sdlWindow);
 
   // Apply decay to phosphor effect
   Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.energyTextureR, win->phosphor.energyTextureG,

@@ -145,7 +145,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
  * @brief Shader management namespace
  */
 namespace Shader {
-extern std::vector<GLuint> shaders;
+extern std::vector<std::vector<GLuint>> shaders;
 
 /**
  * @brief Load shader source from file
@@ -165,7 +165,13 @@ GLuint load(const char* path, GLenum type);
 /**
  * @brief Ensure all shaders are loaded and compiled
  */
-void ensureShaders();
+void ensureShaders(size_t sdlWindow);
+
+/**
+ * @brief cleanup shaders for a specific window
+ * @param sdlWindow Index of the window to cleanup shaders for
+ */
+void cleanup(size_t sdlWindow);
 
 /**
  * @brief Dispatch compute shader for phosphor effect

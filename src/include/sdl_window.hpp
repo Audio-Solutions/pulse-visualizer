@@ -26,12 +26,10 @@ namespace SDLWindow {
 extern std::vector<SDL_Window*> wins;
 extern std::vector<SDL_GLContext> glContexts;
 extern size_t currentWindow;
-extern bool focused;
 extern std::atomic<bool> running;
-extern int width, height;
-
-// Mouse coordinates
-extern int mouseX, mouseY;
+extern std::vector<std::pair<int, int>> windowSizes;
+extern std::vector<std::pair<int, int>> mousePos;
+extern std::vector<bool> focused;
 
 /**
  * @brief Cleanup SDL window and OpenGL context

@@ -96,7 +96,7 @@ struct Options {
     std::string device = "auto";
   } audio;
 
-  std::vector<std::string> visualizers;
+  std::map<std::string, std::vector<std::string>> visualizers;
 
   struct Window {
     int default_width = 1080;

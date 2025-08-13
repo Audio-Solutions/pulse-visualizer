@@ -1,126 +1,155 @@
-﻿{
-  "version": 3,
-  "configurePresets": [
-    {
-      "name": "linux-base",
-      "description": "Target Linux with clang.",
-      "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
-      "installDir": "${sourceDir}/install/${presetName}",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
-    },
-    {
-      "name": "linux-debug",
-      "displayName": "Linux x64 Debug",
-      "description": "Target Linux (64-bit) with the clang. (Debug)",
-      "inherits": "windows-clang",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-    },
-    {
-      "name": "linux-relwithdebinfo",
-      "displayName": "Linux x64 RelWithDebInfo",
-      "description": "Target Linux (64-bit) with clang. (RelWithDebInfo)",
-      "inherits": "linux-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
-    },
-    {
-      "name": "linux-release",
-      "displayName": "Linux x64 Release",
-      "description": "Target Linux (64-bit) with clang. (Release)",
-      "inherits": "linux-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-    },
-    {
-      "name": "windows-base",
-      "description": "Target Windows with the Visual Studio development environment.",
-      "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
-      "installDir": "${sourceDir}/install/${presetName}",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
-      "name": "windows-clang",
-      "hidden": true,
-      "inherits": "windows-base",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang-cl.exe",
-        "CMAKE_CXX_COMPILER": "clang-cl.exe",
-        "CMAKE_LINKER": "lld-link.exe"
-      }
-    },
-    {
-      "name": "win64-debug",
-      "displayName": "Windows x64 Debug",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
-      "inherits": "windows-clang",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-    },
-    {
-      "name": "win64-relwithdebinfo",
-      "displayName": "Windows x64 RelWithDebInfo",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
-      "inherits": "win64-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
-    },
-    {
-      "name": "win64-release",
-      "displayName": "Windows x64 Release",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Release)",
-      "inherits": "win64-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-    },
-
-    {
-      "name": "win64-debug-msvc",
-      "displayName": "Windows x64 Debug with MSVC",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
-      "inherits": "windows-base",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-    },
-    {
-      "name": "win64-relwithdebinfo-msvc",
-      "displayName": "Windows x64 RelWithDebInfo with MSVC",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
-      "inherits": "win64-debug-msvc",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
-    },
-    {
-      "name": "win64-release-msvc",
-      "displayName": "Windows x64 Release with MSVC",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Release)",
-      "inherits": "win64-debug-msvc",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-    }
-  ]
+{
+	"version": 3,
+	"configurePresets": [
+		{
+			"name": "linux-base",
+			"description": "Target Linux with clang.",
+			"hidden": true,
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/build",
+			"installDir": "${sourceDir}/install/${presetName}",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++"
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Linux"
+			}
+		},
+		{
+			"name": "linux-debug",
+			"displayName": "Linux x64 Debug",
+			"description": "Target Linux (64-bit) with the clang. (Debug)",
+			"inherits": "windows-clang",
+			"architecture": {
+				"value": "x64",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "linux-relwithdebinfo",
+			"displayName": "Linux x64 RelWithDebInfo",
+			"description": "Target Linux (64-bit) with clang. (RelWithDebInfo)",
+			"inherits": "linux-debug",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		},
+		{
+			"name": "linux-release",
+			"displayName": "Linux x64 Release",
+			"description": "Target Linux (64-bit) with clang. (Release)",
+			"inherits": "linux-debug",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "windows-base",
+			"description": "Target Windows with the Visual Studio development environment.",
+			"hidden": true,
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/build",
+			"installDir": "${sourceDir}/install/${presetName}",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "cl.exe",
+				"CMAKE_CXX_COMPILER": "cl.exe",
+				"CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "windows-clang",
+			"hidden": true,
+			"inherits": "windows-base",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang-cl.exe",
+				"CMAKE_CXX_COMPILER": "clang-cl.exe",
+				"CMAKE_LINKER": "lld-link.exe"
+			}
+		},
+		{
+			"name": "win64-debug",
+			"displayName": "Windows x64 Debug",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+			"inherits": "windows-clang",
+			"architecture": {
+				"value": "x64",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "win64-relwithdebinfo",
+			"displayName": "Windows x64 RelWithDebInfo",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
+			"inherits": "win64-debug",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		},
+		{
+			"name": "win64-release",
+			"displayName": "Windows x64 Release",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (Release)",
+			"inherits": "win64-debug",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "win64-debug-msvc",
+			"displayName": "Windows x64 Debug with MSVC",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
+			"inherits": "windows-base",
+			"architecture": {
+				"value": "x64",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "win64-relwithdebinfo-msvc",
+			"displayName": "Windows x64 RelWithDebInfo with MSVC",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
+			"inherits": "win64-debug-msvc",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		},
+		{
+			"name": "win64-release-msvc",
+			"displayName": "Windows x64 Release with MSVC",
+			"description": "Target Windows (64-bit) with the Visual Studio development environment. (Release)",
+			"inherits": "win64-debug-msvc",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "aeiou",
+			"displayName": "Clang 20.1.8 x86_64-pc-linux-gnu",
+			"description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
+			"binaryDir": "${sourceDir}/out/build/${presetName}",
+			"cacheVariables": {
+				"CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+				"CMAKE_C_COMPILER": "/usr/bin/clang",
+				"CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		}
+	]
 }

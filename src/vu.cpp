@@ -57,23 +57,25 @@ void render() {
   if (!window)
     return;
 
-  WindowManager::setViewport(window->x, window->width, SDLWindow::height);
+  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
 
   float dB = 20.0f * log10(DSP::RMS::rms) + Config::options.vu.calibration_db;
 
   if (Config::options.vu.style == "digital") {
     // Calculate layout positions
-    const size_t topHeight = SDLWindow::height * (TOP_HEIGHT_PERCENT / 100.0f);
-    const size_t barHeight = SDLWindow::height - topHeight;
+    const size_t topHeight = SDLWindow::windowSizes[window->sdlWindow].second * (TOP_HEIGHT_PERCENT / 100.0f);
+    const size_t barHeight = SDLWindow::windowSizes[window->sdlWindow].second - topHeight;
 
     // VU bar position
     const size_t vuBarX = LABEL_WIDTH + LABEL_GAP;
 
     // Draw background bar
-    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, SDLWindow::height - topHeight, Theme::colors.bgaccent);
+    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, SDLWindow::windowSizes[window->sdlWindow].second - topHeight,
+                             Theme::colors.bgaccent);
 
     // Draw zero line in background rect at 0dB
-    float zeroLineY = SDLWindow::height - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
+    float zeroLineY =
+        SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
     Graphics::drawLine(vuBarX, zeroLineY, vuBarX + VU_BAR_WIDTH, zeroLineY, Theme::colors.accent, 1);
 
     // Draw dB labels on the left
@@ -84,7 +86,7 @@ void render() {
     for (const auto& label : labels) {
       // Calculate y position based on dB value
       float normalizedPos = scaleDB(label);
-      size_t y = SDLWindow::height - (topHeight + (1.0f - normalizedPos) * barHeight);
+      size_t y = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + (1.0f - normalizedPos) * barHeight);
 
       // Draw label (right aligned)
       std::string labelText = std::to_string(static_cast<int>(label));
@@ -103,7 +105,7 @@ void render() {
     // Calculate bar height based on dB value
     float normalizedPos = scaleDB(dB);
     size_t barFillHeight = normalizedPos * barHeight;
-    size_t barFillY = SDLWindow::height - (topHeight + barHeight);
+    size_t barFillY = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + barHeight);
 
     // Draw the VU bar with colored segments
     const float* mainColor = Theme::colors.vu_main[3] > 1e-6f ? Theme::colors.vu_main : Theme::colors.color;
@@ -135,7 +137,7 @@ void render() {
     }
   } else {
     float x0 = window->width / 2;
-    float y0 = -SDLWindow::height / 3;
+    float y0 = -SDLWindow::windowSizes[window->sdlWindow].second / 3;
 
     // clamp dB to minmax range
     dB = std::clamp(dB, -20.0f, 3.0f);
@@ -170,8 +172,10 @@ void render() {
     }
 
     // draw arcs
-    Graphics::drawArc(x0, y0, SDLWindow::height, toAngle(-20.0f), toAngle(0.0), Theme::colors.accent, 5, 100);
-    Graphics::drawArc(x0, y0, SDLWindow::height, toAngle(0.0f), toAngle(3.0f), Theme::colors.vu_clip, 5, 100);
+    Graphics::drawArc(x0, y0, SDLWindow::windowSizes[window->sdlWindow].second, toAngle(-20.0f), toAngle(0.0),
+                      Theme::colors.accent, 5, 100);
+    Graphics::drawArc(x0, y0, SDLWindow::windowSizes[window->sdlWindow].second, toAngle(0.0f), toAngle(3.0f),
+                      Theme::colors.vu_clip, 5, 100);
 
     // draw label lines perpendicular to the arc
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -20};
@@ -180,12 +184,12 @@ void render() {
     for (const auto& label : labels) {
       float angle = toAngle(label);
 
-      float xArc = x0 + (SDLWindow::height - 2.5f) * cos(angle * M_PI / 180.0f);
-      float yArc = y0 + (SDLWindow::height - 2.5f) * sin(angle * M_PI / 180.0f);
+      float xArc = x0 + (SDLWindow::windowSizes[window->sdlWindow].second - 2.5f) * cos(angle * M_PI / 180.0f);
+      float yArc = y0 + (SDLWindow::windowSizes[window->sdlWindow].second - 2.5f) * sin(angle * M_PI / 180.0f);
 
       // point outside the arc
-      float x1 = x0 + (SDLWindow::height * 1.1f) * cos(angle * M_PI / 180.0f);
-      float y1 = y0 + (SDLWindow::height * 1.1f) * sin(angle * M_PI / 180.0f);
+      float x1 = x0 + (SDLWindow::windowSizes[window->sdlWindow].second * 1.1f) * cos(angle * M_PI / 180.0f);
+      float y1 = y0 + (SDLWindow::windowSizes[window->sdlWindow].second * 1.1f) * sin(angle * M_PI / 180.0f);
 
       // point 12px further
       float x2 = x1 + 12 * cos(angle * M_PI / 180.0f);
@@ -203,7 +207,7 @@ void render() {
                                label > 0.0f ? color : Theme::colors.text, window->sdlWindow);
     }
 
-    float length = SDLWindow::height * 1.1f;
+    float length = SDLWindow::windowSizes[window->sdlWindow].second * 1.1f;
 
     // map x1 and y1
     float x1 = x0 + length * cos(currentAngle * M_PI / 180.0f);

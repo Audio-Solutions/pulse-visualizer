@@ -20,6 +20,7 @@
 #include "include/sdl_window.hpp"
 
 #include "include/config.hpp"
+#include "include/graphics.hpp"
 #include "include/theme.hpp"
 
 namespace SDLWindow {
@@ -28,12 +29,10 @@ namespace SDLWindow {
 std::vector<SDL_Window*> wins;
 std::vector<SDL_GLContext> glContexts;
 size_t currentWindow = 0;
-bool focused = false;
 std::atomic<bool> running {false};
-int width, height;
-
-// Mouse coordinates
-int mouseX = 0, mouseY = 0;
+std::vector<std::pair<int, int>> windowSizes;
+std::vector<std::pair<int, int>> mousePos;
+std::vector<bool> focused;
 
 void deinit() {
   for (size_t i = 0; i < wins.size(); i++) {
@@ -81,7 +80,7 @@ void init() {
   glLineWidth(2.0f);
 
   // Initialise window size
-  SDL_GetWindowSize(wins[currentWindow], &width, &height);
+  SDL_GetWindowSize(wins[currentWindow], &windowSizes[currentWindow].first, &windowSizes[currentWindow].second);
 
   running.store(true);
 }
@@ -93,50 +92,65 @@ void handleEvent(SDL_Event& event) {
     return;
   }
 
-  if (event.window.windowID == SDL_GetWindowID(wins[0])) {
-    switch (event.type) {
-    case SDL_EVENT_KEY_DOWN:
-      switch (event.key.key) {
-      case SDLK_Q:
-      case SDLK_ESCAPE:
-        running.store(false);
-        return;
-      default:
-        break;
-      }
-      break;
-
-    case SDL_EVENT_MOUSE_MOTION:
-      mouseX = event.motion.x;
-      mouseY = height - event.motion.y;
-      break;
-
-    case SDL_EVENT_WINDOW_MOUSE_ENTER:
-      focused = true;
-      break;
-
-    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-      focused = false;
-      break;
-
-    case SDL_EVENT_WINDOW_RESIZED:
-      width = event.window.data1;
-      height = event.window.data2;
-      break;
-
-    default:
+  size_t idx = 0;
+  for (size_t i = 0; i < wins.size(); i++) {
+    if (event.window.windowID == SDL_GetWindowID(wins[i])) {
+      idx = i;
       break;
     }
   }
+
+  switch (event.type) {
+  case SDL_EVENT_KEY_DOWN:
+    switch (event.key.key) {
+    case SDLK_Q:
+    case SDLK_ESCAPE:
+      if (idx == 0)
+        running.store(false);
+      return;
+    default:
+      break;
+    }
+    break;
+
+  case SDL_EVENT_MOUSE_MOTION:
+    mousePos[idx].first = event.motion.x;
+    mousePos[idx].second = windowSizes[idx].second - event.motion.y;
+    break;
+
+  case SDL_EVENT_WINDOW_MOUSE_ENTER:
+    focused[idx] = true;
+    break;
+
+  case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+    focused[idx] = false;
+    break;
+
+  case SDL_EVENT_WINDOW_RESIZED:
+    windowSizes[idx].first = event.window.data1;
+    windowSizes[idx].second = event.window.data2;
+    break;
+
+  default:
+    break;
+  }
 }
 
-void display() { SDL_GL_SwapWindow(wins[currentWindow]); }
+void display() {
+  for (size_t i = 0; i < wins.size(); i++) {
+    SDL_GL_MakeCurrent(wins[i], glContexts[i]);
+    SDL_GL_SwapWindow(wins[i]);
+  }
+}
 
 void clear() {
   // Clear with current theme background color
   float* c = Theme::colors.background;
-  glClearColor(c[0], c[1], c[2], c[3]);
-  glClear(GL_COLOR_BUFFER_BIT);
+  for (size_t i = 0; i < wins.size(); i++) {
+    SDL_GL_MakeCurrent(wins[i], glContexts[i]);
+    glClearColor(c[0], c[1], c[2], c[3]);
+    glClear(GL_COLOR_BUFFER_BIT);
+  }
 }
 
 size_t createWindow(const std::string& title, int width, int height, uint32_t flags) {
@@ -156,6 +170,9 @@ size_t createWindow(const std::string& title, int width, int height, uint32_t fl
   }
   wins.push_back(win);
   glContexts.push_back(glContext);
+  windowSizes.push_back(std::make_pair(width, height));
+  focused.push_back(false);
+  mousePos.push_back(std::make_pair(0, 0));
   return wins.size() - 1;
 }
 
@@ -166,6 +183,10 @@ bool destroyWindow(size_t index) {
   SDL_GL_DestroyContext(glContexts[index]);
   wins.erase(wins.begin() + index);
   glContexts.erase(glContexts.begin() + index);
+  windowSizes.erase(windowSizes.begin() + index);
+  focused.erase(focused.begin() + index);
+  mousePos.erase(mousePos.begin() + index);
+  Graphics::Shader::cleanup(index);
   if (currentWindow == index)
     currentWindow = 0;
   selectWindow(currentWindow);

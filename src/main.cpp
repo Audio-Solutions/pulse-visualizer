@@ -104,8 +104,8 @@ int main(int argc, char** argv) {
   // Setup window management
   WindowManager::reorder();
 
-  // Load fonts for each visualizer window
-  for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+  // Load fonts for each SDL window
+  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
     Graphics::Font::load(i);
   }
 
@@ -123,15 +123,15 @@ int main(int argc, char** argv) {
       std::cout << "Config reloaded" << std::endl;
       Theme::load();
 
-      // Cleanup fonts for all windows
-      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+      // Cleanup fonts for all SDL windows
+      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::cleanup(i);
       }
 
       WindowManager::reorder();
 
-      // Load fonts for each visualizer window
-      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+      // Load fonts for each SDL window
+      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::load(i);
       }
 
@@ -148,13 +148,13 @@ int main(int argc, char** argv) {
 
     // Handle theme reloading
     if (Theme::reload()) {
-      // Cleanup fonts for all windows
-      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+      // Cleanup fonts for all SDL windows
+      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::cleanup(i);
       }
 
-      // Load fonts for each visualizer window
-      for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+      // Load fonts for each SDL window
+      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::load(i);
       }
     }
@@ -163,18 +163,26 @@ int main(int argc, char** argv) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       SDLWindow::handleEvent(event);
-      for (auto& splitter : WindowManager::splitters)
-        splitter.handleEvent(event);
-      for (auto& window : WindowManager::windows)
-        window.handleEvent(event);
+      WindowManager::handleEvent(event);
+      for (auto& [key, vec] : WindowManager::splitters)
+        for (auto& splitter : vec)
+          splitter.handleEvent(event);
+      for (auto& [key, vec] : WindowManager::windows)
+        for (auto& window : vec)
+          window.handleEvent(event);
     }
     if (quitSignal.load() || !SDLWindow::running)
       break;
     glUseProgram(0);
-    if (SDLWindow::width == 0 || SDLWindow::height == 0)
+    if (std::any_of(SDLWindow::wins.begin(), SDLWindow::wins.end(), [](SDL_Window* win) {
+          int width, height;
+          SDL_GetWindowSize(win, &width, &height);
+          return width == 0 || height == 0;
+        }))
       continue;
 
     // Update window management
+    WindowManager::deleteMarkedWindows();
     WindowManager::updateSplitters();
     WindowManager::resizeWindows();
     WindowManager::resizeTextures();
@@ -210,7 +218,7 @@ int main(int argc, char** argv) {
 
   // Cleanup
   SDLWindow::running.store(false);
-  for (size_t i = 0; i < WindowManager::windows.size(); ++i) {
+  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
     Graphics::Font::cleanup(i);
   }
   DSPThread.join();

@@ -223,6 +223,26 @@ template <> std::vector<std::string> get<std::vector<std::string>>(const YAML::N
 }
 
 /**
+ * @brief Get a map of strings to vectors of strings from the configuration
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @return Value of type std::map<std::string, std::vector<std::string>>
+ */
+template <>
+std::map<std::string, std::vector<std::string>>
+get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, const std::string& path) {
+  auto node = getNode(root, path);
+  if (!node.has_value() || !node.value().IsMap())
+    return std::map<std::string, std::vector<std::string>> {};
+
+  std::map<std::string, std::vector<std::string>> result;
+  for (const auto& item : node.value())
+    result[item.first.as<std::string>()] =
+        get<std::vector<std::string>>(root, path + "." + item.first.as<std::string>());
+  return result;
+}
+
+/**
  * @brief Get a rotation value from the configuration from a int
  * @param root Root YAML node
  * @param path Dot-separated path to the desired value
@@ -266,7 +286,7 @@ void load() {
     return;
 
   // Load visualizer window layouts
-  options.visualizers = get<std::vector<std::string>>(configData, "visualizers");
+  options.visualizers = get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers");
 
   // Load oscilloscope configuration
   options.oscilloscope.follow_pitch = get<bool>(configData, "oscilloscope.follow_pitch");

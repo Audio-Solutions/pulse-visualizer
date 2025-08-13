@@ -1,6 +1,6 @@
 # Pulse Audio Visualizer Configuration Guide
 
-This guide provides comprehensive documentation for configuring Pulse Audio Visualizer. The configuration file is located at `~/.config/pulse-visualizer/config.yml` and uses YAML format.
+This guide provides comprehensive documentation for configuring Pulse Audio Visualizer. The configuration file is located at `~/.config/pulse-visualizer/config.yml` for linux and `C:\Users\<username>\.config\pulse-visualizer\config.yml` for windows and uses YAML format.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ audio:
   # Lower values = visualizer will draw even at lower volumes
   silence_threshold: -90.0
   
-  # Audio backend: "pulseaudio", "pipewire", or "auto" (auto-detects best available, pipewire first, then pulseaudio)
+  # Audio backend: "pulseaudio", "pipewire", "wasapi", or "auto" (auto-detects best available, pipewire first, then pulseaudio, then wasapi)
   # "auto" is recommended for most systems, but you can force a specific backend
   engine: pipewire
   
@@ -59,6 +59,7 @@ audio:
 - PipeWire: `alsa_output.pci-0000_0e_00.4.iec958-stereo`
 - USB Audio: `alsa_output.usb-Focusrite_Scarlett_2i2_USB-00.analog-stereo`
 - Bluetooth: `bluez_sink.00_11_22_33_44_55.a2dp_sink`
+- Windows: `Speakers (Realtek High Definition Audio)`
 
 ### Debug Settings
 
@@ -410,18 +411,24 @@ lowpass:
 
 ### Visualizer Layout Settings
 
-Controls the order and visibility of visualizers.
-Comment out visualizers you don't want to see.
-Their order from top to bottom will determine the order of the windows from left to right.
+Controls the order and visibility of visualizers in window groups
+Each group (like "main") creates a window with visualizers arranged left-to-right
+Visualizers can be moved between windows by clicking arrow buttons
+Windows can be split by right-clicking to pop out visualizers into new windows
+Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
+Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
+Only one instance of a visualizer can exist at a time.
 
 ```yaml
 visualizers:
-  - lufs
-  - vu
-  - lissajous
-  - oscilloscope
-  - spectrum_analyzer
-# - spectrogram
+  main:
+    - lufs
+    - vu
+    - lissajous
+    - oscilloscope
+    - spectrum_analyzer
+  additional_window:
+    - spectrogram
 ```
 
 ### Window Settings
@@ -455,8 +462,9 @@ window:
 
 **No Audio Input:**
 - Check your audio device name with `pactl list sources short` (PulseAudio) or `pw-cli ls Node` (PipeWire)
+- On Windows, use the Human Readable device name or a substring of it.
 - Ensure the device is not muted
-- Try different audio engines (`pulseaudio`, `pipewire`, or `auto`)
+- Try different audio engines (`pulseaudio`, `pipewire`, `wasapi`, or `auto`)
 
 **High CPU Usage/Poor Performance:**
 - Disable phosphor effects: `phosphor.enabled: false`

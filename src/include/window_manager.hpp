@@ -36,6 +36,12 @@ constexpr int MIN_WIDTH = 80;
 void setViewport(int x, int width, int height);
 
 /**
+ * @brief Handle SDL events for the window manager
+ * @param event SDL event to process
+ */
+void handleEvent(const SDL_Event& event);
+
+/**
  * @brief Window splitter for resizing visualizer windows
  */
 struct Splitter {
@@ -92,17 +98,17 @@ struct VisualizerWindow {
     int textureHeight = 0;
   } phosphor;
 
-  std::function<void()> render;
+  void (*render)();
 
   /**
    * @brief Draw an arrow for the swap button
-   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    */
   void drawArrow(int dir);
 
   /**
    * @brief Check if the swap button is pressed
-   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    * @param mouseX X position of the mouse
    * @param mouseY Y position of the mouse
    */
@@ -110,7 +116,7 @@ struct VisualizerWindow {
 
   /**
    * @brief Check if the swap button is hovering
-   * @param dir Direction of the arrow (-1 for left, 1 for right)
+   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    * @param mouseX X position of the mouse
    * @param mouseY Y position of the mouse
    */
@@ -148,8 +154,14 @@ struct VisualizerWindow {
 };
 
 // Global window management
-extern std::vector<VisualizerWindow> windows;
-extern std::vector<Splitter> splitters;
+extern std::map<std::string, std::vector<VisualizerWindow>> windows;
+extern std::map<std::string, std::vector<Splitter>> splitters;
+extern std::vector<std::string> markedForDeletion;
+
+/**
+ * @brief Delete windows marked for deletion
+ */
+void deleteMarkedWindows();
 
 /**
  * @brief Draw all window splitters
@@ -177,7 +189,7 @@ void resizeWindows();
  * @param targetX Target X position (-1 for current position)
  * @return New X position
  */
-int moveSplitter(int index, int targetX = -1);
+int moveSplitter(std::string key, int index, int targetX = -1);
 
 /**
  * @brief Update splitter states and positions
@@ -192,12 +204,21 @@ void reorder();
 /**
  * @brief Direction for swapping visualizers
  */
-enum Direction { Left = -1, Right = 1 };
+enum Direction { Left = -1, Right = 1, Up = 2 };
 
 /**
  * @brief Swap visualizer at index with its neighbor in the given direction
  * @param index Index of visualizer to swap
+ * @param key Key of the window group
  */
-template <Direction direction> void swapVisualizer(size_t index);
+template <Direction direction> void swapVisualizer(size_t index, std::string key);
+
+/**
+ * @brief Popout visualizer at index from its window group
+ * @param index Index of visualizer to popout
+ * @param key Key of the window group
+ * @param bool popout Whether to popout the window
+ */
+void popWindow(size_t index, std::string key, bool popout = false);
 
 } // namespace WindowManager

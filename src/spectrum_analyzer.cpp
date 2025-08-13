@@ -41,7 +41,7 @@ void render() {
   float logMax = log(Config::options.fft.max_freq);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->width, SDLWindow::height);
+  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
 
   // Draw frequency markers if enabled
   if (!Config::options.phosphor.enabled && Config::options.fft.frequency_markers) {
@@ -51,12 +51,12 @@ void render() {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                        Config::options.fft.rotation == Config::ROTATION_270
-                                   ? static_cast<float>(SDLWindow::height)
+                                   ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
                                    : static_cast<float>(window->width)));
       float height =
           Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
               ? window->width
-              : SDLWindow::height;
+              : SDLWindow::windowSizes[window->sdlWindow].second;
 
       // Apply rotation transformation to marker coordinates
       float x1, y1, x2, y2;
@@ -77,7 +77,7 @@ void render() {
         break;
       case Config::ROTATION_270:
         x1 = x2 = height;
-        y1 = y2 = SDLWindow::height - x;
+        y1 = y2 = SDLWindow::windowSizes[window->sdlWindow].second - x;
         break;
       }
       Graphics::drawLine(x1, y1, x2, y2, Theme::colors.accent, 1.f);
@@ -119,7 +119,7 @@ void render() {
     float logX = (log(f) - logMin) / (logMax - logMin);
     float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                               Config::options.fft.rotation == Config::ROTATION_270
-                          ? static_cast<float>(SDLWindow::height)
+                          ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
                           : static_cast<float>(window->width));
     float mag = inMain[bin];
 
@@ -133,7 +133,7 @@ void render() {
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
-            : SDLWindow::height;
+            : SDLWindow::windowSizes[window->sdlWindow].second;
     float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
 
     if (Config::options.fft.flip_x)
@@ -148,10 +148,10 @@ void render() {
       pointsMain[bin] = {window->width - y, x};
       break;
     case Config::ROTATION_180:
-      pointsMain[bin] = {window->width - x, SDLWindow::height - y};
+      pointsMain[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
       break;
     case Config::ROTATION_270:
-      pointsMain[bin] = {y, SDLWindow::height - x};
+      pointsMain[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
       break;
     }
   }
@@ -169,7 +169,7 @@ void render() {
     float logX = (log(f) - logMin) / (logMax - logMin);
     float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                               Config::options.fft.rotation == Config::ROTATION_270
-                          ? static_cast<float>(SDLWindow::height)
+                          ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
                           : static_cast<float>(window->width));
     float mag = inAlt[bin];
 
@@ -183,7 +183,7 @@ void render() {
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
-            : SDLWindow::height;
+            : SDLWindow::windowSizes[window->sdlWindow].second;
     float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
 
     if (Config::options.fft.flip_x)
@@ -198,10 +198,10 @@ void render() {
       pointsAlt[bin] = {window->width - y, x};
       break;
     case Config::ROTATION_180:
-      pointsAlt[bin] = {window->width - x, SDLWindow::height - y};
+      pointsAlt[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
       break;
     case Config::ROTATION_270:
-      pointsAlt[bin] = {y, SDLWindow::height - x};
+      pointsAlt[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
       break;
     }
   }
@@ -225,7 +225,8 @@ void render() {
 
     constexpr float REF_AREA = 400.f * 300.f;
     float energy = Config::options.phosphor.beam_energy / REF_AREA *
-                   (Config::options.fft.enable_cqt ? window->width * SDLWindow::height : 400.f * 50.f);
+                   (Config::options.fft.enable_cqt ? window->width * SDLWindow::windowSizes[window->sdlWindow].second
+                                                   : 400.f * 50.f);
 
     energy *= Config::options.fft.beam_multiplier * WindowManager::dt / 0.016f;
 
@@ -318,7 +319,7 @@ void render() {
 
   char overlay[128];
   float x = 10.0f;
-  float y = SDLWindow::height - 20.0f;
+  float y = SDLWindow::windowSizes[window->sdlWindow].second - 20.0f;
 
   auto drawNoteInfo = [&](float freq, float dB) {
     auto [note, octave, cents] = DSP::toNote(freq, noteNames);
@@ -328,11 +329,11 @@ void render() {
   };
 
   // Convert mouse coordinates to window-relative coordinates
-  float mouseXRel = SDLWindow::mouseX - window->x;
-  float mouseYRel = SDLWindow::mouseY;
+  float mouseXRel = SDLWindow::mousePos[window->sdlWindow].first - window->x;
+  float mouseYRel = SDLWindow::mousePos[window->sdlWindow].second;
 
-  if (window->hovering && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
-      mouseYRel < SDLWindow::height) {
+  if (SDLWindow::focused[window->sdlWindow] && window->hovering && mouseXRel >= 0 && mouseXRel < window->width &&
+      mouseYRel >= 0 && mouseYRel < SDLWindow::windowSizes[window->sdlWindow].second) {
     // Check if mouse is within window bounds
     // Draw crosshair
     glColor4fv(color);
@@ -345,7 +346,7 @@ void render() {
 
     // Draw vertical line from top edge to bottom edge
     glVertex2f(mouseXRel, 0);
-    glVertex2f(mouseXRel, SDLWindow::height);
+    glVertex2f(mouseXRel, SDLWindow::windowSizes[window->sdlWindow].second);
 
     glEnd();
 
@@ -362,10 +363,10 @@ void render() {
       break;
     case Config::ROTATION_180:
       unrotatedX = window->width - mouseXRel;
-      unrotatedY = SDLWindow::height - mouseYRel;
+      unrotatedY = SDLWindow::windowSizes[window->sdlWindow].second - mouseYRel;
       break;
     case Config::ROTATION_270:
-      unrotatedX = SDLWindow::height - mouseYRel;
+      unrotatedX = SDLWindow::windowSizes[window->sdlWindow].second - mouseYRel;
       unrotatedY = mouseXRel;
       break;
     }
@@ -375,12 +376,12 @@ void render() {
     float logMax = log(Config::options.fft.max_freq);
     float effectiveWidth =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? SDLWindow::height
+            ? SDLWindow::windowSizes[window->sdlWindow].second
             : window->width;
     float effectiveHeight =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
-            : SDLWindow::height;
+            : SDLWindow::windowSizes[window->sdlWindow].second;
     float logX = unrotatedX / effectiveWidth;
     float logFreq = logMin + logX * (logMax - logMin);
     float freq = exp(logFreq);
