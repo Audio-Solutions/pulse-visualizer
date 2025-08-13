@@ -46,7 +46,7 @@ jobs:
           cache-key: "vcpkg-action-cache"
 
       - name: Configure CMake
-        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -B ${{github.workspace}}/build --preset win64-release
+        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset win64-release
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --target package --parallel 2
@@ -62,4 +62,32 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pulse-visualizer-win64-installer
+          path: ${{ steps.find_exe.outputs.file }}
+
+  build_linux:
+    runs-on: ubuntu-latest
+
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt install libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev
+
+      - name: Configure CMake
+        run: cmake -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset linux-release
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --target package --parallel 2
+
+      - name: Find executable
+        id: find_exe
+        run: echo "file=$(ls build/pulse-visualizer-*-Linux.tar.gz)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-visualizer-linux-installer
           path: ${{ steps.find_exe.outputs.file }}

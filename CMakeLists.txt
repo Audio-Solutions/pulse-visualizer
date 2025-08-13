@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(Pulse VERSION 1.2.0)
 
+option(SKIP_CPACK "Skip packaging configuration" ON)
+
 # Get git version info
 execute_process(
     COMMAND git rev-parse --short HEAD
@@ -180,12 +182,16 @@ if(PIPEWIRE_FOUND)
   target_compile_options(pulse-visualizer PRIVATE -Wno-nan-infinity-disabled)
 endif()
 
-#include cpack before so maybe the bottom ones wont apply idk
-if(WIN32 AND NOT CMAKE_SKIP_INSTALL_RULES)
+#include cpack if skip_cpack is not set
+if(WIN32 AND NOT SKIP_CPACK)
+  message(STATUS "Packaging is NOT skipped, configuring for installer creation")
   include("PackageWindows.cmake")
-elseif(LINUX AND NOT CMAKE_SKIP_INSTALL_RULES)
+elseif(UNIX AND NOT SKIP_CPACK)
+  message(STATUS "Packaging is NOT skipped, configuring for installer creation")
   include("PackageLinux.cmake")
 else()
+  message(STATUS "Packaging is skipped, configuring for local installation")
+
   # Installation targets
   include(GNUInstallDirs)
   
@@ -208,7 +214,7 @@ else()
   endif()
 
   # Install README and LICENSE
-  install(FILES README.md LICENSE CONTRIBUTORS
+  install(FILES README.md CONFIGURATION.md LICENSE CONTRIBUTORS
     DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
   )
   
@@ -234,13 +240,14 @@ else()
     FILES_MATCHING PATTERN "*.txt"
   )
   
-  # Install icon
-  install(FILES media/icon/main.png
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
-    RENAME "pulse-visualizer.png"
-  )
-  
   if(NOT WIN32)
+
+    # Install icon
+    install(FILES media/icon/main.png
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
+      RENAME "pulse-visualizer.png"
+    )
+
     # Create a desktop entry
     configure_file(
       "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
