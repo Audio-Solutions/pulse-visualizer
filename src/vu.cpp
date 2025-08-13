@@ -208,7 +208,8 @@ void render() {
       std::string labelText = std::to_string(static_cast<int>(label));
       auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS + 2, window->sdlWindow);
       Graphics::Font::drawText(labelText.c_str(), x2 - w / 2, y2 - h / 2, FONT_SIZE_LABELS + 2,
-                               label > 0.0f ? color : Theme::colors.text, window->sdlWindow);
+                               label > 0.0f && Theme::colors.vu_clip[3] > 1e-6f ? color : Theme::colors.text,
+                               window->sdlWindow);
     }
 
     float length = SDLWindow::windowSizes[window->sdlWindow].second * 1.1f;
