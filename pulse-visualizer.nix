@@ -5,7 +5,7 @@
   cmake,
   ninja,
   pkg-config,
-  SDL2,
+  sdl3,
   libpulseaudio,
   pipewire,
   fftwFloat,
@@ -18,13 +18,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "1.0.1";
+  version = "1.1.0";
 
   src = fetchFromGitHub {
     owner = "Beacroxx";
     repo = "pulse-visualizer";
-    rev = "882d6072f651ae00fcba66c9c2d5df2835b6cf61";
-    hash = "sha256-OR7ahdKaj5vPB6ab8TTAX4cb4DApND0XcWUX22sJ5is=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-e/UDg+BM9ly6iK8AlBBkAyE7OFL7ksNzjeAuyEGgsPk=";
   };
 
   nativeBuildInputs = [
@@ -34,7 +34,7 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   buildInputs = [
-    SDL2
+    sdl3
     libpulseaudio
     pipewire
     fftwFloat
@@ -50,20 +50,21 @@ stdenv.mkDerivation (finalAttrs: {
 
   postPatch = ''
     substituteInPlace CMakeLists.txt \
-      --replace-warn " -march=native" "" \
-      --replace-warn " -mtune=native" "" \
-      --replace-warn "-Wl,-s" "" \
-      --replace-warn " -s" "" \
-      --replace-warn 'set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)' ""
+      --replace-fail " -march=native" "" \
+      --replace-fail " -mtune=native" "" \
+      --replace-fail "-Wl,-s" "" \
+      --replace-fail " -s" "" \
+      --replace-fail 'set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)' ""
   '';
 
   cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" ];
 
-  meta = with lib; {
-    description = "Real-time audio visualizer using SDL2, OpenGL, PulseAudio/PipeWire";
+  meta = {
+    description = "Real-time audio visualizer inspired by MiniMeters";
     homepage = "https://github.com/Beacroxx/pulse-visualizer";
-    license = licenses.gpl3;
-    maintainers = [ maintainers.miyu ];
-    platforms = [ "x86_64-linux" "aarch64-linux" ];
+    license = lib.licenses.gpl3;
+    maintainers = with lib.maintainers; [ miyu ];
+    platforms = lib.platforms.x86_64;
+    badPlatforms = lib.platforms.darwin;
   };
 })
