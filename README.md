@@ -38,10 +38,10 @@ Just grab it from the AUR as `pulse-visualizer-git`:
 yay -S pulse-visualizer-git
 ```
 ### NixOS
-Download the `pulse-visualizer.nix` and add this to your flake:
+Download `pulse-visualizer.nix` and add this to your flake:
 ```nix
 nixpkgs.config.packageOverrides = pkgs: {
-  pulse-visualizer = pkgs.callPackage /home/user/flake/pulse-visualizer.nix { };
+  pulse-visualizer = pkgs.callPackage ./pulse-visualizer.nix { };
 };
 
 environment.systemPackages = [ pkgs.pulse-visualizer ];
@@ -52,7 +52,7 @@ Change directory to the project root and add it to your shell via:
 ```bash
 nix-shell
 ```
-### Other Distros 
+### Other Distros
 You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest). There is an install script in the tarball, make sure to run it as root before running the binary:
 ```bash
 tar -xvf pulse-visualizer-<version>.tar.gz
@@ -69,10 +69,10 @@ Alternatively, you can build from source:
 - Ninja-build
 - Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
 
-Fedora:  
-```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
-Debian:  
-```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
+Fedora:
+```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```
+Debian:
+```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```
 
 ```bash
 mkdir build
@@ -84,7 +84,7 @@ sudo ninja install
 
 On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
 
-#### Note 
+#### Note
  Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and only use `sudo ninja install` for the install step.
 
 ## Dependencies & Platform Support
