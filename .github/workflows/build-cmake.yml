@@ -1,0 +1,63 @@
+name: CMake build
+
+on:
+  push:
+    #tags:
+    #  - 'v*'         # Matches tags like v1.2.3
+    branches:
+      - main
+      - test-workflow-2
+#   pull_request:
+    # branches: [ "main" ]
+    
+jobs:
+  build_windows:
+    runs-on: windows-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-windows-release
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: repolevedavaj/install-nsis@v1.0.1
+        with:
+          nsis-version: '3.11'
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: |
+            ${{ github.workspace }}/vcpkg
+          key: whole-vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
+          restore-keys: |
+            whole-vcpkg-${{ runner.os }}-
+
+      - name: Setup vcpkg
+        id: vcpkg
+        uses: johnwason/vcpkg-action@v7
+        with:
+          manifest-dir: '${{ github.workspace }}'
+          triplet: 'x64-windows-release'
+          token: '${{ github.token }}'
+          cache-key: "vcpkg-action-cache"
+
+      - name: Configure CMake
+        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -B ${{github.workspace}}/build --preset win64-release
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --target package --parallel 2
+
+      - name: Find executable
+        id: find_exe
+        run: |
+          echo "file=$(ls build/pulse-visualizer-*-win64.exe)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-visualizer-win64-installer
+          path: ${{ steps.find_exe.outputs.file }}

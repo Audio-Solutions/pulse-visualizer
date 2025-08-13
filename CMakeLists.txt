@@ -180,80 +180,87 @@ if(PIPEWIRE_FOUND)
   target_compile_options(pulse-visualizer PRIVATE -Wno-nan-infinity-disabled)
 endif()
 
-# Installation targets
-include(GNUInstallDirs)
-
-if(WIN32)
-  set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/pulse-visualizer")
-  set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}")
-endif()
-
-# Install the executable
-install(TARGETS pulse-visualizer
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-# Install the DLL's on Windows
-if(WIN32)
-  file(GLOB DLLS "${CMAKE_BINARY_DIR}/*.dll")
-  install(FILES ${DLLS}
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-  )
-endif()
-
-# Install README and LICENSE
-install(FILES README.md LICENSE
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
-)
-
-# Install shaders directory
-install(DIRECTORY shaders/
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/shaders
-  FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag" PATTERN "*.comp"
-)
-
-# Install config template
-install(FILES config.yml.template
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
-)
-
-# Install font
-install(FILES JetBrainsMonoNerdFont-Medium.ttf
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
-)
-
-# Install themes directory
-install(DIRECTORY themes/
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/themes
-  FILES_MATCHING PATTERN "*.txt"
-)
-
-# Install icon
-install(FILES media/icon/main.png
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
-  RENAME "pulse-visualizer.png"
-)
-
-if(NOT WIN32)
-  # Create a desktop entry
-  configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
-    @ONLY
-  )
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+#include cpack before so maybe the bottom ones wont apply idk
+if(WIN32 AND NOT CMAKE_SKIP_INSTALL_RULES)
+  include("PackageWindows.cmake")
+elseif(LINUX AND NOT CMAKE_SKIP_INSTALL_RULES)
+  include("PackageLinux.cmake")
+else()
+  # Installation targets
+  include(GNUInstallDirs)
+  
+  if(WIN32)
+    set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/pulse-visualizer")
+    set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}")
+  endif()
+  
+  # Install the executable
+  install(TARGETS pulse-visualizer
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
   
-  # Create a man page
-  configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
-    @ONLY
+  # Install the DLL's on Windows
+  if(WIN32)
+    file(GLOB DLLS "${CMAKE_BINARY_DIR}/*.dll")
+    install(FILES ${DLLS}
+      DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+  endif()
+
+  # Install README and LICENSE
+  install(FILES README.md LICENSE CONTRIBUTORS
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
   )
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
-    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  
+  # Install shaders directory
+  install(DIRECTORY shaders/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/shaders
+    FILES_MATCHING PATTERN "*.vert" PATTERN "*.frag" PATTERN "*.comp"
   )
+  
+  # Install config template
+  install(FILES config.yml.template
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+  )
+  
+  # Install font
+  install(FILES JetBrainsMonoNerdFont-Medium.ttf
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
+  )
+  
+  # Install themes directory
+  install(DIRECTORY themes/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/themes
+    FILES_MATCHING PATTERN "*.txt"
+  )
+  
+  # Install icon
+  install(FILES media/icon/main.png
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
+    RENAME "pulse-visualizer.png"
+  )
+  
+  if(NOT WIN32)
+    # Create a desktop entry
+    configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+      @ONLY
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+    )
+    
+    # Create a man page
+    configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+      @ONLY
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
+      DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+    )
+  endif()
 endif()
 
 include(CheckCXXCompilerFlag)
