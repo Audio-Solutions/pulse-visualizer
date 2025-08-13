@@ -18,13 +18,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "1.1.0";
+  version = "1.1.1";
 
   src = fetchFromGitHub {
     owner = "Beacroxx";
     repo = "pulse-visualizer";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-e/UDg+BM9ly6iK8AlBBkAyE7OFL7ksNzjeAuyEGgsPk=";
+    hash = "sha256-iJ66yJjZ0Gvw9gw4v1wZwLiCok8bBSzNX+Qsp106rsY=";
   };
 
   nativeBuildInputs = [
