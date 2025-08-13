@@ -26,16 +26,6 @@ jobs:
         with:
           nsis-version: '3.11'
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        if: always()
-        with:
-          path: |
-            ${{ github.workspace }}/vcpkg
-          key: whole-vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
-          restore-keys: |
-            whole-vcpkg-${{ runner.os }}-
-
       - name: Setup vcpkg
         id: vcpkg
         uses: johnwason/vcpkg-action@v7
@@ -76,7 +66,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja-build libebur128-dev
+          sudo apt install libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja-build libebur128-dev libx11-dev libwayland-dev
 
       - name: Build SDL3 from source
         run: |
