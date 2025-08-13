@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(Pulse VERSION 1.0.0)
 
+# Get git version info
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -119,9 +127,29 @@ else()
   add_compile_definitions(PULSE_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/pulse-visualizer")
 endif()
 
+set(PROJECT_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
+set(PROJECT_VERSION_FULL "${PROJECT_VERSION_STRING}.${GIT_COMMIT_HASH}")
+add_compile_definitions(
+    VERSION_STRING="${PROJECT_VERSION_STRING}"
+    VERSION_COMMIT="${GIT_COMMIT_HASH}"
+    VERSION_FULL="${PROJECT_VERSION_FULL}"
+)
+
+message(STATUS "pulse-visualizer version ${PROJECT_VERSION_STRING} commit ${GIT_COMMIT_HASH}")
+
 # Add executable
 file(GLOB SRC_FILES src/*.cpp)
-add_executable(pulse-visualizer ${SRC_FILES})
+
+if(WIN32)
+  # Generate version.rc from template
+  configure_file(${CMAKE_SOURCE_DIR}/version.rc.in ${CMAKE_BINARY_DIR}/version.rc @ONLY)
+
+  set(RESOURCE_FILE "resources.rc" "${CMAKE_BINARY_DIR}/version.rc")
+else()
+  set(RESOURCE_FILE "")
+endif()
+
+add_executable(pulse-visualizer ${SRC_FILES} ${RESOURCE_FILE})
 
 # Link libraries
 target_link_libraries(pulse-visualizer PRIVATE
@@ -201,8 +229,9 @@ install(DIRECTORY themes/
 )
 
 # Install icon
-install(FILES pulse-visualizer.png
+install(FILES media/icon/main.png
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
+  RENAME "pulse-visualizer.png"
 )
 
 if(NOT WIN32)
