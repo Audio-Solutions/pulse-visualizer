@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(Pulse VERSION 1.2.0)
 
+option(CI_SPECIFIC "Enable CI specific configuration" OFF)
 option(SKIP_CPACK "Skip packaging configuration" ON)
 
 # Get git version info

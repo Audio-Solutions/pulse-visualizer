@@ -4,8 +4,9 @@ on:
   push:
     tags:
      - 'v*'         # Matches tags like v1.2.3
-    # branches:
-      # - main
+    branches:
+      - main
+      - test-workflow-2 
 #   pull_request:
     # branches: [ "main" ]
     
@@ -35,7 +36,7 @@ jobs:
           cache-key: "vcpkg-action-cache"
 
       - name: Configure CMake
-        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset win64-release
+        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -DSKIP_CPACK=OFF -DCI_SPECIFIC=ON -B ${{github.workspace}}/build --preset win64-release
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --target package --parallel 2
@@ -47,11 +48,24 @@ jobs:
           $file = Get-ChildItem build/pulse-visualizer-*-win64.exe | Select-Object -First 1
           echo "file=$($file.FullName)" >> $env:GITHUB_OUTPUT
 
-      - name: Upload artifact
+      - name: Package build
+        shell: pwsh
+        run: |
+          $dlls = Get-ChildItem build -Filter build/*.dll
+          $exe  = Get-ChildItem build -Filter build/pulse-visualizer.exe
+          Compress-Archive -Path $dlls.FullName, $exe.FullName -DestinationPath build\bundle.zip -Force
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: pulse-visualizer-win64-installer
           path: ${{ steps.find_exe.outputs.file }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-visualizer-win64-bundle
+          path: "build/bundle.zip"
 
   build_linux:
     runs-on: ubuntu-latest
@@ -105,7 +119,7 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --target package --parallel 2
 
-      - name: Find executable
+      - name: Find package
         id: find_exe
         run: echo "file=$(ls build/pulse-visualizer-*-Linux.tar.gz)" >> $GITHUB_OUTPUT
 

@@ -3,7 +3,12 @@ install(TARGETS pulse-visualizer
   RUNTIME DESTINATION .
 )
 
-file(GLOB DLLS "${CMAKE_BINARY_DIR}/*.dll")
+if(CI_SPECIFIC)
+  file(GLOB DLLS "${CMAKE_SOURCE_DIR}/vcpkg/installed/x64-windows-release/bin/*.dll")
+else()
+  file(GLOB DLLS "${CMAKE_BINARY_DIR}/*.dll")
+endif()
+
 install(FILES ${DLLS}
   DESTINATION .
 )
