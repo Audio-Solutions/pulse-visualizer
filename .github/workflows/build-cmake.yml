@@ -51,8 +51,8 @@ jobs:
       - name: Package build
         shell: pwsh
         run: |
-          $dlls = Get-ChildItem build -Filter build/*.dll
-          $exe  = Get-ChildItem build -Filter build/pulse-visualizer.exe
+          $dlls = Get-ChildItem build -Filter *.dll
+          $exe  = Get-ChildItem build -Filter pulse-visualizer.exe
           Compress-Archive -Path $dlls.FullName, $exe.FullName -DestinationPath build\bundle.zip -Force
 
       - name: Upload installer artifact
@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pulse-visualizer-win64-bundle
-          path: "build/bundle.zip"
+          path: "${{ github.workspace }}/build/bundle.zip"
 
   build_linux:
     runs-on: ubuntu-latest
