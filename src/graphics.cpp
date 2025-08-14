@@ -412,7 +412,7 @@ std::string loadFile(const char* path) {
     return content;
   }
 
-  std::cerr << "Failed to open shader file '" << path << "'" << std::endl;
+  LOG_ERROR(std::string("Failed to open shader file '") + path + "'");
   return "";
 }
 
@@ -437,7 +437,7 @@ GLuint load(const char* path, GLenum type) {
   std::vector<char> log(tmp);
   glGetShaderInfoLog(shader, tmp, &tmp, log.data());
 
-  std::cerr << "Shader compilation failed for '" << path << "': " << log.data() << std::endl;
+  LOG_ERROR(std::string("Shader compilation failed for '") + path + "': " + log.data());
   glDeleteShader(shader);
   return 0;
 }
@@ -473,7 +473,7 @@ void ensureShaders(size_t sdlWindow) {
     if (!tmp) {
       char log[512];
       glGetProgramInfoLog(shaders[sdlWindow][i], 512, NULL, log);
-      std::cerr << "Shader linking failed:" << log << std::endl;
+      LOG_ERROR(std::string("Shader linking failed:") + log);
       glDeleteProgram(shaders[sdlWindow][i]);
       shaders[sdlWindow][i] = 0;
     }

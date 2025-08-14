@@ -58,6 +58,26 @@
 #define PULSE_DATA_DIR ""
 #endif
 
+namespace CmdlineArgs {
+extern bool debug;
+extern bool help;
+extern bool console;
+} // namespace CmdlineArgs
+
+// constexpr recursive function template to isolate filename
+template <std::size_t N> constexpr const char* constexpr_strrchr(const char (&str)[N], std::size_t pos = N - 2) {
+  return pos == static_cast<std::size_t>(-1)
+             ? str
+             : (str[pos] == '/' || str[pos] == '\\' ? str + pos + 1 : constexpr_strrchr(str, pos - 1));
+}
+
+// Logging macros
+#define LOG_ERROR(x)                                                                                                   \
+  std::cout << "ERROR in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl;
+#define LOG_DEBUG(x)                                                                                                   \
+  if (CmdlineArgs::debug)                                                                                              \
+    std::cout << "DEBUG in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl;
+
 #ifdef HAVE_AVX2
 #include <immintrin.h>
 

@@ -54,9 +54,9 @@ void copyFiles() {
 #endif
   if (!home) {
 #ifdef _WIN32
-    std::cerr << "Warning: USERPROFILE environment variable not set, cannot setup user config" << std::endl;
+    LOG_ERROR("Warning: USERPROFILE environment variable not set, cannot setup user config");
 #else
-    std::cerr << "Warning: HOME environment variable not set, cannot setup user config" << std::endl;
+    LOG_ERROR("Warning: HOME environment variable not set, cannot setup user config");
 #endif
     return;
   }
@@ -78,9 +78,9 @@ void copyFiles() {
     if (std::filesystem::exists(cfgSource)) {
       try {
         std::filesystem::copy_file(cfgSource, userCfgDir + "/config.yml");
-        std::cout << "Created user config file: " << userCfgDir << "/config.yml" << std::endl;
+        LOG_DEBUG(std::string("Created user config file: ") + userCfgDir + "/config.yml");
       } catch (const std::exception& e) {
-        std::cerr << "Warning: Failed to copy config template: " << e.what() << std::endl;
+        LOG_ERROR(std::string("Warning: Failed to copy config template: ") + e.what());
       }
     }
   }
@@ -97,9 +97,9 @@ void copyFiles() {
           }
         }
       }
-      std::cout << "Copied themes to: " << userThemeDir << std::endl;
+      LOG_DEBUG(std::string("Copied themes to: ") + userThemeDir);
     } catch (const std::exception& e) {
-      std::cerr << "Warning: Failed to copy themes: " << e.what() << std::endl;
+      LOG_ERROR(std::string("Warning: Failed to copy themes: ") + e.what());
     }
   }
 
@@ -110,10 +110,10 @@ void copyFiles() {
     try {
       if (!std::filesystem::exists(userFontFile)) {
         std::filesystem::copy_file(fontSource, userFontFile);
-        std::cout << "Copied font to: " << userFontFile << std::endl;
+        LOG_DEBUG(std::string("Copied font to: ") + userFontFile);
       }
     } catch (const std::exception& e) {
-      std::cerr << "Warning: Failed to copy font: " << e.what() << std::endl;
+      LOG_ERROR(std::string("Warning: Failed to copy font: ") + e.what());
     }
   }
 }
@@ -148,23 +148,19 @@ template <typename T> T get(const YAML::Node& root, const std::string& path) {
     try {
       return node.value().as<T>();
     } catch (std::exception) {
-      std::cerr << "Converting " << path << " to ";
-
-      if (typeid(T) == typeid(std::string)) {
-        std::cerr << "string";
-      } else if (typeid(T) == typeid(int)) {
-        std::cerr << "int";
-      } else if (typeid(T) == typeid(float)) {
-        std::cerr << "float";
-      }
-
-      std::cerr << " failed" << std::endl;
-
+      std::string typeStr = "unknown";
+      if (typeid(T) == typeid(std::string))
+        typeStr = "string";
+      else if (typeid(T) == typeid(int))
+        typeStr = "int";
+      else if (typeid(T) == typeid(float))
+        typeStr = "float";
+      LOG_ERROR(std::string("Converting ") + path + " to " + typeStr + " failed");
       return T {};
     }
   }
 
-  std::cerr << path << " is missing." << std::endl;
+  LOG_ERROR(path + " is missing.");
 
   return T {};
 }
@@ -191,13 +187,13 @@ template <> bool get<bool>(const YAML::Node& root, const std::string& path) {
         return true;
       if (str == "false" || str == "no" || str == "off")
         return false;
-      std::cerr << "Converting " << path << " to bool failed" << std::endl;
+      LOG_ERROR(std::string("Converting ") + path + " to bool failed");
       return false;
     } catch (...) {
       try {
         return value.as<int>() != 0;
       } catch (...) {
-        std::cerr << "Converting  " << path << " to bool failed" << std::endl;
+        LOG_ERROR(std::string("Converting  ") + path + " to bool failed");
         return false;
       }
     }
@@ -252,7 +248,7 @@ template <> Rotation get<Rotation>(const YAML::Node& root, const std::string& pa
   try {
     return static_cast<Rotation>(get<int>(root, path));
   } catch (...) {
-    std::cerr << "Converting " << path << " to Rotation failed" << std::endl;
+    LOG_ERROR(std::string("Converting ") + path + " to Rotation failed");
     return ROTATION_0;
   }
 }
@@ -265,10 +261,10 @@ void load() {
   try {
     configData = YAML::LoadFile(path);
   } catch (YAML::BadFile e) {
-    std::cerr << "Failed to load config file" << std::endl;
+    LOG_ERROR("Failed to load config file");
   } catch (YAML::ParserException e) {
-    std::cerr << "Parser error when loading the config file: \"" << e.msg << "\" at " << e.mark.line + 1 << "("
-              << e.mark.column + 1 << ")" << std::endl;
+    LOG_ERROR(std::string("Parser error when loading the config file: \"") + e.msg + "\" at " +
+              std::to_string(e.mark.line + 1) + "(" + std::to_string(e.mark.column + 1) + ")");
   }
 
 #ifdef __linux__
@@ -437,7 +433,7 @@ bool reload() {
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
 #endif
-    std::cerr << "Warning: could not stat config file." << std::endl;
+    LOG_ERROR("Warning: could not stat config file.");
     return false;
   }
   static time_t lastConfigMTime = st.st_mtime;

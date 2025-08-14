@@ -55,7 +55,7 @@ void load() {
   path = expandUserPath(path);
   std::ifstream file(path);
   if (!file.is_open()) {
-    std::cerr << "Failed to open theme file: " << path << std::endl;
+    LOG_ERROR(std::string("Failed to open theme file: ") + path);
     return;
   }
 
@@ -181,7 +181,7 @@ void load() {
     };
 
     if (!parseAndStoreColor()) {
-      std::cerr << key << " is invalid or has invalid data: " << value << std::endl;
+      LOG_ERROR(key + std::string(" is invalid or has invalid data: ") + value);
     }
   }
 
@@ -192,7 +192,7 @@ void load() {
 
   for (size_t i = 0; i < mainColors.size(); ++i) {
     if (std::abs(mainColors[i][3]) < 1e-6f) {
-      std::cout << "Color " << colorNames[i] << " is missing!" << std::endl;
+      LOG_ERROR(std::string("Color ") + colorNames[i] + " is missing!");
     }
   }
 }
@@ -233,7 +233,7 @@ bool reload() {
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
 #endif
-    std::cerr << "Warning: could not stat theme file." << std::endl;
+    LOG_ERROR("Warning: could not stat theme file.");
     return false;
   }
   static time_t lastThemeMTime = st.st_mtime;

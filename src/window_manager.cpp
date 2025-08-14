@@ -362,8 +362,7 @@ void VisualizerWindow::draw() {
   // Check for OpenGL errors
   GLenum err = glGetError();
   if (err != GL_NO_ERROR) [[unlikely]]
-    std::cout << "WindowManager::VisualizerWindow::draw(): OpenGL error during draw: " + std::to_string(err)
-              << std::endl;
+    LOG_DEBUG(std::string("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: ") + std::to_string(err));
 }
 
 void VisualizerWindow::drawArrow(int dir) {
@@ -720,7 +719,7 @@ void reorder() {
       const std::string& visName = value[i];
       auto it = visualizerMap.find(visName);
       if (it == visualizerMap.end()) {
-        std::cerr << "Warning: Unknown visualizer '" << visName << "' in configuration" << std::endl;
+        LOG_ERROR(std::string("Warning: Unknown visualizer '") + visName + "' in configuration");
         continue;
       }
 

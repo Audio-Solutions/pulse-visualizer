@@ -30,6 +30,12 @@
 
 #include <SDL3/SDL_main.h>
 
+namespace CmdlineArgs {
+bool debug = false;
+bool help = false;
+bool console = false;
+} // namespace CmdlineArgs
+
 std::string expandUserPath(const std::string& path) {
   if (!path.empty() && path[0] == '~') {
 #ifdef _WIN32
@@ -62,14 +68,45 @@ int main(int argc, char** argv) {
   signal(SIGQUIT, [](int) { quitSignal.store(true); });
 #endif
 
-#ifdef _WIN32
-  // Close console window if needed
-  if (argc == 1 || std::string(argv[1]) != "--console") {
-    FreeConsole();
+  for (int i = 0; i < argc; i++) {
+    if (argv[i][0] == '-') {
+      switch (argv[i][1]) {
+      case '-':
+        if (std::string(argv[i]) == "--debug") {
+          CmdlineArgs::debug = true;
+        } else if (std::string(argv[i]) == "--help") {
+          CmdlineArgs::help = true;
+        } else if (std::string(argv[i]) == "--console") {
+          CmdlineArgs::console = true;
+        }
+        break;
+      case 'd':
+        CmdlineArgs::debug = true;
+        break;
+      case 'h':
+        CmdlineArgs::help = true;
+        break;
+      case 'c':
+        CmdlineArgs::console = true;
+        break;
+      }
+    }
   }
-#endif
 
   std::cout << "pulse-visualizer v" << VERSION_STRING << " commit " << VERSION_COMMIT << std::endl;
+  if (CmdlineArgs::help) {
+    std::cout << "Usage: pulse-visualizer [options]" << std::endl;
+    std::cout << "Options:" << std::endl;
+    std::cout << "  -d, --debug       Enable debug mode" << std::endl;
+    std::cout << "  -h, --help        Show this help message" << std::endl;
+    std::cout << "  -c, --console     Open console window (Windows only)" << std::endl;
+    return 0;
+  }
+
+#ifdef _WIN32
+  if (!CmdlineArgs::console && !CmdlineArgs::debug)
+    FreeConsole();
+#endif
 
   // Initialize DSP buffers
   DSP::bufferMid.resize(DSP::bufferSize);
@@ -78,24 +115,30 @@ int main(int argc, char** argv) {
   DSP::lowpassed.resize(DSP::bufferSize);
 
   // Setup configuration
+  LOG_DEBUG("Copying files");
   Config::copyFiles();
   Config::load();
 
   // Setup theme
+  LOG_DEBUG("Loading theme");
   Theme::load();
 
   // Initialize SDL and OpenGL
+  LOG_DEBUG("Initializing SDL and OpenGL");
   SDLWindow::init();
 
   // Clear and display the base window
+  LOG_DEBUG("Clearing and displaying base window");
   SDLWindow::clear();
   SDLWindow::display();
 
   // Set window decorations
+  LOG_DEBUG("Setting initial window decorations");
   SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
   SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
 
   // Initialize audio and DSP components
+  LOG_DEBUG("Initializing audio and DSP components");
   AudioEngine::init();
   DSP::ConstantQ::init();
   DSP::ConstantQ::generate();
@@ -104,43 +147,53 @@ int main(int argc, char** argv) {
   DSP::LUFS::init();
 
   // Setup window management
+  LOG_DEBUG("Setting up window management");
   WindowManager::reorder();
 
   // Load fonts for each SDL window
+  LOG_DEBUG("Loading fonts for each SDL window");
   for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
     Graphics::Font::load(i);
   }
 
   // Start DSP processing thread
+  LOG_DEBUG("Starting DSP processing thread");
   std::thread DSPThread(DSP::Threads::mainThread);
 
   // Frame timing variables
+  LOG_DEBUG("Setting up frame timing variables");
   auto lastTime = std::chrono::steady_clock::now();
   int frameCount = 0;
 
   // Main application loop
+  LOG_DEBUG("Starting main application loop");
   while (1) {
     // Handle configuration reloading
     if (Config::reload()) {
-      std::cout << "Config reloaded" << std::endl;
+      LOG_DEBUG("Config reloaded");
       Theme::load();
 
       // Cleanup fonts for all SDL windows
+      LOG_DEBUG("Cleaning up fonts for all SDL windows");
       for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::cleanup(i);
       }
 
+      LOG_DEBUG("Reordering windows");
       WindowManager::reorder();
 
       // Load fonts for each SDL window
+      LOG_DEBUG("Loading fonts for each SDL window");
       for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::load(i);
       }
 
       // Set window decorations
+      LOG_DEBUG("Setting window decorations");
       SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
       SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
 
+      LOG_DEBUG("Reconfiguring...");
       AudioEngine::reconfigure();
       DSP::FFT::recreatePlans();
       DSP::ConstantQ::regenerate();
@@ -151,11 +204,13 @@ int main(int argc, char** argv) {
     // Handle theme reloading
     if (Theme::reload()) {
       // Cleanup fonts for all SDL windows
+      LOG_DEBUG("Cleaning up fonts for all SDL windows");
       for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::cleanup(i);
       }
 
       // Load fonts for each SDL window
+      LOG_DEBUG("Loading fonts for each SDL window");
       for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
         Graphics::Font::load(i);
       }
@@ -173,8 +228,10 @@ int main(int argc, char** argv) {
         for (auto& window : vec)
           window.handleEvent(event);
     }
-    if (quitSignal.load() || !SDLWindow::running)
+    if (quitSignal.load() || !SDLWindow::running) {
+      LOG_DEBUG("Quit signal received, exiting");
       break;
+    }
     glUseProgram(0);
     if (std::any_of(SDLWindow::wins.begin(), SDLWindow::wins.end(), [](SDL_Window* win) {
           int width, height;
@@ -219,6 +276,7 @@ int main(int argc, char** argv) {
   }
 
   // Cleanup
+  LOG_DEBUG("Cleaning up...");
   SDLWindow::running.store(false);
   for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
     Graphics::Font::cleanup(i);

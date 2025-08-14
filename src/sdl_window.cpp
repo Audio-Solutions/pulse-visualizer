@@ -45,12 +45,12 @@ void deinit() {
 void init() {
 #ifdef __linux
   // Prefer wayland natively
-  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland");
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland,x11");
 #endif
 
   // Initialize SDL video subsystem
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
+    LOG_ERROR(std::string("SDL_Init failed: ") + SDL_GetError());
     exit(1);
   }
 
@@ -155,16 +155,18 @@ void clear() {
 
 size_t createWindow(const std::string& title, int width, int height, uint32_t flags) {
   // Create SDL window with OpenGL support
+  LOG_DEBUG(std::string("Creating window: ") + title);
   SDL_Window* win = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | flags);
   if (!win) {
-    std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
+    LOG_ERROR(std::string("Failed to create window: ") + SDL_GetError());
     return -1;
   }
 
   // Create OpenGL context
+  LOG_DEBUG(std::string("Creating OpenGL context"));
   SDL_GLContext glContext = SDL_GL_CreateContext(win);
   if (!glContext) {
-    std::cerr << "Failed to create OpenGL context: " << SDL_GetError() << std::endl;
+    LOG_ERROR(std::string("Failed to create OpenGL context: ") + SDL_GetError());
     SDL_DestroyWindow(win);
     return -1;
   }
@@ -179,6 +181,7 @@ size_t createWindow(const std::string& title, int width, int height, uint32_t fl
 bool destroyWindow(size_t index) {
   if (index >= wins.size())
     return false;
+  LOG_DEBUG(std::string("Destroying window: ") + std::to_string(index));
   SDL_DestroyWindow(wins[index]);
   SDL_GL_DestroyContext(glContexts[index]);
   wins.erase(wins.begin() + index);

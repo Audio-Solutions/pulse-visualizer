@@ -145,7 +145,7 @@ std::string find(std::string dev) {
     }
   }
 
-  std::cout << "Warning: PulseAudio device '" << dev << "' not found. using system default" << std::endl;
+  LOG_ERROR(std::string("Warning: PulseAudio device '") + dev + "' not found. using system default");
   return "default";
 }
 
@@ -195,7 +195,7 @@ bool init() {
                            &sampleSpec, nullptr, &attr, &err);
 
   if (!paStream) {
-    std::cerr << "Failed to create PulseAudio stream: " << pa_strerror(err) << std::endl;
+    LOG_ERROR(std::string("Failed to create PulseAudio stream: ") + pa_strerror(err));
     return false;
   }
 
@@ -216,7 +216,7 @@ bool read(float* buffer, const size_t& samples) {
   // Read audio data from PulseAudio
   int err;
   if (pa_simple_read(paStream, buffer, samples * 2 * sizeof(float), &err) < 0) {
-    std::cout << "Failed to read from pulseAudio stream: " << pa_strerror(err) << std::endl;
+    LOG_ERROR(std::string("Failed to read from pulseAudio stream: ") + pa_strerror(err));
     running = false;
     return false;
   }
@@ -295,7 +295,7 @@ void registryEventGlobalRemove(void*, uint32_t id) {}
 void onStreamStateChanged(void*, enum pw_stream_state old, enum pw_stream_state state, const char* err) {
   switch (state) {
   case PW_STREAM_STATE_ERROR:
-    std::cerr << "PipeWire stream error: " << (err ? err : "unknown") << std::endl;
+    LOG_ERROR(std::string("PipeWire stream error: ") + (err ? err : "unknown"));
   case PW_STREAM_STATE_UNCONNECTED:
     running = false;
     break;
@@ -391,7 +391,7 @@ std::pair<std::string, uint32_t> find(std::string dev) {
     }
   }
 
-  std::cout << "Warning: PipeWire device '" << dev << "' not found. using system default" << std::endl;
+  LOG_ERROR(std::string("Warning: PipeWire device '") + dev + "' not found. using system default");
   return std::make_pair("default", PW_ID_ANY);
 }
 
@@ -444,26 +444,26 @@ bool init() {
   // Create PipeWire thread loop
   loop = pw_thread_loop_new("pulse-visualizer", nullptr);
   if (!loop) {
-    std::cerr << "Failed to create PipeWire thread loop" << std::endl;
+    LOG_ERROR("Failed to create PipeWire thread loop");
     return false;
   }
 
   // Create PipeWire context
   ctx = pw_context_new(pw_thread_loop_get_loop(loop), nullptr, 0);
   if (!ctx) {
-    std::cerr << "Failed to create PipeWire context" << std::endl;
+    LOG_ERROR("Failed to create PipeWire context");
     return false;
   }
 
   // Connect to PipeWire core
   core = pw_context_connect(ctx, nullptr, 0);
   if (!core) {
-    std::cerr << "Failed to connect to PipeWire" << std::endl;
+    LOG_ERROR("Failed to connect to PipeWire");
     return false;
   }
 
   if (pw_thread_loop_start(loop) < 0) {
-    std::cerr << "Failed to start PipeWire thread loop" << std::endl;
+    LOG_ERROR("Failed to start PipeWire thread loop");
     return false;
   }
 
@@ -520,7 +520,7 @@ bool init() {
                                 &streamEvents, nullptr);
 
   if (!stream) {
-    std::cerr << "Failed to create PipeWire stream" << std::endl;
+    LOG_ERROR("Failed to create PipeWire stream");
     return false;
   }
 
@@ -531,7 +531,7 @@ bool init() {
                                                      PW_STREAM_FLAG_DONT_RECONNECT),
                         params, 1) < 0) {
     pw_thread_loop_unlock(loop);
-    std::cerr << "Failed to connect PipeWire stream" << std::endl;
+    LOG_ERROR("Failed to connect PipeWire stream");
     return false;
   }
 
@@ -701,13 +701,13 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
   hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
                         (void**)&enumerator);
   if (FAILED(hr)) {
-    std::cerr << "Failed to create device enumerator: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to create device enumerator: ") + _com_error(hr).ErrorMessage());
     return false;
   }
 
   hr = enumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &collection);
   if (FAILED(hr)) {
-    std::cerr << "Failed to enumerate audio endpoints: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to enumerate audio endpoints: ") + _com_error(hr).ErrorMessage());
     enumerator->Release();
     return false;
   }
@@ -751,7 +751,7 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
     device->Release();
   }
 
-  std::cerr << "Device not found: " << targetName << ", selecting the default output device" << std::endl;
+  LOG_ERROR(std::string("Device not found: ") + targetName + ", selecting the default output device");
 
   {
     IMMDevice* device = nullptr;
@@ -764,7 +764,7 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
     }
   }
 
-  std::cerr << "Failed to get default audio endpoint: " << _com_error(hr).ErrorMessage() << std::endl;
+  LOG_ERROR(std::string("Failed to get default audio endpoint: ") + _com_error(hr).ErrorMessage());
   collection->Release();
   enumerator->Release();
   return false;
@@ -797,7 +797,7 @@ bool init() {
   // Initializes the COM library
   hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
   if (!SUCCEEDED(hr) && hr != S_FALSE && hr != RPC_E_CHANGED_MODE) {
-    std::cerr << "Failed to initialise COM: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to initialise COM: ") + _com_error(hr).ErrorMessage());
     return false;
   }
 
@@ -849,14 +849,12 @@ bool init() {
     } else {
       std::cout << "(unknown)";
     }
-
-    std::cout << std::endl;
   } while (false);
 
   // Activate the current device
   hr = currentDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (void**)&audioClient);
   if (!SUCCEEDED(hr)) {
-    std::cerr << "Failed to activate current device: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to activate current device: ") + _com_error(hr).ErrorMessage());
     cleanup();
     return false;
   }
@@ -864,7 +862,7 @@ bool init() {
   // Get mix format
   hr = audioClient->GetMixFormat(&wfx);
   if (!SUCCEEDED(hr)) {
-    std::cerr << "Failed to get mix format: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to get mix format: ") + _com_error(hr).ErrorMessage());
     cleanup();
     return false;
   }
@@ -874,12 +872,12 @@ bool init() {
   if (wfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
     const WAVEFORMATEXTENSIBLE* wfex = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(wfx);
     if (!(wfex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT && wfx->wBitsPerSample == 32)) {
-      std::cerr << "Device format is not Float32, please correct that" << std::endl;
+      LOG_ERROR("Device format is not Float32, please correct that");
       cleanup();
       return false;
     }
   } else if (!(wfx->wFormatTag == WAVE_FORMAT_IEEE_FLOAT && wfx->wBitsPerSample == 32)) {
-    std::cerr << "Device format is not Float32, please correct that" << std::endl;
+    LOG_ERROR("Device format is not Float32, please correct that");
     cleanup();
     return false;
   }
@@ -897,7 +895,7 @@ bool init() {
 
   hr = audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, streamFlags, hnsBufferDuration, 0, wfx, NULL);
   if (!SUCCEEDED(hr)) {
-    std::cerr << "Failed to get initialise audio client: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to get initialise audio client: ") + _com_error(hr).ErrorMessage());
     cleanup();
     return false;
   }
@@ -905,7 +903,7 @@ bool init() {
   // Get the size of the allocated buffer.
   hr = audioClient->GetBufferSize(&bufferFrameCount);
   if (!SUCCEEDED(hr)) {
-    std::cerr << "Failed to get mix buffer size: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to get mix buffer size: ") + _com_error(hr).ErrorMessage());
     cleanup();
     return false;
   }
@@ -913,7 +911,7 @@ bool init() {
   // Create the capture service
   hr = audioClient->GetService(__uuidof(IAudioCaptureClient), (void**)&captureClient);
   if (!SUCCEEDED(hr)) {
-    std::cerr << "Failed to get setup capture client: " << _com_error(hr).ErrorMessage() << std::endl;
+    LOG_ERROR(std::string("Failed to get setup capture client: ") + _com_error(hr).ErrorMessage());
     cleanup();
     return false;
   }
@@ -977,21 +975,21 @@ std::optional<Type> init() {
   // Check for available backends
 #if !HAVE_PULSEAUDIO
   if (engine == Type::PULSEAUDIO) {
-    std::cerr << "Pulse not compiled with Pulseaudio support. Using auto" << std::endl;
+    LOG_ERROR("Pulse not compiled with Pulseaudio support. Using auto");
     engine = Type::AUTO;
   }
 #endif
 
 #if !HAVE_PIPEWIRE
   if (engine == Type::PIPEWIRE) {
-    std::cerr << "Pulse not compiled with PipeWire support. Using auto" << std::endl;
+    LOG_ERROR("Pulse not compiled with PipeWire support. Using auto");
     engine = Type::AUTO;
   }
 #endif
 
 #if !HAVE_WASAPI
   if (engine == Type::WASAPI) {
-    std::cerr << "Pulse not compiled with WASAPI support. Using auto" << std::endl;
+    LOG_ERROR("Pulse not compiled with WASAPI support. Using auto");
     engine = Type::AUTO;
   }
 #endif

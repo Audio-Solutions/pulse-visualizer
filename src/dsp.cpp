@@ -443,7 +443,7 @@ void init() {
   side = fftwf_plan_dft_r2c_1d(size, inSide, outSide, FFTW_ESTIMATE);
 
   if (!inMid || !inSide || !outMid || !outSide || !mid || !side)
-    std::cerr << "Failed to allocate FFTW buffers" << std::endl;
+    LOG_ERROR("Failed to allocate FFTW buffers");
 }
 
 void cleanup() {
@@ -496,7 +496,7 @@ bool recreatePlans() {
   init();
 
   if (!inMid || !inSide || !outMid || !outSide || !mid || !side)
-    std::cerr << "Failed to allocate FFTW buffers" << std::endl;
+    LOG_ERROR("Failed to allocate FFTW buffers");
 
   return true;
 }
@@ -775,7 +775,7 @@ int mainThread() {
 
     // Read audio from engine
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
-      std::cerr << "Failed to read from audio engine" << std::endl;
+      LOG_ERROR("Failed to read from audio engine");
     }
 
     float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
@@ -886,7 +886,7 @@ void init() {
 
   state = ebur128_init(2, Config::options.audio.sample_rate, EBUR128_MODE_M | EBUR128_MODE_S | EBUR128_MODE_I);
   if (!state) {
-    std::cerr << "Failed to initialize libebur128" << std::endl;
+    LOG_ERROR("Failed to initialize libebur128");
   }
 }
 
