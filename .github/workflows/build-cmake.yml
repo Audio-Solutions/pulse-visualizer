@@ -47,19 +47,19 @@ jobs:
         run: |
           $file = Get-ChildItem build/pulse-visualizer-*-win64.exe | Select-Object -First 1
           echo "file=$($file.FullName)" >> $env:GITHUB_OUTPUT
-
-      - name: Package build
-        shell: pwsh
-        run: |
-          $dlls = Get-ChildItem build -Filter *.dll
-          $exe  = Get-ChildItem build -Filter pulse-visualizer.exe
-          Compress-Archive -Path $dlls.FullName, $exe.FullName -DestinationPath build\bundle.zip -Force
-
+          
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: pulse-visualizer-win64-installer
           path: ${{ steps.find_exe.outputs.file }}
+
+      - name: Package build
+        shell: pwsh
+        run: |
+          $dlls = Get-ChildItem ${{github.workspace}}/vcpkg/installed/x64-windows-release/bin -Filter *.dll
+          $exe  = Get-ChildItem build -Filter pulse-visualizer.exe
+          Compress-Archive -Path $dlls.FullName, $exe.FullName -DestinationPath build\bundle.zip -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
