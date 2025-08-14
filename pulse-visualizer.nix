@@ -14,16 +14,17 @@
   libGL,
   yaml-cpp,
   libebur128,
+  clang,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "1.1.1";
+  version = "v1.2.0";
 
   src = fetchFromGitHub {
-    owner = "Beacroxx";
+    owner = "Audio-Solutions";
     repo = "pulse-visualizer";
-    tag = "v${finalAttrs.version}";
+    tag = "${finalAttrs.version}";
     hash = "sha256-iJ66yJjZ0Gvw9gw4v1wZwLiCok8bBSzNX+Qsp106rsY=";
   };
 
@@ -31,6 +32,7 @@ stdenv.mkDerivation (finalAttrs: {
     cmake
     ninja
     pkg-config
+    clang
   ];
 
   buildInputs = [
@@ -57,7 +59,12 @@ stdenv.mkDerivation (finalAttrs: {
       --replace-fail 'set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)' ""
   '';
 
-  cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" ];
+  cmakeFlags = [
+    "-G Ninja"
+    "-DCMAKE_CXX_COMPILER=clang++"
+    "-DCMAKE_C_COMPILER=clang"
+    "-DCMAKE_BUILD_TYPE=Release"
+  ];
 
   meta = {
     description = "Real-time audio visualizer inspired by MiniMeters";
