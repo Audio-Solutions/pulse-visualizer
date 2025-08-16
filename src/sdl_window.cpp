@@ -86,12 +86,6 @@ void init() {
 }
 
 void handleEvent(SDL_Event& event) {
-  // handle events for the base window only except for quit
-  if (event.type == SDL_EVENT_QUIT) {
-    running.store(false);
-    return;
-  }
-
   size_t idx = 0;
   for (size_t i = 0; i < wins.size(); i++) {
     if (event.window.windowID == SDL_GetWindowID(wins[i])) {
@@ -101,6 +95,14 @@ void handleEvent(SDL_Event& event) {
   }
 
   switch (event.type) {
+
+  case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+    if (idx != 0)
+      return;
+  case SDL_EVENT_QUIT:
+    running.store(false);
+    return;
+
   case SDL_EVENT_KEY_DOWN:
     switch (event.key.key) {
     case SDLK_Q:
