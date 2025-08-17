@@ -55,13 +55,13 @@ set(CPACK_NSIS_CREATE_ICONS_EXTRA
   "CreateShortCut '$SMPROGRAMS\\\\pulse-visualizer\\\\pulse-visualizer.lnk' '$INSTDIR\\\\pulse-visualizer.exe'"
 )
 
-set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
-  WriteRegStr HKLM \"Software\\\\pulse-visualizer\" \"InstallPath\" \"$INSTDIR\"
-")
-
-set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
-  DeleteRegKey HKLM \"Software\\\\pulse-visualizer\"
-")
+#set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+#  WriteRegStr HKLM \"Software\\\\pulse-visualizer\" \"InstallPath\" \"$INSTDIR\"
+#")
+#
+#set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+#  DeleteRegKey HKLM \"Software\\\\pulse-visualizer\"
+#")
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 
