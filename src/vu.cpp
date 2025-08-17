@@ -166,6 +166,15 @@ void render() {
 
       velocity += acceleration * deltaTime;
       currentAngle += velocity * deltaTime;
+
+      // bounce off the limits (looks more realistic)
+      if (currentAngle > toAngle(-20.f)) {
+        velocity = -velocity * 0.95f; // bounce
+        currentAngle = toAngle(-20.f) - FLT_EPSILON;
+      } else if (currentAngle < toAngle(3.f)) {
+        velocity = -velocity * 0.95f; // bounce
+        currentAngle = toAngle(3.f) + FLT_EPSILON; 
+      }
     } else {
       currentAngle = targetAngle;
       velocity = 0.0f;
