@@ -898,6 +898,7 @@ int mainThread() {
     }
 
 #if HAVE_PULSEAUDIO
+    float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
     if (AudioEngine::Pulseaudio::running) {
       size_t i = 0;
 #ifdef HAVE_AVX2
