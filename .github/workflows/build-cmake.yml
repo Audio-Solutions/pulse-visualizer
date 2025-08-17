@@ -1,0 +1,116 @@
+name: CMake build
+
+on:
+  push:
+    tags:
+     - 'v*'         # Matches tags like v1.2.3
+    # branches:
+      # - main
+#   pull_request:
+    # branches: [ "main" ]
+    
+jobs:
+  build_windows:
+    runs-on: windows-latest
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-windows-release
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: repolevedavaj/install-nsis@v1.0.3
+        with:
+          nsis-version: '3.11'
+
+      - name: Setup vcpkg
+        id: vcpkg
+        uses: johnwason/vcpkg-action@v7
+        with:
+          manifest-dir: '${{ github.workspace }}'
+          triplet: 'x64-windows-release'
+          token: '${{ github.token }}'
+          cache-key: "vcpkg-action-cache"
+
+      - name: Configure CMake
+        run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -DSKIP_CPACK=OFF -DCI_SPECIFIC=ON -B ${{github.workspace}}/build --preset win64-release
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --target package --parallel 2
+
+      - name: Find executable
+        id: find_exe
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem build/pulse-visualizer-*-win64.exe | Select-Object -First 1
+          echo "file=$($file.FullName)" >> $env:GITHUB_OUTPUT
+          
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-visualizer-win64-installer
+          path: ${{ steps.find_exe.outputs.file }}
+
+  build_linux:
+    runs-on: ubuntu-latest
+
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+      SDL_BRANCH: "release-3.2.20"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: |
+            libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja-build libebur128-dev
+            libasound2-dev libpulse-dev libaudio-dev libjack-dev libsndio-dev libsamplerate0-dev
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxinerama-dev
+            libwayland-dev libxkbcommon-dev wayland-protocols
+            libdrm-dev libgbm-dev
+          version: 1.0
+
+      - name: Cache SDL3
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: |
+            ${{ github.workspace }}/SDL
+          key: sdl3-${{ runner.os }}-${{ env.SDL_BRANCH }}
+          restore-keys: |
+            sdl3-${{ runner.os }}-
+
+      - name: Build SDL3 from source
+        run: |
+          if [ -d SDL ]; then
+            cd SDL
+            git fetch --depth 1 origin tag "${{ env.SDL_BRANCH }}"
+            git checkout "tags/${{ env.SDL_BRANCH }}"
+            cd ..
+          else
+            git clone https://github.com/libsdl-org/SDL.git --branch "${{ env.SDL_BRANCH }}" --depth 1
+          fi
+          cd SDL
+          mkdir -p build && cd build
+          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF
+          make -j2
+          sudo make install
+
+      - name: Configure CMake
+        run: cmake -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset linux-release
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --target package --parallel 2
+
+      - name: Find package
+        id: find_exe
+        run: echo "file=$(ls build/pulse-visualizer-*-Linux.tar.gz)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-visualizer-linux-installer
+          path: ${{ steps.find_exe.outputs.file }}

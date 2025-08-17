@@ -1,0 +1,293 @@
+# Pulse Audio Visualizer Configuration Template
+# This file controls all aspects of the audio visualizer including audio processing,
+# visual effects, phosphor simulation, and display settings.
+# 
+# Copy this file to ~/.config/pulse-visualizer/config.yml and customize for your system.
+
+# Audio Processing Settings
+# Controls how audio is captured, processed, and displayed
+audio:
+  # Audio sample rate in Hz (must match your system's audio output)
+  # Common values: 44100, 48000, 96000
+  sample_rate: 48000
+  # Threshold below which audio is considered silent (in dB)
+  # Lower values = more sensitive to quiet sounds
+  silence_threshold: -90.0
+  # Audio backend: "pulseaudio", "pipewire", "wasapi", or "auto" (auto-detects best available)
+  # "auto" is recommended for most systems
+  engine: pipewire
+  # Audio device name (see system audio devices)
+  device: alsa_output.pci-0000_0e_00.4.iec958-stereo
+  # Audio gain adjustment in dB (positive=louder, negative=quieter)
+  # Adjust if audio is too quiet or too loud
+  gain_db: -0.0
+
+# Debug Settings
+# Controls debugging and logging features
+debug:
+  # Enable FPS logging to console (true/false)
+  # Useful for performance monitoring
+  log_fps: false
+  # Show bandpassed signal on oscilloscope
+  # Shows the filtered signal used for pitch detection
+  show_bandpassed: false
+
+# Phosphor Effect Settings
+# Controls the CRT phosphor simulation effect (realistic glow and persistence)
+# WARNING: These settings are computationally expensive and affect performance
+phosphor:
+  # Enable or disable phosphor effects globally
+  enabled: true
+  # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
+  near_blur_intensity: 0.3
+  # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
+  far_blur_intensity: 0.6
+  # Energy of the electron beam (affects brightness of phosphor effect)
+  beam_energy: 150.0
+  # Slow decay rate of phosphor persistence (higher=shorter persistence)
+  # it is used like this: energy *= exp(-dt * decay_slow)
+  decay_slow: 7.0
+  # Fast decay rate of phosphor persistence (higher=shorter persistence)
+  # it is used like this: energy *= exp(-dt * decay_fast)
+  decay_fast: 50.0
+  # Spread of the blur effect (higher=more spread, more GPU intensive)
+  line_blur_spread: 64
+  # Width of the phosphor lines
+  line_width: 0.5
+  # Age threshold for phosphor decay (higher=shorter persistence)
+  # it defines for how many frames decay_fast is used
+  age_threshold: 10
+  # Range factor for blur calculations (higher=more blur, more GPU intensive)
+  range_factor: 2.0
+  # Enable phosphor grain effect (adds realistic CRT noise)
+  enable_grain: true
+  # Grain strength (Spatial noise)
+  grain_strength: 0.1
+  # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
+  tension: 0.5
+  # Enable curved phosphor screen effect (simulates curved CRT monitor)
+  enable_curved_screen: true
+  # Curvature intensity for curved screen effect (0.0-1.0)
+  screen_curvature: 0.1
+  # Gap scalar for curved screen effect (0.0-1.0)
+  # in percent, 0.0 = no gap, 1.0 = full gap
+  screen_gap: 0.0
+  # Vignette strength (0.0-1.0)
+  vignette_strength: 0.3
+  # Chromatic aberration strength (0.0-1.0)
+  chromatic_aberration_strength: 0.005
+  # Enable color beam effect (simulates color phosphor)
+  # this is extremely gpu intensive, so it is disabled by default
+  colorbeam: false
+
+# FFT (Fast Fourier Transform) Settings
+# Controls frequency analysis and spectrum visualization
+fft:
+  # FFT size (must be power of 2, higher=better frequency resolution)
+  size: 4096
+  # Enable smoothing for FFT values
+  enable_smoothing: true
+  # Fall speed of FFT bars (higher=faster fall, more responsive)
+  fall_speed: 100.0
+  # Hover fall speed when audio is quiet (higher=faster fall)
+  hover_fall_speed: 10.0
+  # Rise speed of FFT bars (higher=faster rise, more responsive)
+  rise_speed: 500.0
+  # Maximum dB level for FFT display
+  max_db: 10.0
+  # Minimum dB level for FFT display
+  min_db: -60.0
+  # Maximum frequency to display in Hz
+  max_freq: 22000.0
+  # Minimum frequency to display in Hz
+  min_freq: 10.0
+  # Enable frequency markers on the display
+  frequency_markers: true
+  # Slope correction for frequency response (dB per octave)
+  slope_correction_db: 4.5
+  # Note key mode: "sharp" or "flat" (affects frequency labels)
+  note_key_mode: sharp
+  # Stereo mode: "midside" (mid/side channels) or "leftright" (left/right channels)
+  stereo_mode: midside
+  # Enable Constant-Q Transform (better frequency resolution for musical notes)
+  enable_cqt: true
+  # Number of frequency bins per octave for CQT (higher=better resolution)
+  # Significant CPU usage increase with higher values
+  cqt_bins_per_octave: 60
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
+  # Rotation of the FFT display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
+  # Flip the FFT display along the frequency axis
+  flip_x: false
+
+# Font Settings
+# Controls text rendering for frequency labels and UI elements
+# Path to TrueType font file for text rendering
+font: JetBrainsMonoNerdFont-Medium.ttf
+
+# Lissajous Curve Settings
+# Controls the Lissajous curve visualization (X-Y plot of left vs right channel)
+lissajous:
+  # Enable Catmull-Rom spline interpolation for smoother curves
+  enable_splines: true
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
+  # Readback multiplier of the data
+  # Defines how much of the previous data is redrawn
+  # Higher value means more data is redrawn, which stabilizes the lissajous.
+  # Caveat is a minor increase in CPU usage.
+  readback_multiplier: 3.0
+  # Options: "circle", "pulsar", "rotate", "black_hole", "none"
+  # rotate is a 45 degree rotation of the curve
+  # circle is the rotated curve stretched to a circle
+  # pulsar is all of the above, makes the outside be silent
+  # and the inside be loud which looks really cool
+  # black_hole is a rotated circle with a black hole-like effect
+  # none is the default mode
+  mode: none
+  # Rotation of the lissajous display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
+
+# Oscilloscope Settings
+# Controls the oscilloscope waveform visualization
+oscilloscope:
+  # Time window for oscilloscope in ms
+  time_window: 50.0
+  # Follow pitch for phase alignment (true=align to detected pitch)
+  follow_pitch: true
+  # Alignment position: "left", "center", or "right"
+  alignment: center
+  # Alignment type: "peak" or "zero_crossing"
+  alignment_type: zero_crossing
+  # Only track n cycles of the waveform
+  limit_cycles: false
+  # Number of cycles to track when limit_cycles is true
+  cycles: 2
+  # Minimum time window to display in oscilloscope in ms
+  min_cycle_time: 16.0
+  # Beam multiplier for phosphor effect
+  beam_multiplier: 1.0
+  # Enable lowpass filter for oscilloscope
+  enable_lowpass: false
+  # Rotation of the oscilloscope display
+  # 0 = 0 degrees
+  # 1 = 90 degrees
+  # 2 = 180 degrees
+  # 3 = 270 degrees
+  rotation: 0
+  # Flip the oscilloscope display along the time axis
+  flip_x: false
+
+# Bandpass Filter Settings
+# Controls the bandpass filter applied to the audio signal used for pitch following
+bandpass_filter:
+  # Bandwidth in Hz or percent of center frequency
+  bandwidth: 40.0
+  # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
+  bandwidth_type: percent
+  # Order of the bandpass filter (higher = steeper filter, more CPU usage, must be multiple of 2)
+  order: 2
+
+# Spectrogram Settings
+# Controls the spectrogram visualization (time-frequency heat map)
+spectrogram:
+  # Frequency scale: "log" or "linear"
+  frequency_scale: log
+  # Enable interpolation for smoother spectrogram display
+  interpolation: true
+  # Maximum dB level for spectrogram display
+  max_db: -10.0
+  # Maximum frequency to display in Hz
+  max_freq: 22000.0
+  # Minimum dB level for spectrogram display
+  min_db: -60.0
+  # Minimum frequency to display in Hz
+  min_freq: 20.0
+  # Time window for spectrogram in seconds
+  time_window: 4.0
+
+# LUFS Settings
+lufs:
+  # Mode: "shortterm", "momentary", "integrated"
+  # momentary is over a 400ms window
+  # shortterm is over a 3s window
+  # integrated is over the entire recording
+  mode: shortterm
+  # Scale: "log" or "linear"
+  scale: log
+  # LUFS label: "on", "off", "compact"
+  label: off
+
+# VU Meter Settings
+vu:
+  # Time window for VU meter in ms
+  time_window: 100.0
+  # Style: "analog" or "digital"
+  style: digital
+  # Calibration dB level
+  # a calibration of 3dB means a 0dB pure sine wave is at 0dB in the meter
+  calibration_db: 3.0
+  # Scale: "log" or "linear"
+  scale: log
+  # Enable momentum for analog VU meter
+  enable_momentum: true
+  # Spring constant of needle
+  spring_constant: 500.0
+  # Damping ratio of needle
+  damping_ratio: 10.0
+  # Needle width
+  needle_width: 2.0
+
+# Visualizer Layout Settings
+# Controls the order and visibility of visualizers in window groups
+# Each group (like "main") creates a window with visualizers arranged left-to-right
+# Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
+# Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
+# Only one instance of a visualizer can exist at a time.
+visualizers:
+  main:
+    - lufs
+    - vu
+    - lissajous
+    - oscilloscope
+    - spectrum_analyzer
+    - spectrogram
+# additional_window: # remove the spectrum analyzer and oscilloscope from the main window!!
+#   - spectrum_analyzer
+#   - oscilloscope
+
+# Window Settings
+# Controls the main application window
+window:
+  # Default window width in pixels
+  default_width: 1080
+  # Default window height in pixels
+  default_height: 200
+  # FPS limit for the main window
+  # This will also throttle the audio thread to save CPU
+  # Note: this does not define the exact FPS limit,
+  # as pipewire/pulseaudio only accept base-2 read sizes.
+  fps_limit: 240
+  # Default theme file (from themes/ directory)
+  theme: mocha.txt 
+  # Enable window decorations in your desktop environment
+  decorations: true
+  # Keep the window always on top of other windows
+  always_on_top: false
+
+# Lowpass Filter Settings
+# Controls the lowpass filter applied to the audio signal used for oscilloscope
+lowpass:
+  # Cutoff frequency in Hz
+  cutoff: 500.0
+  # Order of the lowpass filter (higher = steeper filter, more CPU usage, must be multiple of 2)
+  order: 4

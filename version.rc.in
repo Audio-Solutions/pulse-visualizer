@@ -16,7 +16,7 @@
              VALUE "ProductVersion", "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
              VALUE "FileDescription", "Real-time audio visualizer inspired by MiniMeters"
              VALUE "ProductName", "pulse-visualizer"
-             VALUE "LegalCopyright", "© Beacroxx and Contributors"
+             VALUE "LegalCopyright", "(C) Beacroxx and Contributors"
              VALUE "OriginalFilename", "pulse-visualizer.exe"
              VALUE "InternalName", "pulse-visualizer"
          END
