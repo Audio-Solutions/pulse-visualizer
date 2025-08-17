@@ -281,6 +281,14 @@ void load() {
   if (configData.IsNull())
     return;
 
+  // Check if the config file is compatible with the current version of the application
+  std::string version = get<std::string>(configData, "version");
+  if (version != options.version) {
+    LOG_ERROR("Config file version mismatch. Please update the config file. Expected: " + options.version +
+              " Got: " + version);
+    exit(1);
+  }
+
   // Load visualizer window layouts
   options.visualizers = get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers");
 

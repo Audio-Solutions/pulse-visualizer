@@ -28,6 +28,8 @@ enum Rotation { ROTATION_0 = 0, ROTATION_90 = 1, ROTATION_180 = 2, ROTATION_270 
  * @brief Application configuration options structure
  */
 struct Options {
+  const std::string version = "v1.2.0";
+
   struct Oscilloscope {
     bool follow_pitch = true;
     std::string alignment = "left";
