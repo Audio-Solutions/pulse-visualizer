@@ -662,7 +662,6 @@ int FFTMain() {
 #endif
 
       // Pre-calculate constants for scalar loop
-      const float dbScale = 20.0f;
       const float refFreq = 440.0f * 2.0f;
 
       // SIMD-optimized smoothing
@@ -703,8 +702,8 @@ int FFTMain() {
 #endif
       // Standard smoothing
       for (; i < bins; ++i) {
-        float currentDB = dbScale * log10f(fftMidRaw[i] + FLT_EPSILON);
-        float prevDB = dbScale * log10f(fftMid[i] + FLT_EPSILON);
+        float currentDB = 20.f * log10f(fftMidRaw[i] + FLT_EPSILON);
+        float prevDB = 20.f * log10f(fftMid[i] + FLT_EPSILON);
         float diff = currentDB - prevDB;
         float speed = diff > 0 ? riseSpeed : fallSpeed;
         float absDiff = std::abs(diff);
@@ -714,7 +713,7 @@ int FFTMain() {
           newDB = currentDB;
         else
           newDB = prevDB + change;
-        fftMid[i] = powf(10.f, newDB / dbScale) - FLT_EPSILON;
+        fftMid[i] = powf(10.f, newDB / 20.f) - FLT_EPSILON;
 
         float f;
         if (Config::options.fft.enable_cqt)
@@ -808,7 +807,6 @@ int FFTAlt() {
 #endif
 
       // Pre-calculate constants for scalar loop
-      const float dbScale = 20.0f;
       const float refFreq = 440.0f * 2.0f;
 
       // SIMD-optimized smoothing
@@ -898,8 +896,6 @@ int mainThread() {
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       LOG_ERROR("Failed to read from audio engine");
     }
-
-    float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
 
 #if HAVE_PULSEAUDIO
     if (AudioEngine::Pulseaudio::running) {
