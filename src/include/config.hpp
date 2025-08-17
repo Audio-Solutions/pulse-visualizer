@@ -43,9 +43,8 @@ struct Options {
   } oscilloscope;
 
   struct BandpassFilter {
-    float bandwidth = 50.0f;
-    std::string bandwidth_type = "hz";
-    int order = 8;
+    float bandwidth = 30.0f;
+    std::string bandwidth_type = "percent";
   } bandpass_filter;
 
   struct Lissajous {

@@ -300,7 +300,6 @@ void load() {
   // Load bandpass filter configuration
   options.bandpass_filter.bandwidth = get<float>(configData, "bandpass_filter.bandwidth");
   options.bandpass_filter.bandwidth_type = get<std::string>(configData, "bandpass_filter.bandwidth_type");
-  options.bandpass_filter.order = get<int>(configData, "bandpass_filter.order");
 
   // Load Lissajous configuration
   options.lissajous.enable_splines = get<bool>(configData, "lissajous.enable_splines");

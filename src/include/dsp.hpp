@@ -70,49 +70,29 @@ extern float pitchDB;
 std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames);
 
 /**
- * @brief Butterworth filter implementation
+ * @brief Linear phase FIR bandpass filter implementation
  */
-namespace Butterworth {
+namespace FIR {
 
-/**
- * @brief Biquad filter structure
- */
-struct Biquad {
-  float b0, b1, b2, a1, a2;
-  float x1 = 0.f, x2 = 0.f;
-  float y1 = 0.f, y2 = 0.f;
+struct Filter {
+  std::vector<float> coeffs;
+  std::vector<float> delay;
+  size_t idx;
+  size_t order;
 
-  /**
-   * @brief Process input sample through filter
-   * @param x Input sample
-   * @return Filtered output sample
-   */
   float process(float x);
-
-  /**
-   * @brief Reset filter state
-   */
-  void reset();
+  void set_coefficients(const std::vector<float>& coeffs);
 };
 
-extern std::vector<Biquad> biquads;
+extern Filter bandpass_filter;
 
-/**
- * @brief Design bandpass filter
- * @param center Center frequency in Hz
- */
-void design(float center = 10.0f);
-
-/**
- * @brief Process audio through bandpass filter
- * @param center Center frequency in Hz
- */
+void design(float center);
 void process(float center);
 
-} // namespace Butterworth
+} // namespace FIR
 
 /**
- * @brief Lowpass filter implementation using Butterworth filter
+ * @brief Lowpass filter implementation
  */
 namespace Lowpass {
 

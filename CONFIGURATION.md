@@ -312,13 +312,10 @@ Controls the bandpass filter applied to the audio signal used for pitch followin
 ```yaml
 bandpass_filter:
   # Bandwidth in Hz or percent of center frequency
-  bandwidth: 40.0
+  bandwidth: 100.0
   
   # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
   bandwidth_type: percent
-  
-  # Order of the bandpass filter (higher = steeper filter, more CPU usage)
-  order: 2
 ```
 
 ### Spectrogram Settings

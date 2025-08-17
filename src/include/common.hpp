@@ -46,6 +46,8 @@
 #include <vector>
 #include FT_FREETYPE_H
 #include <atomic>
+#include <cmath>
+#include <complex>
 #include <deque>
 #include <ebur128.h>
 #include <functional>

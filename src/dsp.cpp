@@ -89,76 +89,115 @@ std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames) {
                          static_cast<int>(std::round((midi - static_cast<float>(roundedMidi)) * 100.f)));
 }
 
-namespace Butterworth {
+namespace FIR {
 
-// Biquad filter coefficients
-std::vector<Biquad> biquads;
+Filter bandpass_filter;
 
-float Biquad::process(float x) {
-  // Direct Form II biquad filter implementation
-  float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-  x2 = x1;
-  x1 = x;
-  y2 = y1;
-  y1 = y;
-  return y;
+float Filter::process(float x) {
+  delay[idx] = x;
+  float out = 0.0f;
+  for (size_t i = 0; i <= order; ++i) {
+    size_t idx2 = (idx + i) % (order + 1);
+    out += coeffs[i] * delay[idx2];
+  }
+  idx = (idx + 1) % (order + 1);
+  return out;
 }
 
-void Biquad::reset() { x1 = x2 = y1 = y2 = 0.0f; }
+void Filter::set_coefficients(const std::vector<float>& coeffs) {
+  if (coeffs.size() == this->coeffs.size()) {
+    this->coeffs = coeffs;
+  } else {
+    this->coeffs.resize(coeffs.size());
+    this->coeffs = coeffs;
+    order = coeffs.size() - 1;
+    delay.resize(coeffs.size(), 0.0f);
+  }
+}
+
+std::vector<float> hamming_window(size_t length) {
+  std::vector<float> window(length);
+  for (size_t i = 0; i < length; ++i) {
+    window[i] = 0.54f - 0.46f * cosf(2.0f * M_PI * i / (length - 1));
+  }
+  return window;
+}
 
 void design(float center) {
-  biquads.clear();
-  int order = Config::options.bandpass_filter.order;
-  int sections = order / 2;
-  float fs = Config::options.audio.sample_rate;
   float bw = Config::options.bandpass_filter.bandwidth;
-  if (Config::options.bandpass_filter.bandwidth_type == "percent")
+  if (Config::options.bandpass_filter.bandwidth_type == "percent") {
     bw = center * bw / 100.0f;
-
-  // Pre-warp center frequency and bandwidth for exact bilinear transform
-  float Bw_pre = 2.f * fs * tanf(M_PI * bw / fs);
-  float w0_pre = 2.f * fs * tanf(M_PI * center / fs);
-  float p = 2.f * fs;
-
-  for (int k = 0; k < sections; ++k) {
-    float theta = M_PI * (2.f * k + 1.f) / (2.f * order);
-
-    // Analog bandpass biquad
-    float a_analog = 2.f * Bw_pre * sinf(theta);
-    float b_analog = w0_pre * w0_pre;
-    float c_analog = Bw_pre;
-
-    // Bilinear transform
-    float d0 = p * p + a_analog * p + b_analog;
-    float d1 = -2.f * p * p + 2.f * b_analog;
-    float d2 = p * p - a_analog * p + b_analog;
-
-    float b0 = (c_analog * p) / d0;
-    float b1 = 0.f;
-    float b2 = -b0;
-    float a1 = d1 / d0;
-    float a2 = d2 / d0;
-
-    biquads.push_back({b0, b1, b2, a1, a2});
   }
+  int order = 512;
+  float fs = Config::options.audio.sample_rate;
+  float wc1 = 2.0f * M_PI * (center - bw / 2.0f) / fs;
+  float wc2 = 2.0f * M_PI * (center + bw / 2.0f) / fs;
+  wc1 = std::max(wc1, 0.001f);
+  wc2 = std::min(wc2, static_cast<float>(M_PI) - 0.001f);
+  size_t len = order + 1;
+  size_t center_tap = len / 2;
+  std::vector<float> ideal(len);
+  for (size_t i = 0; i < len; ++i) {
+    if (i == center_tap) {
+      ideal[i] = (wc2 - wc1) / M_PI;
+    } else {
+      float n = static_cast<float>(static_cast<int>(i) - static_cast<int>(center_tap));
+      ideal[i] = (sinf(wc2 * n) - sinf(wc1 * n)) / (M_PI * n);
+    }
+  }
+  std::vector<float> window = hamming_window(len);
+  std::vector<float> windowed(len);
+  for (size_t i = 0; i < len; ++i) {
+    windowed[i] = ideal[i] * window[i];
+  }
+
+  float center_freq = 2.0f * M_PI * center / Config::options.audio.sample_rate;
+  float response_at_center = 0.0f;
+  for (size_t i = 0; i < len; ++i) {
+    response_at_center += windowed[i] * cosf(center_freq * (static_cast<float>(i) - static_cast<float>(center_tap)));
+  }
+
+  if (std::abs(response_at_center) > 1e-6f) {
+    float scale_factor = 1.0f / response_at_center;
+    for (float& coeff : windowed) {
+      coeff *= scale_factor;
+    }
+  }
+  bandpass_filter.set_coefficients(windowed);
 }
 
 void process(float center) {
   design(center);
-
-  // Apply bandpass filter to audio buffer
-  for (size_t i = 0; i < bufferSize; i++) {
-    size_t readIdx = (writePos + i) % bufferSize;
-    float filtered = bufferMid[readIdx];
-    for (auto& bq : biquads)
-      filtered = bq.process(filtered);
-    bandpassed[readIdx] = filtered;
+  static size_t lastWritePos = 0;
+  if (lastWritePos == writePos)
+    return;
+  size_t count = (writePos - lastWritePos) % bufferSize;
+  for (size_t i = 0; i < count; i++) {
+    size_t readIdx = (lastWritePos + i + bufferSize) % bufferSize;
+    float input = bufferMid[readIdx];
+    float filtered = bandpass_filter.process(input);
+    bandpassed[(readIdx - 256 + bufferSize) % bufferSize] = filtered;
   }
+  lastWritePos = writePos;
 }
-} // namespace Butterworth
+
+} // namespace FIR
 
 namespace Lowpass {
-std::vector<Butterworth::Biquad> biquads;
+struct Biquad {
+  float b0, b1, b2, a1, a2;
+  float x1, x2, y1, y2;
+  float process(float x) {
+    float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
+    return y;
+  }
+  void reset() { x1 = x2 = y1 = y2 = 0.0f; }
+};
+std::vector<Biquad> biquads;
 
 void init() {
   biquads.clear();
@@ -843,7 +882,6 @@ int FFTAlt() {
 }
 
 int mainThread() {
-  Butterworth::design();
   LUFS::init();
   std::vector<float> readBuf;
 
@@ -909,7 +947,7 @@ int mainThread() {
 
     // Process bandpass filter if pitch is detected
     if (pitch > Config::options.fft.min_freq && pitch < Config::options.fft.max_freq)
-      Butterworth::process(pitch);
+      FIR::process(pitch);
 
     // Process lowpass filter if enabled
     if (Config::options.oscilloscope.enable_lowpass)
