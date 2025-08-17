@@ -99,7 +99,7 @@ void render() {
       k = (std::exp(-1.0f) - singularity) / (mode == "black_hole" ? std::sqrt(2.0f) / 2.0f : std::sqrt(2.0f));
 
       // Nonlinear pre-transform
-      float nxRef = (mode == "black_hole" ? 1.f : 1e-6f) * std::sqrt(2.0f) * k;
+      float nxRef = (mode == "black_hole" ? 1.f : FLT_EPSILON) * std::sqrt(2.0f) * k;
 
       // Calculate d and s for logarithmic scaling
       float dRef = std::abs(nxRef);
@@ -176,7 +176,7 @@ void render() {
 
       float dx = p2.first - p1.first;
       float dy = p2.second - p1.second;
-      float len = std::max(1e-12f, sqrtf(dx * dx + dy * dy));
+      float len = std::max(FLT_EPSILON, sqrtf(dx * dx + dy * dy));
       float totalE = energy * (dt / len);
 
       energies.push_back(totalE);

@@ -188,6 +188,10 @@ typedef ptrdiff_t ssize_t;
 
 #endif
 
+#ifndef FLT_EPSILON
+#define FLT_EPSILON 1e-6f
+#endif
+
 // Thread synchronization variables for DSP data processing
 extern std::mutex mainThread;
 extern std::condition_variable mainCv;

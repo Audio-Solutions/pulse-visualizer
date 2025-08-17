@@ -116,7 +116,7 @@ void render() {
 
   // Choose rendering color
   float* color = Theme::colors.color;
-  if (Theme::colors.oscilloscope_main[3] > 1e-6f)
+  if (Theme::colors.oscilloscope_main[3] > FLT_EPSILON)
     color = Theme::colors.oscilloscope_main;
 
   // Render with phosphor effect if enabled

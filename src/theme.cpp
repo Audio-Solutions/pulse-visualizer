@@ -191,7 +191,7 @@ void load() {
   static std::vector<std::string> colorNames = {"color", "selection", "text", "accent", "bg", "bgaccent"};
 
   for (size_t i = 0; i < mainColors.size(); ++i) {
-    if (std::abs(mainColors[i][3]) < 1e-6f) {
+    if (std::abs(mainColors[i][3]) < FLT_EPSILON) {
       LOG_ERROR(std::string("Color ") + colorNames[i] + " is missing!");
     }
   }

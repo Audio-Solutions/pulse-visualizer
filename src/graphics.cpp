@@ -686,7 +686,7 @@ void rgbaToHsva(float* rgba, float* hsva) {
   float maxc = std::max({r, g, b}), minc = std::min({r, g, b});
   float d = maxc - minc;
   float h = 0, s = (maxc == 0 ? 0 : d / maxc), v = maxc;
-  if (d > 1e-6f) {
+  if (d > FLT_EPSILON) {
     if (maxc == r)
       h = (g - b) / d + (g < b ? 6 : 0);
     else if (maxc == g)
@@ -705,7 +705,7 @@ void hsvaToRgba(float* hsva, float* rgba) {
   float h = hsva[0], s = hsva[1], v = hsva[2], a = hsva[3];
   float r, g, b;
 
-  if (s <= 1e-6f) {
+  if (s <= FLT_EPSILON) {
     r = g = b = v;
   } else {
     h = std::fmod(h, 1.0f) * 6.0f;

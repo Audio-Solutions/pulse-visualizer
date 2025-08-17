@@ -129,7 +129,7 @@ void render() {
     mag *= gain;
 
     // Convert to decibels and map to Y coordinate
-    float dB = 20.f * log10f(mag + 1e-12f);
+    float dB = 20.f * log10f(mag + FLT_EPSILON);
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
@@ -179,7 +179,7 @@ void render() {
     mag *= gain;
 
     // Convert to decibels and map to Y coordinate
-    float dB = 20.f * log10f(mag + 1e-12f);
+    float dB = 20.f * log10f(mag + FLT_EPSILON);
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
@@ -208,11 +208,11 @@ void render() {
 
   // Choose rendering colors
   float* color = Theme::colors.color;
-  if (Theme::colors.spectrum_analyzer_main[3] > 1e-6f)
+  if (Theme::colors.spectrum_analyzer_main[3] > FLT_EPSILON)
     color = Theme::colors.spectrum_analyzer_main;
 
   float* colorAlt = Theme::alpha(Theme::colors.color, 0.5f);
-  if (Theme::colors.spectrum_analyzer_secondary[3] > 1e-6f)
+  if (Theme::colors.spectrum_analyzer_secondary[3] > FLT_EPSILON)
     colorAlt = Theme::colors.spectrum_analyzer_secondary;
 
   // Render with phosphor effect if enabled
@@ -238,7 +238,7 @@ void render() {
 
       float dx = p2.first - p1.first;
       float dy = p2.second - p1.second;
-      float segLen = std::max(sqrtf(dx * dx + dy * dy), 1e-12f);
+      float segLen = std::max(sqrtf(dx * dx + dy * dy), FLT_EPSILON);
 
       float totalE = energy * (dt / (Config::options.fft.enable_cqt ? segLen : 1.f / sqrtf(dx))) * 2.f;
 

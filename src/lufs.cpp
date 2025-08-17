@@ -66,7 +66,7 @@ void render() {
   const float& lufs = DSP::LUFS::lufs;
 
   const float* color = Theme::colors.color;
-  if (Theme::colors.loudness_main[3] > 1e-6f)
+  if (Theme::colors.loudness_main[3] > FLT_EPSILON)
     color = Theme::colors.loudness_main;
 
   // Calculate layout positions

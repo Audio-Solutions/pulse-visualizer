@@ -108,9 +108,10 @@ void render() {
     size_t barFillY = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + barHeight);
 
     // Draw the VU bar with colored segments
-    const float* mainColor = Theme::colors.vu_main[3] > 1e-6f ? Theme::colors.vu_main : Theme::colors.color;
-    const float* clipColor = Theme::colors.vu_clip[3] > 1e-6f ? Theme::colors.vu_clip : Theme::colors.color;
-    const float* cautionColor = Theme::colors.vu_caution[3] > 1e-6f ? Theme::colors.vu_caution : Theme::colors.color;
+    const float* mainColor = Theme::colors.vu_main[3] > FLT_EPSILON ? Theme::colors.vu_main : Theme::colors.color;
+    const float* clipColor = Theme::colors.vu_clip[3] > FLT_EPSILON ? Theme::colors.vu_clip : Theme::colors.color;
+    const float* cautionColor =
+        Theme::colors.vu_caution[3] > FLT_EPSILON ? Theme::colors.vu_caution : Theme::colors.color;
 
     // Draw bottom segment (0 to -3dB)
     size_t bottomSegmentHeight = std::min(static_cast<float>(barFillHeight), scaleDB(-3.0f) * barHeight);
@@ -173,7 +174,7 @@ void render() {
         currentAngle = toAngle(-20.f) - FLT_EPSILON;
       } else if (currentAngle < toAngle(3.f)) {
         velocity = -velocity * 0.95f; // bounce
-        currentAngle = toAngle(3.f) + FLT_EPSILON; 
+        currentAngle = toAngle(3.f) + FLT_EPSILON;
       }
     } else {
       currentAngle = targetAngle;
@@ -181,7 +182,7 @@ void render() {
     }
 
     float* arcClip = Theme::colors.accent;
-    if (Theme::colors.vu_clip[3] > 1e-6f)
+    if (Theme::colors.vu_clip[3] > FLT_EPSILON)
       arcClip = Theme::colors.vu_clip;
 
     // draw arcs
@@ -217,7 +218,7 @@ void render() {
       std::string labelText = std::to_string(static_cast<int>(label));
       auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS + 2, window->sdlWindow);
       Graphics::Font::drawText(labelText.c_str(), x2 - w / 2, y2 - h / 2, FONT_SIZE_LABELS + 2,
-                               label > 0.0f && Theme::colors.vu_clip[3] > 1e-6f ? color : Theme::colors.text,
+                               label > 0.0f && Theme::colors.vu_clip[3] > FLT_EPSILON ? color : Theme::colors.text,
                                window->sdlWindow);
     }
 
@@ -228,7 +229,7 @@ void render() {
     float y1 = y0 + length * sin(currentAngle * M_PI / 180.0f);
 
     float* color = Theme::colors.color;
-    if (Theme::colors.vu_main[3] > 1e-6f)
+    if (Theme::colors.vu_main[3] > FLT_EPSILON)
       color = Theme::colors.vu_main;
 
     // draw line from intersection at y = 0 to x1, y1

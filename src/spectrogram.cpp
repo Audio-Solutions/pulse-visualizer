@@ -126,7 +126,7 @@ void render() {
     // Choose rendering color
     bool monochrome = true;
     float* color = Theme::colors.color;
-    if (Theme::colors.spectrogram_main[3] > 1e-6f) {
+    if (Theme::colors.spectrogram_main[3] > FLT_EPSILON) {
       color = Theme::colors.spectrogram_main;
     } else if (Theme::colors.spectrogram_low != 0 && Theme::colors.spectrogram_high != 0) {
       monochrome = false;
@@ -136,11 +136,11 @@ void render() {
     for (size_t i = 0; i < spectrum.size(); i++) {
       float mag = spectrum[i];
 
-      if (mag > 1e-6f) {
+      if (mag > FLT_EPSILON) {
         float dB = 20.f * log10f(mag);
         float intens = normalize(dB);
 
-        if (intens > 1e-6f) {
+        if (intens > FLT_EPSILON) {
           float intensColor[4];
           if (monochrome)
             Theme::mix(Theme::colors.background, color, intensColor, intens);

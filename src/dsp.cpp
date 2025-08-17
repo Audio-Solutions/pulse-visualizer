@@ -157,7 +157,7 @@ void design(float center) {
     response_at_center += windowed[i] * cosf(center_freq * (static_cast<float>(i) - static_cast<float>(center_tap)));
   }
 
-  if (std::abs(response_at_center) > 1e-6f) {
+  if (std::abs(response_at_center) > FLT_EPSILON) {
     float scale_factor = 1.0f / response_at_center;
     for (float& coeff : windowed) {
       coeff *= scale_factor;
@@ -597,7 +597,7 @@ int FFTMain() {
 
     for (int i = 0; i < fftMidRaw.size(); i++) {
       float mag = fftMidRaw[i];
-      float dB = 20.f * log10f(mag + 1e-12f);
+      float dB = 20.f * log10f(mag + FLT_EPSILON);
       if (dB > peakDb) {
         peakBin = i;
         peakDb = dB;
@@ -610,7 +610,7 @@ int FFTMain() {
     float y3 = fftMidRaw[std::min(static_cast<uint32_t>(fftMidRaw.size() - 1), peakBin + 1)];
     float denom = y1 - 2.f * y2 + y3;
     if (Config::options.fft.enable_cqt) {
-      if (std::abs(denom) > 1e-12f) {
+      if (std::abs(denom) > FLT_EPSILON) {
         float offset = std::clamp(0.5f * (y1 - y3) / denom, -0.5f, 0.5f);
         float binInterp = static_cast<float>(peakBin) + offset;
         float logMinFreq = log2f(Config::options.fft.min_freq);
@@ -620,7 +620,7 @@ int FFTMain() {
       } else
         peakFreq = ConstantQ::frequencies[peakBin];
     } else {
-      if (std::abs(denom) > 1e-12f) {
+      if (std::abs(denom) > FLT_EPSILON) {
         float offset = std::clamp(0.5f * (y1 + y3) / denom, -0.5f, 0.5f);
         peakFreq = (peakBin + offset) * Config::options.audio.sample_rate / Config::options.fft.size;
       } else
@@ -648,7 +648,7 @@ int FFTMain() {
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
-      const __m256 minvVec = _mm256_set1_ps(1e-12f);
+      const __m256 minvVec = _mm256_set1_ps(FLT_EPSILON);
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
@@ -703,8 +703,8 @@ int FFTMain() {
 #endif
       // Standard smoothing
       for (; i < bins; ++i) {
-        float currentDB = dbScale * log10f(fftMidRaw[i] + 1e-12f);
-        float prevDB = dbScale * log10f(fftMid[i] + 1e-12f);
+        float currentDB = dbScale * log10f(fftMidRaw[i] + FLT_EPSILON);
+        float prevDB = dbScale * log10f(fftMid[i] + FLT_EPSILON);
         float diff = currentDB - prevDB;
         float speed = diff > 0 ? riseSpeed : fallSpeed;
         float absDiff = std::abs(diff);
@@ -714,7 +714,7 @@ int FFTMain() {
           newDB = currentDB;
         else
           newDB = prevDB + change;
-        fftMid[i] = powf(10.f, newDB / dbScale) - 1e-12f;
+        fftMid[i] = powf(10.f, newDB / dbScale) - FLT_EPSILON;
 
         float f;
         if (Config::options.fft.enable_cqt)
@@ -794,7 +794,7 @@ int FFTAlt() {
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
-      const __m256 minvVec = _mm256_set1_ps(1e-12f);
+      const __m256 minvVec = _mm256_set1_ps(FLT_EPSILON);
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
@@ -849,8 +849,8 @@ int FFTAlt() {
 #endif
       // Standard smoothing
       for (; i < bins; ++i) {
-        float currentDB = 20.f * log10f(fftSideRaw[i] + 1e-12f);
-        float prevDB = 20.f * log10f(fftSide[i] + 1e-12f);
+        float currentDB = 20.f * log10f(fftSideRaw[i] + FLT_EPSILON);
+        float prevDB = 20.f * log10f(fftSide[i] + FLT_EPSILON);
         float diff = currentDB - prevDB;
         float speed = diff > 0 ? riseSpeed : fallSpeed;
         float absDiff = std::abs(diff);
@@ -860,7 +860,7 @@ int FFTAlt() {
           newDB = currentDB;
         else
           newDB = prevDB + change;
-        float newVal = powf(10.f, newDB / 20.f) - 1e-12f;
+        float newVal = powf(10.f, newDB / 20.f) - FLT_EPSILON;
 
         // Apply slope correction and minimum value clamping (same as main FFT)
         float frequency;
