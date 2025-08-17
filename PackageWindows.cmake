@@ -23,13 +23,14 @@ install(DIRECTORY shaders/
 )
 
 # Install config template
-install(FILES config.yml.template
+install(FILES config.yml.template.windows
   DESTINATION .
+  RENAME config.yml.template
 )
 
 # Install font
 install(FILES JetBrainsMonoNerdFont-Medium.ttf
-  DESTINATION fonts/
+  DESTINATION .
 )
 
 # Install themes directory
@@ -51,8 +52,16 @@ set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/media/icon/icon-uninstall.ico")
 set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/Audio-Solutions/pulse-visualizer")
 set(CPACK_NSIS_CONTACT "https://github.com/Audio-Solutions/pulse-visualizer/issues")
 set(CPACK_NSIS_CREATE_ICONS_EXTRA
-    "CreateShortCut '$SMPROGRAMS\\\\pulse-visualizer\\\\pulse-visualizer.lnk' '$INSTDIR\\\\pulse-visualizer.exe'"
+  "CreateShortCut '$SMPROGRAMS\\\\pulse-visualizer\\\\pulse-visualizer.lnk' '$INSTDIR\\\\pulse-visualizer.exe'"
 )
+
+set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+  WriteRegStr HKLM \"Software\\\\pulse-visualizer\" \"InstallPath\" \"$INSTDIR\"
+")
+
+set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+  DeleteRegKey HKLM \"Software\\\\pulse-visualizer\"
+")
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 

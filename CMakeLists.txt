@@ -226,14 +226,27 @@ else()
   )
   
   # Install config template
-  install(FILES config.yml.template
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
-  )
+  if(WIN32)
+    install(FILES config.yml.template.windows
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+      RENAME config.yml.template
+    )
+  else()
+    install(FILES config.yml.template
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+    )
+  endif()
   
   # Install font
-  install(FILES JetBrainsMonoNerdFont-Medium.ttf
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
-  )
+  if(WIN32)
+    install(FILES JetBrainsMonoNerdFont-Medium.ttf
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
+    )
+  else()
+    install(FILES JetBrainsMonoNerdFont-Medium.ttf
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
+    )
+  endif()
   
   # Install themes directory
   install(DIRECTORY themes/
