@@ -27,6 +27,16 @@ Boolean configuration options accept multiple formats:
 
 ## Configuration Sections
 
+### Version
+
+Controls the version of the configuration file.
+
+```yaml
+# This is the version of the configuration file. It should match the version of the application.
+# If the version is not compatible, the application will show a warning and exit.
+version: v1.2.0
+```
+
 ### Audio Processing Settings
 
 Controls how audio is captured, processed, and displayed.
