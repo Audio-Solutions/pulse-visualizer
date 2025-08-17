@@ -283,9 +283,9 @@ void load() {
 
   // Check if the config file is compatible with the current version of the application
   std::string version = get<std::string>(configData, "version");
-  if (version != options.version) {
-    LOG_ERROR("Config file version mismatch. Please update the config file. Expected: " + options.version +
-              " Got: " + version);
+  if (version != std::string("v") + VERSION_STRING) {
+    LOG_ERROR(std::string("Config file version mismatch. Please check CONFIGURATION.md for any changes. Expected: v") +
+              VERSION_STRING + " Got: " + version);
     exit(1);
   }
 
