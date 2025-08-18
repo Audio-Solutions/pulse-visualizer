@@ -72,6 +72,7 @@ struct VisualizerWindow {
   float aspectRatio = 0;
   size_t forceWidth = 0;
   size_t pointCount;
+  std::string group;
   bool hovering = false;
   constexpr static size_t buttonSize = 20;
   constexpr static size_t buttonPadding = 10;

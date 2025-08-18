@@ -27,6 +27,7 @@ namespace SDLWindow {
 
 // Global window state variables
 std::vector<SDL_Window*> wins;
+std::unordered_map<SDL_WindowID, std::string> winGroups;
 std::vector<SDL_GLContext> glContexts;
 size_t currentWindow = 0;
 std::atomic<bool> running {false};

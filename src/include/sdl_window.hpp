@@ -24,6 +24,7 @@ namespace SDLWindow {
 
 // Window and OpenGL context handles
 extern std::vector<SDL_Window*> wins;
+extern std::unordered_map<SDL_WindowID, std::string> winGroups;
 extern std::vector<SDL_GLContext> glContexts;
 extern size_t currentWindow;
 extern std::atomic<bool> running;
