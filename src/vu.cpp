@@ -38,7 +38,7 @@ constexpr size_t TOP_HEIGHT_PERCENT = 10;
 constexpr size_t FONT_SIZE_LABELS = 10;
 
 float scaleDB(float db) {
-  if (Config::options.lufs.scale == "log") {
+  if (Config::options.vu.scale == "log") {
     // Map dB range from -20 to 0
     float logMax = 3.044522f; // logf(21.0f)
     float logDB = logf(fabsf(db) + 1.0f);
@@ -48,8 +48,8 @@ float scaleDB(float db) {
     float neg3dB = 1.0f + 1.386294f / logMax; // 1.386294 = logf(3.0f + 1.0f)
     return val / neg3dB;
   } else {
-    // Linear scaling (original behavior)
-    return std::max(0.0f, (db + 20.0f) / 20.0f);
+    // Linear scaling from -20dB to 3dB
+    return std::max(0.0f, (db + 20.0f) / 23.0f);
   }
 }
 
