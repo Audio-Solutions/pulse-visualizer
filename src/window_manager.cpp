@@ -186,7 +186,6 @@ void Splitter::draw() {
   setViewport(x - 5, 10, SDLWindow::windowSizes[sdlWindow].second);
 
   // Draw splitter line
-  float color[4] = {0.5, 0.5, 0.5, 1.0};
   Graphics::drawLine(5, 0, 5, SDLWindow::windowSizes[sdlWindow].second, Theme::colors.bgaccent, 2.0f);
 
   // Draw hover highlight if mouse is over splitter
