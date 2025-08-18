@@ -117,14 +117,19 @@ void Splitter::handleEvent(const SDL_Event& event) {
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
+  bool isThisGroup = event.motion.windowID == SDL_GetWindowID(SDLWindow::wins[sdlWindow]);
   size_t index;
   switch (event.type) {
   case SDL_EVENT_MOUSE_MOTION:
+    if (!isThisGroup)
+      break;
     // Check if mouse is hovering over this window
     hovering = (event.motion.x >= x && event.motion.x < x + width);
     break;
 
   case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    if (!isThisGroup)
+      break;
     if (event.button.button == SDL_BUTTON_LEFT) {
       index = this - windows[group].data();
 
@@ -515,9 +520,9 @@ int moveSplitter(std::string key, int index, int targetX) {
 
     int forceWidth = neighborWindow->forceWidth;
     if (!forceWidth && neighborWindow->aspectRatio != 0.0f) {
-      forceWidth = std::min(
-          static_cast<int>(neighborWindow->aspectRatio * SDLWindow::windowSizes[sdlWindow].second),
-          static_cast<int>(SDLWindow::windowSizes[sdlWindow].first - (windows[key].size() - 1) * MIN_WIDTH));
+      forceWidth =
+          std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::windowSizes[sdlWindow].second),
+                   static_cast<int>(SDLWindow::windowSizes[sdlWindow].first - (windows[key].size() - 1) * MIN_WIDTH));
     }
 
     if (forceWidth > 0) {
