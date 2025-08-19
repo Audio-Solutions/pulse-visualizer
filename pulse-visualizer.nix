@@ -68,7 +68,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = {
     description = "Real-time audio visualizer inspired by MiniMeters";
-    homepage = "https://github.com/Beacroxx/pulse-visualizer";
+    homepage = "https://github.com/Audio-Solutions/pulse-visualizer";
     license = lib.licenses.gpl3;
     maintainers = with lib.maintainers; [ miyu ];
     platforms = lib.platforms.x86_64;
