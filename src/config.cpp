@@ -21,6 +21,8 @@
 
 namespace Config {
 
+bool broken = false;
+
 // Global configuration options
 Options options;
 
@@ -124,14 +126,18 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
 
   // Handle nested paths with dot notation
   size_t dotIndex = path.find('.');
-  if (dotIndex == std::string::npos)
+  if (dotIndex == std::string::npos) {
+    broken = true;
     return std::nullopt;
+  }
 
   std::string section = path.substr(0, dotIndex);
   std::string sub = path.substr(dotIndex + 1);
 
-  if (!root[section].IsDefined())
+  if (!root[section].IsDefined()) {
+    broken = true;
     return std::nullopt;
+  }
 
   return getNode(root[section], sub);
 }
@@ -155,11 +161,15 @@ template <typename T> T get(const YAML::Node& root, const std::string& path) {
         typeStr = "int";
       else if (typeid(T) == typeid(float))
         typeStr = "float";
+      else if (typeid(T) == typeid(Rotation))
+        typeStr = "Rotation";
+      broken = true;
       LOG_ERROR(std::string("Converting ") + path + " to " + typeStr + " failed");
       return T {};
     }
   }
 
+  broken = true;
   LOG_ERROR(path + " is missing.");
 
   return T {};
@@ -173,8 +183,10 @@ template <typename T> T get(const YAML::Node& root, const std::string& path) {
  */
 template <> bool get<bool>(const YAML::Node& root, const std::string& path) {
   auto node = getNode(root, path);
-  if (!node.has_value())
+  if (!node.has_value()) {
+    broken = true;
     return false;
+  }
 
   const YAML::Node& value = node.value();
 
@@ -188,12 +200,14 @@ template <> bool get<bool>(const YAML::Node& root, const std::string& path) {
       if (str == "false" || str == "no" || str == "off")
         return false;
       LOG_ERROR(std::string("Converting ") + path + " to bool failed");
+      broken = true;
       return false;
     } catch (...) {
       try {
         return value.as<int>() != 0;
       } catch (...) {
         LOG_ERROR(std::string("Converting  ") + path + " to bool failed");
+        broken = true;
         return false;
       }
     }
@@ -208,8 +222,10 @@ template <> bool get<bool>(const YAML::Node& root, const std::string& path) {
  */
 template <> std::vector<std::string> get<std::vector<std::string>>(const YAML::Node& root, const std::string& path) {
   auto node = getNode(root, path);
-  if (!node.has_value() || !node.value().IsSequence())
+  if (!node.has_value() || !node.value().IsSequence()) {
+    broken = true;
     return std::vector<std::string> {};
+  }
 
   std::vector<std::string> result;
   for (const auto& item : node.value()) {
@@ -228,8 +244,10 @@ template <>
 std::map<std::string, std::vector<std::string>>
 get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, const std::string& path) {
   auto node = getNode(root, path);
-  if (!node.has_value() || !node.value().IsMap())
+  if (!node.has_value() || !node.value().IsMap()) {
+    broken = true;
     return std::map<std::string, std::vector<std::string>> {};
+  }
 
   std::map<std::string, std::vector<std::string>> result;
   for (const auto& item : node.value())
@@ -245,12 +263,7 @@ get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, con
  * @return Value of type Rotation
  */
 template <> Rotation get<Rotation>(const YAML::Node& root, const std::string& path) {
-  try {
-    return static_cast<Rotation>(get<int>(root, path));
-  } catch (...) {
-    LOG_ERROR(std::string("Converting ") + path + " to Rotation failed");
-    return ROTATION_0;
-  }
+  return static_cast<Rotation>(get<int>(root, path));
 }
 
 void load() {
@@ -265,6 +278,7 @@ void load() {
   } catch (YAML::ParserException e) {
     LOG_ERROR(std::string("Parser error when loading the config file: \"") + e.msg + "\" at " +
               std::to_string(e.mark.line + 1) + "(" + std::to_string(e.mark.column + 1) + ")");
+    broken = true;
   }
 
 #ifdef __linux__
@@ -280,14 +294,6 @@ void load() {
   // If the config fails to load we still want the watch to be created
   if (configData.IsNull())
     return;
-
-  // Check if the config file is compatible with the current version of the application
-  std::string version = get<std::string>(configData, "version");
-  if (version != std::string("v") + VERSION_STRING) {
-    LOG_ERROR(std::string("Config file version mismatch. Please check CONFIGURATION.md for any changes. Expected: v") +
-              VERSION_STRING + " Got: " + version);
-    exit(1);
-  }
 
   // Load visualizer window layouts
   options.visualizers = get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers");
@@ -407,6 +413,164 @@ void load() {
 
   // Load font configuration
   options.font = get<std::string>(configData, "font");
+
+  // If the config is broken, attempt to recover by merging defaults
+  if (broken) {
+    LOG_ERROR("Config is broken, attempting to recover...");
+    save();
+    load();
+  }
+}
+
+void save() {
+  broken = false;
+
+  static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
+
+  YAML::Node root;
+
+  // Audio
+  root["audio"]["device"] = options.audio.device;
+  root["audio"]["engine"] = options.audio.engine;
+  root["audio"]["gain_db"] = options.audio.gain_db;
+  root["audio"]["sample_rate"] = options.audio.sample_rate;
+  root["audio"]["silence_threshold"] = options.audio.silence_threshold;
+
+  // Bandpass filter
+  root["bandpass_filter"]["bandwidth"] = options.bandpass_filter.bandwidth;
+  root["bandpass_filter"]["bandwidth_type"] = options.bandpass_filter.bandwidth_type;
+
+  // Debug
+  root["debug"]["log_fps"] = options.debug.log_fps;
+  root["debug"]["show_bandpassed"] = options.debug.show_bandpassed;
+
+  // FFT
+  root["fft"]["beam_multiplier"] = options.fft.beam_multiplier;
+  root["fft"]["cqt_bins_per_octave"] = options.fft.cqt_bins_per_octave;
+  root["fft"]["enable_cqt"] = options.fft.enable_cqt;
+  root["fft"]["enable_smoothing"] = options.fft.enable_smoothing;
+  root["fft"]["fall_speed"] = options.fft.fall_speed;
+  root["fft"]["flip_x"] = options.fft.flip_x;
+  root["fft"]["frequency_markers"] = options.fft.frequency_markers;
+  root["fft"]["hover_fall_speed"] = options.fft.hover_fall_speed;
+  root["fft"]["max_db"] = options.fft.max_db;
+  root["fft"]["max_freq"] = options.fft.max_freq;
+  root["fft"]["min_db"] = options.fft.min_db;
+  root["fft"]["min_freq"] = options.fft.min_freq;
+  root["fft"]["note_key_mode"] = options.fft.note_key_mode;
+  root["fft"]["rise_speed"] = options.fft.rise_speed;
+  root["fft"]["rotation"] = static_cast<int>(options.fft.rotation);
+  root["fft"]["size"] = options.fft.size;
+  root["fft"]["slope_correction_db"] = options.fft.slope_correction_db;
+  root["fft"]["stereo_mode"] = options.fft.stereo_mode;
+
+  // Font
+  root["font"] = options.font;
+
+  // Lissajous
+  root["lissajous"]["beam_multiplier"] = options.lissajous.beam_multiplier;
+  root["lissajous"]["enable_splines"] = options.lissajous.enable_splines;
+  root["lissajous"]["mode"] = options.lissajous.mode;
+  root["lissajous"]["readback_multiplier"] = options.lissajous.readback_multiplier;
+  root["lissajous"]["rotation"] = static_cast<int>(options.lissajous.rotation);
+
+  // Lowpass
+  root["lowpass"]["cutoff"] = options.lowpass.cutoff;
+  root["lowpass"]["order"] = options.lowpass.order;
+
+  // LUFS
+  root["lufs"]["label"] = options.lufs.label;
+  root["lufs"]["mode"] = options.lufs.mode;
+  root["lufs"]["scale"] = options.lufs.scale;
+
+  // Oscilloscope
+  root["oscilloscope"]["alignment"] = options.oscilloscope.alignment;
+  root["oscilloscope"]["alignment_type"] = options.oscilloscope.alignment_type;
+  root["oscilloscope"]["beam_multiplier"] = options.oscilloscope.beam_multiplier;
+  root["oscilloscope"]["cycles"] = options.oscilloscope.cycles;
+  root["oscilloscope"]["enable_lowpass"] = options.oscilloscope.enable_lowpass;
+  root["oscilloscope"]["flip_x"] = options.oscilloscope.flip_x;
+  root["oscilloscope"]["follow_pitch"] = options.oscilloscope.follow_pitch;
+  root["oscilloscope"]["limit_cycles"] = options.oscilloscope.limit_cycles;
+  root["oscilloscope"]["min_cycle_time"] = options.oscilloscope.min_cycle_time;
+  root["oscilloscope"]["rotation"] = static_cast<int>(options.oscilloscope.rotation);
+  root["oscilloscope"]["time_window"] = options.oscilloscope.time_window;
+
+  // Phosphor
+  root["phosphor"]["age_threshold"] = options.phosphor.age_threshold;
+  root["phosphor"]["beam_energy"] = options.phosphor.beam_energy;
+  root["phosphor"]["chromatic_aberration_strength"] = options.phosphor.chromatic_aberration_strength;
+  root["phosphor"]["colorbeam"] = options.phosphor.colorbeam;
+  root["phosphor"]["decay_fast"] = options.phosphor.decay_fast;
+  root["phosphor"]["decay_slow"] = options.phosphor.decay_slow;
+  root["phosphor"]["enable_curved_screen"] = options.phosphor.enable_curved_screen;
+  root["phosphor"]["enable_grain"] = options.phosphor.enable_grain;
+  root["phosphor"]["enabled"] = options.phosphor.enabled;
+  root["phosphor"]["far_blur_intensity"] = options.phosphor.far_blur_intensity;
+  root["phosphor"]["grain_strength"] = options.phosphor.grain_strength;
+  root["phosphor"]["line_blur_spread"] = options.phosphor.line_blur_spread;
+  root["phosphor"]["line_width"] = options.phosphor.line_width;
+  root["phosphor"]["near_blur_intensity"] = options.phosphor.near_blur_intensity;
+  root["phosphor"]["range_factor"] = options.phosphor.range_factor;
+  root["phosphor"]["screen_curvature"] = options.phosphor.screen_curvature;
+  root["phosphor"]["screen_gap"] = options.phosphor.screen_gap;
+  root["phosphor"]["tension"] = options.phosphor.tension;
+  root["phosphor"]["vignette_strength"] = options.phosphor.vignette_strength;
+
+  // Spectrogram
+  root["spectrogram"]["frequency_scale"] = options.spectrogram.frequency_scale;
+  root["spectrogram"]["interpolation"] = options.spectrogram.interpolation;
+  root["spectrogram"]["max_db"] = options.spectrogram.max_db;
+  root["spectrogram"]["max_freq"] = options.spectrogram.max_freq;
+  root["spectrogram"]["min_db"] = options.spectrogram.min_db;
+  root["spectrogram"]["min_freq"] = options.spectrogram.min_freq;
+  root["spectrogram"]["time_window"] = options.spectrogram.time_window;
+
+  // Visualizers
+  {
+    YAML::Node vis;
+    for (const auto& [groupName, visualizerList] : options.visualizers) {
+      YAML::Node arr(YAML::NodeType::Sequence);
+      for (const auto& item : visualizerList)
+        arr.push_back(item);
+      vis[groupName] = arr;
+    }
+    root["visualizers"] = vis;
+  }
+
+  // VU
+  root["vu"]["calibration_db"] = options.vu.calibration_db;
+  root["vu"]["damping_ratio"] = options.vu.damping_ratio;
+  root["vu"]["enable_momentum"] = options.vu.enable_momentum;
+  root["vu"]["needle_width"] = options.vu.needle_width;
+  root["vu"]["scale"] = options.vu.scale;
+  root["vu"]["spring_constant"] = options.vu.spring_constant;
+  root["vu"]["style"] = options.vu.style;
+  root["vu"]["time_window"] = options.vu.time_window;
+
+  // Window
+  root["window"]["always_on_top"] = options.window.always_on_top;
+  root["window"]["decorations"] = options.window.decorations;
+  root["window"]["default_height"] = options.window.default_height;
+  root["window"]["default_width"] = options.window.default_width;
+  root["window"]["fps_limit"] = options.window.fps_limit;
+  root["window"]["theme"] = options.window.theme;
+
+  YAML::Emitter out;
+  for (auto it = root.begin(); it != root.end(); ++it) {
+    out << YAML::BeginMap;
+    out << it->first << it->second;
+    out << YAML::EndMap;
+    out << YAML::Newline;
+  }
+
+  std::ofstream fout(path);
+  if (!fout.is_open()) {
+    LOG_ERROR("Failed to open config file for writing");
+    return;
+  }
+  fout << out.c_str();
+  fout.close();
 }
 
 bool reload() {
