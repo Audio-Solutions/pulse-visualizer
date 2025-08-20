@@ -89,11 +89,11 @@ void render() {
 
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
-      y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height;
+      y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height - 0.5f;
     else if (Config::options.oscilloscope.enable_lowpass)
-      y = height * 0.5f + DSP::lowpassed[(pos + 128) % DSP::bufferSize] * 0.5f * height;
+      y = height * 0.5f + DSP::lowpassed[(pos + 128) % DSP::bufferSize] * 0.5f * height - 0.5f;
     else
-      y = height * 0.5f + DSP::bufferMid[pos] * 0.5f * height;
+      y = height * 0.5f + DSP::bufferMid[pos] * 0.5f * height - 0.5f;
 
     if (Config::options.oscilloscope.flip_x)
       y = height - y;
