@@ -64,7 +64,7 @@ void init() {
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
   // Create Base SDL window
-  createWindow("Pulse", Config::options.window.default_width, Config::options.window.default_height);
+  createWindow("Pulse " VERSION_FULL, Config::options.window.default_width, Config::options.window.default_height);
 
   // Initialize GLEW for OpenGL extensions
   GLenum err = glewInit();

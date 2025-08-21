@@ -30,6 +30,11 @@
 
 #include <SDL3/SDL_main.h>
 
+#if not(_WIN32)
+#include <sys/ptrace.h>
+#include <errno.h>
+#endif
+
 namespace CmdlineArgs {
 bool debug = false;
 bool help = false;
@@ -53,6 +58,24 @@ std::string expandUserPath(const std::string& path) {
 /**
  * TODO: Implement a configuration menu. sometime. idk when
  */
+
+// checks if a debugger is present
+bool debuggerPresent() {
+#if _WIN32
+  return IsDebuggerPresent();
+#else
+  errno = 0;
+  
+  // try to trace, will fail if a debugger is present
+  if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) == -1) {
+    return errno == EPERM;
+  }
+
+  // detach if we succeeded
+  ptrace(PTRACE_DETACH, 0, nullptr, nullptr);
+  return false;
+#endif
+}
 
 // Thread synchronization variables for DSP data processing
 std::mutex mainThread;
@@ -102,6 +125,10 @@ int main(int argc, char** argv) {
     std::cout << "  -c, --console     Open console window (Windows only)" << std::endl;
     return 0;
   }
+
+  // force debug mode on if a debugger is present
+  if (debuggerPresent())
+    CmdlineArgs::debug = true;
 
 #ifdef _WIN32
   if (!CmdlineArgs::console && !CmdlineArgs::debug)
