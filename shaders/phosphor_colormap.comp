@@ -251,30 +251,43 @@ void main() {
 
   if (enableCurvedScreen == 1) {
     energyR = sampleAntialiased(uvR, texelSize, 0);
-    energyG = colorbeam ? sampleAntialiased(uvG, texelSize, 1) : 0.0;
-    energyB = colorbeam ? sampleAntialiased(uvB, texelSize, 2) : 0.0;
+    if (colorbeam) {
+      energyG = sampleAntialiased(uvG, texelSize, 1);
+      energyB = sampleAntialiased(uvB, texelSize, 2);
+    } else {
+      energyG = sampleAntialiased(uvG, texelSize, 0);
+      energyB = sampleAntialiased(uvB, texelSize, 0);
+    }
   } else {
-    energyR = float(imageLoad(energyTexR, coord).r);
-    energyG = colorbeam ? float(imageLoad(energyTexG, coord).r) : 0.0;
-    energyB = colorbeam ? float(imageLoad(energyTexB, coord).r) : 0.0;
+    ivec2 coordR = ivec2(uvR * vec2(texSize));
+    ivec2 coordG = ivec2(uvG * vec2(texSize));
+    ivec2 coordB = ivec2(uvB * vec2(texSize));
+    coordR = clamp(coordR, ivec2(0), texSize - 1);
+    coordG = clamp(coordG, ivec2(0), texSize - 1);
+    coordB = clamp(coordB, ivec2(0), texSize - 1);
+
+    energyR = float(imageLoad(energyTexR, coordR).r);
+    if (colorbeam) {
+      energyG = float(imageLoad(energyTexG, coordG).r);
+      energyB = float(imageLoad(energyTexB, coordB).r);
+    } else {
+      energyG = float(imageLoad(energyTexR, coordG).r);
+      energyB = float(imageLoad(energyTexR, coordB).r);
+    }
   }
 
-  // Apply normalized spatial grain to the energy, affecting both brighter and darker directions
+  // Apply normalized spatial grain to the energy
   if (enablePhosphorGrain == 1) {
     float grain = spatialGrain(vec2(coord));
     energyR *= (1.0 + grain);
-    if (colorbeam) {
-      energyG *= (1.0 + grain);
-      energyB *= (1.0 + grain);
-    }
+    energyG *= (1.0 + grain);
+    energyB *= (1.0 + grain);
   }
 
   // Scale energy for tanh mapping
   energyR /= TANH_DIV_FACTOR;
-  if (colorbeam) {
-    energyG /= TANH_DIV_FACTOR;
-    energyB /= TANH_DIV_FACTOR;
-  }
+  energyG /= TANH_DIV_FACTOR;
+  energyB /= TANH_DIV_FACTOR;
 
   // Map to color using tanhColormap per channel
   vec3 screenColor;
@@ -284,8 +297,8 @@ void main() {
     screenColor.b = tanhColormapChannel(energyB);
   } else {
     screenColor.r = tanhColormapChannel(energyR * beamColor.r);
-    screenColor.g = tanhColormapChannel(energyR * beamColor.g);
-    screenColor.b = tanhColormapChannel(energyR * beamColor.b);
+    screenColor.g = tanhColormapChannel(energyG * beamColor.g);
+    screenColor.b = tanhColormapChannel(energyB * beamColor.b);
   }
 
   // add bg
