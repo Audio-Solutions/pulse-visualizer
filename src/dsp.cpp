@@ -211,6 +211,7 @@ void design(float center) {
   float fS = wc2 / M_PI;
   float deltaF = fS - fP;
   int order = (sidelobe - 8) / (2.285 * deltaF * M_PI);
+  order = std::clamp(order, 1, 512); // clamp to avoid excessive delay
 
   size_t len = order + 1;
   size_t center_tap = len / 2;
