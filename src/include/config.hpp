@@ -45,7 +45,7 @@ struct Options {
 
   struct BandpassFilter {
     float bandwidth = 30.0f;
-    std::string bandwidth_type = "percent";
+    float sidelobe = 60.0f;
   } bandpass_filter;
 
   struct Lissajous {

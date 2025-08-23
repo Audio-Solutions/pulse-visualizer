@@ -191,7 +191,9 @@ oscilloscope:
 # Bandpass Filter Settings
 bandpass_filter:
   bandwidth: 100.0
-  bandwidth_type: percent
+  # Sidelobe attenuation in dB
+  # Higher values = more attenuation, more CPU usage
+  sidelobe: 60.0
 
 # Spectrogram Settings
 # Controls the spectrogram visualization (time-frequency heat map)

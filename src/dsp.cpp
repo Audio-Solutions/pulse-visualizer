@@ -94,13 +94,55 @@ namespace FIR {
 Filter bandpass_filter;
 
 float Filter::process(float x) {
+  const size_t nTaps = static_cast<size_t>(order) + 1;
+  if (nTaps == 0)
+    return x;
+  idx %= nTaps;
   delay[idx] = x;
+
   float out = 0.0f;
-  for (size_t i = 0; i <= order; ++i) {
-    size_t idx2 = (idx + i) % (order + 1);
-    out += coeffs[i] * delay[idx2];
+
+#ifdef HAVE_AVX2
+  // Compute dot product without modulo by splitting into two contiguous segments:
+  // [idx .. end] then [0 .. idx-1]
+  const size_t firstLen = nTaps - idx;
+  const float* coeffPtr = coeffs.data();
+  const float* delayPtr1 = delay.data() + idx;
+
+  size_t n = 0;
+  __m256 sumVec = _mm256_setzero_ps();
+  for (; n + 7 < firstLen; n += 8) {
+    __m256 c = _mm256_loadu_ps(coeffPtr + n);
+    __m256 d = _mm256_loadu_ps(delayPtr1 + n);
+    sumVec = _mm256_fmadd_ps(c, d, sumVec);
   }
-  idx = (idx + 1) % (order + 1);
+  out += avx2_reduce_add_ps(sumVec);
+  for (; n < firstLen; ++n)
+    out += coeffPtr[n] * delayPtr1[n];
+
+  // Second contiguous segment
+  const size_t secondLen = idx;
+  const float* delayPtr2 = delay.data();
+  sumVec = _mm256_setzero_ps();
+  size_t k = 0;
+  for (; k + 7 < secondLen; k += 8) {
+    __m256 c = _mm256_loadu_ps(coeffPtr + firstLen + k);
+    __m256 d = _mm256_loadu_ps(delayPtr2 + k);
+    sumVec = _mm256_fmadd_ps(c, d, sumVec);
+  }
+  out += avx2_reduce_add_ps(sumVec);
+  for (; k < secondLen; ++k)
+    out += coeffPtr[firstLen + k] * delayPtr2[k];
+#else
+  // Fallback scalar path
+  const size_t firstLen = nTaps - idx;
+  for (size_t i = 0; i < firstLen; ++i)
+    out += coeffs[i] * delay[idx + i];
+  for (size_t i = 0; i < idx; ++i)
+    out += coeffs[firstLen + i] * delay[i];
+#endif
+
+  idx = (idx + 1) % nTaps;
   return out;
 }
 
@@ -115,25 +157,61 @@ void Filter::set_coefficients(const std::vector<float>& coeffs) {
   }
 }
 
-std::vector<float> hamming_window(size_t length) {
+// Modified Bessel function of the first kind, order 0 (I0)
+// Approximation from Abramowitz and Stegun
+static inline double besselI0(double x) {
+  double ax = std::abs(x);
+  if (ax <= 3.75) {
+    double y = (x / 3.75);
+    y *= y;
+    return 1.0 +
+           y * (3.5156229 + y * (3.0899424 + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))));
+  } else {
+    double y = 3.75 / ax;
+    return (std::exp(ax) / std::sqrt(ax)) *
+           (0.39894228 +
+            y * (0.01328592 +
+                 y * (0.00225319 +
+                      y * (-0.00157565 +
+                           y * (0.00916281 +
+                                y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))));
+  }
+}
+
+std::vector<float> kaiser_window(size_t length, float beta) {
   std::vector<float> window(length);
-  for (size_t i = 0; i < length; ++i) {
-    window[i] = 0.54f - 0.46f * cosf(2.0f * M_PI * i / (length - 1));
+  if (length == 0)
+    return window;
+  const double denom = besselI0(static_cast<double>(beta));
+  const double M = static_cast<double>(length - 1);
+  for (size_t n = 0; n < length; ++n) {
+    double ratio = (M == 0.0) ? 0.0 : (2.0 * static_cast<double>(n) / M - 1.0);
+    double val = besselI0(static_cast<double>(beta) * std::sqrt(std::max(0.0, 1.0 - ratio * ratio))) / denom;
+    window[n] = static_cast<float>(val);
   }
   return window;
 }
 
 void design(float center) {
   float bw = Config::options.bandpass_filter.bandwidth;
-  if (Config::options.bandpass_filter.bandwidth_type == "percent") {
-    bw = center * bw / 100.0f;
-  }
-  int order = 512;
+
+  // Kaiser window with beta chosen for ~60 dB sidelobe attenuation
+  float sidelobe = Config::options.bandpass_filter.sidelobe;
+  float beta = sidelobe < 21.0f   ? 0.0f
+               : sidelobe < 50.0f ? 0.5842f * powf(sidelobe - 21.0f, 0.4f) + 0.07886f * (sidelobe - 21.0f)
+                                  : 0.1102f * (sidelobe - 8.7f);
+
   float fs = Config::options.audio.sample_rate;
   float wc1 = 2.0f * M_PI * (center - bw / 2.0f) / fs;
   float wc2 = 2.0f * M_PI * (center + bw / 2.0f) / fs;
   wc1 = std::max(wc1, 0.001f);
   wc2 = std::min(wc2, static_cast<float>(M_PI) - 0.001f);
+
+  float fP = wc1 / M_PI;
+  float fS = wc2 / M_PI;
+  float deltaF = fS - fP;
+  int order = (sidelobe - 8) / (2.285 * deltaF * M_PI);
+
   size_t len = order + 1;
   size_t center_tap = len / 2;
   std::vector<float> ideal(len);
@@ -145,7 +223,7 @@ void design(float center) {
       ideal[i] = (sinf(wc2 * n) - sinf(wc1 * n)) / (M_PI * n);
     }
   }
-  std::vector<float> window = hamming_window(len);
+  std::vector<float> window = kaiser_window(len, beta);
   std::vector<float> windowed(len);
   for (size_t i = 0; i < len; ++i) {
     windowed[i] = ideal[i] * window[i];
@@ -176,7 +254,7 @@ void process(float center) {
     size_t readIdx = (lastWritePos + i + bufferSize) % bufferSize;
     float input = bufferMid[readIdx];
     float filtered = bandpass_filter.process(input);
-    bandpassed[(readIdx - 256 + bufferSize) % bufferSize] = filtered;
+    bandpassed[(readIdx - bandpass_filter.order / 2 + bufferSize) % bufferSize] = filtered;
   }
   lastWritePos = writePos;
 }

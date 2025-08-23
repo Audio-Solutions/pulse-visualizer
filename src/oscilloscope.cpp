@@ -41,7 +41,7 @@ void render() {
   }
 
   // Calculate target position in buffer
-  const size_t fir_delay = 256;
+  const size_t fir_delay = DSP::FIR::bandpass_filter.order / 2;
   size_t target = (DSP::writePos + DSP::bufferSize - samples - fir_delay);
   size_t range = Config::options.audio.sample_rate / DSP::pitch * 2.f;
   size_t zeroCross = target;
@@ -91,7 +91,8 @@ void render() {
     if (Config::options.debug.show_bandpassed) [[unlikely]]
       y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height - 0.5f;
     else if (Config::options.oscilloscope.enable_lowpass)
-      y = height * 0.5f + DSP::lowpassed[(pos + 128) % DSP::bufferSize] * 0.5f * height - 0.5f;
+      y = height * 0.5f +
+          DSP::lowpassed[(pos + DSP::FIR::bandpass_filter.order / 4) % DSP::bufferSize] * 0.5f * height - 0.5f;
     else
       y = height * 0.5f + DSP::bufferMid[pos] * 0.5f * height - 0.5f;
 

@@ -31,8 +31,8 @@
 #include <SDL3/SDL_main.h>
 
 #if not(_WIN32)
-#include <sys/ptrace.h>
 #include <errno.h>
+#include <sys/ptrace.h>
 #endif
 
 namespace CmdlineArgs {
@@ -65,7 +65,7 @@ bool debuggerPresent() {
   return IsDebuggerPresent();
 #else
   errno = 0;
-  
+
   // try to trace, will fail if a debugger is present
   if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) == -1) {
     return errno == EPERM;
@@ -89,6 +89,12 @@ int main(int argc, char** argv) {
   signal(SIGTERM, [](int) { quitSignal.store(true); });
 #ifndef _WIN32
   signal(SIGQUIT, [](int) { quitSignal.store(true); });
+
+  // Block SIGWINCH (Causing crashes for some reason)
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGWINCH);
+  sigprocmask(SIG_BLOCK, &sigset, nullptr);
 #endif
 
   for (int i = 0; i < argc; i++) {

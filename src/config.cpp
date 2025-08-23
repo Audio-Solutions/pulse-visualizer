@@ -313,7 +313,7 @@ void load() {
 
   // Load bandpass filter configuration
   options.bandpass_filter.bandwidth = get<float>(configData, "bandpass_filter.bandwidth");
-  options.bandpass_filter.bandwidth_type = get<std::string>(configData, "bandpass_filter.bandwidth_type");
+  options.bandpass_filter.sidelobe = get<float>(configData, "bandpass_filter.sidelobe");
 
   // Load Lissajous configuration
   options.lissajous.enable_splines = get<bool>(configData, "lissajous.enable_splines");
@@ -438,7 +438,7 @@ void save() {
 
   // Bandpass filter
   root["bandpass_filter"]["bandwidth"] = options.bandpass_filter.bandwidth;
-  root["bandpass_filter"]["bandwidth_type"] = options.bandpass_filter.bandwidth_type;
+  root["bandpass_filter"]["sidelobe"] = options.bandpass_filter.sidelobe;
 
   // Debug
   root["debug"]["log_fps"] = options.debug.log_fps;
