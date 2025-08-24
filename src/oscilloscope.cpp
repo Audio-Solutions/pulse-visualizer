@@ -33,10 +33,10 @@ WindowManager::VisualizerWindow* window;
 
 void render() {
   // Calculate number of samples to display
-  size_t samples = Config::options.oscilloscope.time_window * Config::options.audio.sample_rate / 1000;
-  if (Config::options.oscilloscope.limit_cycles) {
-    samples = Config::options.audio.sample_rate / DSP::pitch * Config::options.oscilloscope.cycles;
-    samples = std::max(samples, static_cast<size_t>(Config::options.oscilloscope.min_cycle_time *
+  size_t samples = Config::options.oscilloscope.window * Config::options.audio.sample_rate / 1000;
+  if (Config::options.oscilloscope.pitch.cycles > 0) {
+    samples = Config::options.audio.sample_rate / DSP::pitch * Config::options.oscilloscope.pitch.cycles;
+    samples = std::max(samples, static_cast<size_t>(Config::options.oscilloscope.pitch.min_cycle_time *
                                                     Config::options.audio.sample_rate / 1000.0f));
   }
 
@@ -47,10 +47,10 @@ void render() {
   size_t zeroCross = target;
 
   // Align to zero crossings if pitch following is enabled
-  if (Config::options.oscilloscope.follow_pitch) {
-    if (Config::options.oscilloscope.alignment == "center")
+  if (Config::options.oscilloscope.pitch.follow) {
+    if (Config::options.oscilloscope.pitch.alignment == "center")
       target = (target + samples / 2) % DSP::bufferSize;
-    else if (Config::options.oscilloscope.alignment == "right")
+    else if (Config::options.oscilloscope.pitch.alignment == "right")
       target = (target + samples) % DSP::bufferSize;
 
     // Find zero crossing point
@@ -65,7 +65,7 @@ void render() {
 
     // Apply phase offset for peak alignment
     size_t phaseOffset = (target + DSP::bufferSize - zeroCross) % DSP::bufferSize;
-    if (Config::options.oscilloscope.alignment_type == "peak")
+    if (Config::options.oscilloscope.pitch.type == "peak")
       phaseOffset += Config::options.audio.sample_rate / DSP::pitch * 0.75f;
     target = (DSP::writePos + DSP::bufferSize - phaseOffset - samples) % DSP::bufferSize;
   }
@@ -90,7 +90,7 @@ void render() {
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
       y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height - 0.5f;
-    else if (Config::options.oscilloscope.enable_lowpass)
+    else if (Config::options.oscilloscope.lowpass.enabled)
       y = height * 0.5f +
           DSP::lowpassed[(pos + DSP::FIR::bandpass_filter.order / 4) % DSP::bufferSize] * 0.5f * height - 0.5f;
     else
@@ -131,7 +131,7 @@ void render() {
 
     // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam_energy / REF_AREA *
+    float energy = Config::options.phosphor.beam.energy / REF_AREA *
                    (window->width * SDLWindow::windowSizes[window->sdlWindow].second);
     energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
 

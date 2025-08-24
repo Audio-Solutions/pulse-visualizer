@@ -28,8 +28,6 @@ layout(binding = 3, rgba8) uniform image2D colorTex;
 
 uniform vec3 beamColor;
 uniform vec3 blackColor;
-uniform int enablePhosphorGrain;
-uniform int enableCurvedScreen;
 uniform float screenCurvature;
 uniform float screenGapFactor;
 uniform float grainStrength;
@@ -63,7 +61,7 @@ vec2 crtDistortion(vec2 uv) {
 // Returns 1.0 for inside screen, 0.0 for outside, smooth transition at edges
 float calculateBorderMask(vec2 uv, vec2 texelSize) {
   // Early return if curved screen is disabled - no gap or border
-  if (enableCurvedScreen == 0) {
+  if (screenCurvature < 1e-6) {
     return 1.0; // No border, full screen content
   }
   
@@ -106,7 +104,7 @@ float sampleAntialiased(vec2 uv, vec2 texelSize, int channel) {
   // Only apply screen gap when curved screen is enabled
   vec2 scaledUV = uv;
   
-  if (enableCurvedScreen != 0) {
+  if (screenCurvature > 1e-6) {
     // Apply screen gap factor scaling
     // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
     float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
@@ -249,7 +247,7 @@ void main() {
 
   float energyR, energyG, energyB;
 
-  if (enableCurvedScreen == 1) {
+  if (screenCurvature > 1e-6) {
     energyR = sampleAntialiased(uvR, texelSize, 0);
     if (colorbeam) {
       energyG = sampleAntialiased(uvG, texelSize, 1);
@@ -277,7 +275,7 @@ void main() {
   }
 
   // Apply normalized spatial grain to the energy
-  if (enablePhosphorGrain == 1) {
+  if (grainStrength > 1e-6) {
     float grain = spatialGrain(vec2(coord));
     energyR *= (1.0 + grain);
     energyG *= (1.0 + grain);

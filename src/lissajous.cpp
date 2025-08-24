@@ -162,7 +162,7 @@ void render() {
 
     // Calculate energy per segment for phosphor effect
     constexpr float REF_AREA = 200.f * 200.f;
-    float energy = Config::options.phosphor.beam_energy / REF_AREA * (window->width * window->width);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * window->width);
 
     energy *= Config::options.lissajous.beam_multiplier / (1.f + Config::options.lissajous.readback_multiplier) /
               (Config::options.lissajous.enable_splines ? 10 : 1);

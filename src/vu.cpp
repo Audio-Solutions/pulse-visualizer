@@ -159,10 +159,10 @@ void render() {
     float deltaTime = lastTime > 0.0f ? currentTime - lastTime : 0.016f;
     lastTime = currentTime;
 
-    if (Config::options.vu.enable_momentum) {
+    if (Config::options.vu.momentum.enabled) {
       // Spring physics simulation
-      float springForce = (targetAngle - currentAngle) * Config::options.vu.spring_constant;
-      float dampingForce = -velocity * Config::options.vu.damping_ratio;
+      float springForce = (targetAngle - currentAngle) * Config::options.vu.momentum.spring_constant;
+      float dampingForce = -velocity * Config::options.vu.momentum.damping_ratio;
       float acceleration = springForce + dampingForce;
 
       velocity += acceleration * deltaTime;

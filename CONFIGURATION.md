@@ -25,17 +25,9 @@ Boolean configuration options accept multiple formats:
 - `off`
 - `0`
 
+**Note:** Some boolean options that previously existed are now implied by their respective int/float counterparts being nonzero. For example, `phosphor.screen.curvature_enabled: true` is implied when `phosphor.screen.curvature > FLT_EPSILON` (FLT_EPSILON is 1e-6).
+
 ## Configuration Sections
-
-### Version
-
-Controls the version of the configuration file.
-
-```yaml
-# This is the version of the configuration file. It should match the version of the application.
-# If the version is not compatible, the application will show a warning and exit.
-version: v1.2.2
-```
 
 ### Audio Processing Settings
 
@@ -61,7 +53,7 @@ audio:
   
   # Audio gain adjustment in dB (positive=louder, negative=quieter)
   # Adjust if audio is too quiet, like when Spotify or YouTube normalizes the volume
-  gain_db: -0.0
+  gain_db: 0.0
 ```
 
 **Audio Device Examples:**
@@ -86,77 +78,6 @@ debug:
   show_bandpassed: false
 ```
 
-### Phosphor Effect Settings
-
-Controls the CRT phosphor simulation effect (realistic glow and persistence).
-
-**⚠️ WARNING: These settings are computationally expensive and affect performance**
-
-```yaml
-phosphor:
-  # Enable or disable phosphor effects globally
-  enabled: true
-  
-  # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
-  near_blur_intensity: 0.3
-  
-  # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
-  far_blur_intensity: 0.6
-  
-  # Energy of the electron beam (affects brightness of phosphor effect)
-  beam_energy: 150.0
-  
-  # Slow decay rate of phosphor persistence (higher=longer persistence)
-  decay_slow: 7.0
-  
-  # Fast decay rate of phosphor persistence (higher=shorter persistence)
-  decay_fast: 50.0
-  
-  # Size of the electron beam (affects line thickness)
-  beam_size: 1.0
-  
-  # Spread of the blur effect (higher=more spread, more GPU intensive)
-  line_blur_spread: 64
-  
-  # Width of the phosphor lines
-  line_width: 0.5
-  
-  # Age threshold for phosphor decay (higher=longer persistence)
-  age_threshold: 10
-  
-  # Range factor for blur calculations (higher=more blur, more GPU intensive)
-  range_factor: 2.0
-  
-  # Enable phosphor grain effect (adds realistic CRT noise)
-  enable_grain: true
-  
-  # Grain strength (Spatial noise)
-  grain_strength: 0.1
-  
-  # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
-  tension: 0.5
-  
-  # Enable curved phosphor screen effect (simulates curved CRT monitor)
-  enable_curved_screen: true
-  
-  # Curvature intensity for curved screen effect (0.0-1.0)
-  screen_curvature: 0.1
-  
-  # Gap factor between screen edges and border (higher=less gap)
-  screen_gap: 1.09
-  
-  # Vignette strength (0.0-1.0)
-  vignette_strength: 0.3
-  
-  # Chromatic aberration strength (0.0-1.0)
-  chromatic_aberration_strength: 0.005
-
-  # Enable color beam effect (true/false)
-  # This will make the beam color rotate around the hue depending on the direction its going.
-  # This is extremely gpu intensive, so it is disabled by default.
-  colorbeam: false
-```
-
 ### FFT (Fast Fourier Transform) Settings
 
 Controls frequency analysis and spectrum visualization.
@@ -167,61 +88,75 @@ fft:
   # Common values: 2048, 4096, 8192, 16384
   size: 4096
   
-  # Enable velocity smoothing for FFT values
-  enable_smoothing: true
-  
-  # Fall speed of FFT bars (higher=faster fall, more responsive)
-  fall_speed: 100.0
-  
-  # Fall speed when window is hovered over (higher=faster fall)
-  hover_fall_speed: 10.0
-  
-  # Rise speed of FFT bars (higher=faster rise, more responsive)
-  rise_speed: 500.0
-  
-  # dB level at the top of the display before slope correction
-  max_db: 10.0
-  
-  # dB level at the bottom of the display before slope correction
-  min_db: -60.0
-  
-  # Maximum frequency to display in Hz
-  max_freq: 22000.0
-  
-  # Minimum frequency to display in Hz
-  min_freq: 10.0
-  
   # Enable frequency markers on the display
-  frequency_markers: true
+  markers: true
   
   # Slope correction for frequency response (dB per octave, visual only)
-  slope_correction_db: 4.5
+  slope: 3.0
   
   # Note key mode: "sharp" or "flat" (affects frequency labels)
-  note_key_mode: sharp
+  key: sharp
   
   # Stereo mode: "midside" (mid/side channels) or "leftright" (left/right channels)
-  stereo_mode: midside
-  
-  # Enable Constant-Q Transform (better frequency resolution in the low end)
-  enable_cqt: true
-  
-  # Number of frequency bins per octave for CQT (higher=better resolution)
-  # Significant CPU usage increase with higher values
-  cqt_bins_per_octave: 60
+  mode: midside
   
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
-
+  
   # Rotation of the FFT display
-  # 0 = 0 degrees
-  # 1 = 90 degrees
-  # 2 = 180 degrees
-  # 3 = 270 degrees
+  # 0 = 0 degrees, 1 = 90 degrees, 2 = 180 degrees, 3 = 270 degrees
   rotation: 0
-
+  
   # Flip the FFT display along the frequency axis
   flip_x: false
+  
+  # Frequency and amplitude limits
+  limits:
+    # dB level at the top of the display before slope correction
+    max_db: 0.0
+    
+    # dB level at the bottom of the display before slope correction
+    min_db: -60.0
+    
+    # Maximum frequency to display in Hz
+    max_freq: 22000.0
+    
+    # Minimum frequency to display in Hz
+    min_freq: 10.0
+  
+  # Smoothing settings for FFT values
+  smoothing:
+    # Enable velocity smoothing for FFT values
+    enabled: true
+    
+    # Fall speed of FFT bars (higher=faster fall, more responsive)
+    fall_speed: 50.0
+    
+    # Fall speed when window is hovered over (higher=faster fall)
+    hover_fall_speed: 10.0
+    
+    # Rise speed of FFT bars (higher=faster rise, more responsive)
+    rise_speed: 500.0
+  
+  # Constant-Q Transform settings (better frequency resolution in the low end)
+  cqt:
+    # Enable Constant-Q Transform
+    enabled: true
+    
+    # Number of frequency bins per octave for CQT (higher=better resolution)
+    # Significant CPU usage increase with higher values
+    bins_per_octave: 60
+  
+  # 3D sphere visualization settings
+  sphere:
+    # Enable 3D sphere visualization
+    enabled: true
+    
+    # Maximum frequency to display in sphere (lower frequencies look better)
+    max_freq: 5000.0
+    
+    # Base radius of the sphere
+    base_radius: 0.1
 ```
 
 ### Font Settings
@@ -246,7 +181,7 @@ lissajous:
   enable_splines: true
   
   # Beam multiplier for phosphor effect
-  beam_multiplier: 1.0
+  beam_multiplier: 1.5
   
   # Readback multiplier of the data
   # Defines how much of the previous data is redrawn
@@ -254,20 +189,17 @@ lissajous:
   # Caveat is a minor increase in CPU usage.
   readback_multiplier: 3.0
   
-  # Options: "circle", "pulsar", "rotate", "black_hole", "none"
+  # Options: "normal", "circle", "pulsar", "rotate", "black_hole"
   # rotate is a 45 degree rotation of the curve
   # circle is the rotated curve stretched to a circle
   # pulsar is all of the above, makes the outside be silent
   # and the inside be loud which looks really cool
   # black_hole is a rotated circle with a black hole-like effect
-  # none is the default mode
-  mode: none
-
+  # normal is the default mode
+  mode: normal
+  
   # Rotation of the lissajous display
-  # 0 = 0 degrees
-  # 1 = 90 degrees
-  # 2 = 180 degrees
-  # 3 = 270 degrees
+  # 0 = 0 degrees, 1 = 90 degrees, 2 = 180 degrees, 3 = 270 degrees
   rotation: 0
 ```
 
@@ -278,54 +210,122 @@ Controls the oscilloscope waveform visualization.
 ```yaml
 oscilloscope:
   # Time window for oscilloscope in ms
-  time_window: 50.0
-  
-  # Follow pitch for phase alignment (true=align to detected pitch)
-  follow_pitch: true
-  
-  # Alignment position: "left", "center", or "right"
-  alignment: center
-  
-  # Alignment type: "peak" or "zero_crossing"
-  alignment_type: zero_crossing
-  
-  # Only track n cycles of the waveform
-  limit_cycles: false
-  
-  # Number of cycles to track when limit_cycles is true
-  cycles: 2
-  
-  # Minimum time window to display in oscilloscope in ms
-  min_cycle_time: 16.0
+  window: 50.0
   
   # Beam multiplier for phosphor effect
   beam_multiplier: 1.0
   
-  # Enable lowpass filter for oscilloscope
-  enable_lowpass: false
-
   # Rotation of the oscilloscope display
-  # 0 = 0 degrees
-  # 1 = 90 degrees
-  # 2 = 180 degrees
-  # 3 = 270 degrees
+  # 0 = 0 degrees, 1 = 90 degrees, 2 = 180 degrees, 3 = 270 degrees
   rotation: 0
-
+  
   # Flip the oscilloscope display along the time axis
   flip_x: false
+  
+  # Pitch following and alignment settings
+  pitch:
+    # Follow pitch for phase alignment (true=align to detected pitch)
+    follow: true
+    
+    # Alignment type: "peak" or "zero_crossing"
+    type: zero_crossing
+    
+    # Alignment position: "left", "center", or "right"
+    alignment: center
+    
+    # Number of cycles to track
+    cycles: 3
+    
+    # Minimum time window to display in oscilloscope in ms
+    min_cycle_time: 16.0
+  
+  # Lowpass filter settings for oscilloscope
+  lowpass:
+    # Enable lowpass filter for oscilloscope
+    enabled: false
+    
+    # Cutoff frequency in Hz
+    cutoff: 200.0
+    
+    # Order of the lowpass filter (higher = steeper filter, more CPU usage, must be multiple of 2)
+    order: 4
+  
+  # Bandpass filter settings for pitch detection
+  bandpass:
+    # Bandwidth in Hz
+    bandwidth: 10.0
+    
+    # Sidelobe attenuation in dB
+    # Higher values = more attenuation, more CPU usage
+    sidelobe: 60.0
 ```
 
-### Bandpass Filter Settings
+### Phosphor Effect Settings
 
-Controls the bandpass filter applied to the audio signal used for pitch following.
+Controls the CRT phosphor simulation effect (realistic glow and persistence).
+
+**⚠️ WARNING: These settings are computationally expensive and affect performance**
 
 ```yaml
-bandpass_filter:
-  # Bandwidth in Hz or percent of center frequency
-  bandwidth: 100.0
+phosphor:
+  # Enable or disable phosphor effects globally
+  enabled: true
   
-  # Bandwidth type: "hz" for absolute width, "percent" for relative to center frequency
-  bandwidth_type: percent
+  # Electron beam settings
+  beam:
+    # Energy of the electron beam (affects brightness of phosphor effect)
+    energy: 90.0
+    
+    # Enable rainbow color effect for the beam
+    rainbow: true
+    
+    # Width of the phosphor lines
+    width: 0.5
+    
+    # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
+    tension: 0.5
+  
+  # Blur effect settings
+  blur:
+    # Spread of the blur effect (higher=more spread, more GPU intensive)
+    spread: 128
+    
+    # Range factor for blur calculations (higher=more blur, more GPU intensive)
+    range: 2.0
+    
+    # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
+    near_intensity: 0.6
+    
+    # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
+    far_intensity: 0.8
+  
+  # Decay settings for phosphor persistence
+  decay:
+    # Fast decay rate of phosphor persistence (higher=shorter persistence)
+    fast: 40.0
+    
+    # Slow decay rate of phosphor persistence (higher=longer persistence)
+    slow: 6.0
+    
+    # Age threshold for phosphor decay (higher=longer persistence)
+    threshold: 14
+  
+  # Screen effect settings
+  screen:
+    # Curvature intensity for curved screen effect (0.0-1.0)
+    curvature: 0.1
+    
+    # Gap scalar for curved screen effect (0.0-1.0)
+    gap: 0.03
+    
+    # Vignette strength (0.0-1.0)
+    vignette: 0.3
+    
+    # Chromatic aberration strength (0.0-1.0)
+    chromatic_aberration: 0.008
+    
+    # Grain strength (spatial noise, 0.0-1.0)
+    grain: 0.1
 ```
 
 ### Spectrogram Settings
@@ -340,20 +340,22 @@ spectrogram:
   # Enable interpolation for smoother spectrogram display
   interpolation: true
   
-  # Maximum dB level for spectrogram display
-  max_db: -10.0
-  
-  # Maximum frequency to display in Hz
-  max_freq: 22000.0
-  
-  # Minimum dB level for spectrogram display
-  min_db: -60.0
-  
-  # Minimum frequency to display in Hz
-  min_freq: 20.0
-  
   # Time window for spectrogram in seconds
-  time_window: 4.0
+  window: 4.0
+  
+  # Frequency and amplitude limits
+  limits:
+    # Maximum dB level for spectrogram display
+    max_db: -10.0
+    
+    # Minimum dB level for spectrogram display
+    min_db: -60.0
+    
+    # Maximum frequency to display in Hz
+    max_freq: 22000.0
+    
+    # Minimum frequency to display in Hz
+    min_freq: 20.0
 ```
 
 ### LUFS Settings
@@ -366,7 +368,7 @@ lufs:
   # momentary is over a 400ms window
   # shortterm is over a 3s window
   # integrated is over the entire recording
-  mode: shortterm
+  mode: momentary
 
   # Scale: "log" or "linear"
   scale: log
@@ -383,37 +385,33 @@ lufs:
 Controls the VU meter visualization.
 
 ```yaml
-
 vu:
   # Time window for VU meter in ms
-  time_window: 100.0
+  window: 100.0
+  
   # Style: "analog" or "digital"
   style: digital
+  
   # Calibration dB level
   # a calibration of 3dB means a 0dB pure sine wave is at 0dB in the meter
   calibration_db: 3.0
+  
   # Scale: "log" or "linear"
   scale: log
-  # Enable momentum for analog VU meter
-  enable_momentum: true
-  # Spring constant of needle
-  spring_constant: 500.0
-  # Damping ratio of needle
-  damping_ratio: 10.0
-  # Needle width
+  
+  # Needle width for analog VU meter
   needle_width: 2.0
-```
-
-### Lowpass Filter Settings
-
-Controls the lowpass filter applied to the audio signal used for oscilloscope.
-
-```yaml
-lowpass:
-  # Cutoff frequency in Hz
-  cutoff: 200.0
-  # Order of the lowpass filter (higher = steeper filter, more CPU usage)
-  order: 4
+  
+  # Momentum settings for analog VU meter
+  momentum:
+    # Enable momentum for analog VU meter
+    enabled: true
+    
+    # Spring constant of needle
+    spring_constant: 500.0
+    
+    # Damping ratio of needle
+    damping_ratio: 10.0
 ```
 
 ### Visualizer Layout Settings
@@ -429,8 +427,8 @@ Only one instance of a visualizer can exist at a time.
 ```yaml
 visualizers:
   main:
-    - lufs
     - vu
+    - lufs
     - lissajous
     - oscilloscope
     - spectrum_analyzer
@@ -461,6 +459,9 @@ window:
 
   # Enable window decorations in your desktop environment
   decorations: true
+  
+  # Keep the window always on top of other windows
+  always_on_top: false
 ```
 
 ## Troubleshooting
@@ -476,7 +477,7 @@ window:
 **High CPU Usage/Poor Performance:**
 - Disable phosphor effects: `phosphor.enabled: false`
 - Reduce FFT size: `fft.size: 2048`
-- Disable CQT: `fft.enable_cqt: false`
+- Disable CQT: `fft.cqt.enabled: false`
 - Lower FPS limit: `window.fps_limit: 60`
 
 **Visual Artifacts:**

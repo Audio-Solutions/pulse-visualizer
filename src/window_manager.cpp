@@ -455,22 +455,24 @@ void resizeTextures() {
 }
 
 void resizeWindows() {
+  constexpr int MIN_WINDOW_SIZE = 1;
   for (auto& [key, vec] : windows) {
     if (splitters[key].size() == 0) {
       // Single window case
       vec[0].x = 0;
-      vec[0].width = SDLWindow::windowSizes[vec[0].sdlWindow].first;
+      vec[0].width = std::max(SDLWindow::windowSizes[vec[0].sdlWindow].first, MIN_WINDOW_SIZE);
     } else {
       // Multiple windows with splitters
       vec[0].x = 0;
-      vec[0].width = splitters[key][0].x - 1;
+      vec[0].width = std::max(splitters[key][0].x - 1, MIN_WINDOW_SIZE);
       for (int i = 1; i < static_cast<int>(vec.size()) - 1; i++) {
         vec[i].x = splitters[key][i - 1].x + 1;
-        vec[i].width = splitters[key][i].x - splitters[key][i - 1].x - 2;
+        vec[i].width = std::max(splitters[key][i].x - splitters[key][i - 1].x - 2, MIN_WINDOW_SIZE);
       }
 
       vec.back().x = splitters[key].back().x + 1;
-      vec.back().width = SDLWindow::windowSizes[vec.back().sdlWindow].first - vec.back().x - 1;
+      vec.back().width =
+          std::max(SDLWindow::windowSizes[vec.back().sdlWindow].first - vec.back().x - 1, MIN_WINDOW_SIZE);
     }
   }
 }
@@ -686,6 +688,11 @@ void reorder() {
         else
           vw.aspectRatio = 2.0f;
       }
+
+      if (visName == "spectrum_analyzer" && Config::options.fft.sphere.enabled) {
+        vw.aspectRatio = 1.0f;
+      }
+
       vw.render = visualizers[idx].first;
       windows[key].push_back(vw);
       visualizers[idx].second = &windows[key].back();
@@ -764,7 +771,6 @@ void popWindow(size_t index, std::string key, bool popout) {
 
   std::string newKey = popout ? key + "_" + std::to_string(rand() % 1000000) : "main";
   std::string viz = Config::options.visualizers[key][index];
-  size_t sdlWindow = windows[key][index].sdlWindow;
   Config::options.visualizers[key].erase(Config::options.visualizers[key].begin() + index);
   if (Config::options.visualizers[key].empty()) {
     Config::options.visualizers.erase(key);

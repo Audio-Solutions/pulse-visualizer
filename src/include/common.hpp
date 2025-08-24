@@ -59,6 +59,15 @@
 #ifndef PULSE_DATA_DIR
 #define PULSE_DATA_DIR ""
 #endif
+#ifndef VERSION_STRING
+#define VERSION_STRING "0.0.0"
+#endif
+#ifndef VERSION_COMMIT
+#define VERSION_COMMIT "0000000"
+#endif
+#ifndef VERSION_FULL
+#define VERSION_FULL "0.0.0-0000000"
+#endif
 
 namespace CmdlineArgs {
 extern bool debug;

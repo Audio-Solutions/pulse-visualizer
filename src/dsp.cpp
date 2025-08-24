@@ -63,8 +63,10 @@ std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 // FFT data buffers
 std::vector<float> fftMidRaw;
 std::vector<float> fftMid;
+std::vector<float> fftMidPhase;
 std::vector<float> fftSideRaw;
 std::vector<float> fftSide;
+std::vector<float> fftSidePhase;
 
 const size_t bufferSize = 32768;
 size_t writePos = 0;
@@ -74,7 +76,7 @@ float pitch;
 float pitchDB;
 
 std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames) {
-  if (freq < Config::options.fft.min_freq || freq > Config::options.fft.max_freq)
+  if (freq < Config::options.fft.limits.min_freq || freq > Config::options.fft.limits.max_freq)
     return std::make_tuple("-", 0, 0);
 
   // Convert frequency to MIDI note number
@@ -94,7 +96,7 @@ namespace FIR {
 Filter bandpass_filter;
 
 float Filter::process(float x) {
-  const size_t nTaps = static_cast<size_t>(order) + 1;
+  const size_t nTaps = coeffs.size();
   if (nTaps == 0)
     return x;
   idx %= nTaps;
@@ -193,10 +195,10 @@ std::vector<float> kaiser_window(size_t length, float beta) {
 }
 
 void design(float center) {
-  float bw = Config::options.bandpass_filter.bandwidth;
+  float bw = Config::options.oscilloscope.bandpass.bandwidth;
 
   // Kaiser window with beta chosen for ~60 dB sidelobe attenuation
-  float sidelobe = Config::options.bandpass_filter.sidelobe;
+  float sidelobe = Config::options.oscilloscope.bandpass.sidelobe;
   float beta = sidelobe < 21.0f   ? 0.0f
                : sidelobe < 50.0f ? 0.5842f * powf(sidelobe - 21.0f, 0.4f) + 0.07886f * (sidelobe - 21.0f)
                                   : 0.1102f * (sidelobe - 8.7f);
@@ -280,12 +282,11 @@ std::vector<Biquad> biquads;
 
 void init() {
   biquads.clear();
-  int sections = Config::options.lowpass.order / 2;
-  float w0 = 2.f * M_PI * Config::options.lowpass.cutoff / Config::options.audio.sample_rate;
+  int sections = Config::options.oscilloscope.lowpass.order / 2;
+  float w0 = 2.f * M_PI * Config::options.oscilloscope.lowpass.cutoff / Config::options.audio.sample_rate;
   for (int k = 0; k < sections; ++k) {
-    float theta = M_PI * (2.f * k + 1.f) / (2.f * Config::options.lowpass.order);
+    float theta = M_PI * (2.f * k + 1.f) / (2.f * Config::options.oscilloscope.lowpass.order);
     float sin_theta = sinf(theta);
-    float cos_theta = cosf(theta);
     float alpha = sinf(w0) / (2.f * sin_theta);
     float b0 = (1.f - cosf(w0)) / 2.f;
     float b1 = 1.f - cosf(w0);
@@ -305,15 +306,15 @@ void init() {
 }
 
 void reconfigure() {
-  static float lastCutoff = Config::options.lowpass.cutoff;
+  static float lastCutoff = Config::options.oscilloscope.lowpass.cutoff;
   static float lastSampleRate = Config::options.audio.sample_rate;
-  static int lastOrder = Config::options.lowpass.order;
-  if (lastCutoff == Config::options.lowpass.cutoff && lastSampleRate == Config::options.audio.sample_rate &&
-      lastOrder == Config::options.lowpass.order)
+  static int lastOrder = Config::options.oscilloscope.lowpass.order;
+  if (lastCutoff == Config::options.oscilloscope.lowpass.cutoff &&
+      lastSampleRate == Config::options.audio.sample_rate && lastOrder == Config::options.oscilloscope.lowpass.order)
     return;
-  lastCutoff = Config::options.lowpass.cutoff;
+  lastCutoff = Config::options.oscilloscope.lowpass.cutoff;
   lastSampleRate = Config::options.audio.sample_rate;
-  lastOrder = Config::options.lowpass.order;
+  lastOrder = Config::options.oscilloscope.lowpass.order;
   init();
 }
 
@@ -362,8 +363,8 @@ std::pair<size_t, size_t> find(float f) {
 
 void init() {
   // Calculate number of frequency bins
-  float octaves = log2f(Config::options.fft.max_freq / Config::options.fft.min_freq);
-  bins = std::clamp(static_cast<size_t>(ceil(octaves * Config::options.fft.cqt_bins_per_octave)),
+  float octaves = log2f(Config::options.fft.limits.max_freq / Config::options.fft.limits.min_freq);
+  bins = std::clamp(static_cast<size_t>(ceil(octaves * Config::options.fft.cqt.bins_per_octave)),
                     static_cast<size_t>(1), static_cast<size_t>(1000));
   frequencies.resize(bins);
   lengths.resize(bins);
@@ -371,10 +372,10 @@ void init() {
   imags.resize(bins);
 
   // Calculate Q factor and frequency bins
-  float binRatio = 1.f / Config::options.fft.cqt_bins_per_octave;
+  float binRatio = 1.f / Config::options.fft.cqt.bins_per_octave;
   Q = 1.f / (powf(2.f, binRatio) - 1.f);
   for (int k = 0; k < bins; k++) {
-    frequencies[k] = Config::options.fft.min_freq * powf(2.f, static_cast<float>(k) * binRatio);
+    frequencies[k] = Config::options.fft.limits.min_freq * powf(2.f, static_cast<float>(k) * binRatio);
   }
 }
 
@@ -434,18 +435,18 @@ void generate() {
 }
 
 bool regenerate() {
-  static int lastCQTBins = Config::options.fft.cqt_bins_per_octave;
-  static float lastMinFreq = Config::options.fft.min_freq;
-  static float lastMaxFreq = Config::options.fft.max_freq;
+  static int lastCQTBins = Config::options.fft.cqt.bins_per_octave;
+  static float lastMinFreq = Config::options.fft.limits.min_freq;
+  static float lastMaxFreq = Config::options.fft.limits.max_freq;
 
   // Check if regeneration is needed
-  if (lastCQTBins == Config::options.fft.cqt_bins_per_octave && lastMinFreq == Config::options.fft.min_freq &&
-      lastMaxFreq == Config::options.fft.max_freq) [[likely]]
+  if (lastCQTBins == Config::options.fft.cqt.bins_per_octave && lastMinFreq == Config::options.fft.limits.min_freq &&
+      lastMaxFreq == Config::options.fft.limits.max_freq) [[likely]]
     return false;
 
-  lastCQTBins = Config::options.fft.cqt_bins_per_octave;
-  lastMinFreq = Config::options.fft.min_freq;
-  lastMaxFreq = Config::options.fft.max_freq;
+  lastCQTBins = Config::options.fft.cqt.bins_per_octave;
+  lastMinFreq = Config::options.fft.limits.min_freq;
+  lastMaxFreq = Config::options.fft.limits.max_freq;
 
   init();
   generate();
@@ -453,8 +454,10 @@ bool regenerate() {
   return true;
 }
 
-template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std::vector<float>& out) {
+template <typename Alloc>
+void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::vector<float>& phase) {
   out.resize(bins);
+  phase.resize(bins);
 
 #ifdef HAVE_AVX2
   // SIMD-optimized processing function
@@ -535,6 +538,7 @@ template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std:
     }
 #endif
     out[k] = std::sqrt(realSum * realSum + imagSum * imagSum) * 2.f;
+    phase[k] = std::atan2(imagSum, realSum);
   }
 }
 } // namespace ConstantQ
@@ -595,16 +599,16 @@ void cleanup() {
 
 bool recreatePlans() {
   static size_t lastFFTSize = Config::options.fft.size;
-  static bool lastCQTState = Config::options.fft.enable_cqt;
+  static bool lastCQTState = Config::options.fft.cqt.enabled;
   static float lastSampleRate = Config::options.audio.sample_rate;
 
   // Check if FFT plans need to be recreated
-  if (lastFFTSize == Config::options.fft.size && lastCQTState == Config::options.fft.enable_cqt &&
+  if (lastFFTSize == Config::options.fft.size && lastCQTState == Config::options.fft.cqt.enabled &&
       lastSampleRate == Config::options.audio.sample_rate) [[likely]]
     return false;
 
   lastFFTSize = Config::options.fft.size;
-  lastCQTState = Config::options.fft.enable_cqt;
+  lastCQTState = Config::options.fft.cqt.enabled;
   lastSampleRate = Config::options.audio.sample_rate;
 
   std::lock_guard<std::mutex> lockMid(mutexMid);
@@ -637,17 +641,18 @@ int FFTMain() {
     dataReadyFFTMain = false;
 
     // Process main channel FFT
-    if (Config::options.fft.enable_cqt) {
-      ConstantQ::compute(bufferMid, fftMidRaw);
+    if (Config::options.fft.cqt.enabled) {
+      ConstantQ::compute(bufferMid, fftMidRaw, fftMidPhase);
     } else {
       fftMidRaw.resize(Config::options.fft.size);
+      fftMidPhase.resize(Config::options.fft.size);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
 
       // Apply window function and prepare FFT input
       for (int i = 0; i < Config::options.fft.size; i++) {
         float win = 0.5f * (1.f - cos(2.f * M_PI * i / (Config::options.fft.size)));
         size_t pos = (start + i) % bufferSize;
-        if (Config::options.fft.stereo_mode == "leftright")
+        if (Config::options.fft.mode == "leftright")
           FFT::inMid[i] = (bufferSide[pos] - bufferMid[pos]) * 0.5f * win;
         else
           FFT::inMid[i] = bufferMid[pos] * win;
@@ -666,6 +671,11 @@ int FFTMain() {
         if (i != 0 && i != Config::options.fft.size / 2)
           mag *= 2.f;
         fftMidRaw[i] = mag;
+      }
+
+      // Convert to phase spectrum
+      for (int i = 0; i < Config::options.fft.size / 2 + 1; i++) {
+        fftMidPhase[i] = std::atan2(FFT::outMid[i][1], FFT::outMid[i][0]);
       }
     }
 
@@ -688,12 +698,12 @@ int FFTMain() {
     float y2 = fftMidRaw[peakBin];
     float y3 = fftMidRaw[std::min(static_cast<uint32_t>(fftMidRaw.size() - 1), peakBin + 1)];
     float denom = y1 - 2.f * y2 + y3;
-    if (Config::options.fft.enable_cqt) {
+    if (Config::options.fft.cqt.enabled) {
       if (std::abs(denom) > FLT_EPSILON) {
         float offset = std::clamp(0.5f * (y1 - y3) / denom, -0.5f, 0.5f);
         float binInterp = static_cast<float>(peakBin) + offset;
-        float logMinFreq = log2f(Config::options.fft.min_freq);
-        float binRatio = 1.f / Config::options.fft.cqt_bins_per_octave;
+        float logMinFreq = log2f(Config::options.fft.limits.min_freq);
+        float binRatio = 1.f / Config::options.fft.cqt.bins_per_octave;
         float intpLog = logMinFreq + binInterp * binRatio;
         peakFreq = powf(2.f, intpLog);
       } else
@@ -710,18 +720,18 @@ int FFTMain() {
     pitchDB = peakDb;
 
     // Apply smoothing if enabled
-    if (Config::options.fft.enable_smoothing) {
+    if (Config::options.fft.smoothing.enabled && Config::options.fft.cqt.enabled) {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;
-      const float riseSpeed = Config::options.fft.rise_speed * WindowManager::dt;
-      const float fallSpeed =
-          (SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed
-                                                                          : Config::options.fft.fall_speed) *
-          WindowManager::dt;
+      const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
+      const float fallSpeed = (SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering
+                                   ? Config::options.fft.smoothing.hover_fall_speed
+                                   : Config::options.fft.smoothing.fall_speed) *
+                              WindowManager::dt;
       // Calculate minimum value for clamping (1 dB below screen minimum)
-      const float minValue = powf(10.f, (Config::options.fft.min_db - 1.0f) / 20.f);
-      const float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
+      const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
+      const float k = Config::options.fft.slope / 20.f / log10f(2.f);
 
       // Pre-calculate constants for AVX2
 #ifdef HAVE_AVX2
@@ -766,7 +776,7 @@ int FFTMain() {
         __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minvVec);
 
         __m256 frequencies;
-        if (Config::options.fft.enable_cqt)
+        if (Config::options.fft.cqt.enabled)
           frequencies = _mm256_loadu_ps(DSP::ConstantQ::frequencies.data() + i);
         else
           frequencies = _mm256_mul_ps(_mm256_add_ps(_mm256_set1_ps(static_cast<float>(i)), incrementVec), freqScaleVec);
@@ -795,7 +805,7 @@ int FFTMain() {
         fftMid[i] = powf(10.f, newDB / 20.f) - FLT_EPSILON;
 
         float f;
-        if (Config::options.fft.enable_cqt)
+        if (Config::options.fft.cqt.enabled)
           f = DSP::ConstantQ::frequencies[i];
         else
           f = static_cast<float>(i) * (Config::options.audio.sample_rate / bins);
@@ -823,17 +833,18 @@ int FFTAlt() {
       continue;
 
     // Process alternative channel FFT (for stereo visualization)
-    if (Config::options.fft.enable_cqt) {
-      ConstantQ::compute(bufferSide, fftSideRaw);
+    if (Config::options.fft.cqt.enabled) {
+      ConstantQ::compute(bufferSide, fftSideRaw, fftSidePhase);
     } else {
       fftSideRaw.resize(Config::options.fft.size);
+      fftSidePhase.resize(Config::options.fft.size);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
 
       // Apply window function and prepare FFT input
       for (int i = 0; i < Config::options.fft.size; i++) {
         float win = 0.5f * (1.f - cos(2.f * M_PI * i / (Config::options.fft.size)));
         size_t pos = (start + i) % bufferSize;
-        if (Config::options.fft.stereo_mode == "leftright")
+        if (Config::options.fft.mode == "leftright")
           FFT::inSide[i] = (bufferSide[pos] + bufferMid[pos]) * 0.5f * win;
         else
           FFT::inSide[i] = bufferSide[pos] * win;
@@ -853,20 +864,25 @@ int FFTAlt() {
           mag *= 2.f;
         fftSideRaw[i] = mag;
       }
+
+      // Convert to phase spectrum
+      for (int i = 0; i < Config::options.fft.size / 2 + 1; i++) {
+        fftSidePhase[i] = std::atan2(FFT::outSide[i][1], FFT::outSide[i][0]);
+      }
     }
 
     // Apply smoothing to alternative channel
-    if (Config::options.fft.enable_smoothing) {
+    if (Config::options.fft.smoothing.enabled) {
       fftSide.resize(fftSideRaw.size());
       size_t bins = fftSide.size();
       size_t i = 0;
-      const float riseSpeed = Config::options.fft.rise_speed * WindowManager::dt;
-      const float fallSpeed =
-          (SpectrumAnalyzer::window->hovering ? Config::options.fft.hover_fall_speed : Config::options.fft.fall_speed) *
-          WindowManager::dt;
+      const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
+      const float fallSpeed = (SpectrumAnalyzer::window->hovering ? Config::options.fft.smoothing.hover_fall_speed
+                                                                  : Config::options.fft.smoothing.fall_speed) *
+                              WindowManager::dt;
       // Calculate minimum value for clamping (1 dB below screen minimum)
-      const float minValue = powf(10.f, (Config::options.fft.min_db - 1.0f) / 20.f);
-      const float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
+      const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
+      const float k = Config::options.fft.slope / 20.f / log10f(2.f);
 
       // Pre-calculate constants for AVX2
 #ifdef HAVE_AVX2
@@ -911,7 +927,7 @@ int FFTAlt() {
         __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minvVec);
 
         __m256 frequencies;
-        if (Config::options.fft.enable_cqt)
+        if (Config::options.fft.cqt.enabled)
           frequencies = _mm256_loadu_ps(DSP::ConstantQ::frequencies.data() + i);
         else
           frequencies = _mm256_mul_ps(_mm256_add_ps(_mm256_set1_ps(static_cast<float>(i)), incrementVec), freqScaleVec);
@@ -941,7 +957,7 @@ int FFTAlt() {
 
         // Apply slope correction and minimum value clamping (same as main FFT)
         float frequency;
-        if (Config::options.fft.enable_cqt)
+        if (Config::options.fft.cqt.enabled)
           frequency = DSP::ConstantQ::frequencies[i];
         else
           frequency = static_cast<float>(i) * Config::options.audio.sample_rate / static_cast<float>(bins);
@@ -1022,11 +1038,11 @@ int mainThread() {
     }
 
     // Process bandpass filter if pitch is detected
-    if (pitch > Config::options.fft.min_freq && pitch < Config::options.fft.max_freq)
+    if (pitch > Config::options.fft.limits.min_freq && pitch < Config::options.fft.limits.max_freq)
       FIR::process(pitch);
 
     // Process lowpass filter if enabled
-    if (Config::options.oscilloscope.enable_lowpass)
+    if (Config::options.oscilloscope.lowpass.enabled)
       Lowpass::process();
 
     // Add samples to LUFS calculation from processed buffers and process LUFS
@@ -1169,7 +1185,7 @@ namespace RMS {
 float rms;
 
 void process() {
-  size_t samples = Config::options.audio.sample_rate * Config::options.vu.time_window / 1000.0f;
+  size_t samples = Config::options.audio.sample_rate * Config::options.vu.window / 1000.0f;
   size_t start = (writePos - samples + bufferSize) % bufferSize;
   rms = 0.0f;
   for (size_t i = 0; i < samples; ++i) {
@@ -1186,6 +1202,6 @@ void process() {
 // Template instantiations
 template class AlignedAllocator<float, 32>;
 template void ConstantQ::compute<AlignedAllocator<float, 32>>(const std::vector<float, AlignedAllocator<float, 32>>& in,
-                                                              std::vector<float>& out);
+                                                              std::vector<float>& out, std::vector<float>& phase);
 
 } // namespace DSP

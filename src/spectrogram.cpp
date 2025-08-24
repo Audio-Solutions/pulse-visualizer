@@ -36,8 +36,8 @@ WindowManager::VisualizerWindow* window;
  * @return Normalized value between 0 and 1
  */
 float normalize(float db) {
-  float norm =
-      (db - Config::options.fft.min_db) / (Config::options.spectrogram.max_db - Config::options.spectrogram.min_db);
+  float norm = (db - Config::options.spectrogram.limits.min_db) /
+               (Config::options.spectrogram.limits.max_db - Config::options.spectrogram.limits.min_db);
   return std::clamp(norm, 0.f, 1.f);
 }
 
@@ -51,21 +51,21 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
   spectrum.resize(SDLWindow::windowSizes[window->sdlWindow].second);
 
   // Calculate frequency mapping parameters
-  float logMin = log10f(Config::options.fft.min_freq);
-  float logMax = log10f(Config::options.fft.max_freq);
+  float logMin = log10f(Config::options.fft.limits.min_freq);
+  float logMax = log10f(Config::options.fft.limits.max_freq);
   float logRange = logMax - logMin;
-  float freqRange = Config::options.fft.max_freq - Config::options.fft.min_freq;
+  float freqRange = Config::options.fft.limits.max_freq - Config::options.fft.limits.min_freq;
 
   // Map each pixel row to a frequency bin
   for (size_t i = 0; i < spectrum.size(); i++) {
     float normalized = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
     float logFreq = logMin + normalized * logRange;
-    float linFreq = Config::options.fft.min_freq + normalized * freqRange;
+    float linFreq = Config::options.fft.limits.min_freq + normalized * freqRange;
     float target = powf(10.f, Config::options.spectrogram.frequency_scale == "log" ? logFreq : linFreq);
 
     // Find corresponding frequency bins
     size_t bin1, bin2;
-    if (Config::options.fft.enable_cqt) {
+    if (Config::options.fft.cqt.enabled) {
       std::tie(bin1, bin2) = DSP::ConstantQ::find(target);
     } else {
       bin1 = target / (Config::options.audio.sample_rate * 0.5f / in.size());
@@ -75,7 +75,7 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
     // Interpolate between bins if necessary
     if (bin1 < in.size()) {
       if (bin2 < in.size() && bin1 != bin2) {
-        if (Config::options.fft.enable_cqt) {
+        if (Config::options.fft.cqt.enabled) {
           float f1 = DSP::ConstantQ::frequencies[bin1];
           float f2 = DSP::ConstantQ::frequencies[bin2];
           float frac = (target - f1) / (f2 - f1);
@@ -103,7 +103,7 @@ void render() {
   static size_t current = 0;
 
   // Calculate time interval for new columns
-  float interval = Config::options.spectrogram.time_window / static_cast<float>(window->width);
+  float interval = Config::options.spectrogram.window / static_cast<float>(window->width);
   static float accumulator = 0;
   accumulator += WindowManager::dt;
 

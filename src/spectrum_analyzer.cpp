@@ -37,16 +37,16 @@ void render() {
   SDLWindow::selectWindow(window->sdlWindow);
 
   // Calculate logarithmic frequency scale
-  float logMin = log(Config::options.fft.min_freq);
-  float logMax = log(Config::options.fft.max_freq);
+  float logMin = log(Config::options.fft.limits.min_freq);
+  float logMax = log(Config::options.fft.limits.max_freq);
 
   // Set viewport for rendering
   WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
 
   // Draw frequency markers if enabled
-  if (!Config::options.phosphor.enabled && Config::options.fft.frequency_markers) {
+  if (!Config::options.phosphor.enabled && Config::options.fft.markers) {
     auto drawLogLine = [&](float f) {
-      if (f < Config::options.fft.min_freq || f > Config::options.fft.max_freq)
+      if (f < Config::options.fft.limits.min_freq || f > Config::options.fft.limits.max_freq)
         return;
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
@@ -87,9 +87,9 @@ void render() {
     for (int decade = 1; decade <= 20000; decade *= 10) {
       for (int mult = 1; mult < 10; ++mult) {
         int freq = mult * decade;
-        if (freq < Config::options.fft.min_freq)
+        if (freq < Config::options.fft.limits.min_freq)
           continue;
-        if (freq > Config::options.fft.max_freq)
+        if (freq > Config::options.fft.limits.max_freq)
           break;
         drawLogLine(static_cast<float>(freq));
       }
@@ -97,112 +97,247 @@ void render() {
   }
 
   // Choose between smoothed and raw FFT data
-  const std::vector<float>& inMain = Config::options.fft.enable_smoothing ? DSP::fftMid : DSP::fftMidRaw;
-  const std::vector<float>& inAlt = Config::options.fft.enable_smoothing ? DSP::fftSide : DSP::fftSideRaw;
+  const std::vector<float>& inMain = Config::options.fft.smoothing.enabled ? DSP::fftMid : DSP::fftMidRaw;
+  const std::vector<float>& inAlt = Config::options.fft.smoothing.enabled ? DSP::fftSide : DSP::fftSideRaw;
 
   // Prepare point arrays
   pointsMain.clear();
   pointsAlt.clear();
   pointsMain.resize(inMain.size());
-  pointsAlt.resize(inAlt.size());
+  // Optional per-point depth factors (used for shading in sphere mode)
+  std::vector<float> depthsMain;
 
   // Generate main spectrum points
-  for (size_t bin = 0; bin < inMain.size(); bin++) {
-    // Calculate frequency for this bin
-    float f;
-    if (Config::options.fft.enable_cqt)
-      f = DSP::ConstantQ::frequencies[bin];
-    else
-      f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inMain.size());
+  if (Config::options.fft.sphere.enabled && Config::options.phosphor.enabled) {
+    float cx = window->width / 2.0f;
+    float cy = SDLWindow::windowSizes[window->sdlWindow].second / 2.0f;
+    float minSize = static_cast<float>(std::min(window->width, SDLWindow::windowSizes[window->sdlWindow].second));
 
-    // Convert to logarithmic X coordinate
-    float logX = (log(f) - logMin) / (logMax - logMin);
-    float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
-                              Config::options.fft.rotation == Config::ROTATION_270
-                          ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
-                          : static_cast<float>(window->width));
-    float mag = inMain[bin];
+    // Place points on a circle and rotate along Y using per-bin phase; project with mild perspective.
+    const float cameraDistance = 4.0f * minSize;
 
-    // Apply slope correction
-    float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
-    float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
-    mag *= gain;
-
-    // Convert to decibels and map to Y coordinate
-    float dB = 20.f * log10f(mag + FLT_EPSILON);
-    float height =
-        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? window->width
-            : SDLWindow::windowSizes[window->sdlWindow].second;
-    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
-
-    if (Config::options.fft.flip_x)
-      y = height - y;
-
-    // Apply rotation transformation
-    switch (Config::options.fft.rotation) {
-    case Config::ROTATION_0:
-      pointsMain[bin] = {x, y};
-      break;
-    case Config::ROTATION_90:
-      pointsMain[bin] = {window->width - y, x};
-      break;
-    case Config::ROTATION_180:
-      pointsMain[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
-      break;
-    case Config::ROTATION_270:
-      pointsMain[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
-      break;
+    // Align phases so the current main pitch has phase zero
+    float refPhaseMid = 0.0f;
+    bool haveRefPhase = false;
+    if (DSP::pitchDB > Config::options.audio.silence_threshold && !DSP::fftMidPhase.empty()) {
+      size_t refIdx = 0;
+      if (Config::options.fft.cqt.enabled) {
+        auto brk = DSP::ConstantQ::find(DSP::pitch);
+        size_t i0 =
+            std::min(brk.first, DSP::ConstantQ::frequencies.size() ? DSP::ConstantQ::frequencies.size() - 1 : 0);
+        size_t i1 =
+            std::min(brk.second, DSP::ConstantQ::frequencies.size() ? DSP::ConstantQ::frequencies.size() - 1 : 0);
+        float f0 = (i0 < DSP::ConstantQ::frequencies.size()) ? DSP::ConstantQ::frequencies[i0] : 0.0f;
+        float f1 = (i1 < DSP::ConstantQ::frequencies.size()) ? DSP::ConstantQ::frequencies[i1] : 0.0f;
+        refIdx = (std::fabs(f0 - DSP::pitch) <= std::fabs(f1 - DSP::pitch)) ? i0 : i1;
+      } else {
+        size_t bins = inMain.size();
+        float binHz = Config::options.audio.sample_rate / std::max(static_cast<float>(bins), FLT_EPSILON);
+        refIdx = static_cast<size_t>(roundf(DSP::pitch / std::max(binHz, FLT_EPSILON)));
+      }
+      if (refIdx < DSP::fftMidPhase.size()) {
+        refPhaseMid = DSP::fftMidPhase[refIdx];
+        haveRefPhase = true;
+      }
     }
-  }
+    // Build right-side semicircle
+    std::vector<std::pair<float, float>> semiMain;
+    std::vector<float> semiMainDepth;
+    // Determine max bin to include based on sphere_max_freq
+    float fMin = std::max(Config::options.fft.limits.min_freq, 1.0f);
+    float fMax = std::max(Config::options.fft.sphere.max_freq, fMin + 1.0f);
+    float logMinSphere = logf(fMin);
+    float logMaxSphere = logf(fMax);
 
-  // Generate alternative spectrum points (for stereo visualization)
-  for (size_t bin = 0; bin < inAlt.size() && !Config::options.phosphor.enabled; bin++) {
-    // Calculate frequency for this bin
-    float f;
-    if (Config::options.fft.enable_cqt)
-      f = DSP::ConstantQ::frequencies[bin];
-    else
-      f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inAlt.size());
+    size_t maxBinMain;
+    if (Config::options.fft.cqt.enabled) {
+      size_t limit = std::min(inMain.size(), DSP::ConstantQ::frequencies.size());
+      size_t k = 0;
+      for (; k < limit; ++k) {
+        if (DSP::ConstantQ::frequencies[k] > fMax)
+          break;
+      }
+      maxBinMain = (k == 0) ? 0 : (k - 1);
+    } else {
+      float binHz = Config::options.audio.sample_rate / std::max(static_cast<float>(inMain.size()), 1.0f);
+      maxBinMain = static_cast<size_t>(std::floor(fMax / std::max(binHz, FLT_EPSILON)));
+      if (maxBinMain >= inMain.size())
+        maxBinMain = inMain.size() - 1;
+    }
 
-    // Convert to logarithmic X coordinate
-    float logX = (log(f) - logMin) / (logMax - logMin);
-    float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
-                              Config::options.fft.rotation == Config::ROTATION_270
-                          ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
-                          : static_cast<float>(window->width));
-    float mag = inAlt[bin];
+    semiMain.reserve(maxBinMain + 1);
+    for (size_t bin = 0; bin <= maxBinMain; bin++) {
+      float f;
+      if (Config::options.fft.cqt.enabled)
+        f = DSP::ConstantQ::frequencies[bin];
+      else
+        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inMain.size());
 
-    // Apply slope correction
-    float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
-    float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
-    mag *= gain;
+      float mag = inMain[bin];
+      float k = Config::options.fft.slope / 20.f / log10f(2.f);
+      float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
+      mag *= gain;
 
-    // Convert to decibels and map to Y coordinate
-    float dB = 20.f * log10f(mag + FLT_EPSILON);
-    float height =
-        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? window->width
-            : SDLWindow::windowSizes[window->sdlWindow].second;
-    float y = (dB - Config::options.fft.min_db) / (Config::options.fft.max_db - Config::options.fft.min_db) * height;
+      float dB = 20.f * log10f(mag + FLT_EPSILON);
+      float norm = (dB - Config::options.fft.limits.min_db) /
+                   (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db);
+      float radius = Config::options.fft.sphere.base_radius * minSize +
+                     norm * (0.5f - Config::options.fft.sphere.base_radius) * minSize;
+      float frac = (logf(std::max(f, fMin)) - logMinSphere) / std::max(logMaxSphere - logMinSphere, FLT_EPSILON);
+      frac = std::clamp(frac, 0.0f, 1.0f);    // 0..1
+      float baseAngle = M_PI_2 + frac * M_PI; // right semicircle, top->bottom
 
-    if (Config::options.fft.flip_x)
-      y = height - y;
+      // 3D point on XY plane (Z=0)
+      float x = radius * cos(baseAngle);
+      float y = radius * sin(baseAngle);
+      float z = 0.0f;
 
-    // Apply rotation transformation
-    switch (Config::options.fft.rotation) {
-    case Config::ROTATION_0:
-      pointsAlt[bin] = {x, y};
-      break;
-    case Config::ROTATION_90:
-      pointsAlt[bin] = {window->width - y, x};
-      break;
-    case Config::ROTATION_180:
-      pointsAlt[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
-      break;
-    case Config::ROTATION_270:
-      pointsAlt[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
-      break;
+      // Rotate around Y-axis by phase aligned to main pitch (harmonic-locked)
+      float phase = (bin < DSP::fftMidPhase.size()) ? DSP::fftMidPhase[bin] : 0.0f;
+      if (haveRefPhase) {
+        float pitchHz = std::max(DSP::pitch, 1.0f);
+        int harmonicIndex = std::max(1, static_cast<int>(roundf(f / pitchHz)));
+        phase -= static_cast<float>(harmonicIndex) * refPhaseMid;
+      }
+      // Normalize phase to [0, π]
+      while (phase < 0.0f)
+        phase += M_PI;
+      phase = fmodf(phase, M_PI);
+      float cosPhi = cosf(phase);
+      float sinPhi = sinf(phase);
+      float xr = x * cosPhi - z * sinPhi;
+      float yr = y;
+      float zr = x * sinPhi + z * cosPhi;
+
+      // Perspective projection with focal length
+      float denomProj = (zr + cameraDistance);
+      float scale = cameraDistance / std::max(denomProj, FLT_EPSILON);
+      float sx = cx + xr * scale;
+      float sy = cy + yr * scale;
+      semiMain.push_back({sx, sy});
+      // Depth factor: 0 at far back (zr == -radius), 1 at halfway/front (zr >= 0)
+      float radiusSafe = std::max(radius, FLT_EPSILON);
+      float br = zr < 0.0f ? std::clamp(1.0f + zr / radiusSafe, 0.0f, 1.0f) : 1.0f;
+      semiMainDepth.push_back(br);
+    }
+
+    // Compose full orb
+    pointsMain.clear();
+    pointsMain.reserve(semiMain.size() * 2);
+    depthsMain.clear();
+    depthsMain.reserve(semiMain.size() * 2);
+    for (const auto& p : semiMain)
+      pointsMain.push_back(p);
+    for (const auto d : semiMainDepth)
+      depthsMain.push_back(d);
+    for (size_t i = semiMain.size(); i-- > 0;) {
+      auto p = semiMain[i];
+      float mx = 2.0f * cx - p.first;
+      pointsMain.push_back({mx, p.second});
+      depthsMain.push_back(semiMainDepth[i]);
+    }
+  } else {
+    for (size_t bin = 0; bin < inMain.size(); bin++) {
+      // Calculate frequency for this bin
+      float f;
+      if (Config::options.fft.cqt.enabled)
+        f = DSP::ConstantQ::frequencies[bin];
+      else
+        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inMain.size());
+
+      // Convert to logarithmic X coordinate
+      float logX = (log(f) - logMin) / (logMax - logMin);
+      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                                Config::options.fft.rotation == Config::ROTATION_270
+                            ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
+                            : static_cast<float>(window->width));
+      float mag = inMain[bin];
+
+      // Apply slope correction
+      float k = Config::options.fft.slope / 20.f / log10f(2.f);
+      float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
+      mag *= gain;
+
+      // Convert to decibels and map to Y coordinate
+      float dB = 20.f * log10f(mag + FLT_EPSILON);
+      float height =
+          Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+              ? window->width
+              : SDLWindow::windowSizes[window->sdlWindow].second;
+      float y = (dB - Config::options.fft.limits.min_db) /
+                (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
+
+      if (Config::options.fft.flip_x)
+        y = height - y;
+
+      // Apply rotation transformation
+      switch (Config::options.fft.rotation) {
+      case Config::ROTATION_0:
+        pointsMain[bin] = {x, y};
+        break;
+      case Config::ROTATION_90:
+        pointsMain[bin] = {window->width - y, x};
+        break;
+      case Config::ROTATION_180:
+        pointsMain[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
+        break;
+      case Config::ROTATION_270:
+        pointsMain[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
+        break;
+      }
+    }
+
+    // Generate alternative spectrum points (for stereo visualization)
+    if (!Config::options.phosphor.enabled)
+      pointsAlt.resize(inAlt.size());
+    for (size_t bin = 0; bin < inAlt.size() && !Config::options.phosphor.enabled; bin++) {
+      // Calculate frequency for this bin
+      float f;
+      if (Config::options.fft.cqt.enabled)
+        f = DSP::ConstantQ::frequencies[bin];
+      else
+        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inAlt.size());
+
+      // Convert to logarithmic X coordinate
+      float logX = (log(f) - logMin) / (logMax - logMin);
+      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
+                                Config::options.fft.rotation == Config::ROTATION_270
+                            ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
+                            : static_cast<float>(window->width));
+      float mag = inAlt[bin];
+
+      // Apply slope correction
+      float k = Config::options.fft.slope / 20.f / log10f(2.f);
+      float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
+      mag *= gain;
+
+      // Convert to decibels and map to Y coordinate
+      float dB = 20.f * log10f(mag + FLT_EPSILON);
+      float height =
+          Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+              ? window->width
+              : SDLWindow::windowSizes[window->sdlWindow].second;
+      float y = (dB - Config::options.fft.limits.min_db) /
+                (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
+
+      if (Config::options.fft.flip_x)
+        y = height - y;
+
+      // Apply rotation transformation
+      switch (Config::options.fft.rotation) {
+      case Config::ROTATION_0:
+        pointsAlt[bin] = {x, y};
+        break;
+      case Config::ROTATION_90:
+        pointsAlt[bin] = {window->width - y, x};
+        break;
+      case Config::ROTATION_180:
+        pointsAlt[bin] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
+        break;
+      case Config::ROTATION_270:
+        pointsAlt[bin] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
+        break;
+      }
     }
   }
 
@@ -224,9 +359,9 @@ void render() {
     vectorData.reserve(pointsMain.size() * 4);
 
     constexpr float REF_AREA = 400.f * 300.f;
-    float energy = Config::options.phosphor.beam_energy / REF_AREA *
-                   (Config::options.fft.enable_cqt ? window->width * SDLWindow::windowSizes[window->sdlWindow].second
-                                                   : 400.f * 50.f);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA *
+                   (Config::options.fft.cqt.enabled ? window->width * SDLWindow::windowSizes[window->sdlWindow].second
+                                                    : 400.f * 50.f);
 
     energy *= Config::options.fft.beam_multiplier * WindowManager::dt / 0.016f;
 
@@ -240,7 +375,7 @@ void render() {
       float dy = p2.second - p1.second;
       float segLen = std::max(sqrtf(dx * dx + dy * dy), FLT_EPSILON);
 
-      float totalE = energy * (dt / (Config::options.fft.enable_cqt ? segLen : 1.f / sqrtf(dx))) * 2.f;
+      float totalE = energy * (dt / (Config::options.fft.cqt.enabled ? segLen : 1.f / sqrtf(dx))) * 2.f;
 
       energies.push_back(totalE);
     }
@@ -254,7 +389,10 @@ void render() {
       // Calculate direction-based gradient using HSV
       float hue = 0.0f;
       float saturation = 0.6f;
-      float value = 1.0f;
+      // Depth-based brightness boost for sphere mode
+      float value = Config::options.fft.sphere.enabled && i < depthsMain.size()
+                        ? std::clamp(0.6f + 0.6f * depthsMain[i], 0.0f, 1.0f)
+                        : 1.0f;
 
       if (i > 0) {
         const auto& prev = pointsMain[i - 1];
@@ -263,12 +401,16 @@ void render() {
         float dy = curr.second - prev.second;
         float angle = atan2f(dy, dx);
 
-        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
-        hue = (angle + M_PI_2) / M_PI;
+        if (!Config::options.fft.sphere.enabled) {
+          // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+          hue = (angle + M_PI_2) / M_PI;
 
-        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
-        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
-        hue = squish + 0.77f;
+          // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+          float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+          hue = squish + 0.77f;
+        } else {
+          hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+        }
       } else if (i < pointsMain.size() - 1) {
         // For first point, use direction to next point
         const auto& curr = pointsMain[i];
@@ -277,12 +419,16 @@ void render() {
         float dy = next.second - curr.second;
         float angle = atan2f(dy, dx);
 
-        // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
-        hue = (angle + M_PI_2) / M_PI;
+        if (!Config::options.fft.sphere.enabled) {
+          // Convert angle to base hue: up = 0°, right = 0.5°, down = 1.0°
+          hue = (angle + M_PI_2) / M_PI;
 
-        // squish hue from 0.0, 1.0 towards 0.5 using exponential function
-        float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
-        hue = squish + 0.77f;
+          // squish hue from 0.0, 1.0 towards 0.5 using exponential function
+          float squish = 0.5f + (hue - 0.5f) * (0.5f + 0.5f * powf(fabsf(hue - 0.5f), 2.0f));
+          hue = squish + 0.77f;
+        } else {
+          hue = (angle + M_PI) / (2.0f * M_PI) + 0.77f;
+        }
       }
 
       // Convert HSV to RGB using existing functions
@@ -315,7 +461,7 @@ void render() {
   // Handle hover functionality and pitch display
   static std::string noteNamesSharp[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
   static std::string noteNamesFlat[] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
-  std::string* noteNames = (Config::options.fft.note_key_mode == "sharp") ? noteNamesSharp : noteNamesFlat;
+  std::string* noteNames = (Config::options.fft.key == "sharp") ? noteNamesSharp : noteNamesFlat;
 
   char overlay[128];
   float x = 10.0f;
@@ -333,7 +479,7 @@ void render() {
   float mouseYRel = SDLWindow::mousePos[window->sdlWindow].second;
 
   if (SDLWindow::focused[window->sdlWindow] && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
-      mouseYRel < SDLWindow::windowSizes[window->sdlWindow].second) {
+      mouseYRel < SDLWindow::windowSizes[window->sdlWindow].second && !Config::options.fft.sphere.enabled) {
     // Check if mouse is within window bounds
     // Draw crosshair
     glColor4fv(color);
@@ -372,8 +518,8 @@ void render() {
     }
 
     // Convert coordinates to frequency and dB
-    float logMin = log(Config::options.fft.min_freq);
-    float logMax = log(Config::options.fft.max_freq);
+    float logMin = log(Config::options.fft.limits.min_freq);
+    float logMax = log(Config::options.fft.limits.max_freq);
     float effectiveWidth =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? SDLWindow::windowSizes[window->sdlWindow].second
@@ -387,8 +533,9 @@ void render() {
     float freq = exp(logFreq);
 
     float normalizedY = unrotatedY / effectiveHeight;
-    float dB = Config::options.fft.min_db + normalizedY * (Config::options.fft.max_db - Config::options.fft.min_db);
-    float k = Config::options.fft.slope_correction_db / 20.f / log10f(2.f);
+    float dB = Config::options.fft.limits.min_db +
+               normalizedY * (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db);
+    float k = Config::options.fft.slope / 20.f / log10f(2.f);
     float gain = powf(freq * 1.0f / (440.0f * 2.0f), -k);
     dB += 20.f * log10f(gain);
 

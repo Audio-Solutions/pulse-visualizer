@@ -30,23 +30,30 @@ enum Rotation { ROTATION_0 = 0, ROTATION_90 = 1, ROTATION_180 = 2, ROTATION_270 
  */
 struct Options {
   struct Oscilloscope {
-    bool follow_pitch = true;
-    std::string alignment = "left";
-    std::string alignment_type = "peak";
-    bool limit_cycles = false;
-    int cycles = 1;
-    float min_cycle_time = 16.0f;
-    float time_window = 64.0f;
     float beam_multiplier = 1.0f;
-    bool enable_lowpass = false;
-    Rotation rotation = ROTATION_0;
     bool flip_x = false;
-  } oscilloscope;
+    Rotation rotation = ROTATION_0;
+    float window = 50.0f;
 
-  struct BandpassFilter {
-    float bandwidth = 30.0f;
-    float sidelobe = 60.0f;
-  } bandpass_filter;
+    struct Pitch {
+      bool follow = true;
+      std::string type = "zero_crossing";
+      std::string alignment = "center";
+      int cycles = 3;
+      float min_cycle_time = 16.0f;
+    } pitch;
+
+    struct Lowpass {
+      bool enabled = false;
+      float cutoff = 200.0f;
+      int order = 4;
+    } lowpass;
+
+    struct Bandpass {
+      float bandwidth = 10.0f;
+      float sidelobe = 60.0f;
+    } bandpass;
+  } oscilloscope;
 
   struct Lissajous {
     bool enable_splines = true;
@@ -57,35 +64,52 @@ struct Options {
   } lissajous;
 
   struct FFT {
-    float min_freq = 10.0f;
-    float max_freq = 20000.0f;
-    float sample_rate = 44100.0f;
-    float slope_correction_db = 4.5f;
-    float min_db = -60.0f;
-    float max_db = 10.0f;
-    std::string stereo_mode = "midside";
-    std::string note_key_mode = "sharp";
-    bool enable_cqt = false;
-    int cqt_bins_per_octave = 24;
-    bool enable_smoothing = false;
-    float rise_speed = 500.0f;
-    float fall_speed = 50.0f;
-    float hover_fall_speed = 10.0f;
-    int size = 4096;
     float beam_multiplier = 1.0f;
-    bool frequency_markers = false;
     Rotation rotation = ROTATION_0;
     bool flip_x = false;
+    bool markers = true;
+    int size = 4096;
+    float slope = 3.0f;
+    std::string key = "sharp";
+    std::string mode = "midside";
+
+    struct Limits {
+      float max_db = 0.0f;
+      float max_freq = 22000.0f;
+      float min_db = -60.0f;
+      float min_freq = 10.0f;
+    } limits;
+
+    struct Smoothing {
+      bool enabled = true;
+      float fall_speed = 50.0f;
+      float hover_fall_speed = 10.0f;
+      float rise_speed = 500.0f;
+    } smoothing;
+
+    struct CQT {
+      int bins_per_octave = 60;
+      bool enabled = true;
+    } cqt;
+
+    struct Sphere {
+      bool enabled = true;
+      float max_freq = 5000.0f;
+      float base_radius = 0.1f;
+    } sphere;
   } fft;
 
   struct Spectrogram {
-    float time_window = 2.0f;
-    float min_db = -80.0f;
-    float max_db = -10.0f;
+    float window = 2.0f;
     bool interpolation = true;
     std::string frequency_scale = "log";
-    float min_freq = 20.0f;
-    float max_freq = 20000.0f;
+
+    struct Limits {
+      float max_db = -10.0f;
+      float max_freq = 22000.0f;
+      float min_db = -60.0f;
+      float min_freq = 20.0f;
+    } limits;
   } spectrogram;
 
   struct Audio {
@@ -114,24 +138,34 @@ struct Options {
 
   struct Phosphor {
     bool enabled = false;
-    float near_blur_intensity = 0.2f;
-    float far_blur_intensity = 0.6f;
-    float beam_energy = 100.0f;
-    float decay_slow = 10.0f;
-    float decay_fast = 100.0f;
-    float line_blur_spread = 16.0f;
-    float line_width = 2.0f;
-    int age_threshold = 256;
-    float range_factor = 5.0f;
-    bool enable_grain = true;
-    float tension = 0.5f;
-    bool enable_curved_screen = false;
-    float screen_curvature = 0.3f;
-    float screen_gap = 0.05f;
-    float grain_strength = 0.5f;
-    float vignette_strength = 0.3f;
-    float chromatic_aberration_strength = 0.003f;
-    bool colorbeam = false;
+
+    struct Beam {
+      float energy = 90.0f;
+      bool rainbow = true;
+      float width = 0.5f;
+      float tension = 0.5f;
+    } beam;
+
+    struct Blur {
+      float spread = 128.0f;
+      float range = 2.0f;
+      float near_intensity = 0.6f;
+      float far_intensity = 0.8f;
+    } blur;
+
+    struct Decay {
+      float fast = 40.0f;
+      float slow = 6.0f;
+      float threshold = 14.0f;
+    } decay;
+
+    struct Screen {
+      float curvature = 0.1f;
+      float gap = 0.03f;
+      float vignette = 0.3f;
+      float chromatic_aberration = 0.008f;
+      float grain = 0.1f;
+    } screen;
   } phosphor;
 
   struct LUFS {
@@ -141,20 +175,18 @@ struct Options {
   } lufs;
 
   struct VU {
-    float time_window = 0.3f;
+    float window = 100.0f;
     std::string style = "digital";
     float calibration_db = 0.0f;
     std::string scale = "linear";
-    bool enable_momentum = false;
-    float spring_constant = 0.01f;
-    float damping_ratio = 0.1f;
-    float needle_width = 5.0f;
-  } vu;
+    float needle_width = 2.0f;
 
-  struct Lowpass {
-    float cutoff = 20000.0f;
-    int order = 1;
-  } lowpass;
+    struct Momentum {
+      bool enabled = true;
+      float damping_ratio = 10.0f;
+      float spring_constant = 500.0f;
+    } momentum;
+  } vu;
 
   std::string font;
 };
@@ -179,7 +211,14 @@ void copyFiles();
  */
 std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path);
 
-template <typename T> T get(const YAML::Node& root, const std::string& path);
+/**
+ * @brief Read a value from the configuration into an output reference.
+ * @tparam T Target value type
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @param out Output reference to receive the parsed value
+ */
+template <typename T> void get(const YAML::Node& root, const std::string& path, T& out);
 
 /**
  * @brief Load configuration from file

@@ -51,8 +51,10 @@ extern std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 // FFT data
 extern std::vector<float> fftMidRaw;
 extern std::vector<float> fftMid;
+extern std::vector<float> fftMidPhase;
 extern std::vector<float> fftSideRaw;
 extern std::vector<float> fftSide;
+extern std::vector<float> fftSidePhase;
 
 extern const size_t bufferSize;
 extern size_t writePos;
@@ -158,7 +160,8 @@ bool regenerate();
  * @param in Input signal
  * @param out Output spectrum
  */
-template <typename Alloc> void compute(const std::vector<float, Alloc>& in, std::vector<float>& out);
+template <typename Alloc>
+void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::vector<float>& phase);
 
 } // namespace ConstantQ
 
