@@ -104,20 +104,18 @@ float sampleAntialiased(vec2 uv, vec2 texelSize, int channel) {
   // Only apply screen gap when curved screen is enabled
   vec2 scaledUV = uv;
   
-  if (screenCurvature > 1e-6) {
-    // Apply screen gap factor scaling
-    // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
-    float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
-    float visiblePercent = 1.0 - gapPercent;
-    vec2 gapOffset = vec2(gapPercent * 0.5);
-    scaledUV = (uv - gapOffset) / visiblePercent;
-    
-    // For curved screen, normalize so that the center of each edge maps to the edge after distortion
-    // Compute the scale factor so that crtDistortion(vec2(0.5,0)) = vec2(0.5,0) and similar for other edges
-    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
-    float scale = 0.5 / edgeNorm;
-    scaledUV = (scaledUV - 0.5) * scale + 0.5;
-  }
+  // Apply screen gap factor scaling
+  // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+  scaledUV = (uv - gapOffset) / visiblePercent;
+  
+  // For curved screen, normalize so that the center of each edge maps to the edge after distortion
+  // Compute the scale factor so that crtDistortion(vec2(0.5,0)) = vec2(0.5,0) and similar for other edges
+  float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+  float scale = 0.5 / edgeNorm;
+  scaledUV = (scaledUV - 0.5) * scale + 0.5;
 
   // Check if the scaled coordinate is within the valid range
   if (scaledUV.x < 0.0 || scaledUV.x > 1.0 || scaledUV.y < 0.0 || scaledUV.y > 1.0) {
@@ -224,7 +222,13 @@ float tanhColormapChannel(float mapIndex) {
 }
 
 void main() {
+  ivec2 texSizeInt = ivec2(texSize);
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+
+  if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y) {
+    return;
+  }
+
   vec2 uv = vec2(coord) / vec2(texSize);
   vec2 texelSize = 1.0 / vec2(texSize);
 
@@ -235,7 +239,7 @@ void main() {
   vec2 toCenter = uv - center;
   
   vec2 uvR, uvG, uvB;
-  if (chromaticAberrationStrength == 0.0) {
+  if (chromaticAberrationStrength < 1e-6) {
     uvR = uv;
     uvG = uv;
     uvB = uv;
@@ -257,20 +261,20 @@ void main() {
       energyB = sampleAntialiased(uvB, texelSize, 0);
     }
   } else {
-    ivec2 coordR = ivec2(uvR * vec2(texSize));
-    ivec2 coordG = ivec2(uvG * vec2(texSize));
-    ivec2 coordB = ivec2(uvB * vec2(texSize));
-    coordR = clamp(coordR, ivec2(0), texSize - 1);
-    coordG = clamp(coordG, ivec2(0), texSize - 1);
-    coordB = clamp(coordB, ivec2(0), texSize - 1);
+    vec2 coordR = vec2(uvR * vec2(texSize));
+    vec2 coordG = vec2(uvG * vec2(texSize));
+    vec2 coordB = vec2(uvB * vec2(texSize));
+    coordR = clamp(coordR, vec2(0), texSize - 1);
+    coordG = clamp(coordG, vec2(0), texSize - 1);
+    coordB = clamp(coordB, vec2(0), texSize - 1);
 
-    energyR = float(imageLoad(energyTexR, coordR).r);
+    energyR = float(imageLoad(energyTexR, ivec2(round(coordR))).r);
     if (colorbeam) {
-      energyG = float(imageLoad(energyTexG, coordG).r);
-      energyB = float(imageLoad(energyTexB, coordB).r);
+      energyG = float(imageLoad(energyTexG, ivec2(round(coordG))).r);
+      energyB = float(imageLoad(energyTexB, ivec2(round(coordB))).r);
     } else {
-      energyG = float(imageLoad(energyTexR, coordG).r);
-      energyB = float(imageLoad(energyTexR, coordB).r);
+      energyG = float(imageLoad(energyTexR, ivec2(round(coordG))).r);
+      energyB = float(imageLoad(energyTexR, ivec2(round(coordB))).r);
     }
   }
 
@@ -307,7 +311,12 @@ void main() {
   vec3 borderColor = blackColor * 0.7;
 
   // Blend between screen content and border based on mask
-  vec3 outColor = mix(borderColor, screenColor, screenMask);
+  vec3 outColor;
+  if (screenCurvature > 1e-6) {
+    outColor = mix(borderColor, screenColor, screenMask);
+  } else {
+    outColor = screenColor;
+  }
 
   // Vignette effect
   if (vignetteStrength > 0.0) {

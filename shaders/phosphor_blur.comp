@@ -49,7 +49,7 @@ void main() {
     return;
   }
 
-  if (line_blur_spread < 0.01) {
+  if (line_blur_spread < 1e-6) {
     uint valueR = imageLoad(inputTexR, coord).r;
     uint valueG = colorbeam ? imageLoad(inputTexG, coord).r : 0u;
     uint valueB = colorbeam ? imageLoad(inputTexB, coord).r : 0u;
