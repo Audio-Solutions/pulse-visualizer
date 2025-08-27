@@ -188,7 +188,7 @@ inline void initPages() {
     float cy = cyInit;
 
     // follow_pitch
-    createCheckElement(page, cy, "follow_pitch", &Config::options.oscilloscope.follow_pitch, "Follow pitch",
+    createCheckElement(page, cy, "follow_pitch", &Config::options.oscilloscope.pitch.follow, "Follow pitch",
                        "Stabilizes the oscilloscope to the pitch of the sound");
 
     // alignment
@@ -199,7 +199,7 @@ inline void initPages() {
           {"right",  "Right" },
       };
 
-      createEnumDropElement<std::string>(page, cy, "alignment", &Config::options.oscilloscope.alignment, values,
+      createEnumDropElement<std::string>(page, cy, "alignment", &Config::options.oscilloscope.pitch.alignment, values,
                                          "Alignment", "Alignment position");
     }
 
@@ -210,24 +210,21 @@ inline void initPages() {
           {"zero_crossing", "Zero crossing"},
       };
 
-      createEnumDropElement<std::string>(page, cy, "alignment_type", &Config::options.oscilloscope.alignment_type,
-                                         values, "Alignment type", "Alignment type");
+      createEnumDropElement<std::string>(page, cy, "alignment_type", &Config::options.oscilloscope.pitch.type, values,
+                                         "Alignment type", "Alignment type");
     }
 
-    // limit_cycles
-    createCheckElement(page, cy, "limit_cycles", &Config::options.oscilloscope.limit_cycles, "Limit cycles",
-                       "Only track n cycles of the waveform");
-
-    // cycles
-    createSliderElement<int>(page, cy, "cycles", &Config::options.oscilloscope.cycles, 1, 16, "Cycle count",
+    // cycles (Implies limit_cycles == true if non-zero)
+    createSliderElement<int>(page, cy, "cycles", &Config::options.oscilloscope.pitch.cycles, 1, 16, "Cycle count",
                              "Number of cycles to track when limit_cycles is true", 0);
 
     // min_cycle_time
-    createSliderElement<float>(page, cy, "min_cycle_time", &Config::options.oscilloscope.min_cycle_time, 1.f, 100.f,
-                               "Minimum cycle time (ms)", "Minimum time window to display in oscilloscope in ms");
+    createSliderElement<float>(page, cy, "min_cycle_time", &Config::options.oscilloscope.pitch.min_cycle_time, 1.f,
+                               100.f, "Minimum cycle time (ms)",
+                               "Minimum time window to display in oscilloscope in ms");
 
     // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.time_window, 1.f, 500.f,
+    createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.window, 1.f, 500.f,
                                "Time window (ms)", "Time window for oscilloscope in ms");
 
     // beam_multiplier
@@ -235,8 +232,16 @@ inline void initPages() {
                                "Beam multiplier", "Beam multiplier for phosphor effect");
 
     // enable_lowpass
-    createCheckElement(page, cy, "enable_lowpass", &Config::options.oscilloscope.enable_lowpass, "Enable lowpass",
+    createCheckElement(page, cy, "enable_lowpass", &Config::options.oscilloscope.lowpass.enabled, "Enable lowpass",
                        "Enable lowpass filter for oscilloscope");
+
+    // bandwidth
+    createSliderElement<float>(page, cy, "bandwidth", &Config::options.oscilloscope.bandpass.bandwidth, 0, 1000.f,
+                               "Bandpass bandwidth (Hz)", "Bandwidth of the bandpass filter in Hz");
+
+    // sidelobe
+    createSliderElement<float>(page, cy, "sidelobe", &Config::options.oscilloscope.bandpass.sidelobe, 0, 1000.f,
+                               "Bandpass sidelobe (Hz)", "Sidelobe attenuation of the bandpass filter in Hz");
 
     // rotation
     {
@@ -257,19 +262,6 @@ inline void initPages() {
 
     page.height = cyInit - cy;
     pages.insert({PageType::Oscilloscope, page});
-  }
-
-  // bandpass filter
-  {
-    Page page;
-    float cy = cyInit;
-
-    // bandwidth
-    createSliderElement<float>(page, cy, "bandwidth", &Config::options.bandpass_filter.bandwidth, 0, 1000.f,
-                               "Band width (Hz)", "Band width in Hz");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::BandpassFilter, page});
   }
 
   // lissajous
@@ -335,25 +327,25 @@ inline void initPages() {
     float cy = cyInit;
 
     // min_freq
-    createSliderElement<float>(page, cy, "min_freq", &Config::options.fft.min_freq, 10.f, 22000.f,
+    createSliderElement<float>(page, cy, "min_freq", &Config::options.fft.limits.min_freq, 10.f, 22000.f,
                                "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
 
     // max_freq
-    createSliderElement<float>(page, cy, "max_freq", &Config::options.fft.max_freq, 10.f, 22000.f,
+    createSliderElement<float>(page, cy, "max_freq", &Config::options.fft.limits.max_freq, 10.f, 22000.f,
                                "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
 
     // slope_correction_db
-    createSliderElement<float>(page, cy, "slope_correction_db", &Config::options.fft.slope_correction_db, -12.f, 12.f,
+    createSliderElement<float>(page, cy, "slope_correction_db", &Config::options.fft.slope, -12.f, 12.f,
                                "Slope correction (dB/oct)",
                                "Slope correction for frequency response (dB per octave, visual only)");
 
     // min_db
-    createSliderElement<float>(page, cy, "min_db", &Config::options.fft.min_db, -120.f, 12.f, "Minimum level (dB)",
-                               "dB level at the bottom of the display before slope correction");
+    createSliderElement<float>(page, cy, "min_db", &Config::options.fft.limits.min_db, -120.f, 12.f,
+                               "Minimum level (dB)", "dB level at the bottom of the display before slope correction");
 
     // max_db
-    createSliderElement<float>(page, cy, "max_db", &Config::options.fft.max_db, -120.f, 12.f, "Maximum level (dB)",
-                               "dB level at the top of the display before slope correction");
+    createSliderElement<float>(page, cy, "max_db", &Config::options.fft.limits.max_db, -120.f, 12.f,
+                               "Maximum level (dB)", "dB level at the top of the display before slope correction");
 
     // stereo_mode
     {
@@ -362,8 +354,8 @@ inline void initPages() {
           {"leftright", "Left/Right"},
       };
 
-      createEnumDropElement<std::string>(page, cy, "stereo_mode", &Config::options.fft.stereo_mode, values,
-                                         "Stereo mode", "Stereo mode: mid/side channels or left/right channels");
+      createEnumDropElement<std::string>(page, cy, "stereo_mode", &Config::options.fft.mode, values, "Stereo mode",
+                                         "Stereo mode: mid/side channels or left/right channels");
     }
 
     // note_key_mode
@@ -373,36 +365,36 @@ inline void initPages() {
           {"flat",  "Flat" },
       };
 
-      createEnumDropElement<std::string>(page, cy, "note_key_mode", &Config::options.fft.note_key_mode, values,
-                                         "Note key mode", "Note key mode: sharp or flat (affects frequency labels)");
+      createEnumDropElement<std::string>(page, cy, "note_key_mode", &Config::options.fft.key, values, "Note key mode",
+                                         "Note key mode: sharp or flat (affects frequency labels)");
     }
 
     // enable_cqt
-    createCheckElement(page, cy, "enable_cqt", &Config::options.fft.enable_cqt, "Enable Constant-Q Transform",
+    createCheckElement(page, cy, "enable_cqt", &Config::options.fft.cqt.enabled, "Enable Constant-Q Transform",
                        "Enable Constant-Q Transform (better frequency resolution in the low end)");
 
     // cqt_bins_per_octave
-    createSliderElement<int>(page, cy, "cqt_bins_per_octave", &Config::options.fft.cqt_bins_per_octave, 16, 128,
+    createSliderElement<int>(page, cy, "cqt_bins_per_octave", &Config::options.fft.cqt.bins_per_octave, 16, 128,
                              "CQT bins per octave",
                              "Number of frequency bins per octave for CQT (higher=better resolution)\n"
                              "Significant CPU usage increase with higher values",
                              0);
 
     // enable_smoothing
-    createCheckElement(page, cy, "enable_smoothing", &Config::options.fft.enable_smoothing, "Enable smoothing",
+    createCheckElement(page, cy, "enable_smoothing", &Config::options.fft.smoothing.enabled, "Enable smoothing",
                        "Enable velocity smoothing for FFT values");
 
     // rise_speed
-    createSliderElement<float>(page, cy, "rise_speed", &Config::options.fft.rise_speed, 10.f, 1000.f, "Bar rise speed",
-                               "Rise speed of FFT bars (higher=faster rise, more responsive)");
+    createSliderElement<float>(page, cy, "rise_speed", &Config::options.fft.smoothing.rise_speed, 10.f, 1000.f,
+                               "Bar rise speed", "Rise speed of FFT bars (higher=faster rise, more responsive)");
 
     // fall_speed
-    createSliderElement<float>(page, cy, "fall_speed", &Config::options.fft.fall_speed, 10.f, 1000.f, "Bar fall speed",
-                               "Fall speed of FFT bars (higher=faster fall, more responsive)");
+    createSliderElement<float>(page, cy, "fall_speed", &Config::options.fft.smoothing.fall_speed, 10.f, 1000.f,
+                               "Bar fall speed", "Fall speed of FFT bars (higher=faster fall, more responsive)");
 
     // hover_fall_speed
-    createSliderElement<float>(page, cy, "hover_fall_speed", &Config::options.fft.hover_fall_speed, 10.f, 1000.f,
-                               "Bar fall speed on hover",
+    createSliderElement<float>(page, cy, "hover_fall_speed", &Config::options.fft.smoothing.hover_fall_speed, 10.f,
+                               1000.f, "Bar fall speed on hover",
                                "Fall speed when window is hovered over (higher=faster fall)");
 
     // size
@@ -417,8 +409,8 @@ inline void initPages() {
                                "Beam multiplier", "Beam multiplier for phosphor effect");
 
     // frequency_markers
-    createCheckElement(page, cy, "frequency_markers", &Config::options.fft.frequency_markers,
-                       "Enable frequency markers", "Enable frequency markers on the display");
+    createCheckElement(page, cy, "frequency_markers", &Config::options.fft.markers, "Enable frequency markers",
+                       "Enable frequency markers on the display");
 
     // rotation
     {
@@ -447,15 +439,15 @@ inline void initPages() {
     float cy = cyInit;
 
     // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.time_window, 0.1f, 10.f,
+    createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.window, 0.1f, 10.f,
                                "Time window (seconds)", "Time window for spectrogram in seconds");
 
     // min_db
-    createSliderElement<float>(page, cy, "min_db", &Config::options.spectrogram.min_db, -120.f, 12.f,
+    createSliderElement<float>(page, cy, "min_db", &Config::options.spectrogram.limits.min_db, -120.f, 12.f,
                                "Minimum level (dB)", "Minimum dB level for spectrogram display");
 
     // max_db
-    createSliderElement<float>(page, cy, "max_db", &Config::options.spectrogram.max_db, -120.f, 12.f,
+    createSliderElement<float>(page, cy, "max_db", &Config::options.spectrogram.limits.max_db, -120.f, 12.f,
                                "Maximum level (dB)", "Maximum dB level for spectrogram display");
 
     // interpolation
@@ -474,11 +466,11 @@ inline void initPages() {
     }
 
     // min_freq
-    createSliderElement<float>(page, cy, "min_freq", &Config::options.spectrogram.min_freq, 10.f, 22000.f,
+    createSliderElement<float>(page, cy, "min_freq", &Config::options.spectrogram.limits.min_freq, 10.f, 22000.f,
                                "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
 
     // max_freq
-    createSliderElement<float>(page, cy, "max_freq", &Config::options.spectrogram.max_freq, 10.f, 22000.f,
+    createSliderElement<float>(page, cy, "max_freq", &Config::options.spectrogram.limits.max_freq, 10.f, 22000.f,
                                "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
 
     page.height = cyInit - cy;
@@ -626,7 +618,9 @@ inline void initPages() {
         float cyOther = scrollingDisplayMargin;
         float fps = 1.f / WindowManager::dt;
         static float fpsLerp = 0.f;
-        fpsLerp = std::lerp(fpsLerp, fps, 2.f * WindowManager::dt);
+        float diff = abs(fps - fpsLerp);
+        float t = diff / (diff + Config::options.window.fps_limit * 2.0f);
+        fpsLerp = lerp(fpsLerp, fps, t);
 
         // bottom-to-top
 
@@ -668,81 +662,73 @@ inline void initPages() {
                        "Enable or disable phosphor effects globally");
 
     // near_blur_intensity
-    createSliderElement<float>(page, cy, "near_blur_intensity", &Config::options.phosphor.near_blur_intensity, 0.f, 1.f,
+    createSliderElement<float>(page, cy, "near_blur_intensity", &Config::options.phosphor.blur.near_intensity, 0.f, 1.f,
                                "Near blur intensity", "Intensity of blur for nearby pixels (higher=more blur)", 3);
 
     // far_blur_intensity
-    createSliderElement<float>(page, cy, "far_blur_intensity", &Config::options.phosphor.far_blur_intensity, 0.f, 1.f,
+    createSliderElement<float>(page, cy, "far_blur_intensity", &Config::options.phosphor.blur.far_intensity, 0.f, 1.f,
                                "Far blur intensity", "Intensity of blur for distant pixels (higher=more blur)", 3);
 
     // beam_energy
-    createSliderElement<float>(page, cy, "beam_energy", &Config::options.phosphor.beam_energy, 10.f, 1000.f,
+    createSliderElement<float>(page, cy, "beam_energy", &Config::options.phosphor.beam.energy, 10.f, 1000.f,
                                "Beam energy", "Energy of the electron beam (affects brightness of phosphor effect)");
 
     // decay_slow
-    createSliderElement<float>(page, cy, "decay_slow", &Config::options.phosphor.decay_slow, 1.f, 100.f,
+    createSliderElement<float>(page, cy, "decay_slow", &Config::options.phosphor.decay.slow, 1.f, 100.f,
                                "Slow decay rate",
                                "Slow decay rate of phosphor persistence (higher=longer persistence)");
 
     // decay_fast
-    createSliderElement<float>(page, cy, "decay_fast", &Config::options.phosphor.decay_fast, 1.f, 100.f,
+    createSliderElement<float>(page, cy, "decay_fast", &Config::options.phosphor.decay.fast, 1.f, 100.f,
                                "Fast decay rate",
                                "Fast decay rate of phosphor persistence (higher=shorter persistence)");
 
     // line_blur_spread
-    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.line_blur_spread, 1.f, 100.f,
+    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 100.f,
                                "Line blur spread",
                                "Spread of the blur effect (higher=more spread, more GPU intensive)");
 
     // line_width
-    createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.line_width, 0.1f, 10.f, "Line width",
+    createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.beam.width, 0.1f, 10.f, "Line width",
                                "Size of the electron beam (affects line thickness)", 2);
 
     // age_threshold
-    createSliderElement<int>(page, cy, "age_threshold", &Config::options.phosphor.age_threshold, 1, 1000,
+    createSliderElement<int>(page, cy, "age_threshold", &Config::options.phosphor.decay.threshold, 1, 1000,
                              "Age threshold", "Age threshold for phosphor decay (higher=longer persistence)", 0);
 
     // range_factor
-    createSliderElement<float>(page, cy, "range_factor", &Config::options.phosphor.range_factor, 0.f, 10.f,
+    createSliderElement<float>(page, cy, "range_factor", &Config::options.phosphor.blur.range, 0.f, 10.f,
                                "Range factor",
                                "Range factor for blur calculations (higher=more blur, more GPU intensive)", 2);
 
-    // enable_grain
-    createCheckElement(page, cy, "enable_grain", &Config::options.phosphor.enable_grain, "Enable grain",
-                       "Enable phosphor grain effect (adds realistic CRT noise)");
-
-    // grain_strength
-    createSliderElement<float>(page, cy, "grain_strength", &Config::options.phosphor.grain_strength, 0.f, 1.f,
+    // grain_strength (Implies enable_grain == true if non-zero)
+    createSliderElement<float>(page, cy, "grain_strength", &Config::options.phosphor.screen.grain, 0.f, 1.f,
                                "Grain strength", "Grain strength (Spatial noise)", 3);
 
     // tension
-    createSliderElement<float>(page, cy, "tension", &Config::options.phosphor.tension, 0.f, 1.f, "Tension",
+    createSliderElement<float>(page, cy, "tension", &Config::options.phosphor.beam.tension, 0.f, 1.f, "Tension",
                                "Tension of Catmull-Rom splines (affects curve smoothness)", 3);
 
-    // enable_curved_screen
-    createCheckElement(page, cy, "enable_curved_screen", &Config::options.phosphor.enable_curved_screen,
-                       "Enable curved screen", "Enable curved phosphor screen effect (simulates curved CRT monitor)");
-
-    // screen_curvature
-    createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen_curvature, 0.f, 1.f,
+    // screen_curvature (Implies enable_curved_screen == true if non-zero)
+    createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen.curvature, 0.f, 1.f,
                                "Screen curvature", "Curvature intensity for curved screen effect", 3);
 
     // screen_gap
-    createSliderElement<float>(page, cy, "screen_gap", &Config::options.phosphor.screen_gap, 0.f, 1.f, "Screen gap",
+    createSliderElement<float>(page, cy, "screen_gap", &Config::options.phosphor.screen.gap, 0.f, 1.f, "Screen gap",
                                "Gap factor between screen edges and border (higher=less gap)", 3);
 
     // vignette_strength
-    createSliderElement<float>(page, cy, "vignette_strength", &Config::options.phosphor.vignette_strength, 0.f, 1.f,
+    createSliderElement<float>(page, cy, "vignette_strength", &Config::options.phosphor.screen.vignette, 0.f, 1.f,
                                "Vignette strength", "Vignette strength", 3);
 
     // chromatic_aberration_strength
     createSliderElement<float>(page, cy, "chromatic_aberration_strength",
-                               &Config::options.phosphor.chromatic_aberration_strength, 0.f, 1.f,
+                               &Config::options.phosphor.screen.chromatic_aberration, 0.f, 1.f,
                                "Chromatic aberration strength", "Chromatic aberration strength", 3);
 
-    // colorbeam
-    createCheckElement(page, cy, "colorbeam", &Config::options.phosphor.colorbeam, "Enable colorbeam effect",
-                       "Enable color beam effect\n"
+    // rainbow
+    createCheckElement(page, cy, "rainbow", &Config::options.phosphor.beam.rainbow, "Enable rainbow beam effect",
+                       "Enable rainbow beam effect\n"
                        "This will make the beam color rotate around the hue depending on the direction its going.\n"
                        "This is extremely GPU intensive, so it is disabled by default.");
 
@@ -803,7 +789,7 @@ inline void initPages() {
     float cy = cyInit;
 
     // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.vu.time_window, 1.f, 500.f, "Time window (ms)",
+    createSliderElement<float>(page, cy, "time_window", &Config::options.vu.window, 1.f, 500.f, "Time window (ms)",
                                "Time window for VU meter in ms");
 
     // style
@@ -833,15 +819,15 @@ inline void initPages() {
     }
 
     // enable_momentum
-    createCheckElement(page, cy, "enable_momentum", &Config::options.vu.enable_momentum, "Enable momentum",
+    createCheckElement(page, cy, "enable_momentum", &Config::options.vu.momentum.enabled, "Enable momentum",
                        "Enable momentum for analog VU meter");
 
     // spring_constant
-    createSliderElement<float>(page, cy, "spring_constant", &Config::options.vu.spring_constant, 100.f, 1000.f,
+    createSliderElement<float>(page, cy, "spring_constant", &Config::options.vu.momentum.spring_constant, 100.f, 1000.f,
                                "Spring constant", "Spring constant of needle");
 
     // damping_ratio
-    createSliderElement<float>(page, cy, "damping_ratio", &Config::options.vu.damping_ratio, 1.f, 100.f,
+    createSliderElement<float>(page, cy, "damping_ratio", &Config::options.vu.momentum.damping_ratio, 1.f, 100.f,
                                "Damping ratio", "Damping ratio of needle");
 
     // needle_width
@@ -850,23 +836,6 @@ inline void initPages() {
 
     page.height = cyInit - cy;
     pages.insert({PageType::VU, page});
-  }
-
-  // lowpass
-  {
-    Page page;
-    float cy = cyInit;
-
-    // cutoff
-    createSliderElement<float>(page, cy, "cutoff", &Config::options.lowpass.cutoff, 10.f, 22000.f,
-                               "Cutoff frequency (Hz)", "Cutoff frequency in Hz");
-
-    // order
-    createSliderElement<int>(page, cy, "order", &Config::options.lowpass.order, 1, 16, "Filter order",
-                             "Order of the lowpass filter (higher = steeper filter, more CPU usage)", 0);
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Lowpass, page});
   }
 
   // TODO: put font somewhere
@@ -1190,31 +1159,42 @@ void handleEvent(const SDL_Event& event) {
 
     // track modifier keys
   case SDL_EVENT_KEY_DOWN:
-    if (event.key.key == SDLK_RALT || event.key.key == SDLK_LALT) {
+    switch (event.key.key) {
+    case SDLK_RALT:
+    case SDLK_LALT:
       alt = true;
-    }
-
-    if (event.key.key == SDLK_RSHIFT || event.key.key == SDLK_LSHIFT) {
+      break;
+    case SDLK_RSHIFT:
+    case SDLK_LSHIFT:
       shift = true;
-    }
-
-    if (event.key.key == SDLK_RCTRL || event.key.key == SDLK_LCTRL) {
+      break;
+    case SDLK_RCTRL:
+    case SDLK_LCTRL:
       ctrl = true;
+      break;
+
+    case SDLK_ESCAPE:
+    case SDLK_Q:
+      toggle();
+      break;
     }
     break;
 
     // track modifier keys
   case SDL_EVENT_KEY_UP:
-    if (event.key.key == SDLK_RALT || event.key.key == SDLK_LALT) {
+    switch (event.key.key) {
+    case SDLK_RALT:
+    case SDLK_LALT:
       alt = false;
-    }
-
-    if (event.key.key == SDLK_RSHIFT || event.key.key == SDLK_LSHIFT) {
+      break;
+    case SDLK_RSHIFT:
+    case SDLK_LSHIFT:
       shift = false;
-    }
-
-    if (event.key.key == SDLK_RCTRL || event.key.key == SDLK_LCTRL) {
+      break;
+    case SDLK_RCTRL:
+    case SDLK_LCTRL:
       ctrl = false;
+      break;
     }
     break;
 
@@ -1401,6 +1381,387 @@ std::string pageToString(PageType page) {
   default:
     return "Unknown";
   }
+}
+
+template <typename ValueType>
+void createSliderElement(Page& page, float& cy, const std::string key, ValueType* value, ValueType min, ValueType max,
+                         const std::string label, const std::string description, const int precision) {
+  Element sliderElement = {0};
+
+  sliderElement.update = [cy](Element* self) {
+    self->w = w - (margin * 3) - labelSize;
+    self->h = stdSize;
+    self->x = margin * 2 + labelSize;
+    self->y = cy - stdSize;
+  };
+
+  sliderElement.render = [value, min, max, precision](Element* self) {
+    float percent = ((float)(*value) - min) / (max - min);
+    // slidable region needs to be decreased by handle width so the handle can go to 0 and 100% safely
+    float slidableWidth = self->w - sliderPadding * 2 - sliderHandleWidth;
+    float handleX = slidableWidth * percent;
+
+    if (self->focused) {
+      float mouseX = SDLWindow::mousePos[sdlWindow].first;
+      float adjustedX = mouseX - (self->x + sliderPadding + sliderHandleWidth / 2);
+      float mousePercent = adjustedX / slidableWidth;
+
+      mousePercent = std::clamp(mousePercent, 0.f, 1.f);
+      *value = min + mousePercent * (max - min);
+    }
+
+    bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
+
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                             hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+    Graphics::drawFilledRect(self->x + handleX + sliderPadding, self->y + sliderPadding, sliderHandleWidth,
+                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgaccent : Theme::colors.accent);
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(precision) << *value;
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
+                             sdlWindow);
+  };
+
+  sliderElement.clicked = [value, min, max](Element* self) {
+    float percent = ((float)(*value) - min) / (max - min);
+    float slidableWidth = self->w - sliderPadding * 2 - sliderHandleWidth;
+    float handleX = slidableWidth * percent;
+    bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
+
+    if (hovered) {
+      self->focused = true;
+      self->x = SDLWindow::mousePos[sdlWindow].first - (sliderPadding + handleX + sliderHandleWidth / 2);
+    }
+  };
+
+  sliderElement.unclicked = [](Element* self) { self->focused = false; };
+
+  sliderElement.scrolled = [value, min, max, precision](Element* self, int amount) {
+    float change = amount;
+    float precisionAmount = std::powf(10, -precision);
+    if (precision != 0) {
+      if (shift)
+        change *= precisionAmount * 1000.f;
+      else if (ctrl)
+        change *= precisionAmount * 100.f;
+      else if (alt)
+        change *= precisionAmount;
+      else
+        change *= precisionAmount * 10.f;
+    } else {
+      if (shift)
+        change *= precisionAmount * 100.f;
+      else if (ctrl)
+        change *= precisionAmount * 10.f;
+      else
+        change *= precisionAmount;
+    }
+
+    *value = std::clamp(*value + (ValueType)change, min, max);
+  };
+
+  createLabelElement(page, cy, key, label, description);
+  page.elements.insert({key + "#slider", sliderElement});
+  cy -= stdSize + margin;
+}
+
+template <typename ValueType>
+void createDetentSliderElement(Page& page, float& cy, const std::string key, ValueType* value,
+                               const std::vector<ValueType>& detents, const std::string label,
+                               const std::string description, const int precision) {
+  Element sliderElement = {0};
+
+  sliderElement.update = [cy](Element* self) {
+    self->w = w - (margin * 3) - labelSize;
+    self->h = stdSize;
+    self->x = margin * 2 + labelSize;
+    self->y = cy - stdSize;
+  };
+
+  sliderElement.render = [value, detents, precision](Element* self) {
+    if (detents.empty())
+      return;
+
+    // Find index of current value
+    auto it = std::find(detents.begin(), detents.end(), *value);
+    int index = (it != detents.end()) ? std::distance(detents.begin(), it) : 0;
+
+    float percent = static_cast<float>(index) / (detents.size() - 1);
+    float slidableWidth = self->w - sliderPadding * 2 - sliderHandleWidth;
+    float handleX = slidableWidth * percent;
+
+    if (self->focused) {
+      float mouseX = SDLWindow::mousePos[sdlWindow].first;
+      float adjustedX = mouseX - (self->x + sliderPadding + sliderHandleWidth / 2);
+      float mousePercent = adjustedX / slidableWidth;
+      mousePercent = std::clamp(mousePercent, 0.f, 1.f);
+
+      // Snap to nearest detent
+      int nearestIndex = static_cast<int>(std::round(mousePercent * (detents.size() - 1)));
+      nearestIndex = std::clamp(nearestIndex, 0, static_cast<int>(detents.size() - 1));
+      *value = detents[nearestIndex];
+    }
+
+    bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
+
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                             hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+    Graphics::drawFilledRect(self->x + handleX + sliderPadding, self->y + sliderPadding, sliderHandleWidth,
+                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgaccent : Theme::colors.accent);
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(precision) << *value;
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
+                             sdlWindow);
+  };
+
+  sliderElement.clicked = [value, detents](Element* self) {
+    if (detents.empty())
+      return;
+
+    auto it = std::find(detents.begin(), detents.end(), *value);
+    int index = (it != detents.end()) ? std::distance(detents.begin(), it) : 0;
+
+    float percent = static_cast<float>(index) / (detents.size() - 1);
+    float slidableWidth = self->w - sliderPadding * 2 - sliderHandleWidth;
+    float handleX = slidableWidth * percent;
+
+    bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
+
+    if (hovered) {
+      self->focused = true;
+      self->x = SDLWindow::mousePos[sdlWindow].first - (sliderPadding + handleX + sliderHandleWidth / 2);
+    }
+  };
+
+  sliderElement.unclicked = [](Element* self) { self->focused = false; };
+
+  sliderElement.scrolled = [value, detents](Element* self, int amount) {
+    float change = amount;
+
+    auto it = std::find(detents.begin(), detents.end(), *value);
+    int index = (it != detents.end()) ? std::distance(detents.begin(), it) : 0;
+    int newIndex = index + (int)change;
+
+    newIndex = std::clamp(newIndex, 0, static_cast<int>(detents.size() - 1));
+    *value = detents[newIndex];
+  };
+
+  createLabelElement(page, cy, key, label, description);
+  page.elements.insert({key + "#slider", sliderElement});
+  cy -= stdSize + margin;
+}
+
+template <typename ValueType>
+void createEnumDropElement(Page& page, float& cy, const std::string key, ValueType* value,
+                           std::map<ValueType, std::string> possibleValues, const std::string label,
+                           const std::string description) {
+  const float originalY = cy - stdSize;
+  const float dropHeight = possibleValues.size() * stdSize;
+  Element dropdownElement = {0};
+
+  dropdownElement.update = [cy, dropHeight](Element* self) {
+    self->w = w - (margin * 3) - labelSize;
+    self->x = margin * 2 + labelSize;
+
+    if (self->focused) {
+      self->h = stdSize + dropHeight;
+    } else {
+      self->h = stdSize;
+    }
+    self->y = cy - self->h;
+  };
+
+  dropdownElement.render = [originalY, value, possibleValues](Element* self) {
+    bool dropdownHovered = false;
+    if (self->focused) {
+      dropdownHovered = mouseOverRectTranslated(self->x, originalY, self->w, stdSize);
+    } else {
+      dropdownHovered = self->hovered;
+    }
+
+    // draw the dropdown button thing
+    Graphics::drawFilledRect(self->x, originalY, self->w, stdSize,
+                             dropdownHovered ? Theme::colors.accent : Theme::colors.bgaccent);
+
+    drawArrow((self->focused ? 2 : -2), self->x + self->w - (stdSize * 0.75), originalY + (stdSize / 4), stdSize / 2);
+
+    layer(1.f);
+
+    int i = 0;
+    std::pair<ValueType, std::string> currentPair;
+    for (std::pair<const ValueType, std::string> kv : possibleValues) {
+      const bool current = *value == kv.first;
+      if (current) {
+        currentPair = kv;
+      }
+
+      if (self->focused) {
+        const float y = originalY - stdSize - (i * stdSize);
+        bool thingHovered = mouseOverRectTranslated(self->x, y, self->w, stdSize);
+
+        Graphics::drawFilledRect(self->x, y, self->w, stdSize,
+                                 thingHovered ? Theme::colors.accent
+                                              : (current ? Theme::colors.text : Theme::colors.bgaccent));
+
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(kv.second.c_str(), fontSizeValue, sdlWindow);
+        Graphics::Font::drawText(kv.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+                                 (int)(y + stdSize / 2 - textSize.second / 2), fontSizeValue,
+                                 current && !thingHovered ? Theme::colors.background : Theme::colors.text, sdlWindow);
+      }
+      i++;
+    }
+
+    layer();
+
+    std::pair<float, float> textSize =
+        Graphics::Font::getTextSize(currentPair.second.c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(currentPair.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+                             (int)(originalY + stdSize / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
+                             sdlWindow);
+  };
+
+  dropdownElement.clicked = [value, possibleValues, originalY](Element* self) {
+    bool dropdownHovered = false;
+    if (self->focused) {
+      dropdownHovered = mouseOverRectTranslated(self->x, originalY, self->w, stdSize);
+    } else {
+      dropdownHovered = self->hovered;
+    }
+
+    if (dropdownHovered) {
+      self->focused = !self->focused;
+      return;
+    }
+
+    if (!self->focused)
+      return;
+
+    int i = 0;
+    for (std::pair<const ValueType, std::string> kv : possibleValues) {
+      const float y = originalY - stdSize - (i * stdSize);
+      bool thingHovered = mouseOverRectTranslated(self->x, y, self->w, stdSize);
+
+      if (thingHovered) {
+        // clicked on value
+        *value = kv.first;
+        self->focused = false;
+        return;
+      }
+
+      i++;
+    }
+  };
+
+  createLabelElement(page, cy, key, label, description);
+  page.elements.insert({key + "#dropdown", dropdownElement});
+  cy -= stdSize + margin;
+}
+
+template <typename ValueType>
+void createEnumTickElement(Page& page, float& cy, const std::string key, ValueType* value,
+                           std::map<ValueType, std::string> possibleValues, const std::string label,
+                           const std::string description) {
+  Element tickLabelElement = {0};
+
+  tickLabelElement.update = [cy](Element* self) {
+    self->w = w - (margin * 3) - labelSize - stdSize * 2 - spacing * 2;
+    self->h = stdSize;
+    self->x = margin * 2 + labelSize + stdSize + spacing;
+    self->y = cy - stdSize;
+  };
+
+  tickLabelElement.render = [value, possibleValues](Element* self) {
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
+
+    std::pair<ValueType, std::string> currentPair;
+    for (std::pair<const ValueType, std::string> kv : possibleValues) {
+      if (*value == kv.first) {
+        currentPair = kv;
+        break;
+      }
+    }
+
+    std::pair<float, float> textSize =
+        Graphics::Font::getTextSize(currentPair.second.c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(currentPair.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
+                             sdlWindow);
+  };
+
+  Element tickLeftElement = {0};
+
+  tickLeftElement.update = [cy](Element* self) {
+    self->w = stdSize;
+    self->h = stdSize;
+    self->x = margin * 2 + labelSize;
+    self->y = cy - stdSize;
+  };
+
+  tickLeftElement.render = [](Element* self) {
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                             self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+
+    drawArrow(-1, self->x, self->y, stdSize);
+  };
+
+  tickLeftElement.clicked = [value, possibleValues](Element* self) {
+    std::pair<ValueType, std::string> previous = *std::prev(possibleValues.end());
+    for (std::pair<const ValueType, std::string> kv : possibleValues) {
+      if (*value == kv.first) {
+        break;
+      }
+
+      previous = kv;
+    }
+
+    *value = previous.first;
+  };
+
+  Element tickRightElement = {0};
+
+  tickRightElement.update = [cy](Element* self) {
+    self->w = stdSize;
+    self->h = stdSize;
+    self->x = w - margin - stdSize;
+    self->y = cy - stdSize;
+  };
+
+  tickRightElement.render = [](Element* self) {
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                             self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+
+    drawArrow(1, self->x, self->y, stdSize);
+  };
+
+  tickRightElement.clicked = [value, possibleValues](Element* self) {
+    std::pair<ValueType, std::string> next = *possibleValues.begin();
+    bool captureNext = false;
+
+    for (std::pair<const ValueType, std::string> kv : possibleValues) {
+      if (captureNext) {
+        next = kv;
+        break;
+      }
+
+      if (*value == kv.first) {
+        captureNext = true;
+      }
+    }
+
+    *value = next.first;
+  };
+
+  createLabelElement(page, cy, key, label, description);
+  page.elements.insert({key + "#tickLabel", tickLabelElement});
+  page.elements.insert({key + "#tickLeft", tickLeftElement});
+  page.elements.insert({key + "#tickRight", tickRightElement});
+  cy -= stdSize + margin;
 }
 
 }; // namespace ConfigWindow

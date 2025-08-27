@@ -156,7 +156,7 @@ struct Options {
     struct Decay {
       float fast = 40.0f;
       float slow = 6.0f;
-      float threshold = 14.0f;
+      int threshold = 14;
     } decay;
 
     struct Screen {
