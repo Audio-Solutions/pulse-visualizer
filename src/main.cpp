@@ -20,6 +20,7 @@
 #include "include/audio_engine.hpp"
 #include "include/common.hpp"
 #include "include/config.hpp"
+#include "include/config_window.hpp"
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
@@ -253,6 +254,7 @@ int main(int argc, char** argv) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       SDLWindow::handleEvent(event);
+      ConfigWindow::handleEvent(event);
       WindowManager::handleEvent(event);
       for (auto& [key, vec] : WindowManager::splitters)
         for (auto& splitter : vec)
@@ -288,6 +290,7 @@ int main(int argc, char** argv) {
     SDLWindow::clear();
     WindowManager::renderAll();
     WindowManager::drawSplitters();
+    ConfigWindow::draw();
     SDLWindow::display();
 
     // Update timing

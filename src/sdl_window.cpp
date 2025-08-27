@@ -20,6 +20,7 @@
 #include "include/sdl_window.hpp"
 
 #include "include/config.hpp"
+#include "include/config_window.hpp"
 #include "include/graphics.hpp"
 #include "include/theme.hpp"
 
@@ -111,6 +112,9 @@ void handleEvent(SDL_Event& event) {
       if (idx == 0)
         running.store(false);
       return;
+    case SDLK_M:
+      ConfigWindow::toggle();
+      break;
     default:
       break;
     }
@@ -152,7 +156,7 @@ void clear() {
   for (size_t i = 0; i < wins.size(); i++) {
     SDL_GL_MakeCurrent(wins[i], glContexts[i]);
     glClearColor(c[0], c[1], c[2], c[3]);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 }
 
