@@ -89,7 +89,7 @@ inline void initTop() {
 
     leftChevron.clicked = [](Element* self) {
       if (currentPage == PageType::Oscilloscope) {
-        currentPage = PageType::Lowpass;
+        currentPage = PageType::VU;
       }
       currentPage = static_cast<PageType>(static_cast<int>(currentPage) - 1);
     };
@@ -141,7 +141,7 @@ inline void initTop() {
     };
 
     rightChevron.clicked = [](Element* self) {
-      if (currentPage == PageType::Lowpass) {
+      if (currentPage == PageType::VU) {
         currentPage = PageType::Oscilloscope;
         return;
       }
@@ -1354,8 +1354,6 @@ std::string pageToString(PageType page) {
   switch (page) {
   case PageType::Oscilloscope:
     return "Oscilloscope";
-  case PageType::BandpassFilter:
-    return "Bandpass Filter";
   case PageType::Lissajous:
     return "Lissajous";
   case PageType::FFT:
@@ -1376,8 +1374,6 @@ std::string pageToString(PageType page) {
     return "LUFS";
   case PageType::VU:
     return "VU";
-  case PageType::Lowpass:
-    return "Lowpass";
   default:
     return "Unknown";
   }

@@ -127,7 +127,6 @@ void layer();
 
 enum class PageType {
   Oscilloscope,
-  BandpassFilter,
   Lissajous,
   FFT,
   Spectrogram,
@@ -137,8 +136,7 @@ enum class PageType {
   Debug,
   Phosphor,
   LUFS,
-  VU,
-  Lowpass
+  VU
 };
 extern PageType currentPage;
 
