@@ -757,6 +757,16 @@ void reorder() {
   }
 }
 
+void shiftDown(uint32_t startIndex) {
+  for (auto& [key, vec] : windows) {
+    for (auto& window : vec) {
+      if (window.sdlWindow >= startIndex) {
+        window.sdlWindow--;
+      }
+    }
+  }
+}
+
 template <Direction direction> void swapVisualizer(size_t index, std::string key) {
   if (index < 0 || index >= windows[key].size() || index + direction < 0 || index + direction >= windows[key].size())
     return;

@@ -141,7 +141,7 @@ struct Options {
 
     struct Beam {
       float energy = 90.0f;
-      bool rainbow = true;
+      bool rainbow = false;
       float width = 0.5f;
       float tension = 0.5f;
     } beam;

@@ -23,6 +23,7 @@
 #include "include/config_window.hpp"
 #include "include/graphics.hpp"
 #include "include/theme.hpp"
+#include "include/window_manager.hpp"
 
 namespace SDLWindow {
 
@@ -188,6 +189,7 @@ size_t createWindow(const std::string& title, int width, int height, uint32_t fl
 bool destroyWindow(size_t index) {
   if (index >= wins.size())
     return false;
+
   LOG_DEBUG(std::string("Destroying window: ") + std::to_string(index));
   SDL_DestroyWindow(wins[index]);
   SDL_GL_DestroyContext(glContexts[index]);
@@ -200,6 +202,7 @@ bool destroyWindow(size_t index) {
   if (currentWindow == index)
     currentWindow = 0;
   selectWindow(currentWindow);
+  WindowManager::shiftDown(index);
   return true;
 }
 

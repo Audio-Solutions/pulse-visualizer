@@ -23,12 +23,12 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
+#include "include/window_manager.hpp"
 
 namespace ConfigWindow {
 
 size_t sdlWindow = 0; // window index
 bool shown = false;   // is the window currently visible?
-int w = 500, h = 600; // current window width/height (also the default)
 
 float offsetX = 0, offsetY = 0;                // current scroll offset
 bool alt = false, ctrl = false, shift = false; // tracker for modifier keys
@@ -36,6 +36,34 @@ bool alt = false, ctrl = false, shift = false; // tracker for modifier keys
 Page topPage;
 std::map<PageType, Page> pages;
 PageType currentPage = PageType::Audio;
+
+// Drag state for Visualizers page
+static struct DragState {
+  bool active = false;
+  std::string fromGroup;
+  size_t index = 0;
+  std::string viz;
+} dragState;
+
+// Friendly names for visualizers
+static std::map<std::string, std::string> vizLabels = {
+    {"spectrum_analyzer", "Spectrum"    },
+    {"lissajous",         "Lissajous"   },
+    {"oscilloscope",      "Oscilloscope"},
+    {"spectrogram",       "Spectrogram" },
+    {"lufs",              "LUFS"        },
+    {"vu",                "VU"          }
+};
+
+static int newWindowCounter = 1;
+static std::string generateNewWindowKey() {
+  // ensure uniqueness
+  std::string key;
+  do {
+    key = std::string("win_") + std::to_string(newWindowCounter++);
+  } while (Config::options.visualizers.find(key) != Config::options.visualizers.end());
+  return key;
+}
 
 // TODO: put font size in a constexpr
 
@@ -429,6 +457,18 @@ inline void initPages() {
     createCheckElement(page, cy, "flip_x", &Config::options.fft.flip_x, "Flip X axis",
                        "Flip the FFT display along the time axis");
 
+    // Sphere enabled
+    createCheckElement(page, cy, "sphere_enabled", &Config::options.fft.sphere.enabled, "Enable sphere",
+                       "Enable sphere for FFT display");
+
+    // Sphere max freq
+    createSliderElement<float>(page, cy, "sphere_max_freq", &Config::options.fft.sphere.max_freq, 10.f, 22000.f,
+                               "Sphere max frequency (Hz)", "Maximum frequency for sphere in Hz");
+
+    // Sphere base radius
+    createSliderElement<float>(page, cy, "sphere_base_radius", &Config::options.fft.sphere.base_radius, 0.f, 1.f,
+                               "Sphere base radius", "Base radius for sphere", 3);
+
     page.height = cyInit - cy;
     pages.insert({PageType::FFT, page});
   }
@@ -542,7 +582,7 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
-    createHeaderElement(page, cy, "tbd", "TBD");
+    createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
 
     page.height = cyInit - cy;
     pages.insert({PageType::Visualizers, page});
@@ -988,6 +1028,9 @@ void handleEvent(const SDL_Event& event) {
   if (!shown)
     return;
 
+  if (!SDLWindow::focused[sdlWindow])
+    return;
+
   switch (event.type) {
   case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
     toggle();
@@ -1196,12 +1239,6 @@ void handleEvent(const SDL_Event& event) {
       ctrl = false;
       break;
     }
-    break;
-
-    // track window resize events so the layout doesn't break
-  case SDL_EVENT_WINDOW_RESIZED:
-    w = event.window.data1;
-    h = event.window.data2;
     break;
 
   default:
@@ -1758,6 +1795,319 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
   page.elements.insert({key + "#tickLeft", tickLeftElement});
   page.elements.insert({key + "#tickRight", tickRightElement});
   cy -= stdSize + margin;
+}
+
+void createVisualizerListElement(Page& page, float& cy, const std::string key,
+                                 std::map<std::string, std::vector<std::string>>* value, const std::string label,
+                                 const std::string description) {
+
+  Element visualizerListElement = {0};
+
+  visualizerListElement.update = [cy, value](Element* self) {
+    self->x = margin;
+    self->w = w - margin * 2;
+
+    float used = 0.f;
+    const float groupHeaderH = stdSize;
+    const float itemH = stdSize;
+    const float groupBottomMargin = margin;
+    for (const auto& kv : *value) {
+      const auto& items = kv.second;
+      used += groupHeaderH;
+      used += spacing;
+      used += std::max(1ul, items.size()) * (itemH + spacing);
+      used += groupBottomMargin;
+    }
+    const float createZoneH = stdSize * 1.5f;
+    used += createZoneH + margin;
+
+    self->h = used;
+    self->y = cy - self->h;
+  };
+
+  visualizerListElement.render = [value](Element* self) {
+    float yTop = self->y + self->h;
+
+    const float mouseX = SDLWindow::mousePos[sdlWindow].first;
+    const float mouseY = SDLWindow::mousePos[sdlWindow].second;
+
+    // Draw groups
+    struct DropTarget {
+      std::string group;
+      float x, y, w, h;
+    };
+    std::vector<DropTarget> targets;
+
+    const float groupHeaderH = stdSize;
+    const float itemH = stdSize;
+    const float groupBottomMargin = margin;
+    const float itemPad = padding;
+
+    for (const auto& kv : *value) {
+      const std::string& group = kv.first;
+      const auto& items = kv.second;
+
+      // Group header
+      float headerY = yTop - groupHeaderH;
+      Graphics::drawFilledRect(self->x, headerY, self->w, groupHeaderH, Theme::colors.bgaccent);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader, sdlWindow);
+      Graphics::Font::drawText(group.c_str(), (int)(self->x + padding),
+                               (int)(headerY + groupHeaderH / 2 - textSize.second / 2), fontSizeHeader,
+                               Theme::colors.text, sdlWindow);
+
+      // Items area
+      float itemsTop = headerY - spacing;
+      float y = itemsTop;
+      float groupX = self->x;
+      float groupW = self->w;
+
+      float groupAreaYBottomStart = y;
+
+      // List items vertically
+      for (size_t i = 0; i < std::max<size_t>(1, items.size()); ++i) {
+        y -= itemH;
+        float itemX = groupX + itemPad;
+        float itemY = y;
+        float itemW = groupW - itemPad * 2;
+        float itemHh = itemH;
+
+        bool isPlaceholder = items.empty();
+        bool isDragged = dragState.active && dragState.fromGroup == group && dragState.index == i && !isPlaceholder;
+        bool hovered = mouseOverRectTranslated(itemX, itemY, itemW, itemHh);
+        float* bg = hovered ? Theme::colors.accent : Theme::colors.bgaccent;
+        if (isDragged)
+          bg = Theme::colors.accent;
+        Graphics::drawFilledRect(itemX, itemY, itemW, itemHh, bg);
+
+        std::string label;
+        if (!isPlaceholder) {
+          auto itLabel = vizLabels.find(items[i]);
+          label = itLabel != vizLabels.end() ? itLabel->second : items[i];
+        } else {
+          label = "(empty)";
+        }
+        std::pair<float, float> t = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+        Graphics::Font::drawText(label.c_str(), (int)(itemX + padding), (int)(itemY + itemHh / 2 - t.second / 2),
+                                 fontSizeValue, Theme::colors.text, sdlWindow);
+
+        y -= spacing;
+      }
+
+      float groupAreaBottom = y;
+      float groupAreaHeight = (itemsTop - groupAreaBottom);
+      targets.push_back({group, groupX, groupAreaBottom, groupW, groupAreaHeight});
+
+      yTop = groupAreaBottom - groupBottomMargin;
+    }
+
+    const float createZoneH = stdSize * 1.5f;
+    float createY = yTop - createZoneH;
+    bool overCreate = mouseOverRectTranslated(self->x, createY, self->w, createZoneH);
+    Graphics::drawFilledRect(self->x, createY, self->w, createZoneH,
+                             overCreate && dragState.active ? Theme::colors.accent : Theme::colors.bgaccent);
+    const char* createLabel = "+ Create new window (drop here)";
+    std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader, sdlWindow);
+    Graphics::Font::drawText(createLabel, (int)(self->x + self->w / 2 - t.first / 2),
+                             (int)(createY + createZoneH / 2 - t.second / 2), fontSizeHeader, Theme::colors.text,
+                             sdlWindow);
+
+    if (dragState.active) {
+      for (const auto& target : targets) {
+        if (mouseOverRectTranslated(target.x, target.y, target.w, target.h)) {
+          glEnable(GL_BLEND);
+          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+          glColor4fv(Theme::alpha(Theme::colors.accent, 0.2f));
+          glBegin(GL_QUADS);
+          glVertex2f(target.x, target.y);
+          glVertex2f(target.x + target.w, target.y);
+          glVertex2f(target.x + target.w, target.y + target.h);
+          glVertex2f(target.x, target.y + target.h);
+          glEnd();
+          glDisable(GL_BLEND);
+          break;
+        }
+      }
+    }
+
+    // Update dynamic page height for proper scrolling
+    pages[PageType::Visualizers].height = self->h;
+
+    // Draw ghost chip under cursor when dragging
+    if (dragState.active && !dragState.viz.empty()) {
+      layer(1.f);
+
+      std::string label = vizLabels.count(dragState.viz) ? vizLabels[dragState.viz] : dragState.viz;
+      const float chipH = stdSize;
+      std::pair<float, float> ts = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+      float chipW = std::min(self->w - padding * 2, ts.first + padding * 2);
+
+      float gx = mouseX - offsetX - chipW / 2.0f;
+      float gy = mouseY - offsetY - chipH / 2.0f;
+
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+      Graphics::drawFilledRect(gx, gy, chipW, chipH, Theme::alpha(Theme::colors.accent, 0.5f));
+
+      std::pair<float, float> t2 = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+      Graphics::Font::drawText(label.c_str(), (int)(gx + chipW / 2 - t2.first / 2),
+                               (int)(gy + chipH / 2 - t2.second / 2), fontSizeValue,
+                               Theme::alpha(Theme::colors.text, 0.9f), sdlWindow);
+
+      glDisable(GL_BLEND);
+      layer();
+    }
+  };
+
+  visualizerListElement.clicked = [value](Element* self) {
+    const float groupHeaderH = stdSize;
+    const float itemH = stdSize;
+    const float groupBottomMargin = margin;
+    const float itemPad = padding;
+
+    float yTop = self->y + self->h;
+    float mouseX = SDLWindow::mousePos[sdlWindow].first;
+    float mouseY = SDLWindow::mousePos[sdlWindow].second;
+
+    for (const auto& kv : *value) {
+      const std::string& group = kv.first;
+      const auto& items = kv.second;
+
+      float headerY = yTop - groupHeaderH;
+      float itemsTop = headerY - spacing;
+      float y = itemsTop;
+
+      for (size_t i = 0; i < items.size(); ++i) {
+        y -= itemH;
+        float itemX = self->x + itemPad;
+        float itemY = y;
+        float itemW = self->w - itemPad * 2;
+        float itemHh = itemH;
+        if (mouseOverRectTranslated(itemX, itemY, itemW, itemHh)) {
+          dragState.active = true;
+          dragState.fromGroup = group;
+          dragState.index = i;
+          dragState.viz = items[i];
+          return;
+        }
+        y -= spacing;
+      }
+
+      float afterItemsBottom = y;
+      yTop = afterItemsBottom - groupBottomMargin;
+    }
+  };
+
+  visualizerListElement.unclicked = [value](Element* self) {
+    if (!dragState.active)
+      return;
+
+    const float groupHeaderH = stdSize;
+    const float itemH = stdSize;
+    const float groupBottomMargin = margin;
+
+    float yTop = self->y + self->h;
+    float mouseX = SDLWindow::mousePos[sdlWindow].first;
+    float mouseY = SDLWindow::mousePos[sdlWindow].second;
+
+    std::string targetGroup;
+    bool foundTarget = false;
+    size_t dropIndex = 0;
+
+    for (const auto& kv : *value) {
+      const std::string& group = kv.first;
+      const auto& items = kv.second;
+
+      float headerY = yTop - groupHeaderH;
+      float itemsTop = headerY - spacing;
+      float y = itemsTop;
+      for (size_t i = 0; i < std::max<size_t>(1, items.size()); ++i) {
+        y -= itemH;
+        float itemX = self->x + padding;
+        float itemY = y;
+        float itemW = self->w - padding * 2;
+        float itemHh = itemH;
+
+        if (mouseOverRectTranslated(itemX, itemY, itemW, itemHh)) {
+          targetGroup = group;
+          foundTarget = true;
+          if (items.empty()) {
+            dropIndex = 0;
+          } else {
+            bool inBottomHalf = !mouseOverRectTranslated(itemX, itemY + itemHh / 2.0f, itemW, itemHh / 2.0f);
+            dropIndex = i + static_cast<size_t>(inBottomHalf);
+            if (dropIndex > items.size())
+              dropIndex = items.size();
+          }
+          break;
+        }
+
+        if (i < items.size() - 1) {
+          float gapY = y - spacing;
+          float gapH = spacing;
+          if (mouseOverRectTranslated(itemX, gapY, itemW, gapH)) {
+            targetGroup = group;
+            foundTarget = true;
+            dropIndex = i + 1;
+            break;
+          }
+        }
+
+        y -= spacing;
+      }
+
+      float afterItemsBottom = y;
+      yTop = afterItemsBottom - groupBottomMargin;
+      if (foundTarget)
+        break;
+    }
+
+    const float createZoneH = stdSize * 1.5f;
+    float createY = yTop - createZoneH;
+    bool overCreate = mouseOverRectTranslated(self->x, createY, self->w, createZoneH);
+
+    // cancel move if target is not main
+    if (dragState.fromGroup == "main" && Config::options.visualizers[dragState.fromGroup].size() == 1) {
+      if (!foundTarget || targetGroup != "main" || overCreate) {
+        dragState.active = false;
+        return;
+      }
+    }
+
+    if (foundTarget || overCreate) {
+      // Remove from source by index
+      auto& src = Config::options.visualizers[dragState.fromGroup];
+      if (dragState.index < src.size())
+        src.erase(src.begin() + dragState.index);
+
+      // Target destination
+      if (overCreate) {
+        std::string newKey = generateNewWindowKey();
+        Config::options.visualizers[newKey].push_back(dragState.viz);
+      } else {
+        auto& dst = Config::options.visualizers[targetGroup];
+        // If moving within the same group and removing an earlier index, adjust dropIndex
+        if (targetGroup == dragState.fromGroup && dropIndex > dragState.index)
+          dropIndex--;
+        if (dropIndex > dst.size())
+          dropIndex = dst.size();
+        dst.insert(dst.begin() + static_cast<long>(dropIndex), dragState.viz);
+      }
+
+      // Delete empty non-main windows
+      if (Config::options.visualizers[dragState.fromGroup].empty() && dragState.fromGroup != "main") {
+        Config::options.visualizers.erase(dragState.fromGroup);
+      }
+
+      WindowManager::reorder();
+    }
+
+    dragState.active = false;
+  };
+
+  createLabelElement(page, cy, key, label, description);
+  page.elements.insert({key + "#visualizers", visualizerListElement});
+  cy -= visualizerListElement.h + margin;
 }
 
 }; // namespace ConfigWindow

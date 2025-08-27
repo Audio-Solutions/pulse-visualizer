@@ -54,7 +54,7 @@ constexpr float scrollShift = 100.f;
 
 extern size_t sdlWindow;
 extern bool shown;
-extern int w, h;
+constexpr int w = 600, h = 800;
 
 extern float offsetX, offsetY;
 extern bool alt, ctrl, shift;
@@ -271,5 +271,18 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
  */
 void createCheckElement(Page& page, float& cy, const std::string key, bool* value, const std::string label,
                         const std::string description);
+
+/**
+ * @brief Creates a visualizer window list element
+ * @param page Destination page
+ * @param cy Current Y axis
+ * @param key Element key
+ * @param value Pointer to the value
+ * @param label Label string
+ * @param description Tooltip string
+ */
+void createVisualizerListElement(Page& page, float& cy, const std::string key,
+                                 std::map<std::string, std::vector<std::string>>* value, const std::string label,
+                                 const std::string description);
 
 }; // namespace ConfigWindow

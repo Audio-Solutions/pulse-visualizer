@@ -172,6 +172,11 @@ extern std::vector<std::string> markedForDeletion;
 void deleteMarkedWindows();
 
 /**
+ * @brief Shift window indexes down by one
+ */
+void shiftDown(uint32_t startIndex);
+
+/**
  * @brief Draw all window splitters
  */
 void drawSplitters();
