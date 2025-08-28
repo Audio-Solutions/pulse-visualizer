@@ -46,7 +46,7 @@ bool initialized = false;
 
 // Available audio sources and default sink
 std::vector<DeviceInfo> availableSources;
-std::string defaultSink;
+std::string defaultSource;
 
 void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, void*) {
   if (eol || !info)
@@ -61,80 +61,12 @@ void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, vo
   availableSources.push_back(dev);
 }
 
-void _enumerate() {
-  availableSources.clear();
-  defaultSink.clear();
-
-  // Create PulseAudio mainloop and context
-  pa_mainloop* ml = pa_mainloop_new();
-  if (!ml)
-    return;
-
-  pa_context* ctx = pa_context_new(pa_mainloop_get_api(ml), "pulse-device-enum");
-  if (!ctx) {
-    pa_mainloop_free(ml);
-    return;
-  }
-
-  pa_context_set_state_callback(ctx, [](pa_context*, void*) {}, nullptr);
-
-  if (pa_context_connect(ctx, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
-    pa_context_unref(ctx);
-    pa_mainloop_free(ml);
-    return;
-  }
-
-  // Wait for context to be ready and enumerate devices
-  bool done = false;
-  do {
-    if (pa_mainloop_iterate(ml, 1, nullptr) < 0)
-      ;
-    break;
-
-    pa_context_state_t state = pa_context_get_state(ctx);
-    if (state == PA_CONTEXT_READY) {
-      // Get server info to find default sink
-      pa_operation* opServer = pa_context_get_server_info(
-          ctx,
-          [](pa_context* ctx, const pa_server_info* info, void*) {
-            if (!info)
-              return;
-
-            if (info->default_sink_name)
-              defaultSink = info->default_sink_name;
-          },
-          nullptr);
-
-      if (opServer) {
-        while (pa_operation_get_state(opServer) == PA_OPERATION_RUNNING)
-          pa_mainloop_iterate(ml, 1, nullptr);
-        pa_operation_unref(opServer);
-      }
-
-      // Get source list
-      pa_operation* opSources = pa_context_get_source_info_list(ctx, sourceInfoCallback, nullptr);
-      if (opSources) {
-        while (pa_operation_get_state(opSources) == PA_OPERATION_RUNNING)
-          pa_mainloop_iterate(ml, 1, nullptr);
-        pa_operation_unref(opSources);
-      }
-      done = true;
-    } else if (state == PA_CONTEXT_FAILED || state == PA_CONTEXT_TERMINATED) {
-      done = true;
-    }
-  } while (!done);
-
-  pa_context_disconnect(ctx);
-  pa_context_unref(ctx);
-  pa_mainloop_free(ml);
-}
-
 std::string find(std::string dev) {
   if (dev.empty()) {
-    if (defaultSink.empty())
+    if (defaultSource.empty())
       return "default";
 
-    dev = defaultSink + ".monitor";
+    dev = defaultSource + ".monitor";
   }
 
   // Search for matching device
@@ -162,7 +94,71 @@ bool init() {
   if (initialized)
     cleanup();
 
-  _enumerate();
+  availableSources.clear();
+  defaultSource.clear();
+
+  // Create PulseAudio mainloop and context
+  pa_mainloop* ml = pa_mainloop_new();
+  if (!ml)
+    return false;
+
+  pa_context* ctx = pa_context_new(pa_mainloop_get_api(ml), "pulse-device-enum");
+  if (!ctx) {
+    pa_mainloop_free(ml);
+    return false;
+  }
+
+  pa_context_set_state_callback(ctx, [](pa_context*, void*) {}, nullptr);
+
+  if (pa_context_connect(ctx, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
+    pa_context_unref(ctx);
+    pa_mainloop_free(ml);
+    return false;
+  }
+
+  // Wait for context to be ready and enumerate devices
+  bool done = false;
+  do {
+    if (pa_mainloop_iterate(ml, 1, nullptr) < 0)
+      ;
+    break;
+
+    pa_context_state_t state = pa_context_get_state(ctx);
+    if (state == PA_CONTEXT_READY) {
+      // Get server info to find default sink
+      pa_operation* opServer = pa_context_get_server_info(
+          ctx,
+          [](pa_context* ctx, const pa_server_info* info, void*) {
+            if (!info)
+              return;
+
+            if (info->default_source_name)
+              defaultSource = info->default_source_name;
+          },
+          nullptr);
+
+      if (opServer) {
+        while (pa_operation_get_state(opServer) == PA_OPERATION_RUNNING)
+          pa_mainloop_iterate(ml, 1, nullptr);
+        pa_operation_unref(opServer);
+      }
+
+      // Get source list
+      pa_operation* opSources = pa_context_get_source_info_list(ctx, sourceInfoCallback, nullptr);
+      if (opSources) {
+        while (pa_operation_get_state(opSources) == PA_OPERATION_RUNNING)
+          pa_mainloop_iterate(ml, 1, nullptr);
+        pa_operation_unref(opSources);
+      }
+      done = true;
+    } else if (state == PA_CONTEXT_FAILED || state == PA_CONTEXT_TERMINATED) {
+      done = true;
+    }
+  } while (!done);
+
+  pa_context_disconnect(ctx);
+  pa_context_unref(ctx);
+  pa_mainloop_free(ml);
 
   // Configure audio format
   pa_sample_spec sampleSpec;
@@ -188,6 +184,10 @@ bool init() {
                          .fragsize = bufferSize};
 
   std::string dev = find(Config::options.audio.device);
+
+  if (dev == "default") {
+    dev = defaultSource;
+  }
 
   // Create PulseAudio stream
   int err = 0;

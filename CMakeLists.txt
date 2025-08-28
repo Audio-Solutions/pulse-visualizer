@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Pulse VERSION 1.2.4)
+project(Pulse VERSION 1.2.5)
 
 option(CI_SPECIFIC "Enable CI specific configuration" OFF)
 option(SKIP_CPACK "Skip packaging configuration" ON)
@@ -22,7 +22,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -s")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
   set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG")
-  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast -flto -Xclang -fcxx-exceptions /DNDEBUG")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto /DEBUG:NONE")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -ffast-math -flto -DNDEBUG")
@@ -30,7 +30,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -Wl,-s")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set(CMAKE_CXX_FLAGS_RELEASE "/O2 /fp:fast /GL /DNDEBUG")
-  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast /GL /DNDEBUG") # omit /arch:AVX2 because the check at the bottom will add it
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /fp:fast /GL /DNDEBUG")
   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG /DEBUG:NONE")
 endif()
 
