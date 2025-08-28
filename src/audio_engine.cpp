@@ -61,7 +61,7 @@ void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, vo
   availableSources.push_back(dev);
 }
 
-void enumerate() {
+void _enumerate() {
   availableSources.clear();
   defaultSink.clear();
 
@@ -162,7 +162,7 @@ bool init() {
   if (initialized)
     cleanup();
 
-  enumerate();
+  _enumerate();
 
   // Configure audio format
   pa_sample_spec sampleSpec;

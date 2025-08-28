@@ -66,11 +66,6 @@ extern std::string defaultSink;
 void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, void*);
 
 /**
- * @brief Enumerate available audio sources
- */
-void enumerate();
-
-/**
  * @brief Find audio device by name
  * @param dev Device name
  * @return Device name if found

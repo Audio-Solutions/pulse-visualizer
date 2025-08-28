@@ -910,7 +910,8 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
   };
 
   labelElement.render = [label, description, ignoreTextOverflow](Element* self) {
-    std::string actualLabel = ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, sdlWindow);
+    std::string actualLabel =
+        ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, sdlWindow);
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2),
                              fontSizeLabel, Theme::colors.text, sdlWindow);
@@ -1625,7 +1626,8 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
                                  thingHovered ? Theme::colors.accent
                                               : (current ? Theme::colors.text : Theme::colors.bgaccent));
 
-        std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+        std::string actualLabel =
+            Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
         std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
         Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
@@ -1637,7 +1639,8 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
 
     layer();
 
-    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+    std::string actualLabel =
+        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
@@ -1721,7 +1724,8 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
       }
     }
 
-    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+    std::string actualLabel =
+        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
@@ -1817,7 +1821,11 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       const auto& items = kv.second;
       used += groupHeaderH;
       used += spacing;
+#ifdef _WIN32
       used += std::max(1ull, items.size()) * (itemH + spacing);
+#else
+      used += std::max(1ul, items.size()) * (itemH + spacing);
+#endif
       used += groupBottomMargin;
     }
     const float createZoneH = stdSize * 1.5f;
