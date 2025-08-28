@@ -20,12 +20,12 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
   - Spectrogram (log/linear scale, interpolation)
   - Peak and LUFS (shortterm, momentary, integrated)
   - VU meter (digital and analog)
-- Configurable order at runtime (lost on exit for now)
+- Configurable order at runtime
+- Settings menu (press `m` to open)
 - Separate FFT/CQT threads for mid/side channels
 - Extensive SIMD (AVX2) acceleration
 - Live config and theme hot-reloading (no restart needed, mostly)
 - Draggable splitters for custom layout
-- Mouse interaction: hover FFT for note readout, drag splitters, etc.
 - Cross-platform: PulseAudio and PipeWire
 - Hardware-accelerated graphics (OpenGL)
 - A pile of ready-made themes (see `themes/`)
@@ -105,34 +105,16 @@ On first run, config and themes get copied to `~/.config/pulse-visualizer/` if t
 
 ## Configuration
 
-Pulse doesn't have a settings menu (and probably never will), so you'll be editing a YAML config file. On first run, it copies a template to `~/.config/pulse-visualizer/config.yml`. On windows it will be installed to `C:\Users\user\.config\pulse-visualizer\config.yml`.
+pulse-visualizer now has a settings menu! You can open it by pressing `m`. You can also edit the config file directly.
 
 For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURATION.md).
 
-### Quick Configuration
-
-The most important settings to configure:
-
-- `audio`: Set your audio backend and input device
-- `font`: Set your font path
-- `window`: Set window size, theme, and FPS limit
-- `phosphor`, `fft`, `lissajous`, `oscilloscope`: Fine-tune visualizers and effects
-
-For all available options and detailed descriptions, see `/usr/local/share/pulse-visualizer/config.yml.template`.
-
 ### Theming
 
-To pick a theme, edit the `theme` field in your config:
+You can pick a theme in the `Window` page in the settings menu.
 
-```yaml
-window:
-  theme: green-crt.txt
-```
-
-Swap `green-crt.txt` for any file in `themes/`. Theme files get copied to `~/.config/pulse-visualizer/themes/` on first run.
-
-Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
-
+You can also create your own themes by copying a template and editing the colors. Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
+ 
 ## Usage
 
 Just run:

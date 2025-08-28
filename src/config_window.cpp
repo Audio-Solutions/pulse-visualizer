@@ -599,6 +599,11 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
+    // Ensure a persistent 'hidden' window group exists and can be empty
+    if (Config::options.visualizers.find("hidden") == Config::options.visualizers.end()) {
+      Config::options.visualizers["hidden"] = {};
+    }
+
     createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
 
     page.height = cyInit - cy;
@@ -1987,13 +1992,15 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       float itemsTop = headerY - spacing;
       float y = itemsTop;
 
-      for (size_t i = 0; i < items.size(); ++i) {
+      // Walk the same rows as render, including a placeholder row when empty
+      for (size_t i = 0; i < std::max<size_t>(1, items.size()); ++i) {
         y -= itemH;
         float itemX = self->x + itemPad;
         float itemY = y;
         float itemW = self->w - itemPad * 2;
         float itemHh = itemH;
-        if (mouseOverRectTranslated(itemX, itemY, itemW, itemHh)) {
+        bool isPlaceholder = items.empty();
+        if (!isPlaceholder && mouseOverRectTranslated(itemX, itemY, itemW, itemHh)) {
           dragState.active = true;
           dragState.fromGroup = group;
           dragState.index = i;
@@ -2031,6 +2038,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       float headerY = yTop - groupHeaderH;
       float itemsTop = headerY - spacing;
       float y = itemsTop;
+      // Walk the same rows as render, including a placeholder row when empty
       for (size_t i = 0; i < std::max<size_t>(1, items.size()); ++i) {
         y -= itemH;
         float itemX = self->x + padding;
@@ -2052,7 +2060,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
           break;
         }
 
-        if (i < items.size() - 1) {
+        if (i < std::max<size_t>(1, items.size()) - 1) {
           float gapY = y - spacing;
           float gapH = spacing;
           if (mouseOverRectTranslated(itemX, gapY, itemW, gapH)) {
@@ -2104,8 +2112,9 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         dst.insert(dst.begin() + static_cast<long>(dropIndex), dragState.viz);
       }
 
-      // Delete empty non-main windows
-      if (Config::options.visualizers[dragState.fromGroup].empty() && dragState.fromGroup != "main") {
+      // Delete empty non-special windows (preserve 'main' and 'hidden')
+      if (Config::options.visualizers[dragState.fromGroup].empty() && dragState.fromGroup != "main" &&
+          dragState.fromGroup != "hidden") {
         Config::options.visualizers.erase(dragState.fromGroup);
       }
 

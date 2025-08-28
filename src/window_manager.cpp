@@ -634,6 +634,10 @@ void reorder() {
       exit(1);
     }
 
+    // Skip "hidden" window
+    if (key == "hidden")
+      continue;
+
     // Cleanup existing windows in this group before clearing
     if (windows.find(key) != windows.end()) {
       for (auto& window : windows[key]) {
@@ -772,7 +776,7 @@ template <Direction direction> void swapVisualizer(size_t index, std::string key
     return;
 
   std::swap(Config::options.visualizers[key][index], Config::options.visualizers[key][index + direction]);
-  reorder();
+  Config::save();
 }
 
 void popWindow(size_t index, std::string key, bool popout) {
