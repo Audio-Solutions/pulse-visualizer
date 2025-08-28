@@ -66,8 +66,6 @@ static std::string generateNewWindowKey() {
   return key;
 }
 
-// TODO: put font size in a constexpr
-
 void init() {
   initTop();
   initPages();
@@ -580,7 +578,6 @@ inline void initPages() {
                                          "auto is recommended for most systems, but you can force a specific backend");
     }
 
-    // TODO: audio device carousel
     {
       std::vector<std::string> result = AudioEngine::enumerate();
       std::map<std::string, std::string> values;
@@ -899,68 +896,7 @@ inline void initPages() {
   }
 
   // TODO: put font somewhere
-}
-
-// TODO: move these into the Graphics::Font namespace
-std::string wrapText(const std::string& text, float maxW, int fontSize) {
-  std::istringstream lineStream(text);
-  std::string line;
-  std::string result;
-
-  while (std::getline(lineStream, line)) {
-    std::istringstream wordStream(line);
-    std::string word;
-    std::string currentLine;
-
-    while (wordStream >> word) {
-      std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-      auto size = Graphics::Font::getTextSize(testLine.c_str(), fontSize, sdlWindow);
-
-      if (size.first <= maxW) {
-        currentLine = testLine;
-      } else {
-        if (!currentLine.empty()) {
-          result += currentLine + "\n";
-        }
-        currentLine = word;
-      }
-    }
-
-    if (!currentLine.empty()) {
-      result += currentLine + "\n";
-    }
-  }
-
-  // Remove trailing newline if present
-  if (!result.empty() && result.back() == '\n') {
-    result.pop_back();
-  }
-
-  return result;
-}
-
-std::string truncateText(const std::string& text, float maxW, int fontSize) {
-  const std::string ellipsis = "...";
-  auto fullSize = Graphics::Font::getTextSize(text.c_str(), fontSize, sdlWindow);
-
-  // If the full text fits, return as-is
-  if (fullSize.first <= maxW) {
-    return text;
-  }
-
-  std::string truncated;
-  for (size_t i = 0; i < text.size(); ++i) {
-    std::string candidate = text.substr(0, i) + ellipsis;
-    auto candidateSize = Graphics::Font::getTextSize(candidate.c_str(), fontSize, sdlWindow);
-
-    if (candidateSize.first > maxW) {
-      break;
-    }
-
-    truncated = candidate;
-  }
-
-  return truncated;
+  // TODO: text input
 }
 
 void createLabelElement(Page& page, float& cy, const std::string key, const std::string label,
@@ -974,7 +910,7 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
   };
 
   labelElement.render = [label, description, ignoreTextOverflow](Element* self) {
-    std::string actualLabel = ignoreTextOverflow ? label : truncateText(label, self->w, fontSizeLabel);
+    std::string actualLabel = ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, sdlWindow);
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2),
                              fontSizeLabel, Theme::colors.text, sdlWindow);
@@ -985,7 +921,7 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
       float mouseY = SDLWindow::mousePos[sdlWindow].second;
       float maxW = w - mouseX - margin * 2 - padding * 2;
 
-      std::string actualDescription = wrapText(description, maxW, fontSizeTooltip);
+      std::string actualDescription = Graphics::Font::wrapText(description, maxW, fontSizeTooltip, sdlWindow);
       std::pair<float, float> textSize =
           Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip, sdlWindow);
       Graphics::drawFilledRect(mouseX + margin - offsetX, mouseY - margin - textSize.second - padding * 2 - offsetY,
@@ -1689,7 +1625,7 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
                                  thingHovered ? Theme::colors.accent
                                               : (current ? Theme::colors.text : Theme::colors.bgaccent));
 
-        std::string actualLabel = truncateText(kv.second, self->w - padding * 2, fontSizeValue);
+        std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
         std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
         Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
@@ -1701,7 +1637,7 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
 
     layer();
 
-    std::string actualLabel = truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
+    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
@@ -1785,7 +1721,7 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
       }
     }
 
-    std::string actualLabel = truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
+    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
 
     std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),

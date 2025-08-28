@@ -56,10 +56,6 @@ std::string expandUserPath(const std::string& path) {
   return path;
 }
 
-/**
- * TODO: Implement a configuration menu. sometime. idk when
- */
-
 // checks if a debugger is present
 bool debuggerPresent() {
 #if _WIN32

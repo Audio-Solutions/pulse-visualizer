@@ -337,6 +337,135 @@ std::pair<float, float> getTextSize(const char* text, const float& size, size_t 
   return {totalWidth, totalHeight};
 }
 
+std::string wrapText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow) {
+  std::istringstream lineStream(text);
+  std::string line;
+  std::string result;
+
+  while (std::getline(lineStream, line)) {
+    std::istringstream wordStream(line);
+    std::string word;
+    std::string currentLine;
+
+    while (wordStream >> word) {
+      std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
+      auto size = getTextSize(testLine.c_str(), fontSize, sdlWindow);
+
+      if (size.first <= maxW) {
+        currentLine = testLine;
+      } else {
+        if (!currentLine.empty()) {
+          result += currentLine + "\n";
+        }
+        currentLine = word;
+      }
+    }
+
+    if (!currentLine.empty()) {
+      result += currentLine + "\n";
+    }
+  }
+
+  // Remove trailing newline if present
+  if (!result.empty() && result.back() == '\n') {
+    result.pop_back();
+  }
+
+  return result;
+}
+
+std::string truncateText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow) {
+  const std::string ellipsis = "...";
+  auto fullSize = getTextSize(text.c_str(), fontSize, sdlWindow);
+
+  // If the full text fits, return as-is
+  if (fullSize.first <= maxW) {
+    return text;
+  }
+
+  std::string truncated;
+  for (size_t i = 0; i < text.size(); ++i) {
+    std::string candidate = text.substr(0, i) + ellipsis;
+    auto candidateSize = getTextSize(candidate.c_str(), fontSize, sdlWindow);
+
+    if (candidateSize.first > maxW) {
+      break;
+    }
+
+    truncated = candidate;
+  }
+
+  return truncated;
+}
+
+std::string fitTextBox(const std::string& text, const float& maxW, const float& maxH, const float& fontSize,
+                       size_t sdlWindow) {
+  const std::string ellipsis = "...";
+  std::istringstream lineStream(text);
+  std::string line;
+  std::string result;
+
+  const int lineHeight = fontSize;
+  const int maxLines = static_cast<int>(maxH / lineHeight);
+  int currentLineCount = 0;
+
+  while (std::getline(lineStream, line) && currentLineCount < maxLines) {
+    std::istringstream wordStream(line);
+    std::string word;
+    std::string currentLine;
+
+    while (wordStream >> word) {
+      std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
+      auto size = getTextSize(testLine.c_str(), fontSize, sdlWindow);
+
+      if (size.first <= maxW) {
+        currentLine = testLine;
+      } else {
+        if (!currentLine.empty()) {
+          result += currentLine + "\n";
+          currentLineCount++;
+          if (currentLineCount >= maxLines)
+            break;
+        }
+        currentLine = word;
+      }
+    }
+
+    if (currentLineCount >= maxLines)
+      break;
+
+    if (!currentLine.empty()) {
+      result += currentLine + "\n";
+      currentLineCount++;
+    }
+  }
+
+  // If we ran out of vertical space, truncate the last line
+  if (currentLineCount >= maxLines) {
+    size_t lastNewline = result.find_last_of('\n');
+    std::string lastLine = (lastNewline != std::string::npos) ? result.substr(lastNewline + 1) : result;
+    std::string truncatedLastLine;
+
+    for (size_t i = 0; i < lastLine.size(); ++i) {
+      std::string candidate = lastLine.substr(0, i) + ellipsis;
+      auto candidateSize = getTextSize(candidate.c_str(), fontSize, sdlWindow);
+      if (candidateSize.first > maxW)
+        break;
+      truncatedLastLine = candidate;
+    }
+
+    result =
+        (lastNewline != std::string::npos) ? result.substr(0, lastNewline + 1) + truncatedLastLine : truncatedLastLine;
+  }
+
+  // Remove trailing newline if present
+  if (!result.empty() && result.back() == '\n') {
+    result.pop_back();
+  }
+
+  return result;
+}
+
 } // namespace Font
 
 void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<std::pair<float, float>> points,

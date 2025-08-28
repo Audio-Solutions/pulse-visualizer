@@ -130,6 +130,38 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
  */
 std::pair<float, float> getTextSize(const char* text, const float& size, size_t sdlWindow);
 
+/**
+ * @brief Word wrap text into the given width (ignoring vertical size)
+ * @param text Text to word wrap
+ * @param maxW Maximum width
+ * @param fontSize Font size
+ * @param sdlWindow Index of the window to measure text for
+ * @return Word wrapped string
+ */
+std::string wrapText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow);
+
+/**
+ * @brief Truncate text into the given width with an ellipsis (one line only)
+ * @param text Text to truncate
+ * @param maxW Maximum width
+ * @param fontSize Font size
+ * @param sdlWindow Index of the window to measure text for
+ * @return Truncated string
+ */
+std::string truncateText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow);
+
+/**
+ * @brief Fit text into the given width and height using word wrap and then truncating
+ * @param text Text to fit
+ * @param maxW Maximum width
+ * @param maxH Maximum height
+ * @param fontSize Font size
+ * @param sdlWindow Index of the window to measure text for
+ * @return Fitted string
+ */
+std::string fitTextBox(const std::string& text, const float& maxW, const float& maxH, const float& fontSize,
+                       size_t sdlWindow);
+
 } // namespace Font
 
 /**
