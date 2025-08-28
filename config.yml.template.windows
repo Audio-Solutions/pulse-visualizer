@@ -16,9 +16,9 @@ audio:
   silence_threshold: -90.0
   # Audio backend: "pulseaudio", "pipewire", "wasapi", or "auto" (auto-detects best available)
   # "auto" is recommended for most systems
-  engine: pipewire
+  engine: wasapi
   # Audio device name (see system audio devices)
-  device: alsa_output.pci-0000_0e_00.4.iec958-stereo
+  device: default
   # Audio gain adjustment in dB (positive=louder, negative=quieter)
   # Adjust if audio is too quiet or too loud
   gain_db: 0.0

@@ -242,10 +242,21 @@ bool reconfigure() {
 
   return true;
 }
+
+std::vector<std::string> enumerate() {
+  std::vector<std::string> result;
+  result.push_back("default");
+  for (const auto& device : availableSources) {
+    result.push_back(device.name);
+  }
+  return result;
+}
+
 #else
 bool init() { return false; }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
+std::vector<std::string> enumerate() { return {}; }
 #endif
 } // namespace Pulseaudio
 
@@ -578,10 +589,21 @@ bool reconfigure() {
 
   return true;
 }
+
+std::vector<std::string> enumerate() {
+  std::vector<std::string> result;
+  result.push_back("default");
+  for (const auto& device : availableDevices) {
+    result.push_back(device.name);
+  }
+  return result;
+}
+
 #else
 bool init() { return false; }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
+std::vector<std::string> enumerate() { return {}; }
 #endif
 } // namespace PipeWire
 
@@ -693,6 +715,20 @@ std::string WideToUtf8(const std::wstring& wstr) {
   return result;
 }
 
+bool selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice) {
+  HRESULT hr;
+  IMMDevice* device = nullptr;
+
+  hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+  if (SUCCEEDED(hr)) {
+    *outDevice = device;
+    return true;
+  }
+
+  LOG_ERROR(std::string("Failed to get default audio endpoint: ") + _com_error(hr).ErrorMessage());
+  return false;
+}
+
 bool select(const std::string& targetName, IMMDevice** outDevice) {
   HRESULT hr;
   IMMDeviceEnumerator* enumerator = nullptr;
@@ -703,6 +739,16 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
   if (FAILED(hr)) {
     LOG_ERROR(std::string("Failed to create device enumerator: ") + _com_error(hr).ErrorMessage());
     return false;
+  }
+
+  std::string targetNameCorrected = targetName;
+  std::transform(targetNameCorrected.begin(), targetNameCorrected.end(), targetNameCorrected.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  if (targetNameCorrected == "default") {
+    bool defaultSuccess = selectDefault(enumerator, outDevice);
+    enumerator->Release();
+    return defaultSuccess;
   }
 
   hr = enumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &collection);
@@ -736,7 +782,9 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
       std::wstring wname(name.pwszVal);
       std::string sname = WideToUtf8(wname);
 
-      if (sname.find(targetName) != std::string::npos) {
+      std::transform(sname.begin(), sname.end(), sname.begin(), [](unsigned char c) { return std::tolower(c); });
+
+      if (sname.find(targetNameCorrected) != std::string::npos) {
         *outDevice = device;
         props->Release();
         PropVariantClear(&name);
@@ -753,21 +801,11 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
 
   LOG_ERROR(std::string("Device not found: ") + targetName + ", selecting the default output device");
 
-  {
-    IMMDevice* device = nullptr;
-    hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
-    if (SUCCEEDED(hr)) {
-      *outDevice = device;
-      collection->Release();
-      enumerator->Release();
-      return true;
-    }
-  }
+  bool defaultSuccess = selectDefault(enumerator, outDevice);
 
-  LOG_ERROR(std::string("Failed to get default audio endpoint: ") + _com_error(hr).ErrorMessage());
   collection->Release();
   enumerator->Release();
-  return false;
+  return defaultSuccess;
 }
 
 #define SAFE_RELEASE(punk)                                                                                             \
@@ -962,10 +1000,69 @@ bool reconfigure() {
 
   return true;
 }
+
+std::vector<std::string> enumerate() {
+  HRESULT hr;
+  IMMDeviceEnumerator* enumerator = nullptr;
+  IMMDeviceCollection* collection = nullptr;
+
+  hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
+                        (void**)&enumerator);
+  if (FAILED(hr)) {
+    LOG_ERROR(std::string("Failed to create device enumerator: ") + _com_error(hr).ErrorMessage());
+    return {};
+  }
+
+  hr = enumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &collection);
+  if (FAILED(hr)) {
+    LOG_ERROR(std::string("Failed to enumerate audio endpoints: ") + _com_error(hr).ErrorMessage());
+    enumerator->Release();
+    return {};
+  }
+
+  UINT count;
+  collection->GetCount(&count);
+
+  std::vector<std::string> output;
+  output.push_back("default");
+
+  for (UINT i = 0; i < count; ++i) {
+    IMMDevice* device = nullptr;
+    IPropertyStore* props = nullptr;
+
+    hr = collection->Item(i, &device);
+    if (FAILED(hr))
+      continue;
+
+    hr = device->OpenPropertyStore(STGM_READ, &props);
+    if (FAILED(hr)) {
+      device->Release();
+      continue;
+    }
+
+    PROPVARIANT name;
+    PropVariantInit(&name);
+    hr = props->GetValue(PKEY_Device_FriendlyName, &name);
+    if (SUCCEEDED(hr)) {
+      std::wstring wname(name.pwszVal);
+      std::string sname = WideToUtf8(wname);
+
+      output.push_back(sname);
+    }
+
+    PropVariantClear(&name);
+    props->Release();
+    device->Release();
+  }
+
+  return output;
+}
+
 #else
 bool init() { return false; }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
+std::vector<std::string> enumerate() { return {}; }
 #endif
 } // namespace WASAPI
 
@@ -1099,6 +1196,25 @@ bool read(float* buffer, const size_t& samples) {
   }
 #endif
   return false;
+}
+
+std::vector<std::string> enumerate() {
+#if HAVE_PULSEAUDIO
+  if (Pulseaudio::running) {
+    return AudioEngine::Pulseaudio::enumerate();
+  }
+#endif
+#if HAVE_PIPEWIRE
+  if (PipeWire::running) {
+    return AudioEngine::PipeWire::enumerate();
+  }
+#endif
+#if HAVE_WASAPI
+  if (WASAPI::running) {
+    return AudioEngine::WASAPI::enumerate();
+  }
+#endif
+  return {};
 }
 
 } // namespace AudioEngine

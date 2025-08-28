@@ -19,9 +19,6 @@
 
 #pragma once
 #include "common.hpp"
-#include "graphics.hpp"
-#include "sdl_window.hpp"
-#include "theme.hpp"
 
 namespace ConfigWindow {
 
@@ -180,9 +177,10 @@ extern std::map<PageType, Page> pages;
  * @param key Element key
  * @param label Label string
  * @param description Tooltip string
+ * @param ignoreTextOverflow Ignore the text overflow on the label (for checkbox)
  */
 void createLabelElement(Page& page, float& cy, const std::string key, const std::string label,
-                        const std::string description);
+                        const std::string description, const bool ignoreTextOverflow = false);
 
 /**
  * @brief Creates a header element

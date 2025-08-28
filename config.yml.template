@@ -18,7 +18,7 @@ audio:
   # "auto" is recommended for most systems
   engine: pipewire
   # Audio device name (see system audio devices)
-  device: auto
+  device: default
   # Audio gain adjustment in dB (positive=louder, negative=quieter)
   # Adjust if audio is too quiet or too loud
   gain_db: 0.0

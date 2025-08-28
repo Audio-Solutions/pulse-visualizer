@@ -19,6 +19,7 @@
 
 #include "include/config_window.hpp"
 
+#include "include/audio_engine.hpp"
 #include "include/config.hpp"
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
@@ -262,6 +263,14 @@ inline void initPages() {
     // enable_lowpass
     createCheckElement(page, cy, "enable_lowpass", &Config::options.oscilloscope.lowpass.enabled, "Enable lowpass",
                        "Enable lowpass filter for oscilloscope");
+
+    // lowpass.cutoff
+    createSliderElement<float>(page, cy, "cutoff", &Config::options.oscilloscope.lowpass.cutoff, 0, 4000.f,
+                               "Lowpass cutoff (Hz)", "Cutoff frequency in Hz");
+
+    // lowpass.order
+    createSliderElement<int>(page, cy, "order", &Config::options.oscilloscope.lowpass.order, 1, 16, "Lowpass order",
+                             "Cutoff frequency in Hz", 0);
 
     // bandwidth
     createSliderElement<float>(page, cy, "bandwidth", &Config::options.oscilloscope.bandpass.bandwidth, 0, 1000.f,
@@ -572,6 +581,17 @@ inline void initPages() {
     }
 
     // TODO: audio device carousel
+    {
+      std::vector<std::string> result = AudioEngine::enumerate();
+      std::map<std::string, std::string> values;
+
+      for (std::string v : result) {
+        values.insert({v, v});
+      }
+
+      createEnumTickElement<std::string>(page, cy, "device", &Config::options.audio.device, values, "Device",
+                                         "Audio device name");
+    }
 
     page.height = cyInit - cy;
     pages.insert({PageType::Audio, page});
@@ -724,7 +744,7 @@ inline void initPages() {
                                "Fast decay rate of phosphor persistence (higher=shorter persistence)");
 
     // line_blur_spread
-    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 100.f,
+    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 512.f,
                                "Line blur spread",
                                "Spread of the blur effect (higher=more spread, more GPU intensive)");
 
@@ -881,7 +901,7 @@ inline void initPages() {
   // TODO: put font somewhere
 }
 
-// TODO: move this into the Graphics::Font namespace
+// TODO: move these into the Graphics::Font namespace
 std::string wrapText(const std::string& text, float maxW, int fontSize) {
   std::istringstream lineStream(text);
   std::string line;
@@ -919,8 +939,32 @@ std::string wrapText(const std::string& text, float maxW, int fontSize) {
   return result;
 }
 
+std::string truncateText(const std::string& text, float maxW, int fontSize) {
+  const std::string ellipsis = "...";
+  auto fullSize = Graphics::Font::getTextSize(text.c_str(), fontSize, sdlWindow);
+
+  // If the full text fits, return as-is
+  if (fullSize.first <= maxW) {
+    return text;
+  }
+
+  std::string truncated;
+  for (size_t i = 0; i < text.size(); ++i) {
+    std::string candidate = text.substr(0, i) + ellipsis;
+    auto candidateSize = Graphics::Font::getTextSize(candidate.c_str(), fontSize, sdlWindow);
+
+    if (candidateSize.first > maxW) {
+      break;
+    }
+
+    truncated = candidate;
+  }
+
+  return truncated;
+}
+
 void createLabelElement(Page& page, float& cy, const std::string key, const std::string label,
-                        const std::string description) {
+                        const std::string description, const bool ignoreTextOverflow) {
   Element labelElement = {0};
   labelElement.update = [cy](Element* self) {
     self->w = labelSize;
@@ -929,12 +973,11 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
     self->y = cy - stdSize;
   };
 
-  labelElement.render = [label, description](Element* self) {
-    // TODO: implement cutoff for too long stuff i guess
-
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(label.c_str(), fontSizeLabel, sdlWindow);
-    Graphics::Font::drawText(label.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeLabel,
-                             Theme::colors.text, sdlWindow);
+  labelElement.render = [label, description, ignoreTextOverflow](Element* self) {
+    std::string actualLabel = ignoreTextOverflow ? label : truncateText(label, self->w, fontSizeLabel);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, sdlWindow);
+    Graphics::Font::drawText(actualLabel.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2),
+                             fontSizeLabel, Theme::colors.text, sdlWindow);
 
     if (self->hovered) {
       layer(2.f);
@@ -942,7 +985,7 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
       float mouseY = SDLWindow::mousePos[sdlWindow].second;
       float maxW = w - mouseX - margin * 2 - padding * 2;
 
-      std::string actualDescription = wrapText(description, maxW, 12);
+      std::string actualDescription = wrapText(description, maxW, fontSizeTooltip);
       std::pair<float, float> textSize =
           Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip, sdlWindow);
       Graphics::drawFilledRect(mouseX + margin - offsetX, mouseY - margin - textSize.second - padding * 2 - offsetY,
@@ -1003,7 +1046,7 @@ void createCheckElement(Page& page, float& cy, const std::string key, bool* valu
 
   checkElement.clicked = [value](Element* self) { *value = !(*value); };
 
-  createLabelElement(page, cy, key, label, description);
+  createLabelElement(page, cy, key, label, description, true);
   page.elements.insert({key + "#check", checkElement});
   cy -= stdSize + margin;
 }
@@ -1028,7 +1071,7 @@ void handleEvent(const SDL_Event& event) {
   if (!shown)
     return;
 
-  if (!SDLWindow::focused[sdlWindow])
+  if (!SDLWindow::focused[sdlWindow] && event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED)
     return;
 
   switch (event.type) {
@@ -1037,7 +1080,7 @@ void handleEvent(const SDL_Event& event) {
     return;
 
   case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    if (SDLWindow::focused[sdlWindow] && event.button.button == SDL_BUTTON_LEFT) {
+    if (event.button.button == SDL_BUTTON_LEFT) {
       bool anyFocused = false;
 
       // loop over the top page, checking if any is focused (takes priority over non focused elements)
@@ -1050,8 +1093,6 @@ void handleEvent(const SDL_Event& event) {
               e->clicked(e);
 
             e->click = true;
-
-            LOG_DEBUG("Focused top page element clicked: " << kv.first);
           }
 
           anyFocused = true;
@@ -1071,8 +1112,6 @@ void handleEvent(const SDL_Event& event) {
                 e->clicked(e);
 
               e->click = true;
-
-              LOG_DEBUG("Focused page element clicked: " << kv.first)
             }
 
             anyFocused = true;
@@ -1094,8 +1133,6 @@ void handleEvent(const SDL_Event& event) {
             e->clicked(e);
 
           e->click = true;
-
-          LOG_DEBUG("Top page element clicked: " << kv.first)
         }
       }
 
@@ -1109,8 +1146,6 @@ void handleEvent(const SDL_Event& event) {
               e->clicked(e);
 
             e->click = true;
-
-            LOG_DEBUG("Page element clicked: " << kv.first)
           }
         }
       }
@@ -1118,7 +1153,7 @@ void handleEvent(const SDL_Event& event) {
     break;
 
   case SDL_EVENT_MOUSE_BUTTON_UP:
-    if (SDLWindow::focused[sdlWindow] && event.button.button == SDL_BUTTON_LEFT) {
+    if (event.button.button == SDL_BUTTON_LEFT) {
       // loop over the top page
       for (std::pair<const std::string, Element>& kv : topPage.elements) {
         Element* e = &kv.second;
@@ -1127,8 +1162,6 @@ void handleEvent(const SDL_Event& event) {
             e->unclicked(e);
 
           e->click = false;
-
-          LOG_DEBUG("Top page element unclicked: " << kv.first)
         }
       }
 
@@ -1142,22 +1175,34 @@ void handleEvent(const SDL_Event& event) {
               e->unclicked(e);
 
             e->click = false;
-
-            LOG_DEBUG("Page element unclicked: " << kv.first)
           }
         }
       }
     }
     break;
 
-  case SDL_EVENT_MOUSE_WHEEL:
-    if (SDLWindow::focused[sdlWindow]) {
-      bool anyHovered = false;
+  case SDL_EVENT_MOUSE_WHEEL: {
+    bool anyHovered = false;
 
-      // loop over the top page
-      for (std::pair<const std::string, Element>& kv : topPage.elements) {
+    // loop over the top page
+    for (std::pair<const std::string, Element>& kv : topPage.elements) {
+      Element* e = &kv.second;
+      e->hovered = mouseOverRect(e->x, e->y, e->w, e->h);
+      if (e->hovered) {
+        if (e->scrolled != nullptr) {
+          e->scrolled(e, event.wheel.integer_y);
+          anyHovered = true;
+          break;
+        }
+      }
+    }
+
+    // loop over the current page
+    auto it = pages.find(currentPage);
+    if (it != pages.end()) {
+      for (std::pair<const std::string, Element>& kv : it->second.elements) {
         Element* e = &kv.second;
-        e->hovered = mouseOverRect(e->x, e->y, e->w, e->h);
+        e->hovered = mouseOverRect(e->x + offsetX, e->y + offsetY, e->w, e->h);
         if (e->hovered) {
           if (e->scrolled != nullptr) {
             e->scrolled(e, event.wheel.integer_y);
@@ -1166,39 +1211,23 @@ void handleEvent(const SDL_Event& event) {
           }
         }
       }
-
-      // loop over the current page
-      auto it = pages.find(currentPage);
-      if (it != pages.end()) {
-        for (std::pair<const std::string, Element>& kv : it->second.elements) {
-          Element* e = &kv.second;
-          e->hovered = mouseOverRect(e->x + offsetX, e->y + offsetY, e->w, e->h);
-          if (e->hovered) {
-            if (e->scrolled != nullptr) {
-              e->scrolled(e, event.wheel.integer_y);
-              anyHovered = true;
-              break;
-            }
-          }
-        }
-      }
-
-      if (anyHovered)
-        break;
-
-      if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
-        offsetY += event.wheel.integer_y * 20.f;
-      } else {
-        offsetY -= event.wheel.integer_y * 20.f;
-      }
-
-      if (offsetY < 0) {
-        offsetY = 0;
-      }
-
-      // the other case is handled in the draw() function
     }
-    break;
+
+    if (anyHovered)
+      break;
+
+    if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+      offsetY += event.wheel.integer_y * 20.f;
+    } else {
+      offsetY -= event.wheel.integer_y * 20.f;
+    }
+
+    if (offsetY < 0) {
+      offsetY = 0;
+    }
+
+    // the other case is handled in the draw() function
+  } break;
 
     // track modifier keys
   case SDL_EVENT_KEY_DOWN:
@@ -1629,7 +1658,25 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
     int i = 0;
     std::pair<ValueType, std::string> currentPair;
     for (std::pair<const ValueType, std::string> kv : possibleValues) {
-      const bool current = *value == kv.first;
+      bool current = *value == kv.first;
+
+      if constexpr (std::is_same_v<ValueType, std::string>) {
+        if (!current) {
+          std::string str = *value;
+          std::string kvFirst = kv.first;
+
+          std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+          std::transform(kvFirst.begin(), kvFirst.end(), kvFirst.begin(),
+                         [](unsigned char c) { return std::tolower(c); });
+          if (kvFirst.find(str) != std::string::npos) {
+            *value = kv.first;
+
+            currentPair = kv;
+            current = true;
+          }
+        }
+      }
+
       if (current) {
         currentPair = kv;
       }
@@ -1642,8 +1689,10 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
                                  thingHovered ? Theme::colors.accent
                                               : (current ? Theme::colors.text : Theme::colors.bgaccent));
 
-        std::pair<float, float> textSize = Graphics::Font::getTextSize(kv.second.c_str(), fontSizeValue, sdlWindow);
-        Graphics::Font::drawText(kv.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+        std::string actualLabel = truncateText(kv.second, self->w - padding * 2, fontSizeValue);
+
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+        Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                                  (int)(y + stdSize / 2 - textSize.second / 2), fontSizeValue,
                                  current && !thingHovered ? Theme::colors.background : Theme::colors.text, sdlWindow);
       }
@@ -1652,9 +1701,10 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
 
     layer();
 
-    std::pair<float, float> textSize =
-        Graphics::Font::getTextSize(currentPair.second.c_str(), fontSizeValue, sdlWindow);
-    Graphics::Font::drawText(currentPair.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+    std::string actualLabel = truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
+
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(originalY + stdSize / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
                              sdlWindow);
   };
@@ -1709,7 +1759,7 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
     self->y = cy - stdSize;
   };
 
-  tickLabelElement.render = [value, possibleValues](Element* self) {
+  tickLabelElement.render = [value, possibleValues, key](Element* self) {
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
 
     std::pair<ValueType, std::string> currentPair;
@@ -1718,11 +1768,27 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
         currentPair = kv;
         break;
       }
+
+      if constexpr (std::is_same_v<ValueType, std::string>) {
+        std::string str = *value;
+        std::string kvFirst = kv.first;
+
+        std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+        std::transform(kvFirst.begin(), kvFirst.end(), kvFirst.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (kvFirst.find(str) != std::string::npos) {
+          *value = kv.first;
+
+          currentPair = kv;
+          break;
+        }
+      }
     }
 
-    std::pair<float, float> textSize =
-        Graphics::Font::getTextSize(currentPair.second.c_str(), fontSizeValue, sdlWindow);
-    Graphics::Font::drawText(currentPair.second.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
+    std::string actualLabel = truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
+
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+    Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
                              sdlWindow);
   };
@@ -1815,7 +1881,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       const auto& items = kv.second;
       used += groupHeaderH;
       used += spacing;
-      used += std::max(1ul, items.size()) * (itemH + spacing);
+      used += std::max(1ull, items.size()) * (itemH + spacing);
       used += groupBottomMargin;
     }
     const float createZoneH = stdSize * 1.5f;

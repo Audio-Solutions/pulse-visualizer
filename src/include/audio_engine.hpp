@@ -102,10 +102,17 @@ bool read(float* buffer, const size_t& samples);
  */
 bool reconfigure();
 
+/**
+ * @brief List the available devices
+ * @return a list of devices available
+ */
+std::vector<std::string> enumerate();
+
 #else
 bool init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
+std::vector<std::string> enumerate();
 #endif
 
 } // namespace Pulseaudio
@@ -208,10 +215,17 @@ bool read(float*, const size_t& frames);
  */
 bool reconfigure();
 
+/**
+ * @brief List the available devices
+ * @return a list of devices available
+ */
+std::vector<std::string> enumerate();
+
 #else
 bool init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
+std::vector<std::string> enumerate();
 #endif
 
 } // namespace PipeWire
@@ -244,6 +258,14 @@ extern std::thread wasapiThread;
 void threadFunc();
 
 /**
+ * @brief Select the default audio device
+ * @param enumerator Device enumerator pointer
+ * @param outDevice Device pointer
+ * @return Success status
+ */
+bool selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice);
+
+/**
  * @brief Find audio device by name
  * @param targetName Device name
  * @param outDevice Device pointer
@@ -271,15 +293,22 @@ bool init();
 bool read(float*, const size_t& frames);
 
 /**
- * @brief Reconfigure PipeWire stream
+ * @brief Reconfigure WASAPI stream
  * @return true if successful
  */
 bool reconfigure();
+
+/**
+ * @brief List the available devices
+ * @return a list of devices available
+ */
+std::vector<std::string> enumerate();
 
 #else
 bool init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
+std::vector<std::string> enumerate();
 #endif
 
 } // namespace WASAPI
@@ -308,5 +337,11 @@ bool reconfigure();
  * @return true if successful
  */
 bool read(float* buffer, const size_t& samples);
+
+/**
+ * @brief List the available devices from the current backend
+ * @return a list of devices available (or empty if an error occurred/no audio backend is running)
+ */
+std::vector<std::string> enumerate();
 
 } // namespace AudioEngine
