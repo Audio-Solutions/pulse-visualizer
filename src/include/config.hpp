@@ -56,7 +56,6 @@ struct Options {
   } oscilloscope;
 
   struct Lissajous {
-    bool enable_splines = true;
     float beam_multiplier = 1.0f;
     float readback_multiplier = 1.0f;
     std::string mode = "none";

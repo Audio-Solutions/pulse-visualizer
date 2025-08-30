@@ -332,7 +332,6 @@ void load() {
   get<float>(configData, "oscilloscope.bandpass.sidelobe", options.oscilloscope.bandpass.sidelobe);
 
   // Load Lissajous configuration
-  get<bool>(configData, "lissajous.enable_splines", options.lissajous.enable_splines);
   get<float>(configData, "lissajous.beam_multiplier", options.lissajous.beam_multiplier);
   get<float>(configData, "lissajous.readback_multiplier", options.lissajous.readback_multiplier);
   get<std::string>(configData, "lissajous.mode", options.lissajous.mode);
@@ -504,7 +503,6 @@ void save() {
 
   // Lissajous
   root["lissajous"]["beam_multiplier"] = options.lissajous.beam_multiplier;
-  root["lissajous"]["enable_splines"] = options.lissajous.enable_splines;
   root["lissajous"]["mode"] = options.lissajous.mode;
   root["lissajous"]["readback_multiplier"] = options.lissajous.readback_multiplier;
   root["lissajous"]["rotation"] = static_cast<int>(options.lissajous.rotation);

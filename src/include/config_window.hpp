@@ -206,7 +206,8 @@ void createHeaderElement(Page& page, float& cy, const std::string key, const std
  */
 template <typename ValueType>
 void createSliderElement(Page& page, float& cy, const std::string key, ValueType* value, ValueType min, ValueType max,
-                         const std::string label, const std::string description, const int precision = 1);
+                         const std::string label, const std::string description, const int precision = 1,
+                         const bool zeroOff = false);
 
 /**
  * @brief Creates a detented slider element with the given @p ValueType
