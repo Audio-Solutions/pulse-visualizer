@@ -1,6 +1,6 @@
 # pulse-visualizer - Audio Visualizer
 
-![pulse-visualizer in Phosphor Mode](media/viz.gif)
+<video autoplay loop muted src="media/viz.mp4" type="video/mp4"></video>
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg)](https://repology.org/project/pulse-visualizer/versions)
 
