@@ -2,6 +2,8 @@
 
 ![pulse-visualizer in Phosphor Mode](media/viz.gif)
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg)](https://repology.org/project/pulse-visualizer/versions)
+
 ## What Even Is This?
 
 Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL3, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
@@ -60,32 +62,6 @@ cd pulse-visualizer-<version>
 chmod +x install.sh
 sudo ./install.sh
 ```
-Alternatively, you can build from source:
-
-#### Build dependencies
-
-- C++17 compiler
-- CMake 3.10+
-- Ninja-build
-- Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
-
-Fedora:
-```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```
-Debian:
-```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```
-
-```bash
-mkdir build
-cd build
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-ninja
-sudo ninja install
-```
-
-On first run, config and themes get copied to `~/.config/pulse-visualizer/` if they're not already there.
-
-#### Note
- Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and only use `sudo ninja install` for the install step.
 
 ## Dependencies & Platform Support
 
@@ -127,6 +103,33 @@ pulse-visualizer
 - Lissajous will enforce a square aspect ratio
 - Hover FFT for real-time frequency, dB, and note readout
 - All config and theme changes are live, no restart needed
+
+## Building
+
+If you want to build from source, you can do so with the following commands:
+
+#### Build dependencies
+
+- C++17 compiler
+- CMake 3.10+
+- Ninja-build
+- Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
+
+Fedora:
+```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
+Debian:
+```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
+
+```bash
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+ninja
+sudo ninja install
+```
+
+#### Note
+ Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and only use `sudo ninja install` for the install step.
 
 ## Contributing & Support
 
