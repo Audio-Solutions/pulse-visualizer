@@ -19,7 +19,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "v1.2.2";
+  version = "1.2.2";
 
   src = fetchFromGitHub {
     owner = "Audio-Solutions";
