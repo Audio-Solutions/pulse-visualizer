@@ -1,6 +1,6 @@
 # pulse-visualizer - Audio Visualizer
 
-<video autoplay loop muted src="media/viz.mp4" type="video/mp4"></video>
+<video autoplay loop muted src="https://github.com/user-attachments/assets/3f2e2ba1-3832-4127-b34b-d59f4c67c148"></video>
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg)](https://repology.org/project/pulse-visualizer/versions)
 
