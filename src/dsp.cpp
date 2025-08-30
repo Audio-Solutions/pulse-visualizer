@@ -992,6 +992,18 @@ int mainThread() {
       LOG_ERROR("Failed to read from audio engine");
     }
 
+    // Limit FPS
+    static auto lastTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    double frameDuration = 1.0 / static_cast<double>(Config::options.window.fps_limit);
+    std::chrono::duration<double> elapsed = currentTime - lastTime;
+    if(elapsed.count() < frameDuration) {
+      auto sleepTime = std::chrono::duration<double>(frameDuration - elapsed.count());
+      if(sleepTime.count() > 0)
+        std::this_thread::sleep_for(sleepTime);
+    }
+    lastTime = std::chrono::high_resolution_clock::now();
+
 #if HAVE_PULSEAUDIO
     float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
     if (AudioEngine::Pulseaudio::running) {
@@ -1159,12 +1171,11 @@ float left;
 float right;
 
 void process() {
-  static size_t lastWritePos = 0;
-  size_t numSamples = (writePos >= lastWritePos) ? (writePos - lastWritePos) : (bufferSize - lastWritePos + writePos);
+  size_t numSamples = Config::options.audio.sample_rate / Config::options.window.fps_limit;
   left = 0.0f;
   right = 0.0f;
   for (size_t i = 0; i < numSamples; ++i) {
-    size_t bufferIdx = (lastWritePos + i) % bufferSize;
+    size_t bufferIdx = (writePos + i - numSamples + bufferSize) % bufferSize;
     float sampleMid = bufferMid[bufferIdx];
     float sampleSide = bufferSide[bufferIdx];
     float sampleLeft = sampleMid + sampleSide;
@@ -1176,7 +1187,6 @@ void process() {
     if (absRight > right)
       right = absRight;
   }
-  lastWritePos = writePos;
 }
 
 } // namespace Peak

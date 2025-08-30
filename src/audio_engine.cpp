@@ -46,7 +46,7 @@ bool initialized = false;
 
 // Available audio sources and default sink
 std::vector<DeviceInfo> availableSources;
-std::string defaultSource;
+std::string defaultSink;
 
 void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, void*) {
   if (eol || !info)
@@ -63,10 +63,10 @@ void sourceInfoCallback(pa_context* ctx, const pa_source_info* info, int eol, vo
 
 std::string find(std::string dev) {
   if (dev.empty()) {
-    if (defaultSource.empty())
+    if (defaultSink.empty())
       return "default";
 
-    dev = defaultSource + ".monitor";
+    dev = defaultSink + ".monitor";
   }
 
   // Search for matching device
@@ -95,7 +95,7 @@ bool init() {
     cleanup();
 
   availableSources.clear();
-  defaultSource.clear();
+  defaultSink.clear();
 
   // Create PulseAudio mainloop and context
   pa_mainloop* ml = pa_mainloop_new();
@@ -120,8 +120,7 @@ bool init() {
   bool done = false;
   do {
     if (pa_mainloop_iterate(ml, 1, nullptr) < 0)
-      ;
-    break;
+      break;
 
     pa_context_state_t state = pa_context_get_state(ctx);
     if (state == PA_CONTEXT_READY) {
@@ -132,8 +131,8 @@ bool init() {
             if (!info)
               return;
 
-            if (info->default_source_name)
-              defaultSource = info->default_source_name;
+            if (info->default_sink_name)
+              defaultSink = info->default_sink_name;
           },
           nullptr);
 
@@ -183,10 +182,11 @@ bool init() {
                          .minreq = bufferSize / 2,
                          .fragsize = bufferSize};
 
-  std::string dev = find(Config::options.audio.device);
-
-  if (dev == "default") {
-    dev = defaultSource;
+  std::string dev;
+  if (Config::options.audio.device == "default") {
+    dev = defaultSink + ".monitor";
+  } else {
+    dev = find(Config::options.audio.device);
   }
 
   // Create PulseAudio stream
@@ -274,11 +274,6 @@ struct spa_hook registryListener;
 
 bool initialized = false;
 bool running = false;
-
-// Thread synchronization
-std::atomic<uint32_t> writtenSamples;
-std::mutex mutex;
-std::condition_variable cv;
 
 std::vector<DeviceInfo> availableDevices;
 
@@ -379,12 +374,6 @@ void onProcess(void*) {
     DSP::bufferSide[DSP::writePos] = (left - right) / 2.0f;
     DSP::writePos = (DSP::writePos + 1) % DSP::bufferSize;
   }
-
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    writtenSamples += n_samples;
-  }
-  cv.notify_one();
 
   pw_stream_queue_buffer(stream, b);
 }
@@ -536,7 +525,15 @@ bool init() {
   }
 
   // Connect stream to device
-  auto [dev, devId] = find(Config::options.audio.device);
+  uint32_t devId;
+  std::string dev;
+  if (Config::options.audio.device == "default") {
+    devId = PW_ID_ANY;
+    dev = "default";
+  } else {
+    std::tie(dev, devId) = find(Config::options.audio.device);
+  }
+
   if (pw_stream_connect(stream, PW_DIRECTION_INPUT, devId,
                         static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS |
                                                      PW_STREAM_FLAG_DONT_RECONNECT),
@@ -559,17 +556,7 @@ bool init() {
   return true;
 }
 
-bool read(float*, const size_t& frames) {
-  if (!initialized || !stream)
-    return true;
-
-  // Wait for enough samples to be available
-  std::unique_lock<std::mutex> lock(mutex);
-  cv.wait(lock, [&] { return writtenSamples > frames; });
-  writtenSamples = 0;
-
-  return true;
-}
+bool read(float*, const size_t& frames) { return true; }
 
 bool reconfigure() {
   static std::string lastDevice = "";
@@ -620,11 +607,6 @@ UINT32 bufferFrameCount;
 bool initialized = false;
 bool running = false;
 
-// Thread synchronization
-std::atomic<uint32_t> writtenSamples;
-std::mutex mutex;
-std::condition_variable cv;
-
 std::thread wasapiThread;
 
 void threadFunc() {
@@ -636,8 +618,6 @@ void threadFunc() {
     DWORD waitResult = WaitForSingleObject(captureEvent, 50);
 
     if (waitResult == WAIT_TIMEOUT) {
-      // No audio data available, notify read call
-      cv.notify_one();
       continue;
     }
 
@@ -692,12 +672,6 @@ void threadFunc() {
           DSP::bufferSide[DSP::writePos] = (left - right) / 2.0f;
           DSP::writePos = (DSP::writePos + 1) % DSP::bufferSize;
         }
-
-        {
-          std::lock_guard<std::mutex> lock(mutex);
-          writtenSamples += n_samples;
-        }
-        cv.notify_one();
 
         captureClient->ReleaseBuffer(numFrames);
       }
@@ -968,19 +942,7 @@ bool init() {
   return true;
 }
 
-bool read(float*, const size_t& frames) {
-  if (!initialized)
-    return true;
-
-  // Wait for enough samples to be available or timeout after 50ms
-  std::unique_lock<std::mutex> lock(mutex);
-  if (!cv.wait_for(lock, std::chrono::milliseconds(50), [&] { return writtenSamples > frames; })) {
-    return true;
-  }
-  writtenSamples = 0;
-
-  return true;
-}
+bool read(float*, const size_t& frames) { return true; }
 
 bool reconfigure() {
   static std::string lastDevice = "";

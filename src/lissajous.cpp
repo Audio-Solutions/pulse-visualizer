@@ -33,14 +33,11 @@ WindowManager::VisualizerWindow* window;
 
 void render() {
   // Calculate how many samples to read based on buffer position
-  static size_t lastWritePos = DSP::writePos;
-  size_t readCount = ((DSP::writePos - lastWritePos + DSP::bufferSize) % DSP::bufferSize) *
+  size_t readCount = Config::options.audio.sample_rate / Config::options.window.fps_limit *
                      (1.f + Config::options.lissajous.readback_multiplier);
 
   if (readCount == 0)
     return;
-
-  lastWritePos = DSP::writePos;
 
   // Resize points vector to hold new data
   points.resize(readCount);
