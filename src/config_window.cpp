@@ -595,6 +595,23 @@ inline void initPages() {
       Config::options.visualizers["hidden"] = {};
     }
 
+    // Find all visualizers that don't exist in any group
+    std::vector<std::string> missingVisualizers;
+    for (auto& [vizKey, vizLabel] : vizLabels) {
+      if (!std::any_of(Config::options.visualizers.begin(), Config::options.visualizers.end(), [&](const auto& group) {
+            return std::find(group.second.begin(), group.second.end(), vizKey) != group.second.end();
+          }))
+        missingVisualizers.push_back(vizKey);
+    }
+
+    // If there are any missing visualizers, add them to hidden
+    if (!missingVisualizers.empty()) {
+      for (auto& visualizer : missingVisualizers) {
+        Config::options.visualizers["hidden"].push_back(visualizer);
+      }
+      Config::save();
+    }
+
     createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
 
     page.height = cyInit - cy;
