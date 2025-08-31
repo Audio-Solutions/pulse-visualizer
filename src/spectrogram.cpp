@@ -152,7 +152,7 @@ void render() {
               Graphics::hsvaToRgba(hsva, rgba);
               Theme::mix(Theme::colors.background, rgba, intensColor, intens * 2.f);
             } else {
-              hsva[0] = lerp(Theme::colors.spectrogram_low, Theme::colors.spectrogram_high, (intens - 0.5f) * 2.f);
+              hsva[0] = std::lerp(Theme::colors.spectrogram_low, Theme::colors.spectrogram_high, (intens - 0.5f) * 2.f);
               Graphics::hsvaToRgba(hsva, intensColor);
             }
           }

@@ -143,15 +143,6 @@ inline float avx2_reduce_add_ps(__m256 v) {
 }
 #endif
 
-/**
- * @brief Linear interpolation between two values
- * @param a First value
- * @param b Second value
- * @param t Interpolation factor (0.0 to 1.0)
- * @return Interpolated value
- */
-template <typename T> inline T lerp(T a, T b, T t) { return a + (b - a) * t; }
-
 #ifdef __linux__
 #include <poll.h>
 #include <sys/inotify.h>

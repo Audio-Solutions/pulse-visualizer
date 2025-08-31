@@ -688,7 +688,7 @@ inline void initPages() {
         static float fpsLerp = 0.f;
         float diff = abs(fps - fpsLerp);
         float t = diff / (diff + Config::options.window.fps_limit * 2.0f);
-        fpsLerp = lerp(fpsLerp, fps, t);
+        fpsLerp = std::lerp(fpsLerp, fps, t);
 
         // bottom-to-top
 
