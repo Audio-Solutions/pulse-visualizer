@@ -74,6 +74,37 @@ bool debuggerPresent() {
 #endif
 }
 
+void reconfigure() {
+  Theme::load();
+
+  // Cleanup fonts for all SDL windows
+  LOG_DEBUG("Cleaning up fonts for all SDL windows");
+  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
+    Graphics::Font::cleanup(i);
+  }
+
+  LOG_DEBUG("Reordering windows");
+  WindowManager::reorder();
+
+  // Load fonts for each SDL window
+  LOG_DEBUG("Loading fonts for each SDL window");
+  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
+    Graphics::Font::load(i);
+  }
+
+  // Set window decorations
+  LOG_DEBUG("Setting window decorations");
+  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
+  SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
+
+  LOG_DEBUG("Reconfiguring...");
+  AudioEngine::reconfigure();
+  DSP::FFT::recreatePlans();
+  DSP::ConstantQ::regenerate();
+  DSP::Lowpass::reconfigure();
+  DSP::LUFS::init();
+}
+
 // Thread synchronization variables for DSP data processing
 std::mutex mainThread;
 std::condition_variable mainCv;
@@ -130,8 +161,10 @@ int main(int argc, char** argv) {
   }
 
   // force debug mode on if a debugger is present
-  if (debuggerPresent())
+  if (debuggerPresent()) {
+    std::cout << "Debugger detected, activating debug mode" << std::endl;
     CmdlineArgs::debug = true;
+  }
 
 #ifdef _WIN32
   if (!CmdlineArgs::console && !CmdlineArgs::debug)
@@ -201,34 +234,7 @@ int main(int argc, char** argv) {
     // Handle configuration reloading
     if (Config::reload()) {
       LOG_DEBUG("Config reloaded");
-      Theme::load();
-
-      // Cleanup fonts for all SDL windows
-      LOG_DEBUG("Cleaning up fonts for all SDL windows");
-      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-        Graphics::Font::cleanup(i);
-      }
-
-      LOG_DEBUG("Reordering windows");
-      WindowManager::reorder();
-
-      // Load fonts for each SDL window
-      LOG_DEBUG("Loading fonts for each SDL window");
-      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-        Graphics::Font::load(i);
-      }
-
-      // Set window decorations
-      LOG_DEBUG("Setting window decorations");
-      SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
-      SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
-
-      LOG_DEBUG("Reconfiguring...");
-      AudioEngine::reconfigure();
-      DSP::FFT::recreatePlans();
-      DSP::ConstantQ::regenerate();
-      DSP::Lowpass::reconfigure();
-      DSP::LUFS::init();
+      reconfigure();
     }
 
     // Handle theme reloading

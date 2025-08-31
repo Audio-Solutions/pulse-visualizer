@@ -38,6 +38,8 @@ Page topPage;
 std::map<PageType, Page> pages;
 PageType currentPage = PageType::Audio;
 
+std::vector<std::pair<float, std::string>> popupMessages;
+
 // Drag state for Visualizers page
 static struct DragState {
   bool active = false;
@@ -178,6 +180,42 @@ inline void initTop() {
     topPage.elements.insert({"rightChevron", rightChevron});
   }
 
+  // load default button
+  {
+    Element defaultButton = {0};
+    defaultButton.update = [](Element* self) {
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, sdlWindow);
+      self->w = textSize.first + (padding * 2);
+      self->h = stdSize;
+      self->x = margin;
+      self->y = margin;
+    };
+
+    defaultButton.render = [](Element* self) {
+      Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                               self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, sdlWindow);
+      Graphics::Font::drawText("Load default", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
+                               fontSizeTop, Theme::colors.text, sdlWindow);
+    };
+
+    defaultButton.clicked = [](Element* self) {
+      LOG_DEBUG("Restoring config to default");
+      std::filesystem::rename(expandUserPath("~/.config/pulse-visualizer/config.yml"), expandUserPath("~/.config/pulse-visualizer/config-backup.yml"));
+      Config::copyFiles();
+      Config::load();
+      
+      SDLWindow::selectWindow(0);
+      reconfigure();
+      SDLWindow::selectWindow(sdlWindow);
+
+      popupMessages.push_back({0.f, "Restored config to defaults"});
+    };
+
+    topPage.elements.insert({"defaultButton", defaultButton});
+  }
+
   // save button
   {
     Element saveButton = {0};
@@ -198,9 +236,66 @@ inline void initTop() {
                                fontSizeTop, Theme::colors.text, sdlWindow);
     };
 
-    saveButton.clicked = [](Element* self) { Config::save(); };
+    saveButton.clicked = [](Element* self) {
+      bool success = Config::save();
+      popupMessages.push_back({0.f, success ? "Saved" : "Failed to save"});
+    };
 
     topPage.elements.insert({"saveButton", saveButton});
+  }
+
+  // popup message
+  {
+    Element popupMessage = {0};
+    popupMessage.update = [](Element* self) {
+      for(size_t i = 0; i < popupMessages.size(); i++) {
+        if(popupMessages[i].first > 3.f) {
+          popupMessages.erase(popupMessages.begin() + i);
+          i--;
+        }
+      }
+    };
+
+    popupMessage.render = [](Element* self) {
+      int index = 0;
+      const float fontSize = fontSizeTop;
+
+      for(auto& pair : popupMessages) {
+        float bgColor[4]; std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
+        float fontColor[4]; std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
+        std::pair<float, float> textSize =
+            Graphics::Font::getTextSize(pair.second.c_str(), fontSize, sdlWindow);
+
+        pair.first += WindowManager::dt;
+
+        if(pair.first < 3.f) {
+          float x = w/2 - padding - textSize.first/2;
+          float y = h/2 - padding - textSize.second/2 + (index * (fontSize + padding*2 + spacing));
+          float w = textSize.first + padding*2;
+          float h = textSize.second + padding*2;
+
+          if(mouseOverRect(x, y, w, h)) {
+            pair.first = 0.f;
+          }
+
+          if(pair.first > 2.f) {
+            float t = pair.first - 2.f;
+            float alpha = std::lerp(1.f, 0.f, t);
+            bgColor[3] = alpha;
+            fontColor[3] = alpha;
+          }
+
+          layer(3.f);
+          Graphics::drawFilledRect(x, y, w, h, bgColor);
+          Graphics::Font::drawText(pair.second.c_str(), x + padding, y + padding, fontSize, fontColor, sdlWindow);
+          layer();
+        }
+
+        index++;
+      }
+    };
+
+    topPage.elements.insert({"popupMessage", popupMessage});
   }
 }
 

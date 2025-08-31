@@ -449,7 +449,7 @@ void load() {
   }
 }
 
-void save() {
+bool save() {
   broken = false;
 
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
@@ -611,10 +611,18 @@ void save() {
   std::ofstream fout(path);
   if (!fout.is_open()) {
     LOG_ERROR("Failed to open config file for writing");
-    return;
+    return false;
   }
+  
   fout << out.c_str();
+  
+  if(fout.fail()) {
+    return false;
+  }
+
   fout.close();
+
+  return true;
 }
 
 bool reload() {

@@ -203,3 +203,8 @@ extern std::atomic<bool> dataReady;
  * @return The expanded path with home directory substituted
  */
 std::string expandUserPath(const std::string& path);
+
+/**
+ * @brief Reconfigures the program with new config data
+ */
+void reconfigure();

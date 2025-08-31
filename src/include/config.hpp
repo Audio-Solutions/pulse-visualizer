@@ -232,8 +232,9 @@ bool reload();
 
 /**
  * @brief Save configuration to file
+ * @return true if saved properly, false otherwise
  */
-void save();
+bool save();
 
 /**
  * @brief Cleanup inotify resources
