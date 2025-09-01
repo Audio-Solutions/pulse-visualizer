@@ -1,3 +1,9 @@
+# Include GNUInstallDirs
+include(GNUInstallDirs)
+
+# Define variables needed for desktop file configuration
+set(CMAKE_INSTALL_FULL_BINDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}")
+set(CMAKE_INSTALL_FULL_DATADIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}")
 
 install(TARGETS pulse-visualizer
   RUNTIME DESTINATION .
