@@ -238,6 +238,10 @@ inline void initTop() {
     };
 
     saveButton.clicked = [](Element* self) {
+        const std::string cfgPath = expandUserPath("~/.config/pulse-visualizer/config.yml");
+        try {
+          std::filesystem::permissions(cfgPath, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
+        } catch (...) {}
       bool success = Config::save();
       popupMessages.push_back({0.f, success ? "Saved" : "Failed to save"});
     };
