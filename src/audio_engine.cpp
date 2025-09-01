@@ -161,6 +161,7 @@ bool init() {
 
   // Configure audio format
   pa_sample_spec sampleSpec;
+  sampleSpec.format = PA_SAMPLE_FLOAT32LE;
   sampleSpec.rate = Config::options.audio.sample_rate;
   sampleSpec.channels = 2;
 
@@ -176,10 +177,10 @@ bool init() {
   const uint32_t bufferSize = samples * bytesPerSample;
 
   // Configure buffer attributes
-  pa_buffer_attr attr = {.maxlength = bufferSize * 4,
-                         .tlength = bufferSize,
+  pa_buffer_attr attr = {.maxlength = static_cast<uint32_t>(-1),
+                         .tlength = static_cast<uint32_t>(-1),
                          .prebuf = static_cast<uint32_t>(-1),
-                         .minreq = bufferSize / 2,
+                         .minreq = static_cast<uint32_t>(-1),
                          .fragsize = bufferSize};
 
   std::string dev;
