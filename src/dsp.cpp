@@ -991,16 +991,14 @@ int mainThread() {
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       LOG_DEBUG("Failed to read from audio engine");
     }
-
-    // Limit FPS
-    double frameDuration = 1.0 / static_cast<double>(Config::options.window.fps_limit);
-    std::chrono::duration<double> elapsed = std::chrono::duration<double>(WindowManager::dt);
-
-    if (elapsed.count() < frameDuration) {
-      auto sleepTime = std::chrono::duration<double>(frameDuration - elapsed.count());
-      if (sleepTime.count() > 0)
-        std::this_thread::sleep_for(sleepTime);
-    }
+    static auto lastTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
+    if (now < targetTime)
+      std::this_thread::sleep_until(targetTime);
+    now = std::chrono::steady_clock::now();
+    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
+    lastTime = now;
 
 #if HAVE_PULSEAUDIO
     float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);

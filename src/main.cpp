@@ -295,11 +295,6 @@ int main(int argc, char** argv) {
     ConfigWindow::draw();
     SDLWindow::display();
 
-    // Update timing
-    auto now = std::chrono::steady_clock::now();
-    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
-    lastTime = now;
-
     // FPS logging if enabled
     if (Config::options.debug.log_fps) {
       frameCount++;
