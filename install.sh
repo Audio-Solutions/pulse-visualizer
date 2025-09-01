@@ -36,6 +36,12 @@ echo "mkdir -p $DATA_DIR/fonts"
 mkdir -p "$DATA_DIR/fonts"
 echo "mkdir -p $DATA_DIR/icons"
 mkdir -p "$DATA_DIR/icons"
+echo "mkdir -p $PREFIX/bin"
+mkdir -p "$PREFIX/bin"
+echo "mkdir -p $PREFIX/share/man/man1"
+mkdir -p "$PREFIX/share/man/man1"
+echo "mkdir -p $PREFIX/share/applications"
+mkdir -p "$PREFIX/share/applications"
 
 # Install license
 echo "cp LICENSE $DATA_DIR/"
@@ -64,8 +70,6 @@ echo "cp JetBrainsMonoNerdFont-Medium.ttf $DATA_DIR/fonts/"
 cp "JetBrainsMonoNerdFont-Medium.ttf" "$DATA_DIR/fonts/"
 
 # Install desktop file
-echo "mkdir -p $PREFIX/share/applications"
-mkdir -p "$PREFIX/share/applications"
 echo "cp pulse-visualizer.desktop $PREFIX/share/applications/"
 cp "pulse-visualizer.desktop" "$PREFIX/share/applications/"
 
@@ -74,8 +78,6 @@ echo "cp pulse-visualizer.png $DATA_DIR/icons/"
 cp "pulse-visualizer.png" "$DATA_DIR/icons/"
 
 # Install man page
-echo "mkdir -p $PREFIX/share/man/man1"
-mkdir -p "$PREFIX/share/man/man1"
 echo "cp pulse-visualizer.1 $PREFIX/share/man/man1/"
 cp "pulse-visualizer.1" "$PREFIX/share/man/man1/"
 
