@@ -5,9 +5,11 @@
 
 set -e  # Exit on any error
 
+PREFIX=${1:-/usr}
+
 # Default installation paths
-BIN_DIR="/usr/bin"
-DATA_DIR="/usr/share/pulse-visualizer"
+BIN_DIR="$PREFIX/bin"
+DATA_DIR="$PREFIX/share/pulse-visualizer"
 
 # Colors for output
 RED='\033[0;31m'
@@ -62,18 +64,20 @@ echo "cp JetBrainsMonoNerdFont-Medium.ttf $DATA_DIR/fonts/"
 cp "JetBrainsMonoNerdFont-Medium.ttf" "$DATA_DIR/fonts/"
 
 # Install desktop file
-echo "cp pulse-visualizer.desktop /usr/share/applications/"
-cp "pulse-visualizer.desktop" "/usr/share/applications/"
+echo "mkdir -p $PREFIX/share/applications"
+mkdir -p "$PREFIX/share/applications"
+echo "cp pulse-visualizer.desktop $PREFIX/share/applications/"
+cp "pulse-visualizer.desktop" "$PREFIX/share/applications/"
 
 # Install icon
 echo "cp pulse-visualizer.png $DATA_DIR/icons/"
 cp "pulse-visualizer.png" "$DATA_DIR/icons/"
 
 # Install man page
-echo "mkdir -p /usr/share/man/man1"
-mkdir -p "/usr/share/man/man1"
-echo "cp pulse-visualizer.1 /usr/share/man/man1/"
-cp "pulse-visualizer.1" "/usr/share/man/man1/"
+echo "mkdir -p $PREFIX/share/man/man1"
+mkdir -p "$PREFIX/share/man/man1"
+echo "cp pulse-visualizer.1 $PREFIX/share/man/man1/"
+cp "pulse-visualizer.1" "$PREFIX/share/man/man1/"
 
 # Set permissions
 echo "chmod -R 644 $DATA_DIR/*"
