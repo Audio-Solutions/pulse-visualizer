@@ -202,10 +202,11 @@ inline void initTop() {
 
     defaultButton.clicked = [](Element* self) {
       LOG_DEBUG("Restoring config to default");
-      std::filesystem::rename(expandUserPath("~/.config/pulse-visualizer/config.yml"), expandUserPath("~/.config/pulse-visualizer/config-backup.yml"));
+      std::filesystem::rename(expandUserPath("~/.config/pulse-visualizer/config.yml"),
+                              expandUserPath("~/.config/pulse-visualizer/config-backup.yml"));
       Config::copyFiles();
       Config::load();
-      
+
       SDLWindow::selectWindow(0);
       reconfigure();
       SDLWindow::selectWindow(sdlWindow);
@@ -248,8 +249,8 @@ inline void initTop() {
   {
     Element popupMessage = {0};
     popupMessage.update = [](Element* self) {
-      for(size_t i = 0; i < popupMessages.size(); i++) {
-        if(popupMessages[i].first > 3.f) {
+      for (size_t i = 0; i < popupMessages.size(); i++) {
+        if (popupMessages[i].first > 3.f) {
           popupMessages.erase(popupMessages.begin() + i);
           i--;
         }
@@ -260,25 +261,26 @@ inline void initTop() {
       int index = 0;
       const float fontSize = fontSizeTop;
 
-      for(auto& pair : popupMessages) {
-        float bgColor[4]; std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
-        float fontColor[4]; std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
-        std::pair<float, float> textSize =
-            Graphics::Font::getTextSize(pair.second.c_str(), fontSize, sdlWindow);
+      for (auto& pair : popupMessages) {
+        float bgColor[4];
+        std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
+        float fontColor[4];
+        std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize, sdlWindow);
 
         pair.first += WindowManager::dt;
 
-        if(pair.first < 3.f) {
-          float x = w/2 - padding - textSize.first/2;
-          float y = h/2 - padding - textSize.second/2 + (index * (fontSize + padding*2 + spacing));
-          float w = textSize.first + padding*2;
-          float h = textSize.second + padding*2;
+        if (pair.first < 3.f) {
+          float x = w / 2 - padding - textSize.first / 2;
+          float y = h / 2 - padding - textSize.second / 2 + (index * (fontSize + padding * 2 + spacing));
+          float w = textSize.first + padding * 2;
+          float h = textSize.second + padding * 2;
 
-          if(mouseOverRect(x, y, w, h)) {
+          if (mouseOverRect(x, y, w, h)) {
             pair.first = 0.f;
           }
 
-          if(pair.first > 2.f) {
+          if (pair.first > 2.f) {
             float t = pair.first - 2.f;
             float alpha = std::lerp(1.f, 0.f, t);
             bgColor[3] = alpha;
