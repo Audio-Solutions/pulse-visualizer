@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Check if running as root
-if [[ $EUID -ne 0 ]]; then
+if [[ $EUID -ne 0 && $2 != "skip-root" ]]; then
   echo -e "${RED}ERROR:${NC} This script must be run as root"
   exit 1
 fi
