@@ -48,7 +48,13 @@ void setViewport(int x, int width, int height) {
 }
 
 void handleEvent(const SDL_Event& event) {
-  std::string group = SDLWindow::winGroups[event.window.windowID];
+  std::string group = "";
+  for (auto& [_group, state] : SDLWindow::states) {
+    if (event.window.windowID == state.winID) {
+      group = _group;
+      break;
+    }
+  }
 
   // Lambda to delete this window and relocate visualizers to main
   auto deleteThyself = [&]() {
@@ -117,7 +123,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
-  bool isThisGroup = event.motion.windowID == SDL_GetWindowID(SDLWindow::wins[sdlWindow]);
+  bool isThisGroup = SDLWindow::states.find(group) != SDLWindow::states.end();
   size_t index;
   switch (event.type) {
   case SDL_EVENT_MOUSE_MOTION:
@@ -163,17 +169,17 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 }
 
 void Splitter::draw() {
-  if (SDLWindow::windowSizes[sdlWindow].second == 0) [[unlikely]]
+  if (SDLWindow::states[group].windowSizes.second == 0) [[unlikely]]
     return;
 
   // Select the window for rendering
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow(group);
 
   // Set viewport for splitter rendering
-  setViewport(x - 5, 10, SDLWindow::windowSizes[sdlWindow].second);
+  setViewport(x - 5, 10, SDLWindow::states[group].windowSizes.second);
 
   // Draw splitter line
-  Graphics::drawLine(5, 0, 5, SDLWindow::windowSizes[sdlWindow].second, Theme::colors.bgaccent, 2.0f);
+  Graphics::drawLine(5, 0, 5, SDLWindow::states[group].windowSizes.second, Theme::colors.bgaccent, 2.0f);
 
   // Draw hover highlight if mouse is over splitter
   if (hovering) {
@@ -183,8 +189,8 @@ void Splitter::draw() {
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
     glVertex2f(10, 0);
-    glVertex2f(10, SDLWindow::windowSizes[sdlWindow].second);
-    glVertex2f(0, SDLWindow::windowSizes[sdlWindow].second);
+    glVertex2f(10, SDLWindow::states[group].windowSizes.second);
+    glVertex2f(0, SDLWindow::states[group].windowSizes.second);
     glEnd();
     glDisable(GL_BLEND);
   }
@@ -193,8 +199,8 @@ void Splitter::draw() {
 void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) {
   // Calculate minimum dimensions for texture transfer
   int minWidth = std::min(width, phosphor.textureWidth);
-  int minHeight = std::min(SDLWindow::windowSizes[sdlWindow].second, phosphor.textureHeight);
-  std::vector<uint8_t> newData(width * SDLWindow::windowSizes[sdlWindow].second * 4, 0);
+  int minHeight = std::min(SDLWindow::states[group].windowSizes.second, phosphor.textureHeight);
+  std::vector<uint8_t> newData(width * SDLWindow::states[group].windowSizes.second * 4, 0);
 
   if (glIsTexture(oldTex)) [[likely]] {
     // Read pixel data from old texture
@@ -204,9 +210,9 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
 
     // Calculate offsets for centering texture in both directions
     int srcOffsetX = std::max(0, (phosphor.textureWidth - width) / 2);
-    int srcOffsetY = std::max(0, (phosphor.textureHeight - SDLWindow::windowSizes[sdlWindow].second) / 2);
+    int srcOffsetY = std::max(0, (phosphor.textureHeight - SDLWindow::states[group].windowSizes.second) / 2);
     int dstOffsetX = std::max(0, (width - phosphor.textureWidth) / 2);
-    int dstOffsetY = std::max(0, (SDLWindow::windowSizes[sdlWindow].second - phosphor.textureHeight) / 2);
+    int dstOffsetY = std::max(0, (SDLWindow::states[group].windowSizes.second - phosphor.textureHeight) / 2);
 
     for (int y = 0; y < minHeight; ++y) {
       int oldRowBase = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
@@ -236,7 +242,7 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
   // Create new texture with transferred data
   glBindTexture(GL_TEXTURE_2D, newTex);
   glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, width,
-               SDLWindow::windowSizes[sdlWindow].second, 0, format, type, newData.data());
+               SDLWindow::states[group].windowSizes.second, 0, format, type, newData.data());
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -246,7 +252,7 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
 
 void VisualizerWindow::resizeTextures() {
   bool sizeChanged =
-      (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::windowSizes[sdlWindow].second);
+      (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::states[group].windowSizes.second);
 
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
                         &phosphor.ageTexture,     &phosphor.tempTextureR,   &phosphor.tempTextureG,
@@ -294,7 +300,7 @@ void VisualizerWindow::resizeTextures() {
     *textures[i] = newTexture;
   }
 
-  phosphor.textureHeight = SDLWindow::windowSizes[sdlWindow].second;
+  phosphor.textureHeight = SDLWindow::states[group].windowSizes.second;
   phosphor.textureWidth = width;
 
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -318,10 +324,10 @@ void VisualizerWindow::draw() {
   }
 
   // Select the window for rendering
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow(group);
 
   // Set viewport for this window
-  setViewport(x, width, SDLWindow::windowSizes[sdlWindow].second);
+  setViewport(x, width, SDLWindow::states[group].windowSizes.second);
 
   if (Config::options.phosphor.enabled) {
     // Render phosphor effect using output texture
@@ -337,9 +343,9 @@ void VisualizerWindow::draw() {
     glTexCoord2f(1.f, 0.f);
     glVertex2f(static_cast<float>(width), 0.f);
     glTexCoord2f(1.f, 1.f);
-    glVertex2f(static_cast<float>(width), static_cast<float>(SDLWindow::windowSizes[sdlWindow].second));
+    glVertex2f(static_cast<float>(width), static_cast<float>(SDLWindow::states[group].windowSizes.second));
     glTexCoord2f(0.f, 1.f);
-    glVertex2f(0.f, static_cast<float>(SDLWindow::windowSizes[sdlWindow].second));
+    glVertex2f(0.f, static_cast<float>(SDLWindow::states[group].windowSizes.second));
     glEnd();
 
     glDisable(GL_TEXTURE_2D);
@@ -352,11 +358,11 @@ void VisualizerWindow::draw() {
 }
 
 void VisualizerWindow::drawArrow(int dir) {
-  if (SDLWindow::windowSizes[sdlWindow].second == 0) [[unlikely]]
+  if (SDLWindow::states[group].windowSizes.second == 0) [[unlikely]]
     return;
 
   // Don't draw dock arrow in main window
-  if (sdlWindow == 0 && dir == -2)
+  if (group == "main" && dir == -2)
     return;
 
   auto [arrowX, arrowY] = getArrowPos(dir);
@@ -364,8 +370,8 @@ void VisualizerWindow::drawArrow(int dir) {
     return;
 
   float* bgcolor = Theme::colors.bgaccent;
-  if (buttonHovering(dir, SDLWindow::mousePos[sdlWindow].first,
-                     SDLWindow::windowSizes[sdlWindow].second - SDLWindow::mousePos[sdlWindow].second))
+  if (buttonHovering(dir, SDLWindow::states[group].mousePos.first,
+                     SDLWindow::states[group].windowSizes.second - SDLWindow::states[group].mousePos.second))
     bgcolor = Theme::colors.accent;
 
   // Draw background
@@ -404,8 +410,8 @@ bool VisualizerWindow::buttonPressed(int dir, int mouseX, int mouseY) {
     return false;
 
   return (mouseX >= x + arrowX && mouseX < x + arrowX + buttonSize &&
-          SDLWindow::windowSizes[sdlWindow].second - mouseY >= arrowY &&
-          SDLWindow::windowSizes[sdlWindow].second - mouseY < arrowY + buttonSize);
+          SDLWindow::states[group].windowSizes.second - mouseY >= arrowY &&
+          SDLWindow::states[group].windowSizes.second - mouseY < arrowY + buttonSize);
 }
 
 bool VisualizerWindow::buttonHovering(int dir, int mouseX, int mouseY) { return buttonPressed(dir, mouseX, mouseY); }
@@ -414,7 +420,7 @@ void drawSplitters() {
   // Draw all window splitters
   for (auto& [key, vec] : splitters) {
     for (auto& splitter : vec) {
-      SDLWindow::selectWindow(splitter.sdlWindow);
+      SDLWindow::selectWindow(splitter.group);
       splitter.draw();
     }
   }
@@ -424,7 +430,7 @@ void renderAll() {
   // Render all visualizer windows
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.sdlWindow);
+      SDLWindow::selectWindow(window.group);
       if (window.render)
         window.render();
     }
@@ -433,8 +439,8 @@ void renderAll() {
   // Draw arrows for each window
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.sdlWindow);
-      if (SDLWindow::focused[window.sdlWindow] && window.hovering) {
+      SDLWindow::selectWindow(window.group);
+      if (SDLWindow::states[window.group].focused && window.hovering) {
         window.drawArrow(-1);
         window.drawArrow(1);
         window.drawArrow(2);
@@ -448,7 +454,7 @@ void resizeTextures() {
   // Resize phosphor textures for all windows
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.sdlWindow);
+      SDLWindow::selectWindow(window.group);
       window.resizeTextures();
     }
   }
@@ -460,7 +466,7 @@ void resizeWindows() {
     if (splitters[key].size() == 0) {
       // Single window case
       vec[0].x = 0;
-      vec[0].width = std::max(SDLWindow::windowSizes[vec[0].sdlWindow].first, MIN_WINDOW_SIZE);
+      vec[0].width = std::max(SDLWindow::states[vec[0].group].windowSizes.first, MIN_WINDOW_SIZE);
     } else {
       // Multiple windows with splitters
       vec[0].x = 0;
@@ -472,7 +478,7 @@ void resizeWindows() {
 
       vec.back().x = splitters[key].back().x + 1;
       vec.back().width =
-          std::max(SDLWindow::windowSizes[vec.back().sdlWindow].first - vec.back().x - 1, MIN_WINDOW_SIZE);
+          std::max(SDLWindow::states[vec.back().group].windowSizes.first - vec.back().x - 1, MIN_WINDOW_SIZE);
     }
   }
 }
@@ -486,7 +492,7 @@ int moveSplitter(std::string key, int index, int targetX) {
   Splitter* splitterRight =
       (index != static_cast<int>(splitters[key].size()) - 1 ? &splitters[key][index + 1] : nullptr);
 
-  size_t& sdlWindow = left->sdlWindow;
+  std::string& group = left->group;
 
   static int iter = 0;
 
@@ -505,7 +511,7 @@ int moveSplitter(std::string key, int index, int targetX) {
   auto move = [&](int direction) -> bool {
     Splitter* neighborSplitter = direction == 1 ? splitterRight : splitterLeft;
     VisualizerWindow* neighborWindow = direction == 1 ? right : left;
-    int boundary = direction == 1 ? SDLWindow::windowSizes[sdlWindow].first : 0;
+    int boundary = direction == 1 ? SDLWindow::states[group].windowSizes.first : 0;
     if (!neighborWindow) {
       // Handle minimum width constraints for null window case
       if (neighborSplitter) {
@@ -522,9 +528,9 @@ int moveSplitter(std::string key, int index, int targetX) {
 
     int forceWidth = neighborWindow->forceWidth;
     if (!forceWidth && neighborWindow->aspectRatio != 0.0f) {
-      forceWidth =
-          std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::windowSizes[sdlWindow].second),
-                   static_cast<int>(SDLWindow::windowSizes[sdlWindow].first - (windows[key].size() - 1) * MIN_WIDTH));
+      forceWidth = std::min(
+          static_cast<int>(neighborWindow->aspectRatio * SDLWindow::states[group].windowSizes.second),
+          static_cast<int>(SDLWindow::states[group].windowSizes.first - (windows[key].size() - 1) * MIN_WIDTH));
     }
 
     if (forceWidth > 0) {
@@ -578,7 +584,7 @@ void updateSplitters() {
 }
 
 void VisualizerWindow::cleanup() {
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow(group);
   // Cleanup phosphor effect textures
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
                         &phosphor.ageTexture,     &phosphor.tempTextureR,   &phosphor.tempTextureG,
@@ -646,13 +652,8 @@ void reorder() {
     }
 
     // Create window if not main and doesnt already exist
-    size_t sdlWindow = 0;
     if (key != "main" && windows.find(key) == windows.end()) {
-      sdlWindow = SDLWindow::createWindow(key, SDLWindow::windowSizes[sdlWindow].first,
-                                          SDLWindow::windowSizes[sdlWindow].second);
-      SDLWindow::winGroups[SDL_GetWindowID(SDLWindow::wins[sdlWindow])] = key;
-    } else if (windows.find(key) != windows.end()) {
-      sdlWindow = windows[key][0].sdlWindow;
+      SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
     }
 
     // Clear existing windows and splitters for this group
@@ -672,7 +673,6 @@ void reorder() {
       size_t idx = it->second;
       VisualizerWindow vw {};
 
-      vw.sdlWindow = sdlWindow;
       vw.group = key;
 
       // Set aspect ratio for Lissajous (square) visualizer
@@ -707,7 +707,7 @@ void reorder() {
         // Disable dragging for first splitter if Lissajous or LUFS is first
         if (i == 0 && (vw.aspectRatio != 0.0f || vw.forceWidth != 0))
           s.draggable = false;
-        s.sdlWindow = sdlWindow;
+        s.group = key;
         splitters[key].push_back(s);
       }
     }
@@ -748,7 +748,7 @@ void reorder() {
     size_t n = windows[key].size();
     if (n > 1) {
       for (size_t i = 0; i < splitters[key].size(); ++i) {
-        splitters[key][i].x = static_cast<int>((i + 1) * SDLWindow::windowSizes[sdlWindow].first / n);
+        splitters[key][i].x = static_cast<int>((i + 1) * SDLWindow::states[key].windowSizes.first / n);
       }
     }
   }
@@ -757,16 +757,6 @@ void reorder() {
   for (auto& [key, value] : windows) {
     if (Config::options.visualizers.find(key) == Config::options.visualizers.end()) {
       markedForDeletion.push_back(key);
-    }
-  }
-}
-
-void shiftDown(uint32_t startIndex) {
-  for (auto& [key, vec] : windows) {
-    for (auto& window : vec) {
-      if (window.sdlWindow >= startIndex) {
-        window.sdlWindow--;
-      }
     }
   }
 }
@@ -800,8 +790,7 @@ void deleteMarkedWindows() {
     for (auto& window : windows[key]) {
       window.cleanup();
     }
-    SDLWindow::destroyWindow(windows[key][0].sdlWindow);
-    SDLWindow::winGroups.erase(SDL_GetWindowID(SDLWindow::wins[windows[key][0].sdlWindow]));
+    SDLWindow::destroyWindow(windows[key][0].group);
     windows[key].clear();
     splitters[key].clear();
     windows.erase(key);
@@ -818,8 +807,8 @@ std::pair<int, int> VisualizerWindow::getArrowPos(int dir) {
   if ((isLast && dir == 1) || (isFirst && dir == -1))
     return {-1, -1};
 
-  SDLWindow::selectWindow(sdlWindow);
-  setViewport(x, width, SDLWindow::windowSizes[sdlWindow].second);
+  SDLWindow::selectWindow(group);
+  setViewport(x, width, SDLWindow::states[group].windowSizes.second);
 
   bool wideEnough = width > buttonPadding * 2 + buttonSize * 4;
 
@@ -827,7 +816,7 @@ std::pair<int, int> VisualizerWindow::getArrowPos(int dir) {
                : (dir == 2 && wideEnough)                ? width - buttonPadding - buttonSize * 2
                : (dir == -2)                             ? buttonPadding + buttonSize
                                                          : width - buttonPadding - buttonSize;
-  int arrowY = !wideEnough && abs(dir) == 2 ? SDLWindow::windowSizes[sdlWindow].second - buttonPadding - buttonSize
+  int arrowY = !wideEnough && abs(dir) == 2 ? SDLWindow::states[group].windowSizes.second - buttonPadding - buttonSize
                                             : buttonPadding;
 
   if (isLast && dir == 2 && wideEnough)

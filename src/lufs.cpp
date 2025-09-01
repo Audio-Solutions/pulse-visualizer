@@ -61,7 +61,9 @@ void render() {
   if (!window)
     return;
 
-  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
+  auto& state = SDLWindow::states[window->group];
+
+  WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
 
   const float& lufs = DSP::LUFS::lufs;
 
@@ -70,9 +72,9 @@ void render() {
     color = Theme::colors.loudness_main;
 
   // Calculate layout positions
-  const size_t topHeight = SDLWindow::windowSizes[window->sdlWindow].second * (TOP_HEIGHT_PERCENT / 100.0f) +
-                           (Config::options.lufs.label == "compact" ? 30 : 0);
-  const size_t barHeight = SDLWindow::windowSizes[window->sdlWindow].second - topHeight;
+  const size_t topHeight =
+      state.windowSizes.second * (TOP_HEIGHT_PERCENT / 100.0f) + (Config::options.lufs.label == "compact" ? 30 : 0);
+  const size_t barHeight = state.windowSizes.second - topHeight;
 
   // Peak bars positions
   const size_t leftPeakX = LABEL_WIDTH + LABEL_GAP;
@@ -83,18 +85,15 @@ void render() {
 
   // Draw background bar
   Graphics::drawFilledRect(lufsBarX, 0, LUFS_BAR_WIDTH,
-                           SDLWindow::windowSizes[window->sdlWindow].second -
-                               (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgaccent);
 
   // Draw peak background bars
   Graphics::drawFilledRect(leftPeakX, 0, PEAK_BAR_WIDTH,
-                           SDLWindow::windowSizes[window->sdlWindow].second -
-                               (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgaccent);
   Graphics::drawFilledRect(rightPeakX, 0, PEAK_BAR_WIDTH,
-                           SDLWindow::windowSizes[window->sdlWindow].second -
-                               (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgaccent);
 
   // Draw zero lines in each background rect at barHeight
@@ -109,13 +108,13 @@ void render() {
   for (const auto& label : labels) {
     // Calculate y position based on dB value (0dB at top, -70dB at bottom)
     float normalizedPos = scaleDB(label);
-    size_t y = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + (1.0f - normalizedPos) * barHeight);
+    size_t y = state.windowSizes.second - (topHeight + (1.0f - normalizedPos) * barHeight);
 
     // Draw label (right aligned)
     std::string labelText = std::to_string(static_cast<int>(label));
-    auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS, window->sdlWindow);
+    auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS, window->group);
     Graphics::Font::drawText(labelText.c_str(), LABEL_WIDTH - w - 2, y - h / 2, FONT_SIZE_LABELS, Theme::colors.text,
-                             window->sdlWindow);
+                             window->group);
 
     // Draw horizontal line extending to the peak bars
     Graphics::drawLine(LABEL_WIDTH, y, LABEL_WIDTH + LABEL_LINE_LENGTH, y, Theme::colors.text, 1);
@@ -137,8 +136,8 @@ void render() {
 
     size_t leftBarHeight = leftPos * barHeight;
     size_t rightBarHeight = rightPos * barHeight;
-    size_t leftBarY = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + barHeight);
-    size_t rightBarY = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + barHeight);
+    size_t leftBarY = state.windowSizes.second - (topHeight + barHeight);
+    size_t rightBarY = state.windowSizes.second - (topHeight + barHeight);
 
     // Draw left peak bar
     Graphics::drawFilledRect(leftPeakX, leftBarY, PEAK_BAR_WIDTH, leftBarHeight, Theme::colors.color);
@@ -154,7 +153,7 @@ void render() {
   // Calculate bar height based on LUFS value
   float normalizedPos = scaleDB(lufs);
   size_t barFillHeight = normalizedPos * barHeight;
-  size_t barFillY = SDLWindow::windowSizes[window->sdlWindow].second - (topHeight + barHeight);
+  size_t barFillY = state.windowSizes.second - (topHeight + barHeight);
 
   // Draw the LUFS bar
   Graphics::drawFilledRect(lufsBarX, barFillY, LUFS_BAR_WIDTH, barFillHeight, color);
@@ -169,7 +168,7 @@ void render() {
   } else {
     snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.1fLUFS", lufs);
   }
-  auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->sdlWindow);
+  auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->group);
 
   if (Config::options.lufs.label == "on") {
     // Calculate text position based on LUFS bar height, centered on the bar
@@ -184,8 +183,7 @@ void render() {
     size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
 
     // Clamp box position to stay within window bounds
-    boxY = std::max(0, std::min(SDLWindow::windowSizes[window->sdlWindow].second - static_cast<int>(boxHeight),
-                                static_cast<int>(boxY)));
+    boxY = std::max(0, std::min(state.windowSizes.second - static_cast<int>(boxHeight), static_cast<int>(boxY)));
 
     // Update text position to match clamped box position
     textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
@@ -195,14 +193,14 @@ void render() {
 
     // Draw text
     Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                             window->sdlWindow);
+                             window->group);
   } else if (Config::options.lufs.label == "compact") {
     // Calculate text position centered in the top area
     // Position the box in the center of the top area
     size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
     size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
     size_t boxX = boxWidth > window->width ? 0 : (window->width - boxWidth) / 2;
-    size_t boxY = SDLWindow::windowSizes[window->sdlWindow].second - (40 - boxHeight / 2);
+    size_t boxY = state.windowSizes.second - (40 - boxHeight / 2);
 
     // Calculate text position relative to box
     size_t textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
@@ -212,7 +210,7 @@ void render() {
 
     // Draw text
     Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                             window->sdlWindow);
+                             window->group);
   }
 }
 

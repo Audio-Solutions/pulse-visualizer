@@ -48,7 +48,7 @@ float normalize(float db) {
  */
 std::vector<float>& mapSpectrum(const std::vector<float>& in) {
   static std::vector<float> spectrum;
-  spectrum.resize(SDLWindow::windowSizes[window->sdlWindow].second);
+  spectrum.resize(window->width);
 
   // Calculate frequency mapping parameters
   float logMin = log10f(Config::options.fft.limits.min_freq);
@@ -94,11 +94,16 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
 }
 
 void render() {
+  if (!window)
+    return;
+
+  auto& state = SDLWindow::states[window->group];
+
   // Select the window for rendering
-  SDLWindow::selectWindow(window->sdlWindow);
+  SDLWindow::selectWindow(window->group);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
+  WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
 
   static size_t current = 0;
 
@@ -114,10 +119,10 @@ void render() {
 
     // Prepare column data for rendering
     static std::vector<float> columnData;
-    columnData.resize(SDLWindow::windowSizes[window->sdlWindow].second * 3);
+    columnData.resize(window->width * 3);
 
     // Initialize column with background color
-    for (size_t i = 0; i < SDLWindow::windowSizes[window->sdlWindow].second; ++i) {
+    for (size_t i = 0; i < window->width; ++i) {
       columnData[i * 3 + 0] = Theme::colors.background[0];
       columnData[i * 3 + 1] = Theme::colors.background[1];
       columnData[i * 3 + 2] = Theme::colors.background[2];
@@ -169,8 +174,7 @@ void render() {
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, SDLWindow::windowSizes[window->sdlWindow].second, GL_RGB, GL_FLOAT,
-                    columnData.data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->width, GL_RGB, GL_FLOAT, columnData.data());
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
 
@@ -192,9 +196,9 @@ void render() {
     glTexCoord2f(1.0f, 0.0f);
     glVertex2f(part1, 0.0f);
     glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(part1, SDLWindow::windowSizes[window->sdlWindow].second);
+    glVertex2f(part1, window->width);
     glTexCoord2f(currentU, 1.0f);
-    glVertex2f(0.0f, SDLWindow::windowSizes[window->sdlWindow].second);
+    glVertex2f(0.0f, window->width);
     glEnd();
   }
 
@@ -205,9 +209,9 @@ void render() {
     glTexCoord2f(currentU, 0.0f);
     glVertex2f(window->width, 0.0f);
     glTexCoord2f(currentU, 1.0f);
-    glVertex2f(window->width, SDLWindow::windowSizes[window->sdlWindow].second);
+    glVertex2f(window->width, window->width);
     glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(part1, SDLWindow::windowSizes[window->sdlWindow].second);
+    glVertex2f(part1, window->width);
     glEnd();
   }
 

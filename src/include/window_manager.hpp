@@ -45,7 +45,7 @@ void handleEvent(const SDL_Event& event);
  * @brief Window splitter for resizing visualizer windows
  */
 struct Splitter {
-  size_t sdlWindow = 0;
+  std::string group;
   int x, dx;
   bool draggable = true;
   bool dragging = false;
@@ -67,12 +67,11 @@ struct Splitter {
  * @brief Visualizer window with phosphor effect support
  */
 struct VisualizerWindow {
-  size_t sdlWindow = 0;
+  std::string group;
   int x, width;
   float aspectRatio = 0;
   size_t forceWidth = 0;
   size_t pointCount;
-  std::string group;
   bool hovering = false;
   constexpr static size_t buttonSize = 20;
   constexpr static size_t buttonPadding = 10;
@@ -170,11 +169,6 @@ extern std::vector<std::string> markedForDeletion;
  * @brief Delete windows marked for deletion
  */
 void deleteMarkedWindows();
-
-/**
- * @brief Shift window indexes down by one
- */
-void shiftDown(uint32_t startIndex);
 
 /**
  * @brief Draw all window splitters

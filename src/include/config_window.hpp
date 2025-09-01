@@ -49,7 +49,6 @@ constexpr float scrollNormal = 1.f;
 constexpr float scrollCtrl = 10.f;
 constexpr float scrollShift = 100.f;
 
-extern size_t sdlWindow;
 extern bool shown;
 constexpr int w = 600, h = 800;
 

@@ -32,6 +32,9 @@ std::vector<std::pair<float, float>> points;
 WindowManager::VisualizerWindow* window;
 
 void render() {
+  if (!window)
+    return;
+
   // Calculate how many samples to read based on buffer position
   size_t readCount = Config::options.audio.sample_rate / Config::options.window.fps_limit *
                      (1.f + Config::options.lissajous.readback_multiplier);
@@ -238,7 +241,7 @@ void render() {
     window->draw();
   } else {
     // Select the window for rendering
-    SDLWindow::selectWindow(window->sdlWindow);
+    SDLWindow::selectWindow(window->group);
 
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)

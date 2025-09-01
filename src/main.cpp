@@ -79,8 +79,8 @@ void reconfigure() {
 
   // Cleanup fonts for all SDL windows
   LOG_DEBUG("Cleaning up fonts for all SDL windows");
-  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-    Graphics::Font::cleanup(i);
+  for (auto& [key, state] : SDLWindow::states) {
+    Graphics::Font::cleanup(key);
   }
 
   LOG_DEBUG("Reordering windows");
@@ -88,14 +88,14 @@ void reconfigure() {
 
   // Load fonts for each SDL window
   LOG_DEBUG("Loading fonts for each SDL window");
-  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-    Graphics::Font::load(i);
+  for (auto& [key, state] : SDLWindow::states) {
+    Graphics::Font::load(key);
   }
 
   // Set window decorations
   LOG_DEBUG("Setting window decorations");
-  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
-  SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
+  SDL_SetWindowBordered(SDLWindow::states["main"].win, Config::options.window.decorations);
+  SDL_SetWindowAlwaysOnTop(SDLWindow::states["main"].win, Config::options.window.always_on_top);
 
   LOG_DEBUG("Reconfiguring...");
   AudioEngine::reconfigure();
@@ -197,8 +197,8 @@ int main(int argc, char** argv) {
 
   // Set window decorations
   LOG_DEBUG("Setting initial window decorations");
-  SDL_SetWindowBordered(SDLWindow::wins[0], Config::options.window.decorations);
-  SDL_SetWindowAlwaysOnTop(SDLWindow::wins[0], Config::options.window.always_on_top);
+  SDL_SetWindowBordered(SDLWindow::states["main"].win, Config::options.window.decorations);
+  SDL_SetWindowAlwaysOnTop(SDLWindow::states["main"].win, Config::options.window.always_on_top);
 
   // Initialize audio and DSP components
   LOG_DEBUG("Initializing audio and DSP components");
@@ -213,19 +213,12 @@ int main(int argc, char** argv) {
   LOG_DEBUG("Setting up window management");
   WindowManager::reorder();
 
-  // Load fonts for each SDL window
-  LOG_DEBUG("Loading fonts for each SDL window");
-  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-    Graphics::Font::load(i);
-  }
-
   // Start DSP processing thread
   LOG_DEBUG("Starting DSP processing thread");
   std::thread DSPThread(DSP::Threads::mainThread);
 
   // Frame timing variables
   LOG_DEBUG("Setting up frame timing variables");
-  auto lastTime = std::chrono::steady_clock::now();
   int frameCount = 0;
 
   // Main application loop
@@ -241,14 +234,14 @@ int main(int argc, char** argv) {
     if (Theme::reload()) {
       // Cleanup fonts for all SDL windows
       LOG_DEBUG("Cleaning up fonts for all SDL windows");
-      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-        Graphics::Font::cleanup(i);
+      for (auto& [key, state] : SDLWindow::states) {
+        Graphics::Font::cleanup(key);
       }
 
       // Load fonts for each SDL window
       LOG_DEBUG("Loading fonts for each SDL window");
-      for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-        Graphics::Font::load(i);
+      for (auto& [key, state] : SDLWindow::states) {
+        Graphics::Font::load(key);
       }
     }
 
@@ -270,9 +263,9 @@ int main(int argc, char** argv) {
       break;
     }
     glUseProgram(0);
-    if (std::any_of(SDLWindow::wins.begin(), SDLWindow::wins.end(), [](SDL_Window* win) {
+    if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(), [](auto& state) {
           int width, height;
-          SDL_GetWindowSize(win, &width, &height);
+          SDL_GetWindowSize(state.second.win, &width, &height);
           return width == 0 || height == 0;
         }))
       continue;
@@ -311,8 +304,8 @@ int main(int argc, char** argv) {
   // Cleanup
   LOG_DEBUG("Cleaning up...");
   SDLWindow::running.store(false);
-  for (size_t i = 0; i < SDLWindow::wins.size(); ++i) {
-    Graphics::Font::cleanup(i);
+  for (auto& [key, state] : SDLWindow::states) {
+    Graphics::Font::cleanup(key);
   }
   DSPThread.join();
   AudioEngine::cleanup();

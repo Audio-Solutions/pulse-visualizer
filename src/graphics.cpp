@@ -139,11 +139,11 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
 namespace Font {
 
 // FreeType handles - per window
-std::vector<FT_Face> faces;
-std::vector<FT_Library> ftLibs;
+std::unordered_map<std::string, FT_Face> faces;
+std::unordered_map<std::string, FT_Library> ftLibs;
 
 // Glyph texture cache - per window
-std::vector<std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
+std::unordered_map<std::string, std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
 
 std::string findFont(const std::string& path) {
   // Try expandUserPath(path) first
@@ -160,76 +160,80 @@ std::string findFont(const std::string& path) {
   return "";
 }
 
-void load(size_t sdlWindow) {
-  // Ensure vectors are large enough
-  if (sdlWindow >= faces.size()) {
-    faces.resize(sdlWindow + 1, nullptr);
-    ftLibs.resize(sdlWindow + 1, nullptr);
-    glyphCaches.resize(sdlWindow + 1);
-  }
-
+void load(const std::string& group) {
   // Select the window for loading
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow(group);
 
   std::string path = findFont(Config::options.font);
   if (path.empty())
     return;
 
   // Initialize FreeType library for this window
-  if (!ftLibs[sdlWindow])
-    if (FT_Init_FreeType(&ftLibs[sdlWindow]) != 0)
+  FT_Library ftLib = nullptr;
+  if (!ftLibs[group]) {
+    if (FT_Init_FreeType(&ftLib) != 0)
       return;
+    ftLibs[group] = ftLib;
+  }
 
   // Load font face for this window
-  if (FT_New_Face(ftLibs[sdlWindow], path.c_str(), 0, &faces[sdlWindow]))
+  FT_Face face = nullptr;
+  if (FT_New_Face(ftLibs[group], path.c_str(), 0, &face))
     return;
+  faces[group] = face;
+
+  glyphCaches[group] = {};
 }
 
-void cleanup(size_t sdlWindow) {
-  if (sdlWindow >= faces.size())
+void cleanup(const std::string& group) {
+  if (faces.find(group) == faces.end())
     return;
 
   // Select the window for cleanup
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow(group);
 
   // Cleanup glyph textures
-  for (auto& [key, glyph] : glyphCaches[sdlWindow]) {
+  for (auto& [key, glyph] : glyphCaches[group]) {
     if (glIsTexture(glyph.textureId)) {
       glDeleteTextures(1, &glyph.textureId);
     }
   }
-  glyphCaches[sdlWindow].clear();
+
+  glyphCaches.erase(group);
 
   // Cleanup FreeType resources for this window
-  if (faces[sdlWindow]) {
-    FT_Done_Face(faces[sdlWindow]);
-    faces[sdlWindow] = nullptr;
+  if (faces[group]) {
+    FT_Done_Face(faces[group]);
+    faces.erase(group);
   }
-  if (ftLibs[sdlWindow]) {
-    FT_Done_FreeType(ftLibs[sdlWindow]);
-    ftLibs[sdlWindow] = nullptr;
+  if (ftLibs[group]) {
+    FT_Done_FreeType(ftLibs[group]);
+    ftLibs.erase(group);
   }
 }
 
-GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow) {
-  if (sdlWindow >= glyphCaches.size() || !faces[sdlWindow])
-    return glyphCaches[0][std::make_pair(c, size)]; // Fallback to first window
+GlyphTexture& getGlyphTexture(char c, float size, const std::string& group) {
+  if (glyphCaches.find(group) == glyphCaches.end()) {
+    static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
+    LOG_DEBUG("GlyphCache not found for " << group);
+    return empty;
+  }
 
   auto key = std::make_pair(c, size);
-  auto it = glyphCaches[sdlWindow].find(key);
-  if (it != glyphCaches[sdlWindow].end()) {
+  auto it = glyphCaches[group].find(key);
+  if (it != glyphCaches[group].end()) {
     return it->second;
   }
 
   // Set font size
-  FT_Set_Pixel_Sizes(faces[sdlWindow], 0, size);
+  FT_Set_Pixel_Sizes(faces[group], 0, size);
 
-  if (FT_Load_Char(faces[sdlWindow], c, FT_LOAD_RENDER)) {
+  if (FT_Load_Char(faces[group], c, FT_LOAD_RENDER)) {
     static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
     return empty;
   }
 
-  FT_GlyphSlot g = faces[sdlWindow]->glyph;
+  FT_GlyphSlot g = faces[group]->glyph;
 
   // Create OpenGL texture for glyph
   GLuint tex;
@@ -250,13 +254,13 @@ GlyphTexture& getGlyphTexture(char c, float size, size_t sdlWindow) {
       tex,           static_cast<int>(g->bitmap.width),  static_cast<int>(g->bitmap.rows), g->bitmap_left,
       g->bitmap_top, static_cast<int>(g->advance.x >> 6)};
 
-  glyphCaches[sdlWindow][key] = glyph;
-  return glyphCaches[sdlWindow][key];
+  glyphCaches[group][key] = glyph;
+  return glyphCaches[group][key];
 }
 
 void drawText(const char* text, const float& x, const float& y, const float& size, const float* color,
-              size_t sdlWindow) {
-  if (!text || !*text || sdlWindow >= faces.size() || !faces[sdlWindow])
+              const std::string& group) {
+  if (!text || !*text || faces.find(group) == faces.end() || !faces[group])
     return;
 
   // Setup OpenGL state for text rendering
@@ -276,7 +280,7 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
     }
 
     // Get or create glyph texture
-    GlyphTexture& glyph = getGlyphTexture(c, size, sdlWindow);
+    GlyphTexture& glyph = getGlyphTexture(c, size, group);
     if (glyph.textureId == 0)
       continue;
 
@@ -307,8 +311,8 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
   glDisable(GL_TEXTURE_2D);
 }
 
-std::pair<float, float> getTextSize(const char* text, const float& size, size_t sdlWindow) {
-  if (!text || !*text || sdlWindow >= faces.size() || !faces[sdlWindow])
+std::pair<float, float> getTextSize(const char* text, const float& size, const std::string& group) {
+  if (!text || !*text || faces.find(group) == faces.end() || !faces[group])
     return {0.0f, 0.0f};
 
   float totalWidth = 0.0f;
@@ -325,7 +329,7 @@ std::pair<float, float> getTextSize(const char* text, const float& size, size_t 
       continue;
     }
 
-    GlyphTexture& glyph = getGlyphTexture(c, size, sdlWindow);
+    GlyphTexture& glyph = getGlyphTexture(c, size, group);
     if (glyph.textureId == 0)
       continue;
 
@@ -337,7 +341,7 @@ std::pair<float, float> getTextSize(const char* text, const float& size, size_t 
   return {totalWidth, totalHeight};
 }
 
-std::string wrapText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow) {
+std::string wrapText(const std::string& text, const float& maxW, const float& fontSize, const std::string& group) {
   std::istringstream lineStream(text);
   std::string line;
   std::string result;
@@ -349,7 +353,7 @@ std::string wrapText(const std::string& text, const float& maxW, const float& fo
 
     while (wordStream >> word) {
       std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-      auto size = getTextSize(testLine.c_str(), fontSize, sdlWindow);
+      auto size = getTextSize(testLine.c_str(), fontSize, group);
 
       if (size.first <= maxW) {
         currentLine = testLine;
@@ -374,9 +378,9 @@ std::string wrapText(const std::string& text, const float& maxW, const float& fo
   return result;
 }
 
-std::string truncateText(const std::string& text, const float& maxW, const float& fontSize, size_t sdlWindow) {
+std::string truncateText(const std::string& text, const float& maxW, const float& fontSize, const std::string& group) {
   const std::string ellipsis = "...";
-  auto fullSize = getTextSize(text.c_str(), fontSize, sdlWindow);
+  auto fullSize = getTextSize(text.c_str(), fontSize, group);
 
   // If the full text fits, return as-is
   if (fullSize.first <= maxW) {
@@ -386,7 +390,7 @@ std::string truncateText(const std::string& text, const float& maxW, const float
   std::string truncated;
   for (size_t i = 0; i < text.size(); ++i) {
     std::string candidate = text.substr(0, i) + ellipsis;
-    auto candidateSize = getTextSize(candidate.c_str(), fontSize, sdlWindow);
+    auto candidateSize = getTextSize(candidate.c_str(), fontSize, group);
 
     if (candidateSize.first > maxW) {
       break;
@@ -399,7 +403,7 @@ std::string truncateText(const std::string& text, const float& maxW, const float
 }
 
 std::string fitTextBox(const std::string& text, const float& maxW, const float& maxH, const float& fontSize,
-                       size_t sdlWindow) {
+                       const std::string& group) {
   const std::string ellipsis = "...";
   std::istringstream lineStream(text);
   std::string line;
@@ -416,7 +420,7 @@ std::string fitTextBox(const std::string& text, const float& maxW, const float& 
 
     while (wordStream >> word) {
       std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
-      auto size = getTextSize(testLine.c_str(), fontSize, sdlWindow);
+      auto size = getTextSize(testLine.c_str(), fontSize, group);
 
       if (size.first <= maxW) {
         currentLine = testLine;
@@ -448,7 +452,7 @@ std::string fitTextBox(const std::string& text, const float& maxW, const float& 
 
     for (size_t i = 0; i < lastLine.size(); ++i) {
       std::string candidate = lastLine.substr(0, i) + ellipsis;
-      auto candidateSize = getTextSize(candidate.c_str(), fontSize, sdlWindow);
+      auto candidateSize = getTextSize(candidate.c_str(), fontSize, group);
       if (candidateSize.first > maxW)
         break;
       truncatedLastLine = candidate;
@@ -490,7 +494,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
     return;
 
   // Setup viewport and rendering state
-  WindowManager::setViewport(window->x, window->width, SDLWindow::windowSizes[window->sdlWindow].second);
+  WindowManager::setViewport(window->x, window->width, SDLWindow::states[window->group].windowSizes.second);
 
   glBindBuffer(GL_ARRAY_BUFFER, window->phosphor.vertexBuffer);
   glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
@@ -515,7 +519,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
 namespace Shader {
 
 // Shader program handles
-std::vector<std::vector<GLuint>> shaders;
+std::unordered_map<std::string, std::vector<GLuint>> shaders;
 
 std::string loadFile(const char* path) {
   // Try local path first
@@ -570,12 +574,11 @@ GLuint load(const char* path, GLenum type) {
   return 0;
 }
 
-void ensureShaders(size_t sdlWindow) {
-  shaders.resize(SDLWindow::wins.size());
-  for (size_t i = 0; i < shaders.size(); i++)
-    shaders[i].resize(4, 0);
+void ensureShaders(const std::string& group) {
+  if (shaders.find(group) == shaders.end())
+    shaders[group] = {0, 0, 0, 0};
 
-  if (std::all_of(shaders[sdlWindow].begin(), shaders[sdlWindow].end(), [](int x) { return x != 0; }))
+  if (std::all_of(shaders[group].begin(), shaders[group].end(), [](int x) { return x != 0; }))
     return;
 
   // Shader file paths
@@ -583,8 +586,8 @@ void ensureShaders(size_t sdlWindow) {
                                                  "shaders/phosphor_blur.comp", "shaders/phosphor_colormap.comp"};
 
   // Load and compile all shaders
-  for (int i = 0; i < shaders[sdlWindow].size(); i++) {
-    if (shaders[sdlWindow][i])
+  for (int i = 0; i < shaders[group].size(); i++) {
+    if (shaders[group][i])
       continue;
 
     GLuint shader = load(shaderPaths[i].c_str(), GL_COMPUTE_SHADER);
@@ -592,18 +595,18 @@ void ensureShaders(size_t sdlWindow) {
       continue;
 
     // Create shader program
-    shaders[sdlWindow][i] = glCreateProgram();
-    glAttachShader(shaders[sdlWindow][i], shader);
-    glLinkProgram(shaders[sdlWindow][i]);
+    shaders[group][i] = glCreateProgram();
+    glAttachShader(shaders[group][i], shader);
+    glLinkProgram(shaders[group][i]);
 
     GLint tmp;
-    glGetProgramiv(shaders[sdlWindow][i], GL_LINK_STATUS, &tmp);
+    glGetProgramiv(shaders[group][i], GL_LINK_STATUS, &tmp);
     if (!tmp) {
       char log[512];
-      glGetProgramInfoLog(shaders[sdlWindow][i], 512, NULL, log);
+      glGetProgramInfoLog(shaders[group][i], 512, NULL, log);
       LOG_ERROR(std::string("Shader linking failed:") + log);
-      glDeleteProgram(shaders[sdlWindow][i]);
-      shaders[sdlWindow][i] = 0;
+      glDeleteProgram(shaders[group][i]);
+      shaders[group][i] = 0;
     }
 
     glDeleteShader(shader);
@@ -613,12 +616,12 @@ void ensureShaders(size_t sdlWindow) {
 void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
                      const GLuint& vertexBuffer, const GLuint& vertexColorBuffer, const GLuint& energyTexR,
                      const GLuint& energyTexG, const GLuint& energyTexB) {
-  if (!shaders[win->sdlWindow][0])
+  if (!shaders[win->group][0])
     return;
 
-  glUseProgram(shaders[win->sdlWindow][0]);
+  glUseProgram(shaders[win->group][0]);
 
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][0], "colorbeam"), Config::options.phosphor.beam.rainbow);
+  glUniform1i(glGetUniformLocation(shaders[win->group][0], "colorbeam"), Config::options.phosphor.beam.rainbow);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -636,19 +639,18 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
 void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTexR,
                    const GLuint& energyTexG, const GLuint& energyTexB) {
-  if (!shaders[win->sdlWindow][1])
+  if (!shaders[win->group][1])
     return;
 
-  glUseProgram(shaders[win->sdlWindow][1]);
+  glUseProgram(shaders[win->group][1]);
 
   float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay.slow);
   float decayFast = exp(-WindowManager::dt * Config::options.phosphor.decay.fast);
 
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][1], "decaySlow"), decaySlow);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][1], "decayFast"), decayFast);
-  glUniform1ui(glGetUniformLocation(shaders[win->sdlWindow][1], "ageThreshold"),
-               Config::options.phosphor.decay.threshold);
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][1], "colorbeam"), Config::options.phosphor.beam.rainbow);
+  glUniform1f(glGetUniformLocation(shaders[win->group][1], "decaySlow"), decaySlow);
+  glUniform1f(glGetUniformLocation(shaders[win->group][1], "decayFast"), decayFast);
+  glUniform1ui(glGetUniformLocation(shaders[win->group][1], "ageThreshold"), Config::options.phosphor.decay.threshold);
+  glUniform1i(glGetUniformLocation(shaders[win->group][1], "colorbeam"), Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -656,7 +658,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   glBindImageTexture(3, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
+  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -665,24 +667,22 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
 
 void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
                   const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB) {
-  if (!shaders[win->sdlWindow][2])
+  if (!shaders[win->group][2])
     return;
 
-  glUseProgram(shaders[win->sdlWindow][2]);
+  glUseProgram(shaders[win->group][2]);
 
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "line_blur_spread"),
-              Config::options.phosphor.blur.spread);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "line_width"), Config::options.phosphor.beam.width);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "range_factor"), Config::options.phosphor.blur.range);
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "blur_direction"), dir);
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "kernel_type"), kernel);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "f_intensity"),
+  glUniform1f(glGetUniformLocation(shaders[win->group][2], "line_blur_spread"), Config::options.phosphor.blur.spread);
+  glUniform1f(glGetUniformLocation(shaders[win->group][2], "line_width"), Config::options.phosphor.beam.width);
+  glUniform1f(glGetUniformLocation(shaders[win->group][2], "range_factor"), Config::options.phosphor.blur.range);
+  glUniform1i(glGetUniformLocation(shaders[win->group][2], "blur_direction"), dir);
+  glUniform1i(glGetUniformLocation(shaders[win->group][2], "kernel_type"), kernel);
+  glUniform1f(glGetUniformLocation(shaders[win->group][2], "f_intensity"),
               Config::options.phosphor.blur.near_intensity);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][2], "g_intensity"),
-              Config::options.phosphor.blur.far_intensity);
-  glUniform2f(glGetUniformLocation(shaders[win->sdlWindow][2], "texSize"), static_cast<float>(win->width),
-              static_cast<float>(SDLWindow::windowSizes[win->sdlWindow].second));
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][2], "colorbeam"), Config::options.phosphor.beam.rainbow);
+  glUniform1f(glGetUniformLocation(shaders[win->group][2], "g_intensity"), Config::options.phosphor.blur.far_intensity);
+  glUniform2f(glGetUniformLocation(shaders[win->group][2], "texSize"), static_cast<float>(win->width),
+              static_cast<float>(SDLWindow::states[win->group].windowSizes.second));
+  glUniform1i(glGetUniformLocation(shaders[win->group][2], "colorbeam"), Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -692,7 +692,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glBindImageTexture(5, outB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
+  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -701,24 +701,24 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
 void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
                       const GLuint& inG, const GLuint& inB, const GLuint& out) {
-  if (!shaders[win->sdlWindow][3])
+  if (!shaders[win->group][3])
     return;
 
-  glUseProgram(shaders[win->sdlWindow][3]);
+  glUseProgram(shaders[win->group][3]);
 
-  glUniform3fv(glGetUniformLocation(shaders[win->sdlWindow][3], "beamColor"), 1, beamColor);
-  glUniform3fv(glGetUniformLocation(shaders[win->sdlWindow][3], "blackColor"), 1, Theme::colors.background);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "screenCurvature"),
+  glUniform3fv(glGetUniformLocation(shaders[win->group][3], "beamColor"), 1, beamColor);
+  glUniform3fv(glGetUniformLocation(shaders[win->group][3], "blackColor"), 1, Theme::colors.background);
+  glUniform1f(glGetUniformLocation(shaders[win->group][3], "screenCurvature"),
               Config::options.phosphor.screen.curvature);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "screenGapFactor"), Config::options.phosphor.screen.gap);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "grainStrength"), Config::options.phosphor.screen.grain);
-  glUniform2i(glGetUniformLocation(shaders[win->sdlWindow][3], "texSize"), win->width,
-              SDLWindow::windowSizes[win->sdlWindow].second);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "vignetteStrength"),
+  glUniform1f(glGetUniformLocation(shaders[win->group][3], "screenGapFactor"), Config::options.phosphor.screen.gap);
+  glUniform1f(glGetUniformLocation(shaders[win->group][3], "grainStrength"), Config::options.phosphor.screen.grain);
+  glUniform2i(glGetUniformLocation(shaders[win->group][3], "texSize"), win->width,
+              SDLWindow::states[win->group].windowSizes.second);
+  glUniform1f(glGetUniformLocation(shaders[win->group][3], "vignetteStrength"),
               Config::options.phosphor.screen.vignette);
-  glUniform1f(glGetUniformLocation(shaders[win->sdlWindow][3], "chromaticAberrationStrength"),
+  glUniform1f(glGetUniformLocation(shaders[win->group][3], "chromaticAberrationStrength"),
               Config::options.phosphor.screen.chromatic_aberration);
-  glUniform1i(glGetUniformLocation(shaders[win->sdlWindow][3], "colorbeam"), Config::options.phosphor.beam.rainbow);
+  glUniform1i(glGetUniformLocation(shaders[win->group][3], "colorbeam"), Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -726,23 +726,23 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glBindImageTexture(3, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 
   GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::windowSizes[win->sdlWindow].second + 7) / 8;
+  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
   glUseProgram(0);
 }
 
-void cleanup(size_t sdlWindow) {
-  if (sdlWindow >= shaders.size())
+void cleanup(const std::string& group) {
+  if (shaders.find(group) == shaders.end())
     return;
 
-  for (int i = 0; i < shaders[sdlWindow].size(); i++) {
-    if (shaders[sdlWindow][i])
-      glDeleteProgram(shaders[sdlWindow][i]);
+  for (int i = 0; i < shaders[group].size(); i++) {
+    if (shaders[group][i])
+      glDeleteProgram(shaders[group][i]);
   }
 
-  shaders.erase(shaders.begin() + sdlWindow);
+  shaders.erase(group);
 }
 
 } // namespace Shader
@@ -751,7 +751,7 @@ namespace Phosphor {
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
             bool renderPoints, const float* beamColor) {
 
-  Graphics::Shader::ensureShaders(win->sdlWindow);
+  Graphics::Shader::ensureShaders(win->group);
 
   // Apply decay to phosphor effect
   Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.energyTextureR, win->phosphor.energyTextureG,

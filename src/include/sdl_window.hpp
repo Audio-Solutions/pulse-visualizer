@@ -22,15 +22,20 @@
 
 namespace SDLWindow {
 
+struct State {
+  SDL_Window* win = nullptr;
+  SDL_WindowID winID = 0;
+  SDL_GLContext glContext = nullptr;
+  std::pair<int, int> windowSizes;
+  std::pair<int, int> mousePos;
+  bool focused;
+};
+
 // Window and OpenGL context handles
-extern std::vector<SDL_Window*> wins;
-extern std::unordered_map<SDL_WindowID, std::string> winGroups;
-extern std::vector<SDL_GLContext> glContexts;
-extern size_t currentWindow;
+extern std::unordered_map<std::string, State> states;
+
+extern std::string currentWindow;
 extern std::atomic<bool> running;
-extern std::vector<std::pair<int, int>> windowSizes;
-extern std::vector<std::pair<int, int>> mousePos;
-extern std::vector<bool> focused;
 
 /**
  * @brief Cleanup SDL window and OpenGL context
@@ -60,26 +65,27 @@ void clear();
 
 /**
  * @brief create a new window
+ * @param group The group of the window
  * @param title The title of the window
  * @param width The width of the window
  * @param height The height of the window
  * @param flags The flags for the window (default: SDL_WINDOW_RESIZABLE)
- * @return the index of the created window
  */
-size_t createWindow(const std::string& title, int width, int height, uint32_t flags = SDL_WINDOW_RESIZABLE);
+void createWindow(const std::string& group, const std::string& title, int width, int height,
+                  uint32_t flags = SDL_WINDOW_RESIZABLE);
 
 /**
  * @brief destroy a window
- * @param index The index of the window to destroy
+ * @param group The group of the window
  * @return true if the window was destroyed, false otherwise
- * @note if the window is the current window, the current window will be set to 0
+ * @note if the window is the current window, the current window will be set to "main"
  */
-bool destroyWindow(size_t index);
+bool destroyWindow(const std::string& group);
 
 /**
  * @brief select a window at an index for rendering
- * @param index The index of the window to select
+ * @param group The group of the window
  * @return true if the window was selected, false otherwise
  */
-bool selectWindow(size_t index);
+bool selectWindow(const std::string& group);
 } // namespace SDLWindow

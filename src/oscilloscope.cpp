@@ -32,6 +32,11 @@ std::vector<std::pair<float, float>> points;
 WindowManager::VisualizerWindow* window;
 
 void render() {
+  if (!window)
+    return;
+
+  auto& state = SDLWindow::states[window->group];
+
   // Calculate number of samples to display
   size_t samples = Config::options.oscilloscope.window * Config::options.audio.sample_rate / 1000;
   if (Config::options.oscilloscope.pitch.cycles > 0) {
@@ -74,7 +79,7 @@ void render() {
   points.resize(samples);
   const float scale = (Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                                Config::options.oscilloscope.rotation == Config::ROTATION_270
-                           ? static_cast<float>(SDLWindow::windowSizes[window->sdlWindow].second)
+                           ? static_cast<float>(state.windowSizes.second)
                            : static_cast<float>(window->width)) /
                       samples;
   for (size_t i = 0; i < samples; i++) {
@@ -85,7 +90,7 @@ void render() {
     float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                            Config::options.oscilloscope.rotation == Config::ROTATION_270
                        ? window->width
-                       : SDLWindow::windowSizes[window->sdlWindow].second;
+                       : state.windowSizes.second;
 
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
@@ -107,10 +112,10 @@ void render() {
       points[i] = {window->width - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {window->width - x, SDLWindow::windowSizes[window->sdlWindow].second - y};
+      points[i] = {window->width - x, state.windowSizes.second - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, SDLWindow::windowSizes[window->sdlWindow].second - x};
+      points[i] = {y, state.windowSizes.second - x};
       break;
     }
   }
@@ -131,8 +136,7 @@ void render() {
 
     // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA *
-                   (window->width * SDLWindow::windowSizes[window->sdlWindow].second);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state.windowSizes.second);
     energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
 
     // Calculate energy for each line segment
@@ -216,7 +220,7 @@ void render() {
     window->draw();
   } else {
     // Select the window for rendering
-    SDLWindow::selectWindow(window->sdlWindow);
+    SDLWindow::selectWindow(window->group);
 
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)

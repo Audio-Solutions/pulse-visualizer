@@ -26,22 +26,18 @@
 #include "include/window_manager.hpp"
 
 namespace SDLWindow {
+// Map of window states by group
+std::unordered_map<std::string, State> states;
 
-// Global window state variables
-std::vector<SDL_Window*> wins;
-std::unordered_map<SDL_WindowID, std::string> winGroups;
-std::vector<SDL_GLContext> glContexts;
-size_t currentWindow = 0;
+std::string currentWindow = "main";
 std::atomic<bool> running {false};
-std::vector<std::pair<int, int>> windowSizes;
-std::vector<std::pair<int, int>> mousePos;
-std::vector<bool> focused;
 
 void deinit() {
-  for (size_t i = 0; i < wins.size(); i++) {
-    SDL_DestroyWindow(wins[i]);
-    SDL_GL_DestroyContext(glContexts[i]);
+  for (auto& [group, state] : states) {
+    SDL_DestroyWindow(state.win);
+    SDL_GL_DestroyContext(state.glContext);
   }
+
   SDL_Quit();
 }
 
@@ -66,7 +62,8 @@ void init() {
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
   // Create Base SDL window
-  createWindow("Pulse " VERSION_FULL, Config::options.window.default_width, Config::options.window.default_height);
+  createWindow("main", "Pulse " VERSION_FULL, Config::options.window.default_width,
+               Config::options.window.default_height);
 
   // Initialize GLEW for OpenGL extensions
   GLenum err = glewInit();
@@ -83,16 +80,16 @@ void init() {
   glLineWidth(2.0f);
 
   // Initialise window size
-  SDL_GetWindowSize(wins[currentWindow], &windowSizes[currentWindow].first, &windowSizes[currentWindow].second);
+  SDL_GetWindowSize(states["main"].win, &states["main"].windowSizes.first, &states["main"].windowSizes.second);
 
   running.store(true);
 }
 
 void handleEvent(SDL_Event& event) {
-  size_t idx = 0;
-  for (size_t i = 0; i < wins.size(); i++) {
-    if (event.window.windowID == SDL_GetWindowID(wins[i])) {
-      idx = i;
+  std::string group = "";
+  for (auto& [_group, state] : states) {
+    if (event.window.windowID == state.winID) {
+      group = _group;
       break;
     }
   }
@@ -100,7 +97,7 @@ void handleEvent(SDL_Event& event) {
   switch (event.type) {
 
   case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-    if (idx != 0)
+    if (group != "main")
       return;
   case SDL_EVENT_QUIT:
     running.store(false);
@@ -110,7 +107,7 @@ void handleEvent(SDL_Event& event) {
     switch (event.key.key) {
     case SDLK_Q:
     case SDLK_ESCAPE:
-      if (idx == 0)
+      if (group == "main")
         running.store(false);
       return;
     case SDLK_M:
@@ -122,21 +119,21 @@ void handleEvent(SDL_Event& event) {
     break;
 
   case SDL_EVENT_MOUSE_MOTION:
-    mousePos[idx].first = event.motion.x;
-    mousePos[idx].second = windowSizes[idx].second - event.motion.y;
+    states[group].mousePos.first = event.motion.x;
+    states[group].mousePos.second = states[group].windowSizes.second - event.motion.y;
     break;
 
   case SDL_EVENT_WINDOW_MOUSE_ENTER:
-    focused[idx] = true;
+    states[group].focused = true;
     break;
 
   case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-    focused[idx] = false;
+    states[group].focused = false;
     break;
 
   case SDL_EVENT_WINDOW_RESIZED:
-    windowSizes[idx].first = event.window.data1;
-    windowSizes[idx].second = event.window.data2;
+    states[group].windowSizes.first = event.window.data1;
+    states[group].windowSizes.second = event.window.data2;
     break;
 
   default:
@@ -145,29 +142,29 @@ void handleEvent(SDL_Event& event) {
 }
 
 void display() {
-  for (size_t i = 0; i < wins.size(); i++) {
-    SDL_GL_MakeCurrent(wins[i], glContexts[i]);
-    SDL_GL_SwapWindow(wins[i]);
+  for (auto& [_, state] : states) {
+    SDL_GL_MakeCurrent(state.win, state.glContext);
+    SDL_GL_SwapWindow(state.win);
   }
 }
 
 void clear() {
   // Clear with current theme background color
   float* c = Theme::colors.background;
-  for (size_t i = 0; i < wins.size(); i++) {
-    SDL_GL_MakeCurrent(wins[i], glContexts[i]);
+  for (auto& [_, state] : states) {
+    SDL_GL_MakeCurrent(state.win, state.glContext);
     glClearColor(c[0], c[1], c[2], c[3]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 }
 
-size_t createWindow(const std::string& title, int width, int height, uint32_t flags) {
+void createWindow(const std::string& group, const std::string& title, int width, int height, uint32_t flags) {
   // Create SDL window with OpenGL support
   LOG_DEBUG(std::string("Creating window: ") + title);
   SDL_Window* win = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | flags);
   if (!win) {
     LOG_ERROR(std::string("Failed to create window: ") + SDL_GetError());
-    return -1;
+    return;
   }
 
   // Create OpenGL context
@@ -176,41 +173,35 @@ size_t createWindow(const std::string& title, int width, int height, uint32_t fl
   if (!glContext) {
     LOG_ERROR(std::string("Failed to create OpenGL context: ") + SDL_GetError());
     SDL_DestroyWindow(win);
-    return -1;
+    return;
   }
-  wins.push_back(win);
-  glContexts.push_back(glContext);
-  windowSizes.push_back(std::make_pair(width, height));
-  focused.push_back(false);
-  mousePos.push_back(std::make_pair(0, 0));
-  return wins.size() - 1;
+
+  Graphics::Font::load(group);
+
+  states[group] = {win, SDL_GetWindowID(win), glContext, std::make_pair(width, height), std::make_pair(0, 0), false};
 }
 
-bool destroyWindow(size_t index) {
-  if (index >= wins.size())
+bool destroyWindow(const std::string& group) {
+  if (states.find(group) == states.end())
     return false;
 
-  LOG_DEBUG(std::string("Destroying window: ") + std::to_string(index));
-  SDL_DestroyWindow(wins[index]);
-  SDL_GL_DestroyContext(glContexts[index]);
-  wins.erase(wins.begin() + index);
-  glContexts.erase(glContexts.begin() + index);
-  windowSizes.erase(windowSizes.begin() + index);
-  focused.erase(focused.begin() + index);
-  mousePos.erase(mousePos.begin() + index);
-  Graphics::Shader::cleanup(index);
-  if (currentWindow == index)
-    currentWindow = 0;
+  LOG_DEBUG(std::string("Destroying window: ") + group);
+  SDL_DestroyWindow(states[group].win);
+  SDL_GL_DestroyContext(states[group].glContext);
+  Graphics::Shader::cleanup(group);
+  Graphics::Font::cleanup(group);
+  states.erase(group);
+  if (currentWindow == group)
+    currentWindow = "main";
   selectWindow(currentWindow);
-  WindowManager::shiftDown(index);
   return true;
 }
 
-bool selectWindow(size_t index) {
-  if (index >= wins.size())
+bool selectWindow(const std::string& group) {
+  if (states.find(group) == states.end())
     return false;
-  currentWindow = index;
-  SDL_GL_MakeCurrent(wins[index], glContexts[index]);
+  currentWindow = group;
+  SDL_GL_MakeCurrent(states[group].win, states[group].glContext);
   return true;
 }
 } // namespace SDLWindow

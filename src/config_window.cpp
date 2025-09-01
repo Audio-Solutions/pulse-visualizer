@@ -28,8 +28,7 @@
 
 namespace ConfigWindow {
 
-size_t sdlWindow = 0; // window index
-bool shown = false;   // is the window currently visible?
+bool shown = false; // is the window currently visible?
 
 float offsetX = 0, offsetY = 0;                // current scroll offset
 bool alt = false, ctrl = false, shift = false; // tracker for modifier keys
@@ -140,10 +139,10 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
 
       const std::string str = pageToString(currentPage);
-      std::pair<float, float> textSize = Graphics::Font::getTextSize(str.c_str(), fontSizeTop, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(str.c_str(), fontSizeTop, "menu");
       Graphics::Font::drawText(str.c_str(), self->x + self->w / 2 - textSize.first / 2,
                                (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeTop, Theme::colors.text,
-                               sdlWindow);
+                               "menu");
     };
 
     topPage.elements.insert({"centerLabel", centerLabel});
@@ -184,7 +183,7 @@ inline void initTop() {
   {
     Element defaultButton = {0};
     defaultButton.update = [](Element* self) {
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, "menu");
       self->w = textSize.first + (padding * 2);
       self->h = stdSize;
       self->x = margin;
@@ -195,9 +194,9 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
                                self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
 
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, "menu");
       Graphics::Font::drawText("Load default", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
-                               fontSizeTop, Theme::colors.text, sdlWindow);
+                               fontSizeTop, Theme::colors.text, "menu");
     };
 
     defaultButton.clicked = [](Element* self) {
@@ -209,7 +208,7 @@ inline void initTop() {
 
       SDLWindow::selectWindow(0);
       reconfigure();
-      SDLWindow::selectWindow(sdlWindow);
+      SDLWindow::selectWindow("menu");
 
       popupMessages.push_back({0.f, "Restored config to defaults"});
     };
@@ -221,7 +220,7 @@ inline void initTop() {
   {
     Element saveButton = {0};
     saveButton.update = [](Element* self) {
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, "menu");
       self->w = textSize.first + (padding * 2);
       self->h = stdSize;
       self->x = w - self->w - margin;
@@ -232,16 +231,17 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
                                self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
 
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, "menu");
       Graphics::Font::drawText("Save", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
-                               fontSizeTop, Theme::colors.text, sdlWindow);
+                               fontSizeTop, Theme::colors.text, "menu");
     };
 
     saveButton.clicked = [](Element* self) {
-        const std::string cfgPath = expandUserPath("~/.config/pulse-visualizer/config.yml");
-        try {
-          std::filesystem::permissions(cfgPath, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
-        } catch (...) {}
+      const std::string cfgPath = expandUserPath("~/.config/pulse-visualizer/config.yml");
+      try {
+        std::filesystem::permissions(cfgPath, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
+      } catch (...) {
+      }
       bool success = Config::save();
       popupMessages.push_back({0.f, success ? "Saved" : "Failed to save"});
     };
@@ -270,7 +270,7 @@ inline void initTop() {
         std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
         float fontColor[4];
         std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
-        std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize, sdlWindow);
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize, "menu");
 
         pair.first += WindowManager::dt;
 
@@ -293,7 +293,7 @@ inline void initTop() {
 
           layer(3.f);
           Graphics::drawFilledRect(x, y, w, h, bgColor);
-          Graphics::Font::drawText(pair.second.c_str(), x + padding, y + padding, fontSize, fontColor, sdlWindow);
+          Graphics::Font::drawText(pair.second.c_str(), x + padding, y + padding, fontSize, fontColor, "menu");
           layer();
         }
 
@@ -796,7 +796,7 @@ inline void initPages() {
         // version text
         {
           Graphics::Font::drawText("Pulse " VERSION_STRING " commit " VERSION_COMMIT, 0, cyOther, fontSizeHeader,
-                                   Theme::colors.text, sdlWindow);
+                                   Theme::colors.text, "menu");
           cyOther += fontSizeHeader;
         }
 
@@ -804,7 +804,7 @@ inline void initPages() {
         {
           std::stringstream ss;
           ss << "FPS: " << std::fixed << std::setprecision(1) << fpsLerp;
-          Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text, sdlWindow);
+          Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text, "menu");
           cyOther += fontSizeHeader;
         }
 
@@ -1019,26 +1019,26 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
 
   labelElement.render = [label, description, ignoreTextOverflow](Element* self) {
     std::string actualLabel =
-        ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, sdlWindow);
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, sdlWindow);
+        ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, "menu");
     Graphics::Font::drawText(actualLabel.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2),
-                             fontSizeLabel, Theme::colors.text, sdlWindow);
+                             fontSizeLabel, Theme::colors.text, "menu");
 
     if (self->hovered) {
       layer(2.f);
-      float mouseX = SDLWindow::mousePos[sdlWindow].first;
-      float mouseY = SDLWindow::mousePos[sdlWindow].second;
+      float mouseX = SDLWindow::states["menu"].mousePos.first;
+      float mouseY = SDLWindow::states["menu"].mousePos.second;
       float maxW = w - mouseX - margin * 2 - padding * 2;
 
-      std::string actualDescription = Graphics::Font::wrapText(description, maxW, fontSizeTooltip, sdlWindow);
+      std::string actualDescription = Graphics::Font::wrapText(description, maxW, fontSizeTooltip, "menu");
       std::pair<float, float> textSize =
-          Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip, sdlWindow);
+          Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip, "menu");
       Graphics::drawFilledRect(mouseX + margin - offsetX, mouseY - margin - textSize.second - padding * 2 - offsetY,
                                textSize.first + padding * 2, textSize.second + padding * 2, Theme::colors.accent);
 
       Graphics::Font::drawText(actualDescription.c_str(), mouseX + margin + padding - offsetX,
                                mouseY - margin - padding - fontSizeTooltip - offsetY, fontSizeTooltip,
-                               Theme::colors.text, sdlWindow);
+                               Theme::colors.text, "menu");
       layer();
     }
   };
@@ -1056,10 +1056,10 @@ void createHeaderElement(Page& page, float& cy, const std::string key, const std
   };
 
   headerElement.render = [header](Element* self) {
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader, sdlWindow);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader, "menu");
     Graphics::Font::drawText(header.c_str(), self->x + self->w / 2 - textSize.first / 2,
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeHeader, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
   };
 
   page.elements.insert({key, headerElement});
@@ -1098,14 +1098,13 @@ void createCheckElement(Page& page, float& cy, const std::string key, bool* valu
 
 void toggle() {
   if (shown) {
+    Config::save();
     LOG_DEBUG("Destroying Config window");
-    Graphics::Font::cleanup(sdlWindow);
-    SDLWindow::destroyWindow(sdlWindow);
+    SDLWindow::destroyWindow("menu");
     deinit();
   } else {
     LOG_DEBUG("Creating Config window");
-    sdlWindow = SDLWindow::createWindow("Configuration", w, h, 0);
-    Graphics::Font::load(sdlWindow);
+    SDLWindow::createWindow("menu", "Configuration", w, h, 0);
     init();
   }
 
@@ -1116,7 +1115,7 @@ void handleEvent(const SDL_Event& event) {
   if (!shown)
     return;
 
-  if (!SDLWindow::focused[sdlWindow] && event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+  if (!SDLWindow::states["menu"].focused && event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED)
     return;
 
   switch (event.type) {
@@ -1321,8 +1320,8 @@ void handleEvent(const SDL_Event& event) {
 }
 
 bool mouseOverRect(float x, float y, float w, float h) {
-  const float mx = SDLWindow::mousePos[sdlWindow].first;
-  const float my = SDLWindow::mousePos[sdlWindow].second;
+  const float mx = SDLWindow::states["menu"].mousePos.first;
+  const float my = SDLWindow::states["menu"].mousePos.second;
 
   if (mx > x && mx < x + w && my > y && my < y + h)
     return true;
@@ -1335,7 +1334,7 @@ bool mouseOverRectTranslated(float x, float y, float w, float h) {
   x += offsetX;
   y += offsetY;
 
-  const float my = SDLWindow::mousePos[sdlWindow].second;
+  const float my = SDLWindow::states["menu"].mousePos.second;
   return my > scrollingDisplayMargin && my < ConfigWindow::h - scrollingDisplayMargin && mouseOverRect(x, y, w, h);
 }
 
@@ -1401,7 +1400,7 @@ void draw() {
   }
 
   // render
-  SDLWindow::selectWindow(sdlWindow);
+  SDLWindow::selectWindow("menu");
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LEQUAL);
@@ -1512,7 +1511,7 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
     float handleX = slidableWidth * percent;
 
     if (self->focused) {
-      float mouseX = SDLWindow::mousePos[sdlWindow].first;
+      float mouseX = SDLWindow::states["menu"].mousePos.first;
       float adjustedX = mouseX - (self->x + sliderPadding + sliderHandleWidth / 2);
       float mousePercent = adjustedX / slidableWidth;
 
@@ -1533,10 +1532,10 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
     } else {
       ss << std::fixed << std::setprecision(precision) << *value;
     }
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, sdlWindow);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, "menu");
     Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
   };
 
   sliderElement.clicked = [value, min, max](Element* self) {
@@ -1547,7 +1546,7 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
 
     if (hovered) {
       self->focused = true;
-      self->x = SDLWindow::mousePos[sdlWindow].first - (sliderPadding + handleX + sliderHandleWidth / 2);
+      self->x = SDLWindow::states["menu"].mousePos.first - (sliderPadding + handleX + sliderHandleWidth / 2);
     }
   };
 
@@ -1608,7 +1607,7 @@ void createDetentSliderElement(Page& page, float& cy, const std::string key, Val
     float handleX = slidableWidth * percent;
 
     if (self->focused) {
-      float mouseX = SDLWindow::mousePos[sdlWindow].first;
+      float mouseX = SDLWindow::states["menu"].mousePos.first;
       float adjustedX = mouseX - (self->x + sliderPadding + sliderHandleWidth / 2);
       float mousePercent = adjustedX / slidableWidth;
       mousePercent = std::clamp(mousePercent, 0.f, 1.f);
@@ -1628,10 +1627,10 @@ void createDetentSliderElement(Page& page, float& cy, const std::string key, Val
 
     std::stringstream ss;
     ss << std::fixed << std::setprecision(precision) << *value;
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, sdlWindow);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, "menu");
     Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
   };
 
   sliderElement.clicked = [value, detents](Element* self) {
@@ -1649,7 +1648,7 @@ void createDetentSliderElement(Page& page, float& cy, const std::string key, Val
 
     if (hovered) {
       self->focused = true;
-      self->x = SDLWindow::mousePos[sdlWindow].first - (sliderPadding + handleX + sliderHandleWidth / 2);
+      self->x = SDLWindow::states["menu"].mousePos.first - (sliderPadding + handleX + sliderHandleWidth / 2);
     }
   };
 
@@ -1741,13 +1740,12 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
                                  thingHovered ? Theme::colors.accent
                                               : (current ? Theme::colors.text : Theme::colors.bgaccent));
 
-        std::string actualLabel =
-            Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+        std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, "menu");
 
-        std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
         Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                                  (int)(y + stdSize / 2 - textSize.second / 2), fontSizeValue,
-                                 current && !thingHovered ? Theme::colors.background : Theme::colors.text, sdlWindow);
+                                 current && !thingHovered ? Theme::colors.background : Theme::colors.text, "menu");
       }
       i++;
     }
@@ -1755,12 +1753,12 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
     layer();
 
     std::string actualLabel =
-        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, "menu");
 
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(originalY + stdSize / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
   };
 
   dropdownElement.clicked = [value, possibleValues, originalY](Element* self) {
@@ -1840,12 +1838,12 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
     }
 
     std::string actualLabel =
-        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, sdlWindow);
+        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, "menu");
 
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, sdlWindow);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
   };
 
   Element tickLeftElement = {0};
@@ -1953,8 +1951,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
   visualizerListElement.render = [value](Element* self) {
     float yTop = self->y + self->h;
 
-    const float mouseX = SDLWindow::mousePos[sdlWindow].first;
-    const float mouseY = SDLWindow::mousePos[sdlWindow].second;
+    const float mouseX = SDLWindow::states["menu"].mousePos.first;
+    const float mouseY = SDLWindow::states["menu"].mousePos.second;
 
     // Draw groups
     struct DropTarget {
@@ -1975,10 +1973,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       // Group header
       float headerY = yTop - groupHeaderH;
       Graphics::drawFilledRect(self->x, headerY, self->w, groupHeaderH, Theme::colors.bgaccent);
-      std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader, sdlWindow);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader, "menu");
       Graphics::Font::drawText(group.c_str(), (int)(self->x + padding),
                                (int)(headerY + groupHeaderH / 2 - textSize.second / 2), fontSizeHeader,
-                               Theme::colors.text, sdlWindow);
+                               Theme::colors.text, "menu");
 
       // Items area
       float itemsTop = headerY - spacing;
@@ -2011,9 +2009,9 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         } else {
           label = "(empty)";
         }
-        std::pair<float, float> t = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+        std::pair<float, float> t = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
         Graphics::Font::drawText(label.c_str(), (int)(itemX + padding), (int)(itemY + itemHh / 2 - t.second / 2),
-                                 fontSizeValue, Theme::colors.text, sdlWindow);
+                                 fontSizeValue, Theme::colors.text, "menu");
 
         y -= spacing;
       }
@@ -2031,10 +2029,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     Graphics::drawFilledRect(self->x, createY, self->w, createZoneH,
                              overCreate && dragState.active ? Theme::colors.accent : Theme::colors.bgaccent);
     const char* createLabel = "+ Create new window (drop here)";
-    std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader, sdlWindow);
+    std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader, "menu");
     Graphics::Font::drawText(createLabel, (int)(self->x + self->w / 2 - t.first / 2),
                              (int)(createY + createZoneH / 2 - t.second / 2), fontSizeHeader, Theme::colors.text,
-                             sdlWindow);
+                             "menu");
 
     if (dragState.active) {
       for (const auto& target : targets) {
@@ -2063,7 +2061,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       std::string label = vizLabels.count(dragState.viz) ? vizLabels[dragState.viz] : dragState.viz;
       const float chipH = stdSize;
-      std::pair<float, float> ts = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+      std::pair<float, float> ts = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
       float chipW = std::min(self->w - padding * 2, ts.first + padding * 2);
 
       float gx = mouseX - offsetX - chipW / 2.0f;
@@ -2074,10 +2072,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       Graphics::drawFilledRect(gx, gy, chipW, chipH, Theme::alpha(Theme::colors.accent, 0.5f));
 
-      std::pair<float, float> t2 = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, sdlWindow);
+      std::pair<float, float> t2 = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
       Graphics::Font::drawText(label.c_str(), (int)(gx + chipW / 2 - t2.first / 2),
                                (int)(gy + chipH / 2 - t2.second / 2), fontSizeValue,
-                               Theme::alpha(Theme::colors.text, 0.9f), sdlWindow);
+                               Theme::alpha(Theme::colors.text, 0.9f), "menu");
 
       glDisable(GL_BLEND);
       layer();
@@ -2091,8 +2089,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float itemPad = padding;
 
     float yTop = self->y + self->h;
-    float mouseX = SDLWindow::mousePos[sdlWindow].first;
-    float mouseY = SDLWindow::mousePos[sdlWindow].second;
+    float mouseX = SDLWindow::states["menu"].mousePos.first;
+    float mouseY = SDLWindow::states["menu"].mousePos.second;
 
     for (const auto& kv : *value) {
       const std::string& group = kv.first;
@@ -2134,8 +2132,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float groupBottomMargin = margin;
 
     float yTop = self->y + self->h;
-    float mouseX = SDLWindow::mousePos[sdlWindow].first;
-    float mouseY = SDLWindow::mousePos[sdlWindow].second;
+    float mouseX = SDLWindow::states["menu"].mousePos.first;
+    float mouseY = SDLWindow::states["menu"].mousePos.second;
 
     std::string targetGroup;
     bool foundTarget = false;
@@ -2228,7 +2226,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         Config::options.visualizers.erase(dragState.fromGroup);
       }
 
-      WindowManager::reorder();
+      Config::save();
     }
 
     dragState.active = false;
