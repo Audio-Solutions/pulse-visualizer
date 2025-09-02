@@ -206,7 +206,7 @@ inline void initTop() {
       Config::copyFiles();
       Config::load();
 
-      SDLWindow::selectWindow(0);
+      SDLWindow::selectWindow("main");
       reconfigure();
       SDLWindow::selectWindow("menu");
 
@@ -238,11 +238,13 @@ inline void initTop() {
 
     saveButton.clicked = [](Element* self) {
       const std::string cfgPath = expandUserPath("~/.config/pulse-visualizer/config.yml");
+      bool success = false;
       try {
         std::filesystem::permissions(cfgPath, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
-      } catch (...) {
+        success = Config::save();
+      } catch (std::exception& e) {
+        LOG_ERROR("Failed to set permissions on config file: " << e.what());
       }
-      bool success = Config::save();
       popupMessages.push_back({0.f, success ? "Saved" : "Failed to save"});
     };
 
