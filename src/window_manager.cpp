@@ -288,7 +288,6 @@ void VisualizerWindow::resizeTextures() {
   glFinish();
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
   glBindTexture(GL_TEXTURE_2D, 0);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 

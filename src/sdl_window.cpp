@@ -34,7 +34,6 @@ GLuint vertexBuffer = 0;
 GLuint vertexColorBuffer = 0;
 GLuint frameBuffer = 0;
 
-std::string currentWindow = "main";
 std::atomic<bool> running {false};
 
 void deinit() {
@@ -203,16 +202,13 @@ bool destroyWindow(const std::string& group) {
   SDL_DestroyWindow(states[group].win);
   SDL_GL_DestroyContext(states[group].glContext);
   states.erase(group);
-  if (currentWindow == group)
-    currentWindow = "main";
-  selectWindow(currentWindow);
+  selectWindow("main");
   return true;
 }
 
 bool selectWindow(const std::string& group) {
   if (states.find(group) == states.end())
     return false;
-  currentWindow = group;
   SDL_GL_MakeCurrent(states[group].win, states[group].glContext);
   return true;
 }

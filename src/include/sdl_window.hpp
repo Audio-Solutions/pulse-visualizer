@@ -39,7 +39,6 @@ extern GLuint frameBuffer;
 // Window and OpenGL context handles
 extern std::unordered_map<std::string, State> states;
 
-extern std::string currentWindow;
 extern std::atomic<bool> running;
 
 /**
