@@ -44,10 +44,15 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
     glLineWidth(thickness);
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-    glBegin(GL_LINES);
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y2);
-    glEnd();
+    float vertices[] = {x1, y1, x2, y2};
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+    glDrawArrays(GL_LINES, 0, 2);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDisable(GL_LINE_SMOOTH);
     glDisable(GL_LINE_SMOOTH);
     glDisable(GL_BLEND);
     return;
@@ -69,12 +74,16 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
     float passColor[4] = {color[0], color[1], color[2], alpha};
     glColor4fv(passColor);
 
-    glBegin(GL_TRIANGLE_STRIP);
-    glVertex2f(x1 + nx * currentHalfThickness, y1 + ny * currentHalfThickness);
-    glVertex2f(x1 - nx * currentHalfThickness, y1 - ny * currentHalfThickness);
-    glVertex2f(x2 + nx * currentHalfThickness, y2 + ny * currentHalfThickness);
-    glVertex2f(x2 - nx * currentHalfThickness, y2 - ny * currentHalfThickness);
-    glEnd();
+    float vertices[] = {x1 + nx * currentHalfThickness, y1 + ny * currentHalfThickness, x1 - nx * currentHalfThickness,
+                        y1 - ny * currentHalfThickness, x2 + nx * currentHalfThickness, y2 + ny * currentHalfThickness,
+                        x2 - nx * currentHalfThickness, y2 - ny * currentHalfThickness};
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   glDisable(GL_BLEND);
@@ -84,12 +93,14 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glColor4fv(color);
-  glBegin(GL_QUADS);
-  glVertex2f(x, y);
-  glVertex2f(x + width, y);
-  glVertex2f(x + width, y + height);
-  glVertex2f(x, y + height);
-  glEnd();
+  float vertices[] = {x, y, x + width, y, x + width, y + height, x, y + height};
+  glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+  glDrawArrays(GL_QUADS, 0, 4);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   glDisable(GL_BLEND);
 }
 
@@ -115,7 +126,9 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
     float passColor[4] = {color[0], color[1], color[2], alpha};
     glColor4fv(passColor);
 
-    glBegin(GL_TRIANGLE_STRIP);
+    std::vector<float> vertices;
+    vertices.reserve(segments * 2);
+
     for (int i = 0; i <= segments; ++i) {
       float t = static_cast<float>(i) / segments;
       float angle = startRad + (endRad - startRad) * t;
@@ -127,10 +140,18 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
       float px_inner = x + (radius - currentHalfThickness) * dx;
       float py_inner = y + (radius - currentHalfThickness) * dy;
 
-      glVertex2f(px_outer, py_outer);
-      glVertex2f(px_inner, py_inner);
+      vertices.push_back(px_outer);
+      vertices.push_back(py_outer);
+      vertices.push_back(px_inner);
+      vertices.push_back(py_inner);
     }
-    glEnd();
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertices.size() / 2));
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   glDisable(GL_BLEND);

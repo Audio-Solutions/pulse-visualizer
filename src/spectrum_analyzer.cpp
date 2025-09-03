@@ -488,17 +488,19 @@ void render() {
     // Draw crosshair
     glColor4fv(color);
     glLineWidth(2.0f);
-    glBegin(GL_LINES);
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
-    // Draw horizontal line from left edge to right edge
-    glVertex2f(0, mouseYRel);
-    glVertex2f(window->width, mouseYRel);
-
-    // Draw vertical line from top edge to bottom edge
-    glVertex2f(mouseXRel, 0);
-    glVertex2f(mouseXRel, state.windowSizes.second);
-
-    glEnd();
+    float vertices[] = {0, mouseYRel, (float)window->width,           mouseYRel, mouseXRel,
+                        0, mouseXRel, (float)state.windowSizes.second};
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+    glDrawArrays(GL_LINES, 0, 4);
+    glDisable(GL_LINE_SMOOTH);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Transform mouse coordinates back to unrotated coordinate system
     float unrotatedX, unrotatedY;

@@ -1343,7 +1343,6 @@ void drawArrow(int dir, float x, float y, const float buttonSize) {
   glEnable(GL_POLYGON_SMOOTH);
 
   glColor4fv(Theme::colors.text);
-  glBegin(GL_TRIANGLES);
   const float v = static_cast<float>(std::abs(dir) == 2);
   const float h = 1.0f - v;
   const float alpha = 0.2f * static_cast<float>(dir);
@@ -1355,11 +1354,15 @@ void drawArrow(int dir, float x, float y, const float buttonSize) {
   float y2 = y + buttonSize * (v * (0.5f + alpha / 2.0f) + h * 0.5f);
   float x3 = x + buttonSize * (v * 0.7f + h * (0.5f - alpha));
   float y3 = y + buttonSize * (v * (0.5f - alpha / 2.0f) + h * 0.7f);
-  glVertex2f(x1, y1);
-  glVertex2f(x2, y2);
-  glVertex2f(x3, y3);
+  float vertices[] = {x1, y1, x2, y2, x3, y3};
+  glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  glEnd();
   glDisable(GL_POLYGON_SMOOTH);
   glDisable(GL_BLEND);
 }
@@ -2026,16 +2029,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     if (dragState.active) {
       for (const auto& target : targets) {
         if (mouseOverRectTranslated(target.x, target.y, target.w, target.h)) {
-          glEnable(GL_BLEND);
-          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-          glColor4fv(Theme::alpha(Theme::colors.accent, 0.2f));
-          glBegin(GL_QUADS);
-          glVertex2f(target.x, target.y);
-          glVertex2f(target.x + target.w, target.y);
-          glVertex2f(target.x + target.w, target.y + target.h);
-          glVertex2f(target.x, target.y + target.h);
-          glEnd();
-          glDisable(GL_BLEND);
+          Graphics::drawFilledRect(target.x, target.y, target.w, target.h, Theme::alpha(Theme::colors.accent, 0.2f));
           break;
         }
       }
