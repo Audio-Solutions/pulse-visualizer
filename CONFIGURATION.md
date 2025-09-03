@@ -326,6 +326,11 @@ phosphor:
     
     # Grain strength (spatial noise, 0.0-1.0)
     grain: 0.1
+
+  # Reflections settings
+  reflections:
+    # Strength of reflections (0.0-1.0)
+    strength: 0.5
 ```
 
 ### Spectrogram Settings

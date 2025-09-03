@@ -82,15 +82,16 @@ void render() {
                            ? static_cast<float>(state.windowSizes.second)
                            : static_cast<float>(window->width)) /
                       samples;
+
+  float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
+                         Config::options.oscilloscope.rotation == Config::ROTATION_270
+                     ? window->width
+                     : state.windowSizes.second;
+
   for (size_t i = 0; i < samples; i++) {
     size_t pos = (target + i - fir_delay) % DSP::bufferSize;
     float x = static_cast<float>(i) * scale;
     float y;
-
-    float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
-                           Config::options.oscilloscope.rotation == Config::ROTATION_270
-                       ? window->width
-                       : state.windowSizes.second;
 
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]

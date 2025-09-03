@@ -423,6 +423,9 @@ void load() {
   get<float>(configData, "phosphor.screen.chromatic_aberration", options.phosphor.screen.chromatic_aberration);
   get<float>(configData, "phosphor.screen.grain", options.phosphor.screen.grain);
 
+  // Phosphor Reflections
+  get<float>(configData, "phosphor.reflections.strength", options.phosphor.reflections.strength);
+
   // Load LUFS configuration
   get<std::string>(configData, "lufs.mode", options.lufs.mode);
   get<std::string>(configData, "lufs.scale", options.lufs.scale);
@@ -561,6 +564,9 @@ bool save() {
   root["phosphor"]["screen"]["chromatic_aberration"] = options.phosphor.screen.chromatic_aberration;
   root["phosphor"]["screen"]["grain"] = options.phosphor.screen.grain;
 
+  // Phosphor Reflections
+  root["phosphor"]["reflections"]["strength"] = options.phosphor.reflections.strength;
+
   // Spectrogram
   root["spectrogram"]["frequency_scale"] = options.spectrogram.frequency_scale;
   root["spectrogram"]["interpolation"] = options.spectrogram.interpolation;
@@ -613,10 +619,10 @@ bool save() {
     LOG_ERROR("Failed to open config file for writing");
     return false;
   }
-  
+
   fout << out.c_str();
-  
-  if(fout.fail()) {
+
+  if (fout.fail()) {
     return false;
   }
 

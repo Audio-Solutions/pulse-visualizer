@@ -165,6 +165,10 @@ struct Options {
       float chromatic_aberration = 0.008f;
       float grain = 0.1f;
     } screen;
+
+    struct Reflections {
+      float strength = 0.7f;
+    } reflections;
   } phosphor;
 
   struct LUFS {

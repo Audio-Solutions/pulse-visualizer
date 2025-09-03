@@ -35,6 +35,7 @@ uniform float vignetteStrength;
 uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
 uniform bool colorbeam;
+uniform float borderReflectionStrength;
 
 // Precomputed constants
 const float TANH_DIV_FACTOR = 4290000;
@@ -221,6 +222,96 @@ float tanhColormapChannel(float mapIndex) {
   return clamp(fast_tanh(mapIndex), 0.0, 1.0);
 }
 
+// 3x3 box blur around the reflected texel
+vec3 sampleReflectionAverage(vec2 uv, vec2 texelSize) {
+  // Map uv to distorted space with gap/curvature normalization
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+  vec2 scaledUV = (uv - gapOffset) / visiblePercent;
+
+  float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+  float scale = 0.5 / edgeNorm;
+  scaledUV = (scaledUV - 0.5) * scale + 0.5;
+
+  vec2 dUV = crtDistortion(scaledUV);
+
+  // Reflect base sample to interior as if against a plane, with corner treated by dominant overflow axis
+  vec2 baseReflected = dUV;
+  bool outX = (dUV.x < 0.0 || dUV.x > 1.0);
+  bool outY = (dUV.y < 0.0 || dUV.y > 1.0);
+  if (outX || outY) {
+    float overflowX = outX ? (dUV.x < 0.0 ? -dUV.x : dUV.x - 1.0) : 0.0;
+    float overflowY = outY ? (dUV.y < 0.0 ? -dUV.y : dUV.y - 1.0) : 0.0;
+    if (outX && outY) {
+      if (overflowX >= overflowY) {
+        baseReflected.x = (baseReflected.x < 0.0) ? -baseReflected.x : 2.0 - baseReflected.x;
+        baseReflected.y = clamp(baseReflected.y, 0.0, 1.0);
+      } else {
+        baseReflected.y = (baseReflected.y < 0.0) ? -baseReflected.y : 2.0 - baseReflected.y;
+        baseReflected.x = clamp(baseReflected.x, 0.0, 1.0);
+      }
+    } else if (outX) {
+      baseReflected.x = (baseReflected.x < 0.0) ? -baseReflected.x : 2.0 - baseReflected.x;
+      baseReflected.y = clamp(baseReflected.y, 0.0, 1.0);
+    } else if (outY) {
+      baseReflected.y = (baseReflected.y < 0.0) ? -baseReflected.y : 2.0 - baseReflected.y;
+      baseReflected.x = clamp(baseReflected.x, 0.0, 1.0);
+    }
+  }
+
+  vec3 accum = vec3(0.0);
+  float weightSum = 0.0;
+
+  // 3x3 box blur around the reflected texel
+  ivec2 baseCoord = ivec2(clamp(floor(baseReflected * vec2(texSize)), vec2(0.0), vec2(texSize - 1)));
+  for (int i = -1; i <= 1; ++i) {
+    for (int j = -1; j <= 1; ++j) {
+      ivec2 sampleCoord = clamp(baseCoord + ivec2(i, j), ivec2(0), texSize - 1);
+      vec2 sampleUV = (vec2(sampleCoord) + 0.5) / vec2(texSize);
+
+      bool onBorder = sampleUV.x < texelSize.x || sampleUV.x > 1.0 - texelSize.x || sampleUV.y < texelSize.y || sampleUV.y > 1.0 - texelSize.y;
+
+      float rE = float(imageLoad(energyTexR, sampleCoord).r);
+      float gE;
+      float bE;
+      if (colorbeam) {
+        gE = float(imageLoad(energyTexG, sampleCoord).r);
+        bE = float(imageLoad(energyTexB, sampleCoord).r);
+      } else {
+        gE = rE;
+        bE = rE;
+      }
+
+      rE /= TANH_DIV_FACTOR;
+      gE /= TANH_DIV_FACTOR;
+      bE /= TANH_DIV_FACTOR;
+
+      vec3 c;
+      if (colorbeam) {
+        c = vec3(tanhColormapChannel(rE), tanhColormapChannel(gE), tanhColormapChannel(bE));
+      } else {
+        c.r = tanhColormapChannel(rE * beamColor.r);
+        c.g = tanhColormapChannel(gE * beamColor.g);
+        c.b = tanhColormapChannel(bE * beamColor.b);
+      }
+
+      c = clamp(c, 0.0, onBorder ? 0.05 : 1.0);
+
+      accum += c;
+      weightSum += 1.0;
+    }
+  }
+
+  if (weightSum > 0.0) {
+    accum /= weightSum;
+  } else {
+    accum = vec3(0.0);
+  }
+
+  return accum;
+}
+
 void main() {
   ivec2 texSizeInt = ivec2(texSize);
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -314,6 +405,13 @@ void main() {
   vec3 outColor;
   if (screenCurvature > 1e-6) {
     outColor = mix(borderColor, screenColor, screenMask);
+    // Add a dim reflection using 3x3 box blur if enabled
+    // TODO: Fix corners, kinda fucked
+    if (screenMask < 0.999 && borderReflectionStrength > 1e-6) {
+      vec3 reflectColor = sampleReflectionAverage(uv, texelSize);
+      float borderAmount = 1.0 - screenMask;
+      outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0);
+    }
   } else {
     outColor = screenColor;
   }

@@ -242,6 +242,12 @@ void render() {
       depthsMain.push_back(semiMainDepth[i]);
     }
   } else {
+
+    float height =
+        Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+            ? window->width
+            : state.windowSizes.second;
+
     for (size_t bin = 0; bin < inMain.size(); bin++) {
       // Calculate frequency for this bin
       float f;
@@ -265,10 +271,6 @@ void render() {
 
       // Convert to decibels and map to Y coordinate
       float dB = 20.f * log10f(mag + FLT_EPSILON);
-      float height =
-          Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-              ? window->width
-              : state.windowSizes.second;
       float y = (dB - Config::options.fft.limits.min_db) /
                 (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
 
@@ -295,6 +297,7 @@ void render() {
     // Generate alternative spectrum points (for stereo visualization)
     if (!Config::options.phosphor.enabled)
       pointsAlt.resize(inAlt.size());
+
     for (size_t bin = 0; bin < inAlt.size() && !Config::options.phosphor.enabled; bin++) {
       // Calculate frequency for this bin
       float f;
@@ -318,10 +321,6 @@ void render() {
 
       // Convert to decibels and map to Y coordinate
       float dB = 20.f * log10f(mag + FLT_EPSILON);
-      float height =
-          Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-              ? window->width
-              : state.windowSizes.second;
       float y = (dB - Config::options.fft.limits.min_db) /
                 (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
 

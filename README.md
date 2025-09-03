@@ -16,6 +16,7 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 - CRT phosphor emulation with GPU compute shaders (glow, persistence, all the retro stuff)
   - Curved screen, vignette, grain, chromatic aberration (toggle as you like)
   - Blur, light spread, and overdrive are all tweakable
+  - Reflections on curved screen
 - Multiple visualizer styles:
   - Lissajous curve (with fancy spline interpolation and stretch modes)
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
