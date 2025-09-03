@@ -898,6 +898,10 @@ inline void initPages() {
                        "This will make the beam color rotate around the hue depending on the direction its going.\n"
                        "This is GPU intensive, so it is disabled by default.");
 
+    // reflections
+    createSliderElement<float>(page, cy, "reflections", &Config::options.phosphor.reflections.strength, 0.f, 1.f,
+                               "Reflections strength", "Reflections strength", 3, true);
+
     page.height = cyInit - cy;
     pages.insert({PageType::Phosphor, page});
   }
