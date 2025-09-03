@@ -112,9 +112,8 @@ void render() {
 
     // Draw label (right aligned)
     std::string labelText = std::to_string(static_cast<int>(label));
-    auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS, window->group);
-    Graphics::Font::drawText(labelText.c_str(), LABEL_WIDTH - w - 2, y - h / 2, FONT_SIZE_LABELS, Theme::colors.text,
-                             window->group);
+    auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS);
+    Graphics::Font::drawText(labelText.c_str(), LABEL_WIDTH - w - 2, y - h / 2, FONT_SIZE_LABELS, Theme::colors.text);
 
     // Draw horizontal line extending to the peak bars
     Graphics::drawLine(LABEL_WIDTH, y, LABEL_WIDTH + LABEL_LINE_LENGTH, y, Theme::colors.text, 1);
@@ -168,7 +167,7 @@ void render() {
   } else {
     snprintf(lufsBuffer, sizeof(lufsBuffer), "%5.1fLUFS", lufs);
   }
-  auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS, window->group);
+  auto [w, h] = Graphics::Font::getTextSize(lufsBuffer, FONT_SIZE_LUFS);
 
   if (Config::options.lufs.label == "on") {
     // Calculate text position based on LUFS bar height, centered on the bar
@@ -192,8 +191,7 @@ void render() {
     Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
 
     // Draw text
-    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                             window->group);
+    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background);
   } else if (Config::options.lufs.label == "compact") {
     // Calculate text position centered in the top area
     // Position the box in the center of the top area
@@ -209,8 +207,7 @@ void render() {
     Graphics::drawFilledRect(boxX, boxY, boxWidth, boxHeight, color);
 
     // Draw text
-    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background,
-                             window->group);
+    Graphics::Font::drawText(lufsBuffer, boxX + LUFS_TEXT_BOX_PADDING, textY, FONT_SIZE_LUFS, Theme::colors.background);
   }
 }
 

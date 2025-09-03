@@ -208,3 +208,45 @@ std::string expandUserPath(const std::string& path);
  * @brief Reconfigures the program with new config data
  */
 void reconfigure();
+
+/**
+ * @brief Aligned memory allocator for SIMD operations
+ * @tparam T Element type
+ * @tparam Alignment Memory alignment in bytes
+ */
+template <typename T, std::size_t Alignment> struct AlignedAllocator {
+  using value_type = T;
+
+  AlignedAllocator() noexcept = default;
+
+  template <class U> AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept {}
+
+  template <class U> struct rebind {
+    using other = AlignedAllocator<U, Alignment>;
+  };
+
+  T* allocate(std::size_t n) {
+    void* ptr = nullptr;
+#ifdef __linux
+    if (posix_memalign(&ptr, Alignment, n * sizeof(T)) != 0)
+      throw std::bad_alloc();
+#elif defined(_MSC_VER)
+    ptr = _aligned_malloc(n * sizeof(T), Alignment);
+    if (!ptr)
+      throw std::bad_alloc();
+#else
+    ptr = std::aligned_alloc(Alignment, n * sizeof(T));
+    if (!ptr)
+      throw std::bad_alloc();
+#endif
+    return static_cast<T*>(ptr);
+  }
+
+  void deallocate(T* p, std::size_t) noexcept {
+#ifdef _MSC_VER
+    _aligned_free(p);
+#else
+    free(p);
+#endif
+  }
+};

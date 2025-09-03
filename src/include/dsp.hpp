@@ -22,26 +22,6 @@
 
 namespace DSP {
 
-/**
- * @brief Aligned memory allocator for SIMD operations
- * @tparam T Element type
- * @tparam Alignment Memory alignment in bytes
- */
-template <typename T, std::size_t Alignment> struct AlignedAllocator {
-  using value_type = T;
-
-  AlignedAllocator() noexcept = default;
-
-  template <class U> AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept {}
-
-  template <class U> struct rebind {
-    using other = AlignedAllocator<U, Alignment>;
-  };
-
-  T* allocate(std::size_t n);
-  void deallocate(T* p, std::size_t) noexcept;
-};
-
 // Audio buffer data
 extern std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 extern std::vector<float, AlignedAllocator<float, 32>> bufferSide;

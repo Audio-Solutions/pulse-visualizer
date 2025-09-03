@@ -209,9 +209,9 @@ void render() {
     }
 
     // Upload vertex data to GPU
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, SDLWindow::vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, SDLWindow::vertexColorBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 

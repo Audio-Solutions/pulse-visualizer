@@ -64,8 +64,8 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
  * @brief Font rendering namespace
  */
 namespace Font {
-extern std::unordered_map<std::string, FT_Face> faces;
-extern std::unordered_map<std::string, FT_Library> ftLibs;
+extern FT_Face face;
+extern FT_Library ftLib;
 
 /**
  * @brief Glyph texture information
@@ -86,69 +86,61 @@ struct PairHash {
   }
 };
 
-extern std::unordered_map<std::string, std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash>> glyphCaches;
+extern std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash> glyphCache;
 
 /**
- * @brief Load font from file for a specific window
- * @param group Group of the window to load font for
+ * @brief Load font from file
  */
-void load(const std::string& group);
+void load();
 
 /**
- * @brief Cleanup font resources for a specific window
- * @param group Group of the window to cleanup font for
+ * @brief Cleanup font resources
  */
-void cleanup(const std::string& group);
+void cleanup();
 
 /**
- * @brief Get or create glyph texture for character for a specific window
+ * @brief Get or create glyph texture for character
  * @param c Character to get texture for
  * @param size Font size
- * @param group Group of the window to get glyph for
  * @return Glyph texture information
  */
-GlyphTexture& getGlyphTexture(char c, float size, const std::string& group);
+GlyphTexture& getGlyphTexture(char c, float size);
 
 /**
- * @brief Draw text at specified position for a specific window
+ * @brief Draw text at specified position
  * @param text Text to render
  * @param x X coordinate
  * @param y Y coordinate
  * @param size Font size
  * @param color RGBA color array
- * @param group Group of the window to draw text for
  */
-void drawText(const char* text, const float& x, const float& y, const float& size, const float* color,
-              const std::string& group);
+void drawText(const char* text, const float& x, const float& y, const float& size, const float* color);
 
 /**
- * @brief Get text dimensions for a specific window
+ * @brief Get text dimensions
  * @param text Text to measure
  * @param size Font size
- * @param group Group of the window to measure text for
  * @return Pair of (width, height) dimensions
  */
-std::pair<float, float> getTextSize(const char* text, const float& size, const std::string& group);
+std::pair<float, float> getTextSize(const char* text, const float& size);
 
 /**
  * @brief Word wrap text into the given width (ignoring vertical size)
  * @param text Text to word wrap
  * @param maxW Maximum width
  * @param fontSize Font size
- * @param group Group of the window to measure text for
  * @return Word wrapped string
  */
-std::string wrapText(const std::string& text, const float& maxW, const float& fontSize, const std::string& group);
+std::string wrapText(const std::string& text, const float& maxW, const float& fontSize);
 
 /**
  * @brief Truncate text into the given width with an ellipsis (one line only)
  * @param text Text to truncate
  * @param maxW Maximum width
  * @param fontSize Font size
- * @param group Group of the window to measure text for
  * @return Truncated string
  */
-std::string truncateText(const std::string& text, const float& maxW, const float& fontSize, const std::string& group);
+std::string truncateText(const std::string& text, const float& maxW, const float& fontSize);
 
 /**
  * @brief Fit text into the given width and height using word wrap and then truncating
@@ -156,11 +148,9 @@ std::string truncateText(const std::string& text, const float& maxW, const float
  * @param maxW Maximum width
  * @param maxH Maximum height
  * @param fontSize Font size
- * @param group Group of the window to measure text for
  * @return Fitted string
  */
-std::string fitTextBox(const std::string& text, const float& maxW, const float& maxH, const float& fontSize,
-                       const std::string& group);
+std::string fitTextBox(const std::string& text, const float& maxW, const float& maxH, const float& fontSize);
 
 } // namespace Font
 
@@ -177,7 +167,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
  * @brief Shader management namespace
  */
 namespace Shader {
-extern std::unordered_map<std::string, std::vector<GLuint>> shaders;
+extern std::unordered_map<std::string, GLuint> shaders;
 
 /**
  * @brief Load shader source from file
@@ -196,15 +186,13 @@ GLuint load(const char* path, GLenum type);
 
 /**
  * @brief Ensure all shaders are loaded and compiled
- * @param group Group of the window to ensure shaders for
  */
-void ensureShaders(const std::string& group);
+void ensureShaders();
 
 /**
- * @brief cleanup shaders for a specific window
- * @param group Group of the window to cleanup shaders for
+ * @brief cleanup shaders
  */
-void cleanup(const std::string& group);
+void cleanup();
 
 /**
  * @brief Dispatch compute shader for phosphor effect

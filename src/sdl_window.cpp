@@ -29,6 +29,11 @@ namespace SDLWindow {
 // Map of window states by group
 std::unordered_map<std::string, State> states;
 
+// Global buffer handles
+GLuint vertexBuffer = 0;
+GLuint vertexColorBuffer = 0;
+GLuint frameBuffer = 0;
+
 std::string currentWindow = "main";
 std::atomic<bool> running {false};
 
@@ -37,6 +42,10 @@ void deinit() {
     SDL_DestroyWindow(state.win);
     SDL_GL_DestroyContext(state.glContext);
   }
+
+  glDeleteBuffers(1, &vertexBuffer);
+  glDeleteBuffers(1, &vertexColorBuffer);
+  glDeleteFramebuffers(1, &frameBuffer);
 
   SDL_Quit();
 }
@@ -57,6 +66,7 @@ void init() {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
   // Disable compositor bypass to enable transparency in DE's like KDE
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -65,12 +75,18 @@ void init() {
   createWindow("main", "Pulse " VERSION_FULL, Config::options.window.default_width,
                Config::options.window.default_height);
 
-  // Initialize GLEW for OpenGL extensions
+  // Initialize GLEW
   GLenum err = glewInit();
   if (err != GLEW_OK) {
     throw std::runtime_error(std::string("WindowManager::init(): GLEW initialization failed") +
                              reinterpret_cast<const char*>(glewGetErrorString(err)));
   }
+
+  Graphics::Font::load();
+
+  glGenBuffers(1, &vertexBuffer);
+  glGenBuffers(1, &vertexColorBuffer);
+  glGenFramebuffers(1, &frameBuffer);
 
   // Configure OpenGL rendering state
   glEnable(GL_BLEND);
@@ -176,8 +192,6 @@ void createWindow(const std::string& group, const std::string& title, int width,
     return;
   }
 
-  Graphics::Font::load(group);
-
   states[group] = {win, SDL_GetWindowID(win), glContext, std::make_pair(width, height), std::make_pair(0, 0), false};
 }
 
@@ -188,8 +202,6 @@ bool destroyWindow(const std::string& group) {
   LOG_DEBUG(std::string("Destroying window: ") + group);
   SDL_DestroyWindow(states[group].win);
   SDL_GL_DestroyContext(states[group].glContext);
-  Graphics::Shader::cleanup(group);
-  Graphics::Font::cleanup(group);
   states.erase(group);
   if (currentWindow == group)
     currentWindow = "main";

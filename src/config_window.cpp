@@ -139,10 +139,9 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
 
       const std::string str = pageToString(currentPage);
-      std::pair<float, float> textSize = Graphics::Font::getTextSize(str.c_str(), fontSizeTop, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(str.c_str(), fontSizeTop);
       Graphics::Font::drawText(str.c_str(), self->x + self->w / 2 - textSize.first / 2,
-                               (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeTop, Theme::colors.text,
-                               "menu");
+                               (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeTop, Theme::colors.text);
     };
 
     topPage.elements.insert({"centerLabel", centerLabel});
@@ -183,7 +182,7 @@ inline void initTop() {
   {
     Element defaultButton = {0};
     defaultButton.update = [](Element* self) {
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop);
       self->w = textSize.first + (padding * 2);
       self->h = stdSize;
       self->x = margin;
@@ -194,9 +193,9 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
                                self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
 
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop);
       Graphics::Font::drawText("Load default", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
-                               fontSizeTop, Theme::colors.text, "menu");
+                               fontSizeTop, Theme::colors.text);
     };
 
     defaultButton.clicked = [](Element* self) {
@@ -220,7 +219,7 @@ inline void initTop() {
   {
     Element saveButton = {0};
     saveButton.update = [](Element* self) {
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop);
       self->w = textSize.first + (padding * 2);
       self->h = stdSize;
       self->x = w - self->w - margin;
@@ -231,9 +230,9 @@ inline void initTop() {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
                                self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
 
-      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop);
       Graphics::Font::drawText("Save", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
-                               fontSizeTop, Theme::colors.text, "menu");
+                               fontSizeTop, Theme::colors.text);
     };
 
     saveButton.clicked = [](Element* self) {
@@ -272,7 +271,7 @@ inline void initTop() {
         std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
         float fontColor[4];
         std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
-        std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize, "menu");
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize);
 
         pair.first += WindowManager::dt;
 
@@ -295,7 +294,7 @@ inline void initTop() {
 
           layer(3.f);
           Graphics::drawFilledRect(x, y, w, h, bgColor);
-          Graphics::Font::drawText(pair.second.c_str(), x + padding, y + padding, fontSize, fontColor, "menu");
+          Graphics::Font::drawText(pair.second.c_str(), x + padding, y + padding, fontSize, fontColor);
           layer();
         }
 
@@ -798,7 +797,7 @@ inline void initPages() {
         // version text
         {
           Graphics::Font::drawText("Pulse " VERSION_STRING " commit " VERSION_COMMIT, 0, cyOther, fontSizeHeader,
-                                   Theme::colors.text, "menu");
+                                   Theme::colors.text);
           cyOther += fontSizeHeader;
         }
 
@@ -806,7 +805,7 @@ inline void initPages() {
         {
           std::stringstream ss;
           ss << "FPS: " << std::fixed << std::setprecision(1) << fpsLerp;
-          Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text, "menu");
+          Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text);
           cyOther += fontSizeHeader;
         }
 
@@ -1020,11 +1019,10 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
   };
 
   labelElement.render = [label, description, ignoreTextOverflow](Element* self) {
-    std::string actualLabel =
-        ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel, "menu");
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel, "menu");
+    std::string actualLabel = ignoreTextOverflow ? label : Graphics::Font::truncateText(label, self->w, fontSizeLabel);
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeLabel);
     Graphics::Font::drawText(actualLabel.c_str(), self->x, (int)(self->y + self->h / 2 - textSize.second / 2),
-                             fontSizeLabel, Theme::colors.text, "menu");
+                             fontSizeLabel, Theme::colors.text);
 
     if (self->hovered) {
       layer(2.f);
@@ -1032,15 +1030,14 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
       float mouseY = SDLWindow::states["menu"].mousePos.second;
       float maxW = w - mouseX - margin * 2 - padding * 2;
 
-      std::string actualDescription = Graphics::Font::wrapText(description, maxW, fontSizeTooltip, "menu");
-      std::pair<float, float> textSize =
-          Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip, "menu");
+      std::string actualDescription = Graphics::Font::wrapText(description, maxW, fontSizeTooltip);
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(actualDescription.c_str(), fontSizeTooltip);
       Graphics::drawFilledRect(mouseX + margin - offsetX, mouseY - margin - textSize.second - padding * 2 - offsetY,
                                textSize.first + padding * 2, textSize.second + padding * 2, Theme::colors.accent);
 
       Graphics::Font::drawText(actualDescription.c_str(), mouseX + margin + padding - offsetX,
                                mouseY - margin - padding - fontSizeTooltip - offsetY, fontSizeTooltip,
-                               Theme::colors.text, "menu");
+                               Theme::colors.text);
       layer();
     }
   };
@@ -1058,10 +1055,9 @@ void createHeaderElement(Page& page, float& cy, const std::string key, const std
   };
 
   headerElement.render = [header](Element* self) {
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader);
     Graphics::Font::drawText(header.c_str(), self->x + self->w / 2 - textSize.first / 2,
-                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeHeader, Theme::colors.text,
-                             "menu");
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeHeader, Theme::colors.text);
   };
 
   page.elements.insert({key, headerElement});
@@ -1534,10 +1530,9 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
     } else {
       ss << std::fixed << std::setprecision(precision) << *value;
     }
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue);
     Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
-                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             "menu");
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text);
   };
 
   sliderElement.clicked = [value, min, max](Element* self) {
@@ -1558,21 +1553,23 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
     float change = amount;
     float precisionAmount = std::powf(10, -precision);
     if (precision != 0) {
-      if (shift)
+      if (shift) {
         change *= precisionAmount * 1000.f;
-      else if (ctrl)
+      } else if (ctrl) {
         change *= precisionAmount * 100.f;
-      else if (alt)
+      } else if (alt) {
         change *= precisionAmount;
-      else
+      } else {
         change *= precisionAmount * 10.f;
+      }
     } else {
-      if (shift)
+      if (shift) {
         change *= precisionAmount * 100.f;
-      else if (ctrl)
+      } else if (ctrl) {
         change *= precisionAmount * 10.f;
-      else
+      } else {
         change *= precisionAmount;
+      }
     }
 
     *value = std::clamp(*value + (ValueType)change, min, max);
@@ -1629,10 +1626,9 @@ void createDetentSliderElement(Page& page, float& cy, const std::string key, Val
 
     std::stringstream ss;
     ss << std::fixed << std::setprecision(precision) << *value;
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(ss.str().c_str(), fontSizeValue);
     Graphics::Font::drawText(ss.str().c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
-                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             "menu");
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text);
   };
 
   sliderElement.clicked = [value, detents](Element* self) {
@@ -1742,25 +1738,23 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
                                  thingHovered ? Theme::colors.accent
                                               : (current ? Theme::colors.text : Theme::colors.bgaccent));
 
-        std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue, "menu");
+        std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue);
 
-        std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
+        std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue);
         Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
                                  (int)(y + stdSize / 2 - textSize.second / 2), fontSizeValue,
-                                 current && !thingHovered ? Theme::colors.background : Theme::colors.text, "menu");
+                                 current && !thingHovered ? Theme::colors.background : Theme::colors.text);
       }
       i++;
     }
 
     layer();
 
-    std::string actualLabel =
-        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, "menu");
+    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
 
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
-                             (int)(originalY + stdSize / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             "menu");
+                             (int)(originalY + stdSize / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text);
   };
 
   dropdownElement.clicked = [value, possibleValues, originalY](Element* self) {
@@ -1839,13 +1833,11 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
       }
     }
 
-    std::string actualLabel =
-        Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue, "menu");
+    std::string actualLabel = Graphics::Font::truncateText(currentPair.second, self->w - padding * 2, fontSizeValue);
 
-    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue, "menu");
+    std::pair<float, float> textSize = Graphics::Font::getTextSize(actualLabel.c_str(), fontSizeValue);
     Graphics::Font::drawText(actualLabel.c_str(), (int)(self->x + self->w / 2 - textSize.first / 2),
-                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text,
-                             "menu");
+                             (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeValue, Theme::colors.text);
   };
 
   Element tickLeftElement = {0};
@@ -1936,11 +1928,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       const auto& items = kv.second;
       used += groupHeaderH;
       used += spacing;
-#ifdef _WIN32
-      used += std::max(1ull, items.size()) * (itemH + spacing);
-#else
-      used += std::max(1ul, items.size()) * (itemH + spacing);
-#endif
+      used += std::max((size_t)1, items.size()) * (itemH + spacing);
       used += groupBottomMargin;
     }
     const float createZoneH = stdSize * 1.5f;
@@ -1975,10 +1963,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       // Group header
       float headerY = yTop - groupHeaderH;
       Graphics::drawFilledRect(self->x, headerY, self->w, groupHeaderH, Theme::colors.bgaccent);
-      std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader, "menu");
+      std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader);
       Graphics::Font::drawText(group.c_str(), (int)(self->x + padding),
                                (int)(headerY + groupHeaderH / 2 - textSize.second / 2), fontSizeHeader,
-                               Theme::colors.text, "menu");
+                               Theme::colors.text);
 
       // Items area
       float itemsTop = headerY - spacing;
@@ -2011,9 +1999,9 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         } else {
           label = "(empty)";
         }
-        std::pair<float, float> t = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
+        std::pair<float, float> t = Graphics::Font::getTextSize(label.c_str(), fontSizeValue);
         Graphics::Font::drawText(label.c_str(), (int)(itemX + padding), (int)(itemY + itemHh / 2 - t.second / 2),
-                                 fontSizeValue, Theme::colors.text, "menu");
+                                 fontSizeValue, Theme::colors.text);
 
         y -= spacing;
       }
@@ -2031,10 +2019,9 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     Graphics::drawFilledRect(self->x, createY, self->w, createZoneH,
                              overCreate && dragState.active ? Theme::colors.accent : Theme::colors.bgaccent);
     const char* createLabel = "+ Create new window (drop here)";
-    std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader, "menu");
+    std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader);
     Graphics::Font::drawText(createLabel, (int)(self->x + self->w / 2 - t.first / 2),
-                             (int)(createY + createZoneH / 2 - t.second / 2), fontSizeHeader, Theme::colors.text,
-                             "menu");
+                             (int)(createY + createZoneH / 2 - t.second / 2), fontSizeHeader, Theme::colors.text);
 
     if (dragState.active) {
       for (const auto& target : targets) {
@@ -2063,7 +2050,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       std::string label = vizLabels.count(dragState.viz) ? vizLabels[dragState.viz] : dragState.viz;
       const float chipH = stdSize;
-      std::pair<float, float> ts = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
+      std::pair<float, float> ts = Graphics::Font::getTextSize(label.c_str(), fontSizeValue);
       float chipW = std::min(self->w - padding * 2, ts.first + padding * 2);
 
       float gx = mouseX - offsetX - chipW / 2.0f;
@@ -2074,10 +2061,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       Graphics::drawFilledRect(gx, gy, chipW, chipH, Theme::alpha(Theme::colors.accent, 0.5f));
 
-      std::pair<float, float> t2 = Graphics::Font::getTextSize(label.c_str(), fontSizeValue, "menu");
+      std::pair<float, float> t2 = Graphics::Font::getTextSize(label.c_str(), fontSizeValue);
       Graphics::Font::drawText(label.c_str(), (int)(gx + chipW / 2 - t2.first / 2),
                                (int)(gy + chipH / 2 - t2.second / 2), fontSizeValue,
-                               Theme::alpha(Theme::colors.text, 0.9f), "menu");
+                               Theme::alpha(Theme::colors.text, 0.9f));
 
       glDisable(GL_BLEND);
       layer();
@@ -2238,5 +2225,4 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
   page.elements.insert({key + "#visualizers", visualizerListElement});
   cy -= visualizerListElement.h + margin;
 }
-
 }; // namespace ConfigWindow

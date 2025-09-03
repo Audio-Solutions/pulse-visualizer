@@ -27,33 +27,6 @@
 
 namespace DSP {
 
-// Aligned memory allocator implementation
-template <typename T, std::size_t Alignment> T* AlignedAllocator<T, Alignment>::allocate(std::size_t n) {
-  void* ptr = nullptr;
-#ifdef __linux
-  if (posix_memalign(&ptr, Alignment, n * sizeof(T)) != 0)
-    throw std::bad_alloc();
-#elif defined(_MSC_VER)
-  ptr = _aligned_malloc(n * sizeof(T), Alignment);
-  if (!ptr)
-    throw std::bad_alloc();
-#else
-  ptr = std::aligned_alloc(Alignment, n * sizeof(T));
-  if (!ptr)
-    throw std::bad_alloc();
-#endif
-  return static_cast<T*>(ptr);
-}
-
-template <typename T, std::size_t Alignment>
-void AlignedAllocator<T, Alignment>::deallocate(T* p, std::size_t) noexcept {
-#ifdef _MSC_VER
-  _aligned_free(p);
-#else
-  free(p);
-#endif
-}
-
 // Audio buffer data with SIMD alignment
 std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 std::vector<float, AlignedAllocator<float, 32>> bufferSide;
@@ -1206,7 +1179,6 @@ void process() {
 } // namespace RMS
 
 // Template instantiations
-template class AlignedAllocator<float, 32>;
 template void ConstantQ::compute<AlignedAllocator<float, 32>>(const std::vector<float, AlignedAllocator<float, 32>>& in,
                                                               std::vector<float>& out, std::vector<float>& phase);
 

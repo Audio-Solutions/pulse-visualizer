@@ -48,7 +48,7 @@ float normalize(float db) {
  */
 std::vector<float>& mapSpectrum(const std::vector<float>& in) {
   static std::vector<float> spectrum;
-  spectrum.resize(window->width);
+  spectrum.resize(window->phosphor.textureHeight);
 
   // Calculate frequency mapping parameters
   float logMin = log10f(Config::options.fft.limits.min_freq);
@@ -103,12 +103,21 @@ void render() {
   SDLWindow::selectWindow(window->group);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
+  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state.windowSizes.second);
 
   static size_t current = 0;
 
+  // Ensure current is within bounds when texture dimensions change
+  if (current >= window->phosphor.textureWidth)
+    current = 0;
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
+
   // Calculate time interval for new columns
-  float interval = Config::options.spectrogram.window / static_cast<float>(window->width);
+  float interval = window->phosphor.textureWidth > 0
+                       ? Config::options.spectrogram.window / static_cast<float>(window->phosphor.textureWidth)
+                       : 0.0f;
   static float accumulator = 0;
   accumulator += WindowManager::dt;
 
@@ -119,10 +128,10 @@ void render() {
 
     // Prepare column data for rendering
     static std::vector<float> columnData;
-    columnData.resize(window->width * 3);
+    columnData.resize(window->phosphor.textureHeight * 3);
 
     // Initialize column with background color
-    for (size_t i = 0; i < window->width; ++i) {
+    for (size_t i = 0; i < window->phosphor.textureHeight; ++i) {
       columnData[i * 3 + 0] = Theme::colors.background[0];
       columnData[i * 3 + 1] = Theme::colors.background[1];
       columnData[i * 3 + 2] = Theme::colors.background[2];
@@ -169,50 +178,68 @@ void render() {
       }
     }
 
-    if (current > window->width)
-      current = window->width - 1;
+    if (current >= window->phosphor.textureWidth)
+      current = window->phosphor.textureWidth - 1;
 
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->width, GL_RGB, GL_FLOAT, columnData.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_TEXTURE_2D);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->phosphor.textureHeight, GL_RGB, GL_FLOAT,
+                    columnData.data());
 
-    current = (current + 1) % window->width;
+    current = (current + 1) % window->phosphor.textureWidth;
   }
 
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-  float colWidth = 1.f / window->width;
+
+  float colWidth = 1.f / window->phosphor.textureWidth;
   float currentU = static_cast<float>(current) * colWidth;
-  float part1 = (1.f - currentU) * window->width;
-  float part2 = currentU * window->width;
+  float part1 = (1.f - currentU) * window->phosphor.textureWidth;
+  float part2 = currentU * window->phosphor.textureWidth;
+
+  std::vector<float> vertexData;
+  vertexData.reserve(32);
 
   if (part1 > 0.f) {
-    glBegin(GL_QUADS);
-    glTexCoord2f(currentU, 0.0f);
-    glVertex2f(0.0f, 0.0f);
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(part1, 0.0f);
-    glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(part1, window->width);
-    glTexCoord2f(currentU, 1.0f);
-    glVertex2f(0.0f, window->width);
-    glEnd();
+    float vertices[] = {0.0f,     0.0f,
+                        currentU, 0.0f,
+                        0.0f,     (float)state.windowSizes.second,
+                        currentU, 1.0f,
+                        part1,    (float)state.windowSizes.second,
+                        1.0f,     1.0f,
+                        part1,    0.0f,
+                        1.0f,     0.0f};
+    vertexData.insert(vertexData.end(), vertices, vertices + 16);
   }
 
   if (part2 > 0.f) {
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(part1, 0.0f);
-    glTexCoord2f(currentU, 0.0f);
-    glVertex2f(window->width, 0.0f);
-    glTexCoord2f(currentU, 1.0f);
-    glVertex2f(window->width, window->width);
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(part1, window->width);
-    glEnd();
+    float vertices[] = {part1,
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        part1,
+                        (float)state.windowSizes.second,
+                        0.0f,
+                        1.0f,
+                        (float)window->phosphor.textureWidth,
+                        (float)state.windowSizes.second,
+                        currentU,
+                        1.0f,
+                        (float)window->phosphor.textureWidth,
+                        0.0f,
+                        currentU,
+                        0.0f};
+    vertexData.insert(vertexData.end(), vertices, vertices + 16);
+  }
+
+  if (!vertexData.empty()) {
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(0));
+    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glDrawArrays(GL_QUADS, 0, static_cast<GLsizei>(vertexData.size() / 4));
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   glBindTexture(GL_TEXTURE_2D, 0);

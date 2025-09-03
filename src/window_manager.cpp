@@ -186,12 +186,26 @@ void Splitter::draw() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4fv(Theme::alpha(Theme::colors.accent, 0.3f));
-    glBegin(GL_QUADS);
-    glVertex2f(0, 0);
-    glVertex2f(10, 0);
-    glVertex2f(10, SDLWindow::states[group].windowSizes.second);
-    glVertex2f(0, SDLWindow::states[group].windowSizes.second);
-    glEnd();
+
+    float vertices[] = {0.0f,  0.0f,
+                        0.f,   0.f, // Bottom left
+                        10.0f, 0.0f,
+                        1.f,   0.f, // Bottom right
+                        10.0f, (float)SDLWindow::states[group].windowSizes.second,
+                        1.f,   1.f, // Top right
+                        0.0f,  (float)SDLWindow::states[group].windowSizes.second,
+                        0.f,   1.f}; // Top left
+
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glDrawArrays(GL_QUADS, 0, 4);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDisable(GL_BLEND);
   }
 }
@@ -278,10 +292,12 @@ void VisualizerWindow::resizeTextures() {
   glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
-  std::vector<GLuint> oldTextures;
-  oldTextures.reserve(11);
+  SDLWindow::selectWindow(group);
 
-  for (int i = 0; i < 11; ++i) {
+  std::vector<GLuint> oldTextures;
+  oldTextures.reserve(size_t(sizeof(textures) / sizeof(textures[0])));
+
+  for (int i = 0; i < size_t(sizeof(textures) / sizeof(textures[0])); ++i) {
     oldTextures.push_back(*textures[i]);
     GLuint newTexture = 0;
     glGenTextures(1, &newTexture);
@@ -290,7 +306,7 @@ void VisualizerWindow::resizeTextures() {
       throw std::runtime_error(
           "WindowManager::VisualizerWindow::resizeTextures(): OpenGL error during texture generation: " +
           std::to_string(err));
-    if (i == 10)
+    if (i == size_t(sizeof(textures) / sizeof(textures[0])) - 1)
       transferTexture(oldTextures[i], newTexture, GL_RGBA, GL_UNSIGNED_BYTE);
     else
       transferTexture(oldTextures[i], newTexture, GL_RED_INTEGER, GL_UNSIGNED_INT);
@@ -304,17 +320,6 @@ void VisualizerWindow::resizeTextures() {
   phosphor.textureWidth = width;
 
   glBindTexture(GL_TEXTURE_2D, 0);
-  if (phosphor.frameBuffer)
-    glDeleteFramebuffers(1, &phosphor.frameBuffer);
-  glGenFramebuffers(1, &phosphor.frameBuffer);
-
-  if (phosphor.vertexBuffer)
-    glDeleteBuffers(1, &phosphor.vertexBuffer);
-  glGenBuffers(1, &phosphor.vertexBuffer);
-
-  if (phosphor.vertexColorBuffer)
-    glDeleteBuffers(1, &phosphor.vertexColorBuffer);
-  glGenBuffers(1, &phosphor.vertexColorBuffer);
 }
 
 void VisualizerWindow::draw() {
@@ -335,18 +340,26 @@ void VisualizerWindow::draw() {
     glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
     glColor4f(1.f, 1.f, 1.f, 1.f);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    float w = static_cast<float>(width);
+    float h = static_cast<float>(SDLWindow::states[group].windowSizes.second);
+    float y = 0.0f;
+
+    float vertices[] = {0.0f, y,     0.f, 0.f,  // Bottom left
+                        w,    y,     1.f, 0.f,  // Bottom right
+                        w,    y + h, 1.f, 1.f,  // Top right
+                        0.0f, y + h, 0.f, 1.f}; // Top left
 
     // Draw textured quad
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.f, 0.f);
-    glVertex2f(0.f, 0.f);
-    glTexCoord2f(1.f, 0.f);
-    glVertex2f(static_cast<float>(width), 0.f);
-    glTexCoord2f(1.f, 1.f);
-    glVertex2f(static_cast<float>(width), static_cast<float>(SDLWindow::states[group].windowSizes.second));
-    glTexCoord2f(0.f, 1.f);
-    glVertex2f(0.f, static_cast<float>(SDLWindow::states[group].windowSizes.second));
-    glEnd();
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glDrawArrays(GL_QUADS, 0, 4);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glDisable(GL_TEXTURE_2D);
   }
@@ -596,18 +609,6 @@ void VisualizerWindow::cleanup() {
       glDeleteTextures(1, texture);
       *texture = 0;
     }
-  }
-  if (phosphor.frameBuffer) {
-    glDeleteFramebuffers(1, &phosphor.frameBuffer);
-    phosphor.frameBuffer = 0;
-  }
-  if (phosphor.vertexBuffer) {
-    glDeleteBuffers(1, &phosphor.vertexBuffer);
-    phosphor.vertexBuffer = 0;
-  }
-  if (phosphor.vertexColorBuffer) {
-    glDeleteBuffers(1, &phosphor.vertexColorBuffer);
-    phosphor.vertexColorBuffer = 0;
   }
 }
 

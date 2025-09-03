@@ -449,9 +449,9 @@ void render() {
       vertexColors.push_back(1.0f);
     }
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, SDLWindow::vertexBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vectorData.size() * sizeof(float), vectorData.data(), GL_STREAM_DRAW);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, window->phosphor.vertexColorBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, SDLWindow::vertexColorBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -475,7 +475,7 @@ void render() {
     auto [note, octave, cents] = DSP::toNote(freq, noteNames);
     snprintf(overlay, sizeof(overlay), "%6.2f dB | %8.2f Hz | %-2s%2d | %3d Cents", dB, freq, note.c_str(), octave,
              cents);
-    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text, window->group);
+    Graphics::Font::drawText(overlay, x, y, 14.f, Theme::colors.text);
   };
 
   // Convert mouse coordinates to window-relative coordinates

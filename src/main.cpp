@@ -79,18 +79,14 @@ void reconfigure() {
 
   // Cleanup fonts for all SDL windows
   LOG_DEBUG("Cleaning up fonts for all SDL windows");
-  for (auto& [key, state] : SDLWindow::states) {
-    Graphics::Font::cleanup(key);
-  }
+  Graphics::Font::cleanup();
 
   LOG_DEBUG("Reordering windows");
   WindowManager::reorder();
 
   // Load fonts for each SDL window
   LOG_DEBUG("Loading fonts for each SDL window");
-  for (auto& [key, state] : SDLWindow::states) {
-    Graphics::Font::load(key);
-  }
+  Graphics::Font::load();
 
   // Set window decorations
   LOG_DEBUG("Setting window decorations");
@@ -234,15 +230,11 @@ int main(int argc, char** argv) {
     if (Theme::reload()) {
       // Cleanup fonts for all SDL windows
       LOG_DEBUG("Cleaning up fonts for all SDL windows");
-      for (auto& [key, state] : SDLWindow::states) {
-        Graphics::Font::cleanup(key);
-      }
+      Graphics::Font::cleanup();
 
       // Load fonts for each SDL window
       LOG_DEBUG("Loading fonts for each SDL window");
-      for (auto& [key, state] : SDLWindow::states) {
-        Graphics::Font::load(key);
-      }
+      Graphics::Font::load();
     }
 
     // Process SDL events
@@ -304,9 +296,7 @@ int main(int argc, char** argv) {
   // Cleanup
   LOG_DEBUG("Cleaning up...");
   SDLWindow::running.store(false);
-  for (auto& [key, state] : SDLWindow::states) {
-    Graphics::Font::cleanup(key);
-  }
+  Graphics::Font::cleanup();
   DSPThread.join();
   AudioEngine::cleanup();
   DSP::FFT::cleanup();

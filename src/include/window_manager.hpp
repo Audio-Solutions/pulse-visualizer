@@ -91,9 +91,6 @@ struct VisualizerWindow {
     GLuint tempTexture2G = 0;
     GLuint tempTexture2B = 0;
     GLuint outputTexture = 0;
-    GLuint frameBuffer = 0;
-    GLuint vertexBuffer = 0;
-    GLuint vertexColorBuffer = 0;
     int textureWidth = 0;
     int textureHeight = 0;
   } phosphor;

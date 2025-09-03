@@ -57,7 +57,7 @@ void render() {
   if (!window)
     return;
 
-  auto &state = SDLWindow::states[window->group];
+  auto& state = SDLWindow::states[window->group];
 
   WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
 
@@ -72,12 +72,10 @@ void render() {
     const size_t vuBarX = LABEL_WIDTH + LABEL_GAP;
 
     // Draw background bar
-    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, state.windowSizes.second - topHeight,
-                             Theme::colors.bgaccent);
+    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, state.windowSizes.second - topHeight, Theme::colors.bgaccent);
 
     // Draw zero line in background rect at 0dB
-    float zeroLineY =
-        state.windowSizes.second - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
+    float zeroLineY = state.windowSizes.second - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
     Graphics::drawLine(vuBarX, zeroLineY, vuBarX + VU_BAR_WIDTH, zeroLineY, Theme::colors.accent, 1);
 
     // Draw dB labels on the left
@@ -92,9 +90,8 @@ void render() {
 
       // Draw label (right aligned)
       std::string labelText = std::to_string(static_cast<int>(label));
-      auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS, window->group);
-      Graphics::Font::drawText(labelText.c_str(), LABEL_WIDTH - w - 2, y - h / 2, FONT_SIZE_LABELS, Theme::colors.text,
-                               window->group);
+      auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS);
+      Graphics::Font::drawText(labelText.c_str(), LABEL_WIDTH - w - 2, y - h / 2, FONT_SIZE_LABELS, Theme::colors.text);
 
       // Draw horizontal line extending to the VU bar
       Graphics::drawLine(LABEL_WIDTH, y, LABEL_WIDTH + LABEL_LINE_LENGTH, y, Theme::colors.text, 1);
@@ -188,10 +185,8 @@ void render() {
       arcClip = Theme::colors.vu_clip;
 
     // draw arcs
-    Graphics::drawArc(x0, y0, state.windowSizes.second, toAngle(-20.0f), toAngle(0.0),
-                      Theme::colors.accent, 5, 100);
-    Graphics::drawArc(x0, y0, state.windowSizes.second, toAngle(0.0f), toAngle(3.0f),
-                      arcClip, 5, 100);
+    Graphics::drawArc(x0, y0, state.windowSizes.second, toAngle(-20.0f), toAngle(0.0), Theme::colors.accent, 5, 100);
+    Graphics::drawArc(x0, y0, state.windowSizes.second, toAngle(0.0f), toAngle(3.0f), arcClip, 5, 100);
 
     // draw label lines perpendicular to the arc
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -20};
@@ -218,10 +213,9 @@ void render() {
 
       // draw centered text at x2, y2
       std::string labelText = std::to_string(static_cast<int>(label));
-      auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS + 2, window->group);
+      auto [w, h] = Graphics::Font::getTextSize(labelText.c_str(), FONT_SIZE_LABELS + 2);
       Graphics::Font::drawText(labelText.c_str(), x2 - w / 2, y2 - h / 2, FONT_SIZE_LABELS + 2,
-                               label > 0.0f && Theme::colors.vu_clip[3] > FLT_EPSILON ? color : Theme::colors.text,
-                               window->group);
+                               label > 0.0f && Theme::colors.vu_clip[3] > FLT_EPSILON ? color : Theme::colors.text);
     }
 
     float length = state.windowSizes.second * 1.1f;

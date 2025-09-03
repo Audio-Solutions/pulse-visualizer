@@ -31,6 +31,11 @@ struct State {
   bool focused;
 };
 
+// Global buffer handles
+extern GLuint vertexBuffer;
+extern GLuint vertexColorBuffer;
+extern GLuint frameBuffer;
+
 // Window and OpenGL context handles
 extern std::unordered_map<std::string, State> states;
 
