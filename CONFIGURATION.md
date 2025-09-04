@@ -331,6 +331,9 @@ phosphor:
   reflections:
     # Strength of reflections (0.0-1.0)
     strength: 0.5
+
+    # Box blur size for reflections
+    box_blur_size: 4
 ```
 
 ### Spectrogram Settings
