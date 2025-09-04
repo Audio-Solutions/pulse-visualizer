@@ -316,6 +316,8 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
+    createHeaderElement(page, cy, "pitch", "Pitch");
+
     // follow_pitch
     createCheckElement(page, cy, "follow_pitch", &Config::options.oscilloscope.pitch.follow, "Follow pitch",
                        "Stabilizes the oscilloscope to the pitch of the sound");
@@ -355,9 +357,7 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.window, 1.f, 500.f,
                                "Time window (ms)", "Time window for oscilloscope in ms");
 
-    // beam_multiplier
-    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.oscilloscope.beam_multiplier, 0.f, 10.f,
-                               "Beam multiplier", "Beam intensity multiplier for phosphor effect");
+    createHeaderElement(page, cy, "filters", "Filters");
 
     // enable_lowpass
     createCheckElement(page, cy, "enable_lowpass", &Config::options.oscilloscope.lowpass.enabled, "Enable lowpass",
@@ -378,6 +378,12 @@ inline void initPages() {
     // sidelobe
     createSliderElement<float>(page, cy, "sidelobe", &Config::options.oscilloscope.bandpass.sidelobe, 0, 120.f,
                                "Bandpass sidelobe (dB)", "Sidelobe attenuation of the bandpass filter in dB");
+
+    createHeaderElement(page, cy, "misc", "Misc");
+
+    // beam_multiplier
+    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.oscilloscope.beam_multiplier, 0.f, 10.f,
+                               "Beam multiplier", "Beam intensity multiplier for phosphor effect");
 
     // rotation
     {
@@ -405,17 +411,7 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
-    // bandwidth
-    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.lissajous.beam_multiplier, 0.f, 10.f,
-                               "Beam multiplier", "Beam multiplier for phosphor effect");
-
-    // readback_multiplier
-    createSliderElement<float>(page, cy, "readback_multiplier", &Config::options.lissajous.readback_multiplier, 1.f,
-                               10.f, "Readback multiplier",
-                               "Readback multiplier of the data\n"
-                               "Defines how much of the previous data is redrawn\n"
-                               "Higher value means more data is redrawn, which stabilizes the lissajous.\n"
-                               "Caveat is a minor increase in CPU usage.");
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // mode
     {
@@ -435,6 +431,18 @@ inline void initPages() {
           "black_hole is a rotated circle with a black hole-like effect\n"
           "normal is the default mode");
     }
+
+    // readback_multiplier
+    createSliderElement<float>(page, cy, "readback_multiplier", &Config::options.lissajous.readback_multiplier, 1.f,
+                               10.f, "Readback multiplier",
+                               "Readback multiplier of the data\n"
+                               "Defines how much of the previous data is redrawn\n"
+                               "Higher value means more data is redrawn, which stabilizes the lissajous.\n"
+                               "Caveat is a minor increase in CPU usage.");
+
+    // beam_multiplier
+    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.lissajous.beam_multiplier, 0.f, 10.f,
+                               "Beam multiplier", "Beam multiplier for phosphor effect");
 
     // rotation
     {
@@ -458,6 +466,8 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
+    createHeaderElement(page, cy, "limits", "Limits");
+
     // min_freq
     createSliderElement<float>(page, cy, "min_freq", &Config::options.fft.limits.min_freq, 10.f, 22000.f,
                                "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
@@ -478,6 +488,53 @@ inline void initPages() {
     // max_db
     createSliderElement<float>(page, cy, "max_db", &Config::options.fft.limits.max_db, -120.f, 12.f,
                                "Maximum level (dB)", "dB level at the top of the display before slope correction");
+
+    createHeaderElement(page, cy, "cqt", "Constant-Q Transform");
+
+    // enable_cqt
+    createCheckElement(page, cy, "enable_cqt", &Config::options.fft.cqt.enabled, "Enable Constant-Q Transform",
+                       "Enable Constant-Q Transform (better frequency resolution in the low end but more CPU usage)");
+
+    // cqt_bins_per_octave
+    createSliderElement<int>(page, cy, "cqt_bins_per_octave", &Config::options.fft.cqt.bins_per_octave, 16, 128,
+                             "CQT bins per octave",
+                             "Number of frequency bins per octave for CQT (higher=better resolution)\n"
+                             "Significant CPU usage increase with higher values",
+                             0);
+
+    createHeaderElement(page, cy, "smoothing", "Smoothing");
+
+    // enable_smoothing
+    createCheckElement(page, cy, "enable_smoothing", &Config::options.fft.smoothing.enabled, "Enable smoothing",
+                       "Enable velocity smoothing for FFT values");
+
+    // rise_speed
+    createSliderElement<float>(page, cy, "rise_speed", &Config::options.fft.smoothing.rise_speed, 10.f, 1000.f,
+                               "Bar rise speed", "Rise speed of FFT bars");
+
+    // fall_speed
+    createSliderElement<float>(page, cy, "fall_speed", &Config::options.fft.smoothing.fall_speed, 10.f, 1000.f,
+                               "Bar fall speed", "Fall speed of FFT bars");
+
+    // hover_fall_speed
+    createSliderElement<float>(page, cy, "hover_fall_speed", &Config::options.fft.smoothing.hover_fall_speed, 10.f,
+                               1000.f, "Bar fall speed on hover", "Fall speed when window is hovered over");
+
+    createHeaderElement(page, cy, "sphere", "Sphere");
+
+    // Sphere enabled
+    createCheckElement(page, cy, "sphere_enabled", &Config::options.fft.sphere.enabled, "Enable sphere",
+                       "Enable sphere for FFT display");
+
+    // Sphere max freq
+    createSliderElement<float>(page, cy, "sphere_max_freq", &Config::options.fft.sphere.max_freq, 10.f, 22000.f,
+                               "Sphere max frequency (Hz)", "Maximum frequency for sphere in Hz");
+
+    // Sphere base radius
+    createSliderElement<float>(page, cy, "sphere_base_radius", &Config::options.fft.sphere.base_radius, 0.f, 1.f,
+                               "Sphere base radius", "Base radius for sphere", 3);
+
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // stereo_mode
     {
@@ -500,33 +557,6 @@ inline void initPages() {
       createEnumDropElement<std::string>(page, cy, "note_key_mode", &Config::options.fft.key, values, "Note key mode",
                                          "Use sharp or flat frequency label");
     }
-
-    // enable_cqt
-    createCheckElement(page, cy, "enable_cqt", &Config::options.fft.cqt.enabled, "Enable Constant-Q Transform",
-                       "Enable Constant-Q Transform (better frequency resolution in the low end but more CPU usage)");
-
-    // cqt_bins_per_octave
-    createSliderElement<int>(page, cy, "cqt_bins_per_octave", &Config::options.fft.cqt.bins_per_octave, 16, 128,
-                             "CQT bins per octave",
-                             "Number of frequency bins per octave for CQT (higher=better resolution)\n"
-                             "Significant CPU usage increase with higher values",
-                             0);
-
-    // enable_smoothing
-    createCheckElement(page, cy, "enable_smoothing", &Config::options.fft.smoothing.enabled, "Enable smoothing",
-                       "Enable velocity smoothing for FFT values");
-
-    // rise_speed
-    createSliderElement<float>(page, cy, "rise_speed", &Config::options.fft.smoothing.rise_speed, 10.f, 1000.f,
-                               "Bar rise speed", "Rise speed of FFT bars");
-
-    // fall_speed
-    createSliderElement<float>(page, cy, "fall_speed", &Config::options.fft.smoothing.fall_speed, 10.f, 1000.f,
-                               "Bar fall speed", "Fall speed of FFT bars");
-
-    // hover_fall_speed
-    createSliderElement<float>(page, cy, "hover_fall_speed", &Config::options.fft.smoothing.hover_fall_speed, 10.f,
-                               1000.f, "Bar fall speed on hover", "Fall speed when window is hovered over");
 
     // size
     {
@@ -559,18 +589,6 @@ inline void initPages() {
     createCheckElement(page, cy, "flip_x", &Config::options.fft.flip_x, "Flip X axis",
                        "Flip the FFT display along the time axis");
 
-    // Sphere enabled
-    createCheckElement(page, cy, "sphere_enabled", &Config::options.fft.sphere.enabled, "Enable sphere",
-                       "Enable sphere for FFT display");
-
-    // Sphere max freq
-    createSliderElement<float>(page, cy, "sphere_max_freq", &Config::options.fft.sphere.max_freq, 10.f, 22000.f,
-                               "Sphere max frequency (Hz)", "Maximum frequency for sphere in Hz");
-
-    // Sphere base radius
-    createSliderElement<float>(page, cy, "sphere_base_radius", &Config::options.fft.sphere.base_radius, 0.f, 1.f,
-                               "Sphere base radius", "Base radius for sphere", 3);
-
     page.height = cyInit - cy;
     pages.insert({PageType::FFT, page});
   }
@@ -580,9 +598,7 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
-    // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.window, 0.1f, 10.f,
-                               "Time window (seconds)", "Time window for spectrogram in seconds");
+    createHeaderElement(page, cy, "limits", "Limits");
 
     // min_db
     createSliderElement<float>(page, cy, "min_db", &Config::options.spectrogram.limits.min_db, -120.f, 12.f,
@@ -592,6 +608,19 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "max_db", &Config::options.spectrogram.limits.max_db, -120.f, 12.f,
                                "Maximum level (dB)", "Maximum dB level for spectrogram display");
 
+    // min_freq
+    createSliderElement<float>(page, cy, "min_freq", &Config::options.spectrogram.limits.min_freq, 10.f, 22000.f,
+                               "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
+
+    // max_freq
+    createSliderElement<float>(page, cy, "max_freq", &Config::options.spectrogram.limits.max_freq, 10.f, 22000.f,
+                               "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
+
+    createHeaderElement(page, cy, "misc", "Misc");
+
+    // time_window
+    createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.window, 0.1f, 10.f,
+                               "Time window (seconds)", "Time window for spectrogram in seconds");
     // interpolation
     createCheckElement(page, cy, "interpolation", &Config::options.spectrogram.interpolation, "Enable interpolation",
                        "Enable interpolation for smoother spectrogram display");
@@ -607,14 +636,6 @@ inline void initPages() {
                                          values, "Frequency scale", "Logarithmic or linear frequency scaling");
     }
 
-    // min_freq
-    createSliderElement<float>(page, cy, "min_freq", &Config::options.spectrogram.limits.min_freq, 10.f, 22000.f,
-                               "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
-
-    // max_freq
-    createSliderElement<float>(page, cy, "max_freq", &Config::options.spectrogram.limits.max_freq, 10.f, 22000.f,
-                               "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
-
     page.height = cyInit - cy;
     pages.insert({PageType::Spectrogram, page});
   }
@@ -624,32 +645,7 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
-    // silence_threshold
-    createSliderElement<float>(page, cy, "silence_threshold", &Config::options.audio.silence_threshold, -120.f, 0.f,
-                               "Silence threshold", "Threshold below which audio is considered silent (in dB)");
-
-    // sample_rate
-    // TODO: Read sample rate from audio engine
-    {
-      std::map<float, std::string> values = {
-          {44100.f,  "44.1kHz" },
-          {48000.f,  "48kHz"   },
-          {88200.f,  "88.2kHz" },
-          {96000.f,  "96kHz"   },
-          {176400.f, "176.4kHz"},
-          {192000.f, "192kHz"  },
-          {352800.f, "352.8kHz"},
-          {384000.f, "384kHz"  },
-      };
-
-      createEnumDropElement<float>(page, cy, "sample_rate", &Config::options.audio.sample_rate, values, "Sample rate",
-                                   "Audio sample rate in Hz (must match your system's audio output!)");
-    }
-
-    // gain_db
-    createSliderElement<float>(page, cy, "gain_db", &Config::options.audio.gain_db, -60.f, 12.f, "Gain (dB)",
-                               "Audio gain adjustment in dB\n"
-                               "Adjust if audio is too quiet, like when Spotify or YouTube normalizes the volume.");
+    createHeaderElement(page, cy, "engine", "Audio Engine");
 
     // engine
     {
@@ -682,6 +678,35 @@ inline void initPages() {
       createEnumTickElement<std::string>(page, cy, "device", &Config::options.audio.device, values, "Device",
                                          "Audio device name");
     }
+
+    // sample_rate
+    // TODO: Read sample rate from audio engine
+    {
+      std::map<float, std::string> values = {
+          {44100.f,  "44.1kHz" },
+          {48000.f,  "48kHz"   },
+          {88200.f,  "88.2kHz" },
+          {96000.f,  "96kHz"   },
+          {176400.f, "176.4kHz"},
+          {192000.f, "192kHz"  },
+          {352800.f, "352.8kHz"},
+          {384000.f, "384kHz"  },
+      };
+
+      createEnumDropElement<float>(page, cy, "sample_rate", &Config::options.audio.sample_rate, values, "Sample rate",
+                                   "Audio sample rate in Hz (must match your system's audio output!)");
+    }
+
+    createHeaderElement(page, cy, "misc", "Misc");
+
+    // gain_db
+    createSliderElement<float>(page, cy, "gain_db", &Config::options.audio.gain_db, -60.f, 12.f, "Gain (dB)",
+                               "Audio gain adjustment in dB\n"
+                               "Adjust if audio is too quiet, like when Spotify or YouTube normalizes the volume.");
+
+    // silence_threshold
+    createSliderElement<float>(page, cy, "silence_threshold", &Config::options.audio.silence_threshold, -120.f, 0.f,
+                               "Silence threshold", "Threshold below which audio is considered silent (in dB)");
 
     page.height = cyInit - cy;
     pages.insert({PageType::Audio, page});
@@ -724,6 +749,8 @@ inline void initPages() {
   {
     Page page;
     float cy = cyInit;
+
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // TODO: change limits for these or throw these two out entirely
 
@@ -772,6 +799,8 @@ inline void initPages() {
   {
     Page page;
     float cy = cyInit;
+
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // log_fps
     createCheckElement(page, cy, "log_fps", &Config::options.debug.log_fps, "Enable FPS logging",
@@ -831,6 +860,16 @@ inline void initPages() {
     createCheckElement(page, cy, "enabled", &Config::options.phosphor.enabled, "Enable",
                        "Enable or disable phosphor effects globally");
 
+    // beam_energy
+    createSliderElement<float>(page, cy, "beam_energy", &Config::options.phosphor.beam.energy, 1.f, 1000.f,
+                               "Beam energy", "Base energy of the electron beam");
+
+    createHeaderElement(page, cy, "blur", "Blur");
+
+    // line_blur_spread
+    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 512.f,
+                               "Line blur spread", "Spread of the blur effect");
+
     // near_blur_intensity
     createSliderElement<float>(page, cy, "near_blur_intensity", &Config::options.phosphor.blur.near_intensity, 0.f, 1.f,
                                "Near blur intensity", "Intensity of blur for nearby pixels", 3);
@@ -839,9 +878,11 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "far_blur_intensity", &Config::options.phosphor.blur.far_intensity, 0.f, 1.f,
                                "Far blur intensity", "Intensity of blur for distant pixels", 3);
 
-    // beam_energy
-    createSliderElement<float>(page, cy, "beam_energy", &Config::options.phosphor.beam.energy, 1.f, 1000.f,
-                               "Beam energy", "Base energy of the electron beam");
+    // range_factor
+    createSliderElement<float>(page, cy, "range_factor", &Config::options.phosphor.blur.range, 0.f, 10.f,
+                               "Range factor", "Range factor for blur calculations", 2);
+
+    createHeaderElement(page, cy, "decay", "Decay");
 
     // decay_slow
     createSliderElement<float>(page, cy, "decay_slow", &Config::options.phosphor.decay.slow, 1.f, 100.f,
@@ -851,29 +892,11 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "decay_fast", &Config::options.phosphor.decay.fast, 1.f, 100.f,
                                "Fast decay rate", "Fast decay rate of phosphor persistence");
 
-    // line_blur_spread
-    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 512.f,
-                               "Line blur spread", "Spread of the blur effect");
-
-    // line_width
-    createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.beam.width, 0.1f, 10.f, "Line width",
-                               "Size of the electron beam", 2);
-
     // age_threshold
     createSliderElement<int>(page, cy, "age_threshold", &Config::options.phosphor.decay.threshold, 1, 1000,
                              "Age threshold", "Age threshold for phosphor decay", 0);
 
-    // range_factor
-    createSliderElement<float>(page, cy, "range_factor", &Config::options.phosphor.blur.range, 0.f, 10.f,
-                               "Range factor", "Range factor for blur calculations", 2);
-
-    // grain_strength (Implies enable_grain == true if non-zero)
-    createSliderElement<float>(page, cy, "grain_strength", &Config::options.phosphor.screen.grain, 0.f, 1.f,
-                               "Grain strength", "Grain strength", 3, true);
-
-    // tension
-    createSliderElement<float>(page, cy, "tension", &Config::options.phosphor.beam.tension, 0.f, 1.f, "Tension",
-                               "Tension of Catmull-Rom splines", 3);
+    createHeaderElement(page, cy, "screen", "Screen");
 
     // screen_curvature (Implies enable_curved_screen == true if non-zero)
     createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen.curvature, 0.f, 1.f,
@@ -889,8 +912,24 @@ inline void initPages() {
 
     // chromatic_aberration_strength
     createSliderElement<float>(page, cy, "chromatic_aberration_strength",
-                               &Config::options.phosphor.screen.chromatic_aberration, 0.f, 1.f,
-                               "Chromatic aberration strength", "Chromatic aberration strength", 3);
+                               &Config::options.phosphor.screen.chromatic_aberration, 0.f, 1.f, "Chromatic aberration",
+                               "Chromatic aberration strength", 3);
+
+    // grain_strength (Implies enable_grain == true if non-zero)
+    createSliderElement<float>(page, cy, "grain_strength", &Config::options.phosphor.screen.grain, 0.f, 1.f,
+                               "Grain strength", "Grain strength", 3, true);
+
+    createHeaderElement(page, cy, "reflections", "Reflections");
+
+    // reflections
+    createSliderElement<float>(page, cy, "reflections", &Config::options.phosphor.reflections.strength, 0.f, 1.f,
+                               "Reflections strength", "Reflections strength", 3, true);
+
+    // box_blur_size
+    createSliderElement<int>(page, cy, "box_blur_size", &Config::options.phosphor.reflections.box_blur_size, 0, 10,
+                             "Box blur size", "Box blur size", 0, true);
+
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // rainbow
     createCheckElement(page, cy, "rainbow", &Config::options.phosphor.beam.rainbow, "Enable rainbow beam effect",
@@ -898,9 +937,13 @@ inline void initPages() {
                        "This will make the beam color rotate around the hue depending on the direction its going.\n"
                        "This is GPU intensive, so it is disabled by default.");
 
-    // reflections
-    createSliderElement<float>(page, cy, "reflections", &Config::options.phosphor.reflections.strength, 0.f, 1.f,
-                               "Reflections strength", "Reflections strength", 3, true);
+    // tension
+    createSliderElement<float>(page, cy, "tension", &Config::options.phosphor.beam.tension, 0.f, 1.f, "Tension",
+                               "Tension of Catmull-Rom splines", 3);
+
+    // line_width
+    createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.beam.width, 0.1f, 10.f, "Line width",
+                               "Size of the electron beam", 2);
 
     page.height = cyInit - cy;
     pages.insert({PageType::Phosphor, page});
@@ -910,6 +953,8 @@ inline void initPages() {
   {
     Page page;
     float cy = cyInit;
+
+    createHeaderElement(page, cy, "misc", "Misc");
 
     // mode
     {
@@ -958,6 +1003,26 @@ inline void initPages() {
     Page page;
     float cy = cyInit;
 
+    createHeaderElement(page, cy, "needle", "Needle");
+
+    // enable_momentum
+    createCheckElement(page, cy, "enable_momentum", &Config::options.vu.momentum.enabled, "Enable momentum",
+                       "Enable physics simulation for the needle");
+
+    // spring_constant
+    createSliderElement<float>(page, cy, "spring_constant", &Config::options.vu.momentum.spring_constant, 100.f, 1000.f,
+                               "Spring constant", "Spring constant of needle");
+
+    // damping_ratio
+    createSliderElement<float>(page, cy, "damping_ratio", &Config::options.vu.momentum.damping_ratio, 1.f, 100.f,
+                               "Damping ratio", "Damping ratio of needle");
+
+    // needle_width
+    createSliderElement<float>(page, cy, "needle_width", &Config::options.vu.needle_width, 0.1f, 16.f, "Needle width",
+                               "Needle width");
+
+    createHeaderElement(page, cy, "misc", "Misc");
+
     // time_window
     createSliderElement<float>(page, cy, "time_window", &Config::options.vu.window, 1.f, 500.f, "Time window (ms)",
                                "Time window for VU meter in ms");
@@ -987,22 +1052,6 @@ inline void initPages() {
 
       createEnumDropElement<std::string>(page, cy, "scale", &Config::options.vu.scale, values, "Scale", "Scale");
     }
-
-    // enable_momentum
-    createCheckElement(page, cy, "enable_momentum", &Config::options.vu.momentum.enabled, "Enable momentum",
-                       "Enable physics simulation for the needle");
-
-    // spring_constant
-    createSliderElement<float>(page, cy, "spring_constant", &Config::options.vu.momentum.spring_constant, 100.f, 1000.f,
-                               "Spring constant", "Spring constant of needle");
-
-    // damping_ratio
-    createSliderElement<float>(page, cy, "damping_ratio", &Config::options.vu.momentum.damping_ratio, 1.f, 100.f,
-                               "Damping ratio", "Damping ratio of needle");
-
-    // needle_width
-    createSliderElement<float>(page, cy, "needle_width", &Config::options.vu.needle_width, 0.1f, 16.f, "Needle width",
-                               "Needle width");
 
     page.height = cyInit - cy;
     pages.insert({PageType::VU, page});
@@ -1062,6 +1111,7 @@ void createHeaderElement(Page& page, float& cy, const std::string key, const std
     std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader);
     Graphics::Font::drawText(header.c_str(), self->x + self->w / 2 - textSize.first / 2,
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeHeader, Theme::colors.text);
+    Graphics::drawLine(self->x, self->y, self->x + self->w, self->y, Theme::colors.bgaccent, 2);
   };
 
   page.elements.insert({key, headerElement});

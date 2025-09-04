@@ -25,7 +25,7 @@ namespace ConfigWindow {
 // font sizes
 
 constexpr float fontSizeTop = 16.f;
-constexpr float fontSizeHeader = 14.f;
+constexpr float fontSizeHeader = 20.f;
 constexpr float fontSizeLabel = 12.f;
 constexpr float fontSizeTooltip = 12.f;
 constexpr float fontSizeValue = 14.f;

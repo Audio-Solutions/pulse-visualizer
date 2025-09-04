@@ -425,6 +425,7 @@ void load() {
 
   // Phosphor Reflections
   get<float>(configData, "phosphor.reflections.strength", options.phosphor.reflections.strength);
+  get<int>(configData, "phosphor.reflections.box_blur_size", options.phosphor.reflections.box_blur_size);
 
   // Load LUFS configuration
   get<std::string>(configData, "lufs.mode", options.lufs.mode);
@@ -566,6 +567,7 @@ bool save() {
 
   // Phosphor Reflections
   root["phosphor"]["reflections"]["strength"] = options.phosphor.reflections.strength;
+  root["phosphor"]["reflections"]["box_blur_size"] = options.phosphor.reflections.box_blur_size;
 
   // Spectrogram
   root["spectrogram"]["frequency_scale"] = options.spectrogram.frequency_scale;

@@ -735,6 +735,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
               Config::options.phosphor.screen.chromatic_aberration);
   glUniform1i(glGetUniformLocation(shader, "colorbeam"), Config::options.phosphor.beam.rainbow);
   glUniform1f(glGetUniformLocation(shader, "borderReflectionStrength"), Config::options.phosphor.reflections.strength);
+  glUniform1i(glGetUniformLocation(shader, "boxBlurSize"), Config::options.phosphor.reflections.box_blur_size);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
