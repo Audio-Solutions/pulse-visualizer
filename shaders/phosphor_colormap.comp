@@ -59,107 +59,68 @@ vec2 crtDistortion(vec2 uv) {
   return (distorted + 1.0) * 0.5;
 }
 
-// Calculate border mask with antialiasing
-// Returns 1.0 for inside screen, 0.0 for outside, smooth transition at edges
-float calculateBorderMask(vec2 uv, vec2 texelSize) {
-  // Early return if curved screen is disabled - no gap or border
+// Compute screen-gap and curvature-normalized coordinates with precomputed scale
+vec2 computeScaledUVWithScale(vec2 uv, float gapPercent, float scale) {
   if (screenCurvature < 1e-6) {
-    return 1.0; // No border, full screen content
+    return uv;
   }
-  
-  // Apply screen gap factor to create border in the middle
-  // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
-  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+
   float visiblePercent = 1.0 - gapPercent;
   vec2 gapOffset = vec2(gapPercent * 0.5);
   vec2 scaledUV = (uv - gapOffset) / visiblePercent;
-
-  // For curved screen, normalize so that the center of each edge maps to the edge after distortion
-  float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
-  float scale = 0.5 / edgeNorm;
   scaledUV = (scaledUV - 0.5) * scale + 0.5;
-  
-  // With CRT distortion, we need to check if the distorted coordinate is within bounds
+  return scaledUV;
+}
+
+// Calculate border mask with antialiasing
+// Returns 1.0 for inside screen, 0.0 for outside, smooth transition at edges
+float calculateBorderMaskScaled(vec2 scaledUV, vec2 texelSize) {
+  if (screenCurvature < 1e-6) {
+    return 1.0;
+  }
+
   vec2 distortedUV = crtDistortion(scaledUV);
-  
-  // Calculate the Jacobian to determine edge thickness
-  vec2 epsilon = texelSize * 0.5;
-  vec2 ddx = crtDistortion(scaledUV + vec2(epsilon.x, 0.0)) - crtDistortion(scaledUV - vec2(epsilon.x, 0.0));
-  vec2 ddy = crtDistortion(scaledUV + vec2(0.0, epsilon.y)) - crtDistortion(scaledUV - vec2(0.0, epsilon.y));
-  float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
-  
-  // Adaptive border thickness based on distortion
+
+  // Adaptive border thickness based on pixel size
   float borderThickness = texelSize.x * 8.0;
-  
-  // Check if we're inside the distorted screen area
-  float insideX = smoothstep(0.0, borderThickness, distortedUV.x) * 
+
+  float insideX = smoothstep(0.0, borderThickness, distortedUV.x) *
                   smoothstep(1.0, 1.0 - borderThickness, distortedUV.x);
-  float insideY = smoothstep(0.0, borderThickness, distortedUV.y) * 
+  float insideY = smoothstep(0.0, borderThickness, distortedUV.y) *
                   smoothstep(1.0, 1.0 - borderThickness, distortedUV.y);
-  
+
   return insideX * insideY;
 }
 
 // Antialiased sampling function
 // Samples multiple points around the distorted coordinate to reduce aliasing
-float sampleAntialiased(vec2 uv, vec2 texelSize, int channel) {
-  // Only apply screen gap when curved screen is enabled
-  vec2 scaledUV = uv;
-  
-  // Apply screen gap factor scaling
-  // screenGapFactor now defines the gap as a percent (0 = no gap, 1 = full gap)
-  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
-  float visiblePercent = 1.0 - gapPercent;
-  vec2 gapOffset = vec2(gapPercent * 0.5);
-  scaledUV = (uv - gapOffset) / visiblePercent;
-  
-  // For curved screen, normalize so that the center of each edge maps to the edge after distortion
-  // Compute the scale factor so that crtDistortion(vec2(0.5,0)) = vec2(0.5,0) and similar for other edges
-  float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
-  float scale = 0.5 / edgeNorm;
-  scaledUV = (scaledUV - 0.5) * scale + 0.5;
-
+float sampleAntialiasedScaled(vec2 scaledUV, vec2 texelSize, int channel) {
   // Check if the scaled coordinate is within the valid range
   if (scaledUV.x < 0.0 || scaledUV.x > 1.0 || scaledUV.y < 0.0 || scaledUV.y > 1.0) {
-    return 0.0; // Return black for out-of-bounds
+    return 0.0;
   }
-  
-  // Calculate the distortion at the current pixel
+
   vec2 distortedUV = crtDistortion(scaledUV);
-  
-  // Check if the distorted coordinate is within bounds
-  if (distortedUV.x < 0.0 || distortedUV.x > 1.0 || 
-      distortedUV.y < 0.0 || distortedUV.y > 1.0) {
-    return 0.0; // Return black for out-of-bounds
+  if (distortedUV.x < 0.0 || distortedUV.x > 1.0 || distortedUV.y < 0.0 || distortedUV.y > 1.0) {
+    return 0.0;
   }
-  
-  // Calculate the Jacobian of the distortion transformation
-  // This helps us determine how much the sampling area is stretched
-  vec2 epsilon = texelSize * 0.5;
-  vec2 ddx = crtDistortion(scaledUV + vec2(epsilon.x, 0.0)) - crtDistortion(scaledUV - vec2(epsilon.x, 0.0));
-  vec2 ddy = crtDistortion(scaledUV + vec2(0.0, epsilon.y)) - crtDistortion(scaledUV - vec2(0.0, epsilon.y));
-  
-  // Calculate the area of the transformed pixel
-  float area = abs(ddx.x * ddy.y - ddx.y * ddy.x);
-  
+
   float result = 0.0;
   float weightSum = 0.0;
-  
-  // Multi-sample antialiasing
+  const float AA_WEIGHT = 1.0 / 64.0;
+
+  // Multi-sample antialiasing (8x8)
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
       vec2 offset = vec2(float(i), float(j)) / float(8 - 1) - 0.5;
       vec2 sampleUV = scaledUV + offset * texelSize;
       vec2 distortedSampleUV = crtDistortion(sampleUV);
-      
-      // Check bounds
-      if (distortedSampleUV.x >= 0.0 && distortedSampleUV.x <= 1.0 && 
+
+      if (distortedSampleUV.x >= 0.0 && distortedSampleUV.x <= 1.0 &&
           distortedSampleUV.y >= 0.0 && distortedSampleUV.y <= 1.0) {
-        
-        // Sample the energy texture at the distorted coordinate
         ivec2 sampleCoord = ivec2(distortedSampleUV * vec2(texSize));
         sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-        
+
         float energy;
         if (channel == 0) {
           energy = float(imageLoad(energyTexR, sampleCoord).r);
@@ -168,19 +129,17 @@ float sampleAntialiased(vec2 uv, vec2 texelSize, int channel) {
         } else {
           energy = float(imageLoad(energyTexB, sampleCoord).r);
         }
-        
-        float weight = 1.0 / 64.0;
-        result += energy * weight;
-        weightSum += weight;
+
+        result += energy * AA_WEIGHT;
+        weightSum += AA_WEIGHT;
       }
     }
   }
-  
-  // Normalize by the actual weight sum to avoid darkening
+
   if (weightSum > 0.0) {
     result /= weightSum;
   }
-  
+
   return result;
 }
 
@@ -311,11 +270,21 @@ void main() {
     return;
   }
 
-  vec2 uv = vec2(coord) / vec2(texSize);
-  vec2 texelSize = 1.0 / vec2(texSize);
+  vec2 texSizeF = vec2(texSize);
+  vec2 uv = vec2(coord) / texSizeF;
+  vec2 texelSize = 1.0 / texSizeF;
 
-  // Calculate border mask
-  float screenMask = calculateBorderMask(uv, texelSize);
+  // Precompute curvature edge scale and gap percent once
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float scale = 1.0;
+  if (screenCurvature > 1e-6) {
+    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+    scale = 0.5 / edgeNorm;
+  }
+
+  // Precompute scaled UV once for mask and sampling
+  vec2 scaledUVBase = computeScaledUVWithScale(uv, gapPercent, scale);
+  float screenMask = calculateBorderMaskScaled(scaledUVBase, texelSize);
 
   vec2 center = vec2(0.5, 0.5);
   vec2 toCenter = uv - center;
@@ -334,13 +303,17 @@ void main() {
   float energyR, energyG, energyB;
 
   if (screenCurvature > 1e-6) {
-    energyR = sampleAntialiased(uvR, texelSize, 0);
+    vec2 scaledUVR = computeScaledUVWithScale(uvR, gapPercent, scale);
+    vec2 scaledUVG = computeScaledUVWithScale(uvG, gapPercent, scale);
+    vec2 scaledUVB = computeScaledUVWithScale(uvB, gapPercent, scale);
+
+    energyR = sampleAntialiasedScaled(scaledUVR, texelSize, 0);
     if (colorbeam) {
-      energyG = sampleAntialiased(uvG, texelSize, 1);
-      energyB = sampleAntialiased(uvB, texelSize, 2);
+      energyG = sampleAntialiasedScaled(scaledUVG, texelSize, 1);
+      energyB = sampleAntialiasedScaled(scaledUVB, texelSize, 2);
     } else {
-      energyG = sampleAntialiased(uvG, texelSize, 0);
-      energyB = sampleAntialiased(uvB, texelSize, 0);
+      energyG = sampleAntialiasedScaled(scaledUVG, texelSize, 0);
+      energyB = sampleAntialiasedScaled(scaledUVB, texelSize, 0);
     }
   } else {
     vec2 coordR = vec2(uvR * vec2(texSize));
@@ -398,17 +371,8 @@ void main() {
     outColor = mix(borderColor, screenColor, screenMask);
     // Add a dim reflection using multi-sample average if enabled
     if (screenMask < 0.999 && borderReflectionStrength > 1e-6) {
-      // Compute reflected position in distorted space, same as sampleReflectionAverage
-      float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
-      float visiblePercent = 1.0 - gapPercent;
-      vec2 gapOffset = vec2(gapPercent * 0.5);
-      vec2 scaledUV = (uv - gapOffset) / visiblePercent;
-
-      float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
-      float scale = 0.5 / edgeNorm;
-      scaledUV = (scaledUV - 0.5) * scale + 0.5;
-
-      vec2 dUV = crtDistortion(scaledUV);
+      // Use precomputed scaling for reflections
+      vec2 dUV = crtDistortion(scaledUVBase);
 
       // Reflect radially against square boundary for CRT-like corner reflections
       vec2 baseReflected = radialSquareMirror(dUV);

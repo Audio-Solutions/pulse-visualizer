@@ -584,9 +584,6 @@ GLuint load(const char* path, GLenum type) {
 }
 
 void ensureShaders() {
-  if (std::all_of(shaders.begin(), shaders.end(), [](const auto& x) { return x.second != 0; }))
-    return;
-
   // Shader file paths
   static std::unordered_map<std::string, std::pair<GLenum, std::string>> shaderPaths = {
       {"phosphor_compute",  {GL_COMPUTE_SHADER, "shaders/phosphor_compute.comp"} },
@@ -594,6 +591,18 @@ void ensureShaders() {
       {"phosphor_blur",     {GL_COMPUTE_SHADER, "shaders/phosphor_blur.comp"}    },
       {"phosphor_colormap", {GL_COMPUTE_SHADER, "shaders/phosphor_colormap.comp"}},
   };
+
+  // Return early only if all required shaders are already loaded
+  bool allReady = true;
+  for (const auto& [name, _] : shaderPaths) {
+    auto it = shaders.find(name);
+    if (it == shaders.end() || it->second == 0) {
+      allReady = false;
+      break;
+    }
+  }
+  if (allReady)
+    return;
 
   // Load and compile all shaders
   for (auto& [name, path] : shaderPaths) {
@@ -631,13 +640,20 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
                      const GLuint& energyTexG, const GLuint& energyTexB) {
 
   auto& shader = shaders["phosphor_compute"];
-
   if (!shader)
     return;
 
   glUseProgram(shader);
 
-  glUniform1i(glGetUniformLocation(shader, "colorbeam"), Config::options.phosphor.beam.rainbow);
+  // Cache uniform locations per program
+  static GLuint cachedProgram = 0;
+  static GLint loc_colorbeam = -1;
+  if (cachedProgram != shader) {
+    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    cachedProgram = shader;
+  }
+
+  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -664,10 +680,24 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay.slow);
   float decayFast = exp(-WindowManager::dt * Config::options.phosphor.decay.fast);
 
-  glUniform1f(glGetUniformLocation(shader, "decaySlow"), decaySlow);
-  glUniform1f(glGetUniformLocation(shader, "decayFast"), decayFast);
-  glUniform1ui(glGetUniformLocation(shader, "ageThreshold"), Config::options.phosphor.decay.threshold);
-  glUniform1i(glGetUniformLocation(shader, "colorbeam"), Config::options.phosphor.beam.rainbow);
+  // Cache uniform locations per program
+  static GLuint cachedProgram = 0;
+  static GLint loc_decaySlow = -1;
+  static GLint loc_decayFast = -1;
+  static GLint loc_ageThreshold = -1;
+  static GLint loc_colorbeam = -1;
+  if (cachedProgram != shader) {
+    loc_decaySlow = glGetUniformLocation(shader, "decaySlow");
+    loc_decayFast = glGetUniformLocation(shader, "decayFast");
+    loc_ageThreshold = glGetUniformLocation(shader, "ageThreshold");
+    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    cachedProgram = shader;
+  }
+
+  glUniform1f(loc_decaySlow, decaySlow);
+  glUniform1f(loc_decayFast, decayFast);
+  glUniform1ui(loc_ageThreshold, Config::options.phosphor.decay.threshold);
+  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -690,16 +720,40 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
   glUseProgram(shader);
 
-  glUniform1f(glGetUniformLocation(shader, "line_blur_spread"), Config::options.phosphor.blur.spread);
-  glUniform1f(glGetUniformLocation(shader, "line_width"), Config::options.phosphor.beam.width);
-  glUniform1f(glGetUniformLocation(shader, "range_factor"), Config::options.phosphor.blur.range);
-  glUniform1i(glGetUniformLocation(shader, "blur_direction"), dir);
-  glUniform1i(glGetUniformLocation(shader, "kernel_type"), kernel);
-  glUniform1f(glGetUniformLocation(shader, "f_intensity"), Config::options.phosphor.blur.near_intensity);
-  glUniform1f(glGetUniformLocation(shader, "g_intensity"), Config::options.phosphor.blur.far_intensity);
-  glUniform2f(glGetUniformLocation(shader, "texSize"), static_cast<float>(win->width),
+  // Cache uniform locations per program
+  static GLuint cachedProgram = 0;
+  static GLint loc_line_blur_spread = -1;
+  static GLint loc_line_width = -1;
+  static GLint loc_range_factor = -1;
+  static GLint loc_blur_direction = -1;
+  static GLint loc_kernel_type = -1;
+  static GLint loc_f_intensity = -1;
+  static GLint loc_g_intensity = -1;
+  static GLint loc_texSize = -1;
+  static GLint loc_colorbeam = -1;
+  if (cachedProgram != shader) {
+    loc_line_blur_spread = glGetUniformLocation(shader, "line_blur_spread");
+    loc_line_width = glGetUniformLocation(shader, "line_width");
+    loc_range_factor = glGetUniformLocation(shader, "range_factor");
+    loc_blur_direction = glGetUniformLocation(shader, "blur_direction");
+    loc_kernel_type = glGetUniformLocation(shader, "kernel_type");
+    loc_f_intensity = glGetUniformLocation(shader, "f_intensity");
+    loc_g_intensity = glGetUniformLocation(shader, "g_intensity");
+    loc_texSize = glGetUniformLocation(shader, "texSize");
+    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    cachedProgram = shader;
+  }
+
+  glUniform1f(loc_line_blur_spread, Config::options.phosphor.blur.spread);
+  glUniform1f(loc_line_width, Config::options.phosphor.beam.width);
+  glUniform1f(loc_range_factor, Config::options.phosphor.blur.range);
+  glUniform1i(loc_blur_direction, dir);
+  glUniform1i(loc_kernel_type, kernel);
+  glUniform1f(loc_f_intensity, Config::options.phosphor.blur.near_intensity);
+  glUniform1f(loc_g_intensity, Config::options.phosphor.blur.far_intensity);
+  glUniform2f(loc_texSize, static_cast<float>(win->width),
               static_cast<float>(SDLWindow::states[win->group].windowSizes.second));
-  glUniform1i(glGetUniformLocation(shader, "colorbeam"), Config::options.phosphor.beam.rainbow);
+  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -724,18 +778,45 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
 
   glUseProgram(shader);
 
-  glUniform3fv(glGetUniformLocation(shader, "beamColor"), 1, beamColor);
-  glUniform3fv(glGetUniformLocation(shader, "blackColor"), 1, Theme::colors.background);
-  glUniform1f(glGetUniformLocation(shader, "screenCurvature"), Config::options.phosphor.screen.curvature);
-  glUniform1f(glGetUniformLocation(shader, "screenGapFactor"), Config::options.phosphor.screen.gap);
-  glUniform1f(glGetUniformLocation(shader, "grainStrength"), Config::options.phosphor.screen.grain);
-  glUniform2i(glGetUniformLocation(shader, "texSize"), win->width, SDLWindow::states[win->group].windowSizes.second);
-  glUniform1f(glGetUniformLocation(shader, "vignetteStrength"), Config::options.phosphor.screen.vignette);
-  glUniform1f(glGetUniformLocation(shader, "chromaticAberrationStrength"),
-              Config::options.phosphor.screen.chromatic_aberration);
-  glUniform1i(glGetUniformLocation(shader, "colorbeam"), Config::options.phosphor.beam.rainbow);
-  glUniform1f(glGetUniformLocation(shader, "borderReflectionStrength"), Config::options.phosphor.reflections.strength);
-  glUniform1i(glGetUniformLocation(shader, "boxBlurSize"), Config::options.phosphor.reflections.box_blur_size);
+  // Cache uniform locations per program
+  static GLuint cachedProgram = 0;
+  static GLint loc_beamColor = -1;
+  static GLint loc_blackColor = -1;
+  static GLint loc_screenCurvature = -1;
+  static GLint loc_screenGapFactor = -1;
+  static GLint loc_grainStrength = -1;
+  static GLint loc_texSize = -1;
+  static GLint loc_vignetteStrength = -1;
+  static GLint loc_chromaticAberrationStrength = -1;
+  static GLint loc_colorbeam = -1;
+  static GLint loc_borderReflectionStrength = -1;
+  static GLint loc_boxBlurSize = -1;
+  if (cachedProgram != shader) {
+    loc_beamColor = glGetUniformLocation(shader, "beamColor");
+    loc_blackColor = glGetUniformLocation(shader, "blackColor");
+    loc_screenCurvature = glGetUniformLocation(shader, "screenCurvature");
+    loc_screenGapFactor = glGetUniformLocation(shader, "screenGapFactor");
+    loc_grainStrength = glGetUniformLocation(shader, "grainStrength");
+    loc_texSize = glGetUniformLocation(shader, "texSize");
+    loc_vignetteStrength = glGetUniformLocation(shader, "vignetteStrength");
+    loc_chromaticAberrationStrength = glGetUniformLocation(shader, "chromaticAberrationStrength");
+    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    loc_borderReflectionStrength = glGetUniformLocation(shader, "borderReflectionStrength");
+    loc_boxBlurSize = glGetUniformLocation(shader, "boxBlurSize");
+    cachedProgram = shader;
+  }
+
+  glUniform3fv(loc_beamColor, 1, beamColor);
+  glUniform3fv(loc_blackColor, 1, Theme::colors.background);
+  glUniform1f(loc_screenCurvature, Config::options.phosphor.screen.curvature);
+  glUniform1f(loc_screenGapFactor, Config::options.phosphor.screen.gap);
+  glUniform1f(loc_grainStrength, Config::options.phosphor.screen.grain);
+  glUniform2i(loc_texSize, win->width, SDLWindow::states[win->group].windowSizes.second);
+  glUniform1f(loc_vignetteStrength, Config::options.phosphor.screen.vignette);
+  glUniform1f(loc_chromaticAberrationStrength, Config::options.phosphor.screen.chromatic_aberration);
+  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
+  glUniform1f(loc_borderReflectionStrength, Config::options.phosphor.reflections.strength);
+  glUniform1i(loc_boxBlurSize, Config::options.phosphor.reflections.box_blur_size);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -780,17 +861,7 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
   // Clear temp textures before blurring
   glBindFramebuffer(GL_FRAMEBUFFER, SDLWindow::frameBuffer);
 
-  // Clear first temp textures (R, G, B)
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTextureR, 0);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTextureG, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTextureB, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
-
   // Clear second temp textures (R, G, B)
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2R, 0);
   glClear(GL_COLOR_BUFFER_BIT);
