@@ -46,7 +46,7 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
     float vertices[] = {x1, y1, x2, y2};
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
     glDrawArrays(GL_LINES, 0, 2);
@@ -61,8 +61,8 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
   float nx = -dy / length;
   float ny = dx / length;
 
-  const int antialiasPasses = 5;
-  const float antialiasWidth = 2.0f;
+  const int antialiasPasses = 3; // Reduced from 5 to 3 for better performance
+  const float antialiasWidth = 1.5f; // Reduced from 2.0f
 
   for (int pass = 0; pass < antialiasPasses; ++pass) {
     float offset = (pass - antialiasPasses / 2.0f) * (antialiasWidth / antialiasPasses);
@@ -78,7 +78,7 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
                         y1 - ny * currentHalfThickness, x2 + nx * currentHalfThickness, y2 + ny * currentHalfThickness,
                         x2 - nx * currentHalfThickness, y2 - ny * currentHalfThickness};
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -95,7 +95,7 @@ void drawFilledRect(const float& x, const float& y, const float& width, const fl
   glColor4fv(color);
   float vertices[] = {x, y, x + width, y, x + width, y + height, x, y + height};
   glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
   glDrawArrays(GL_QUADS, 0, 4);
@@ -113,8 +113,8 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
   float startRad = (startAngle)*M_PI / 180.0f;
   float endRad = (endAngle)*M_PI / 180.0f;
 
-  const int antialiasPasses = 5;
-  const float antialiasWidth = 2.0f;
+  const int antialiasPasses = 3; // Reduced from 5 to 3 for better performance
+  const float antialiasWidth = 1.5f; // Reduced from 2.0f
 
   for (int pass = 0; pass < antialiasPasses; ++pass) {
     float offset = (pass - antialiasPasses / 2.0f) * (antialiasWidth / antialiasPasses);
@@ -146,7 +146,7 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
       vertices.push_back(py_inner);
     }
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
     glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(vertices.size() / 2));
@@ -304,7 +304,7 @@ void drawText(const char* text, const float& x, const float& y, const float& siz
 
     // Render glyph quad
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(0));
@@ -506,7 +506,8 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
   WindowManager::setViewport(window->x, window->width, SDLWindow::states[window->group].windowSizes.second);
 
   glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-  glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STREAM_DRAW);
+  // Use GL_DYNAMIC_DRAW for better performance with frequently updated data
+  glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_DYNAMIC_DRAW);
   glEnableClientState(GL_VERTEX_ARRAY);
   glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
 

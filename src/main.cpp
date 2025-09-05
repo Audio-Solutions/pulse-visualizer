@@ -29,6 +29,9 @@
 #include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
+#include <chrono>
+#include <thread>
+
 #include <SDL3/SDL_main.h>
 
 #if not(_WIN32)
@@ -105,14 +108,13 @@ void reconfigure() {
 std::mutex mainThread;
 std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
-std::atomic<bool> quitSignal {false};
 
 int main(int argc, char** argv) {
   // Set up signal handling for Ctrl+C etc
-  signal(SIGINT, [](int) { quitSignal.store(true); });
-  signal(SIGTERM, [](int) { quitSignal.store(true); });
+  signal(SIGINT, [](int) { SDLWindow::running.store(false); });
+  signal(SIGTERM, [](int) { SDLWindow::running.store(false); });
 #ifndef _WIN32
-  signal(SIGQUIT, [](int) { quitSignal.store(true); });
+  signal(SIGQUIT, [](int) { SDLWindow::running.store(false); });
 
   // Block SIGWINCH (Causing crashes for some reason)
   sigset_t sigset;
@@ -186,6 +188,12 @@ int main(int argc, char** argv) {
   LOG_DEBUG("Initializing SDL and OpenGL");
   SDLWindow::init();
 
+  // Check if initialization failed
+  if (!SDLWindow::running.load()) {
+    LOG_ERROR("SDL/OpenGL initialization failed, exiting");
+    return 1;
+  }
+
   // Clear and display the base window
   LOG_DEBUG("Clearing and displaying base window");
   SDLWindow::clear();
@@ -250,7 +258,7 @@ int main(int argc, char** argv) {
         for (auto& window : vec)
           window.handleEvent(event);
     }
-    if (quitSignal.load() || !SDLWindow::running) {
+    if (!SDLWindow::running) {
       LOG_DEBUG("Quit signal received, exiting");
       break;
     }
