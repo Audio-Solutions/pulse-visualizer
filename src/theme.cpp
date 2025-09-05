@@ -107,6 +107,7 @@ void load() {
       {"vu_main",                           colors.vu_main                          },
       {"vu_caution",                        colors.vu_caution                       },
       {"vu_clip",                           colors.vu_clip                          },
+      {"phosphor_border",                   colors.phosphor_border                  },
   };
 
   // Color mapping for single float values

@@ -28,6 +28,7 @@ layout(binding = 3, rgba8) uniform image2D colorTex;
 
 uniform vec3 beamColor;
 uniform vec3 blackColor;
+uniform vec3 borderColor;
 uniform float screenCurvature;
 uniform float screenGapFactor;
 uniform float grainStrength;
@@ -285,6 +286,7 @@ void main() {
   // Precompute scaled UV once for mask and sampling
   vec2 scaledUVBase = computeScaledUVWithScale(uv, gapPercent, scale);
   float screenMask = calculateBorderMaskScaled(scaledUVBase, texelSize);
+  vec2 distortedUVBase = crtDistortion(scaledUVBase);
 
   vec2 center = vec2(0.5, 0.5);
   vec2 toCenter = uv - center;
@@ -362,20 +364,14 @@ void main() {
   screenColor = screenColor + blackColor;
   screenColor = clamp(screenColor, 0.0, 1.0);
 
-  // Calculate border color (70% of background color)
-  vec3 borderColor = blackColor * 0.7;
-
   // Blend between screen content and border based on mask
   vec3 outColor;
   if (screenCurvature > 1e-6) {
     outColor = mix(borderColor, screenColor, screenMask);
     // Add a dim reflection using multi-sample average if enabled
-    if (screenMask < 0.999 && borderReflectionStrength > 1e-6) {
-      // Use precomputed scaling for reflections
-      vec2 dUV = crtDistortion(scaledUVBase);
-
+    if (screenMask < 1 - 1e-6 && borderReflectionStrength > 1e-6) {
       // Reflect radially against square boundary for CRT-like corner reflections
-      vec2 baseReflected = radialSquareMirror(dUV);
+      vec2 baseReflected = radialSquareMirror(distortedUVBase);
 
       float rRef = boxBlur7x7Distorted(baseReflected, texelSize, 0);
       float gRef;
@@ -401,8 +397,23 @@ void main() {
         reflectColor.b = tanhColormapChannel(bRef * beamColor.b);
       }
 
+      // Pixel-thin exponential darkening along the corner diagonals
+      float diagDist = min(abs(distortedUVBase.x - distortedUVBase.y), abs(distortedUVBase.x + distortedUVBase.y - 1.0));
+      float borderAmountLocal = 1.0 - screenMask;
+
+      // Start darkening ~5-8px away from the diagonal, ramping exponentially toward the diagonal
+      float pixelDist = diagDist * max(texSizeF.x, texSizeF.y);
+      float diagWeight = 0.0;
+      float delta = 8 - pixelDist;
+      if (delta > 0.0) {
+        diagWeight = 1.0 - exp(-0.2 * delta);
+      }
+
+      float borderWeight = borderAmountLocal * borderAmountLocal;
+      float darkAmount = clamp(diagWeight * borderWeight, 0.0, 1.0);
+
       float borderAmount = 1.0 - screenMask;
-      outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0);
+      outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0) * (1.0 - darkAmount * 0.2);
     }
   } else {
     outColor = screenColor;

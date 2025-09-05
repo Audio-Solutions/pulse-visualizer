@@ -791,6 +791,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   static GLint loc_colorbeam = -1;
   static GLint loc_borderReflectionStrength = -1;
   static GLint loc_boxBlurSize = -1;
+  static GLint loc_borderColor = -1;
   if (cachedProgram != shader) {
     loc_beamColor = glGetUniformLocation(shader, "beamColor");
     loc_blackColor = glGetUniformLocation(shader, "blackColor");
@@ -803,11 +804,21 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
     loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
     loc_borderReflectionStrength = glGetUniformLocation(shader, "borderReflectionStrength");
     loc_boxBlurSize = glGetUniformLocation(shader, "boxBlurSize");
+    loc_borderColor = glGetUniformLocation(shader, "borderColor");
     cachedProgram = shader;
+  }
+
+  float borderColor[4] = {0};
+  if (Theme::colors.phosphor_border[3] > 0) {
+    std::copy(Theme::colors.phosphor_border, Theme::colors.phosphor_border + 4, borderColor);
+  } else {
+    std::transform(Theme::colors.background, Theme::colors.background + 4, borderColor,
+                   [](float c) { return c * 0.7f; });
   }
 
   glUniform3fv(loc_beamColor, 1, beamColor);
   glUniform3fv(loc_blackColor, 1, Theme::colors.background);
+  glUniform3fv(loc_borderColor, 1, borderColor);
   glUniform1f(loc_screenCurvature, Config::options.phosphor.screen.curvature);
   glUniform1f(loc_screenGapFactor, Config::options.phosphor.screen.gap);
   glUniform1f(loc_grainStrength, Config::options.phosphor.screen.grain);

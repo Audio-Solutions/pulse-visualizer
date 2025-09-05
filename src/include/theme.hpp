@@ -74,6 +74,8 @@ struct Colors {
   float vu_main[4] = {0};
   float vu_caution[4] = {0};
   float vu_clip[4] = {0};
+
+  float phosphor_border[4] = {0};
 };
 
 extern Colors colors;
