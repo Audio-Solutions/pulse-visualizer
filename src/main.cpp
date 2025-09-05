@@ -255,11 +255,13 @@ int main(int argc, char** argv) {
       break;
     }
     glUseProgram(0);
-    if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(), [](auto& state) {
-          int width, height;
-          SDL_GetWindowSize(state.second.win, &width, &height);
-          return width == 0 || height == 0;
-        }))
+    if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(),
+                    [](auto& state) {
+                      int width, height;
+                      SDL_GetWindowSize(state.second.win, &width, &height);
+                      return width == 0 || height == 0;
+                    }) ||
+        Config::broken)
       continue;
 
     // Update window management

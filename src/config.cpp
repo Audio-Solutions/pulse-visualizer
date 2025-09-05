@@ -277,9 +277,11 @@ template <> void get<Rotation>(const YAML::Node& root, const std::string& path, 
   out = static_cast<Rotation>(tmp);
 }
 
-void load() {
+void load(bool recovering) {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
+
+  broken = false;
 
   // Handle YAML errors
   try {
@@ -446,16 +448,14 @@ void load() {
   get<std::string>(configData, "font", options.font);
 
   // If the config is broken, attempt to recover by merging defaults
-  if (broken) {
+  if (broken && !recovering) {
     LOG_ERROR("Config is broken, attempting to recover...");
     save();
-    load();
+    load(true);
   }
 }
 
 bool save() {
-  broken = false;
-
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
 
   YAML::Node root;

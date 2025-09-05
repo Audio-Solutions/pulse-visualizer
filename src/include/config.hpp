@@ -227,7 +227,7 @@ template <typename T> void get(const YAML::Node& root, const std::string& path, 
 /**
  * @brief Load configuration from file
  */
-void load();
+void load(bool recovering = false);
 
 /**
  * @brief Check if configuration file has been modified and reload if necessary
