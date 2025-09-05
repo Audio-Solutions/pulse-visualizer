@@ -87,7 +87,7 @@ fft:
   # 3D sphere visualization settings
   sphere:
     # Enable 3D sphere visualization
-    enabled: true
+    enabled: false
     # Maximum frequency to display in sphere (lower frequencies look better)
     max_freq: 5000.0
     # Base radius of the sphere

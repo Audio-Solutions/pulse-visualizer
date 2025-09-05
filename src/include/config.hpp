@@ -92,7 +92,7 @@ struct Options {
     } cqt;
 
     struct Sphere {
-      bool enabled = true;
+      bool enabled = false;
       float max_freq = 5000.0f;
       float base_radius = 0.1f;
     } sphere;
