@@ -128,6 +128,7 @@ struct Options {
     int fps_limit = 240;
     bool decorations = true;
     bool always_on_top = false;
+    bool wayland = false;
   } window;
 
   struct Debug {

@@ -51,8 +51,9 @@ void deinit() {
 
 void init() {
 #ifdef __linux
-  // Prefer wayland natively
-  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland,x11");
+  // Prefer wayland natively if enabled in the config
+  if (Config::options.window.wayland)
+    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland,x11");
 #endif
 
   // Initialize SDL video subsystem

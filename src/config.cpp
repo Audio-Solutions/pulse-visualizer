@@ -393,6 +393,7 @@ void load(bool recovering) {
   get<int>(configData, "window.fps_limit", options.window.fps_limit);
   get<bool>(configData, "window.decorations", options.window.decorations);
   get<bool>(configData, "window.always_on_top", options.window.always_on_top);
+  get<bool>(configData, "window.wayland", options.window.wayland);
 
   // Load Debug configuration
   get<bool>(configData, "debug.log_fps", options.debug.log_fps);
@@ -607,6 +608,7 @@ bool save() {
   root["window"]["default_width"] = options.window.default_width;
   root["window"]["fps_limit"] = options.window.fps_limit;
   root["window"]["theme"] = options.window.theme;
+  root["window"]["wayland"] = options.window.wayland;
 
   YAML::Emitter out;
   for (auto it = root.begin(); it != root.end(); ++it) {

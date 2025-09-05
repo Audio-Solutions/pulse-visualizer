@@ -470,6 +470,9 @@ window:
   
   # Keep the window always on top of other windows
   always_on_top: false
+
+  # Try to use Wayland instead of X11
+  wayland: false
 ```
 
 ## Troubleshooting
