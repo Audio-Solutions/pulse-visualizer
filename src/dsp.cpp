@@ -697,11 +697,13 @@ int FFTMain() {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;
+      bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
+                      !Config::options.fft.sphere.enabled && Config::options.phosphor.screen.curvature < FLT_EPSILON &&
+                      Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
-      const float fallSpeed = (SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering
-                                   ? Config::options.fft.smoothing.hover_fall_speed
-                                   : Config::options.fft.smoothing.fall_speed) *
-                              WindowManager::dt;
+      const float fallSpeed =
+          (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
+          WindowManager::dt;
       // Calculate minimum value for clamping (1 dB below screen minimum)
       const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
       const float k = Config::options.fft.slope / 20.f / log10f(2.f);
@@ -849,10 +851,13 @@ int FFTAlt() {
       fftSide.resize(fftSideRaw.size());
       size_t bins = fftSide.size();
       size_t i = 0;
+      bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
+                      !Config::options.fft.sphere.enabled && Config::options.phosphor.screen.curvature < FLT_EPSILON &&
+                      Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
-      const float fallSpeed = (SpectrumAnalyzer::window->hovering ? Config::options.fft.smoothing.hover_fall_speed
-                                                                  : Config::options.fft.smoothing.fall_speed) *
-                              WindowManager::dt;
+      const float fallSpeed =
+          (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
+          WindowManager::dt;
       // Calculate minimum value for clamping (1 dB below screen minimum)
       const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
       const float k = Config::options.fft.slope / 20.f / log10f(2.f);
