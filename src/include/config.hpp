@@ -71,6 +71,7 @@ struct Options {
     float slope = 3.0f;
     std::string key = "sharp";
     std::string mode = "midside";
+    bool cursor = false;
 
     struct Limits {
       float max_db = 0.0f;

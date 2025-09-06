@@ -481,8 +481,11 @@ void render() {
   float mouseXRel = state.mousePos.first - window->x;
   float mouseYRel = state.mousePos.second;
 
-  if (state.focused && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
-      mouseYRel < state.windowSizes.second && !Config::options.fft.sphere.enabled) {
+  bool showCursor = state.focused && mouseXRel >= 0 && mouseXRel < window->width && mouseYRel >= 0 &&
+                    mouseYRel < state.windowSizes.second && !Config::options.fft.sphere.enabled &&
+                    Config::options.phosphor.screen.curvature < FLT_EPSILON && Config::options.fft.cursor;
+
+  if (showCursor) {
     // Check if mouse is within window bounds
     // Draw crosshair
     glColor4fv(color);

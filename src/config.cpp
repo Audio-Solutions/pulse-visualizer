@@ -348,6 +348,7 @@ void load(bool recovering) {
   get<float>(configData, "fft.slope", options.fft.slope);
   get<std::string>(configData, "fft.key", options.fft.key);
   get<std::string>(configData, "fft.mode", options.fft.mode);
+  get<bool>(configData, "fft.cursor", options.fft.cursor);
 
   // FFT Limits
   get<float>(configData, "fft.limits.max_db", options.fft.limits.max_db);
@@ -480,6 +481,7 @@ bool save() {
   root["fft"]["slope"] = options.fft.slope;
   root["fft"]["key"] = options.fft.key;
   root["fft"]["mode"] = options.fft.mode;
+  root["fft"]["cursor"] = options.fft.cursor;
 
   // FFT Limits
   root["fft"]["limits"]["max_db"] = options.fft.limits.max_db;

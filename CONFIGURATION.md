@@ -109,6 +109,9 @@ fft:
   
   # Flip the FFT display along the frequency axis
   flip_x: false
+
+  # Enable hover cursor for FFT display
+  cursor: true
   
   # Frequency and amplitude limits
   limits:
