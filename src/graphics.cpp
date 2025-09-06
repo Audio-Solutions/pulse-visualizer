@@ -725,7 +725,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   static GLuint cachedProgram = 0;
   static GLint loc_line_blur_spread = -1;
   static GLint loc_line_width = -1;
-  static GLint loc_range_factor = -1;
   static GLint loc_blur_direction = -1;
   static GLint loc_kernel_type = -1;
   static GLint loc_f_intensity = -1;
@@ -735,7 +734,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   if (cachedProgram != shader) {
     loc_line_blur_spread = glGetUniformLocation(shader, "line_blur_spread");
     loc_line_width = glGetUniformLocation(shader, "line_width");
-    loc_range_factor = glGetUniformLocation(shader, "range_factor");
     loc_blur_direction = glGetUniformLocation(shader, "blur_direction");
     loc_kernel_type = glGetUniformLocation(shader, "kernel_type");
     loc_f_intensity = glGetUniformLocation(shader, "f_intensity");
@@ -747,7 +745,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
   glUniform1f(loc_line_blur_spread, Config::options.phosphor.blur.spread);
   glUniform1f(loc_line_width, Config::options.phosphor.beam.width);
-  glUniform1f(loc_range_factor, Config::options.phosphor.blur.range);
   glUniform1i(loc_blur_direction, dir);
   glUniform1i(loc_kernel_type, kernel);
   glUniform1f(loc_f_intensity, Config::options.phosphor.blur.near_intensity);
@@ -870,24 +867,19 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
                             SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
                             win->phosphor.energyTextureB);
 
-  // Clear temp textures before blurring
-  glBindFramebuffer(GL_FRAMEBUFFER, SDLWindow::frameBuffer);
+  // Copy energyTexture{R,G,B} to tempTexture2{R,G,B}
+  glCopyImageSubData(win->phosphor.energyTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2R,
+                     GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
 
-  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-  // Clear second temp textures (R, G, B)
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2R, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
+  if (Config::options.phosphor.beam.rainbow) {
+    glCopyImageSubData(win->phosphor.energyTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2G,
+                       GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+    glCopyImageSubData(win->phosphor.energyTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2B,
+                       GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+  }
 
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2G, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, win->phosphor.tempTexture2B, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-  // Apply multiple blur passes
-  for (int k = 0; k < 3; k++) {
+  // Apply multiple additive blur passes
+  for (int k = 0; k < 2; k++) {
     Shader::dispatchBlur(win, 0, k, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
                          win->phosphor.energyTextureB, win->phosphor.tempTextureR, win->phosphor.tempTextureG,
                          win->phosphor.tempTextureB);

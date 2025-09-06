@@ -34,7 +34,6 @@ struct State {
 // Global buffer handles
 extern GLuint vertexBuffer;
 extern GLuint vertexColorBuffer;
-extern GLuint frameBuffer;
 
 // Window and OpenGL context handles
 extern std::unordered_map<std::string, State> states;
@@ -87,7 +86,7 @@ void createWindow(const std::string& group, const std::string& title, int width,
 bool destroyWindow(const std::string& group);
 
 /**
- * @brief select a window at an index for rendering
+ * @brief select a window for rendering
  * @param group The group of the window
  * @return true if the window was selected, false otherwise
  */

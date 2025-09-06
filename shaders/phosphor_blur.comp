@@ -30,7 +30,6 @@ layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
 uniform float line_blur_spread;
 uniform float line_width;
-uniform float range_factor;
 uniform vec2 texSize;
 uniform int blur_direction;
 uniform int kernel_type;
@@ -69,7 +68,7 @@ void main() {
     return;
   }
 
-  int range_filter = int(ceil(range_factor * line_blur_spread)) * 2 + 1;
+  int range_filter = int(ceil(line_blur_spread * 2.0)) * 2 + 1;
   int half_range = range_filter / 2;
   
   if (half_range == 0) {
@@ -96,9 +95,6 @@ void main() {
   float inv_2variance;
   
   if (kernel_type == 0) {
-    float variance = line_width * line_width;
-    inv_2variance = 1.0 / (2.0 * variance);
-  } else if (kernel_type == 1) {
     float equivalent_width = 0.693147 * (line_blur_spread * 0.1);
     float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
     inv_2variance = 1.0 / (2.0 * variance);
@@ -207,11 +203,11 @@ void main() {
   float resultG = sample_sumG / max(effective_kernel_sum, 1e-6);
   float resultB = sample_sumB / max(effective_kernel_sum, 1e-6);
 
-  if (kernel_type == 1) {
+  if (kernel_type == 0) {
     resultR *= f_intensity;
     resultG *= f_intensity;
     resultB *= f_intensity;
-  } else if (kernel_type == 2) {
+  } else {
     resultR *= g_intensity;
     resultG *= g_intensity;
     resultB *= g_intensity;

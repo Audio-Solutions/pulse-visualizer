@@ -410,7 +410,6 @@ void load(bool recovering) {
 
   // Phosphor Blur
   get<float>(configData, "phosphor.blur.spread", options.phosphor.blur.spread);
-  get<float>(configData, "phosphor.blur.range", options.phosphor.blur.range);
   get<float>(configData, "phosphor.blur.near_intensity", options.phosphor.blur.near_intensity);
   get<float>(configData, "phosphor.blur.far_intensity", options.phosphor.blur.far_intensity);
 
@@ -550,7 +549,6 @@ bool save() {
 
   // Phosphor Blur
   root["phosphor"]["blur"]["spread"] = options.phosphor.blur.spread;
-  root["phosphor"]["blur"]["range"] = options.phosphor.blur.range;
   root["phosphor"]["blur"]["near_intensity"] = options.phosphor.blur.near_intensity;
   root["phosphor"]["blur"]["far_intensity"] = options.phosphor.blur.far_intensity;
 

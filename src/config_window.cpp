@@ -878,10 +878,6 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "far_blur_intensity", &Config::options.phosphor.blur.far_intensity, 0.f, 1.f,
                                "Far blur intensity", "Intensity of blur for distant pixels", 3);
 
-    // range_factor
-    createSliderElement<float>(page, cy, "range_factor", &Config::options.phosphor.blur.range, 0.f, 10.f,
-                               "Range factor", "Range factor for blur calculations", 2);
-
     createHeaderElement(page, cy, "decay", "Decay");
 
     // decay_slow

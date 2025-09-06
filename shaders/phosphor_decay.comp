@@ -61,11 +61,10 @@ void main() {
   }
 
   uint newEnergyR = uint(currentEnergyR * decay);
-  uint newEnergyG = uint(currentEnergyG * decay);
-  uint newEnergyB = uint(currentEnergyB * decay);
-
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
   if (colorbeam) {
+    uint newEnergyG = uint(currentEnergyG * decay);
+    uint newEnergyB = uint(currentEnergyB * decay);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
     imageStore(energyTexB, coord, uvec4(newEnergyB, 0, 0, 0));
   }

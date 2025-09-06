@@ -93,57 +93,6 @@ float calculateBorderMaskScaled(vec2 scaledUV, vec2 texelSize) {
   return insideX * insideY;
 }
 
-// Antialiased sampling function
-// Samples multiple points around the distorted coordinate to reduce aliasing
-float sampleAntialiasedScaled(vec2 scaledUV, vec2 texelSize, int channel) {
-  // Check if the scaled coordinate is within the valid range
-  if (scaledUV.x < 0.0 || scaledUV.x > 1.0 || scaledUV.y < 0.0 || scaledUV.y > 1.0) {
-    return 0.0;
-  }
-
-  vec2 distortedUV = crtDistortion(scaledUV);
-  if (distortedUV.x < 0.0 || distortedUV.x > 1.0 || distortedUV.y < 0.0 || distortedUV.y > 1.0) {
-    return 0.0;
-  }
-
-  float result = 0.0;
-  float weightSum = 0.0;
-  const float AA_WEIGHT = 1.0 / 64.0;
-
-  // Multi-sample antialiasing (8x8)
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      vec2 offset = vec2(float(i), float(j)) / float(8 - 1) - 0.5;
-      vec2 sampleUV = scaledUV + offset * texelSize;
-      vec2 distortedSampleUV = crtDistortion(sampleUV);
-
-      if (distortedSampleUV.x >= 0.0 && distortedSampleUV.x <= 1.0 &&
-          distortedSampleUV.y >= 0.0 && distortedSampleUV.y <= 1.0) {
-        ivec2 sampleCoord = ivec2(distortedSampleUV * vec2(texSize));
-        sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
-
-        float energy;
-        if (channel == 0) {
-          energy = float(imageLoad(energyTexR, sampleCoord).r);
-        } else if (channel == 1) {
-          energy = float(imageLoad(energyTexG, sampleCoord).r);
-        } else {
-          energy = float(imageLoad(energyTexB, sampleCoord).r);
-        }
-
-        result += energy * AA_WEIGHT;
-        weightSum += AA_WEIGHT;
-      }
-    }
-  }
-
-  if (weightSum > 0.0) {
-    result /= weightSum;
-  }
-
-  return result;
-}
-
 // Natural phosphor grain noise using multiple octaves
 float spatialGrain(vec2 coord) {
   // Normalize coordinates to avoid large number artifacts
@@ -213,34 +162,62 @@ vec2 radialSquareMirror(vec2 uv) {
   return clamp(reflected, vec2(0.0), vec2(1.0));
 }
 
-// Antialiased sampling directly in distorted space around a given distorted UV
-float sampleAntialiasedDistorted(vec2 distortedCenterUV, vec2 texelSize, int channel) {
-  float result = 0.0;
+// Antialiased sampling in distorted space for three channels at once.
+// When colorbeam is false, G/B are sampled from R texture at their offsets.
+vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG, vec2 distortedCenterB, vec2 texelSize,
+                                   bool colorbeamEnabled) {
+  vec3 result = vec3(0.0);
   float weightSum = 0.0;
+  const float AA_WEIGHT = 1.0 / 64.0;
 
   for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
       vec2 offset = vec2(float(i), float(j)) / float(8 - 1) - 0.5;
-      vec2 distortedSampleUV = distortedCenterUV + offset * texelSize;
 
-      if (distortedSampleUV.x >= 0.0 && distortedSampleUV.x <= 1.0 &&
-          distortedSampleUV.y >= 0.0 && distortedSampleUV.y <= 1.0) {
-        ivec2 sampleCoord = ivec2(distortedSampleUV * vec2(texSize));
-        sampleCoord = clamp(sampleCoord, ivec2(0), texSize - 1);
+      vec2 dr = distortedCenterR + offset * texelSize;
+      vec2 dg = distortedCenterG + offset * texelSize;
+      vec2 db = distortedCenterB + offset * texelSize;
 
-        float energy;
-        if (channel == 0) {
-          energy = float(imageLoad(energyTexR, sampleCoord).r);
-        } else if (channel == 1) {
-          energy = float(imageLoad(energyTexG, sampleCoord).r);
-        } else {
-          energy = float(imageLoad(energyTexB, sampleCoord).r);
-        }
+      bool inR = (dr.x >= 0.0 && dr.x <= 1.0 && dr.y >= 0.0 && dr.y <= 1.0);
+      bool inG = (dg.x >= 0.0 && dg.x <= 1.0 && dg.y >= 0.0 && dg.y <= 1.0);
+      bool inB = (db.x >= 0.0 && db.x <= 1.0 && db.y >= 0.0 && db.y <= 1.0);
 
-        float weight = 1.0 / 64.0;
-        result += energy * weight;
-        weightSum += weight;
+      if (!(inR || inG || inB)) {
+        continue;
       }
+
+      ivec2 cR = ivec2(dr * vec2(texSize));
+      ivec2 cG = ivec2(dg * vec2(texSize));
+      ivec2 cB = ivec2(db * vec2(texSize));
+      cR = clamp(cR, ivec2(0), texSize - 1);
+      cG = clamp(cG, ivec2(0), texSize - 1);
+      cB = clamp(cB, ivec2(0), texSize - 1);
+
+      float eR = 0.0;
+      float eG = 0.0;
+      float eB = 0.0;
+
+      if (inR) {
+        eR = float(imageLoad(energyTexR, cR).r);
+      }
+      if (colorbeamEnabled) {
+        if (inG) {
+          eG = float(imageLoad(energyTexG, cG).r);
+        }
+        if (inB) {
+          eB = float(imageLoad(energyTexB, cB).r);
+        }
+      } else {
+        if (inG) {
+          eG = float(imageLoad(energyTexR, cG).r);
+        }
+        if (inB) {
+          eB = float(imageLoad(energyTexR, cB).r);
+        }
+      }
+
+      result += vec3(eR, eG, eB) * AA_WEIGHT;
+      weightSum += AA_WEIGHT;
     }
   }
 
@@ -251,24 +228,24 @@ float sampleAntialiasedDistorted(vec2 distortedCenterUV, vec2 texelSize, int cha
   return result;
 }
 
-// 7x7 box blur in distorted space on top of antialiasing
-// Uses sampleAntialiasedDistorted at each tap
-float boxBlur7x7Distorted(vec2 distortedCenterUV, vec2 texelSize, int channel) {
-
+// 7x7 box blur using antialiased sampling in distorted space for RGB at once
+vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbeamEnabled) {
   if (boxBlurSize == 0) {
-    return sampleAntialiasedDistorted(distortedCenterUV, texelSize, channel);
+    return sampleAntialiasedDistortedRGB(distortedCenterUV, distortedCenterUV, distortedCenterUV, texelSize,
+                                         colorbeamEnabled);
   }
 
-  float sum = 0.0;
-  // 7x7 kernel = 49 taps
+  vec3 sum = vec3(0.0);
   const float kernelArea = float(boxBlurSize * boxBlurSize);
+  float invKernelArea = 1.0 / kernelArea;
   for (int oy = -boxBlurSize / 2; oy <= boxBlurSize / 2; oy++) {
     for (int ox = -boxBlurSize / 2; ox <= boxBlurSize / 2; ox++) {
       vec2 offset = vec2(float(ox), float(oy)) * texelSize;
-      sum += sampleAntialiasedDistorted(distortedCenterUV + offset, texelSize, channel);
+      sum += sampleAntialiasedDistortedRGB(distortedCenterUV + offset, distortedCenterUV + offset, distortedCenterUV + offset,
+                                           texelSize, colorbeamEnabled);
     }
   }
-  return sum / kernelArea;
+  return sum * invKernelArea;
 }
 
 void main() {
@@ -310,20 +287,25 @@ void main() {
     uvB = uv - toCenter * chromaticAberrationStrength;
   }
 
-  float energyR, energyG, energyB;
+  float energyR = 0.0;
+  float energyG = 0.0;
+  float energyB = 0.0;
 
   if (screenCurvature > 1e-6) {
-    vec2 scaledUVR = computeScaledUVWithScale(uvR, gapPercent, scale);
-    vec2 scaledUVG = computeScaledUVWithScale(uvG, gapPercent, scale);
-    vec2 scaledUVB = computeScaledUVWithScale(uvB, gapPercent, scale);
+    // If the pixel is fully outside the screen area, skip expensive sampling
+    if (screenMask > 0.0) {
+      vec2 scaledUVR = computeScaledUVWithScale(uvR, gapPercent, scale);
+      vec2 scaledUVG = computeScaledUVWithScale(uvG, gapPercent, scale);
+      vec2 scaledUVB = computeScaledUVWithScale(uvB, gapPercent, scale);
 
-    energyR = sampleAntialiasedScaled(scaledUVR, texelSize, 0);
-    if (colorbeam) {
-      energyG = sampleAntialiasedScaled(scaledUVG, texelSize, 1);
-      energyB = sampleAntialiasedScaled(scaledUVB, texelSize, 2);
-    } else {
-      energyG = sampleAntialiasedScaled(scaledUVG, texelSize, 0);
-      energyB = sampleAntialiasedScaled(scaledUVB, texelSize, 0);
+      vec2 distortedR = crtDistortion(scaledUVR);
+      vec2 distortedG = crtDistortion(scaledUVG);
+      vec2 distortedB = crtDistortion(scaledUVB);
+
+      vec3 energies = sampleAntialiasedDistortedRGB(distortedR, distortedG, distortedB, texelSize, colorbeam);
+      energyR = energies.r;
+      energyG = energies.g;
+      energyB = energies.b;
     }
   } else {
     vec2 coordR = vec2(uvR * vec2(texSize));
@@ -381,28 +363,22 @@ void main() {
       // Reflect radially against square boundary for CRT-like corner reflections
       vec2 baseReflected = radialSquareMirror(distortedUVBase);
 
-      float rRef = boxBlur7x7Distorted(baseReflected, texelSize, 0);
-      float gRef;
-      float bRef;
+      vec3 refRGB;
       if (colorbeam) {
-        gRef = boxBlur7x7Distorted(baseReflected, texelSize, 1);
-        bRef = boxBlur7x7Distorted(baseReflected, texelSize, 2);
+        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, true);
       } else {
-        gRef = rRef;
-        bRef = rRef;
+        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false);
       }
 
-      rRef /= TANH_DIV_FACTOR;
-      gRef /= TANH_DIV_FACTOR;
-      bRef /= TANH_DIV_FACTOR;
+      float rRef = refRGB.r / TANH_DIV_FACTOR;
+      float gRef = refRGB.g / TANH_DIV_FACTOR;
+      float bRef = refRGB.b / TANH_DIV_FACTOR;
 
       vec3 reflectColor;
       if (colorbeam) {
         reflectColor = vec3(tanhColormapChannel(rRef), tanhColormapChannel(gRef), tanhColormapChannel(bRef));
       } else {
-        reflectColor.r = tanhColormapChannel(rRef * beamColor.r);
-        reflectColor.g = tanhColormapChannel(gRef * beamColor.g);
-        reflectColor.b = tanhColormapChannel(bRef * beamColor.b);
+        reflectColor = vec3(tanhColormapChannel(rRef * beamColor.r), tanhColormapChannel(gRef * beamColor.g), tanhColormapChannel(bRef * beamColor.b));
       }
 
       // Pixel-thin exponential darkening along the corner diagonals

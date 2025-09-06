@@ -187,8 +187,6 @@ phosphor:
   blur:
     # Spread of the blur effect (higher=more spread, more GPU intensive)
     spread: 128
-    # Range factor for blur calculations (higher=more blur, more GPU intensive)
-    range: 2.0
     # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
     near_intensity: 0.6
     # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)

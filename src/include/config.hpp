@@ -148,7 +148,6 @@ struct Options {
 
     struct Blur {
       float spread = 128.0f;
-      float range = 2.0f;
       float near_intensity = 0.6f;
       float far_intensity = 0.8f;
     } blur;

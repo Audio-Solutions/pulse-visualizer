@@ -32,7 +32,6 @@ std::unordered_map<std::string, State> states;
 // Global buffer handles
 GLuint vertexBuffer = 0;
 GLuint vertexColorBuffer = 0;
-GLuint frameBuffer = 0;
 
 std::atomic<bool> running {false};
 
@@ -44,7 +43,6 @@ void deinit() {
 
   glDeleteBuffers(1, &vertexBuffer);
   glDeleteBuffers(1, &vertexColorBuffer);
-  glDeleteFramebuffers(1, &frameBuffer);
 
   SDL_Quit();
 }
@@ -164,7 +162,6 @@ void init() {
 
   glGenBuffers(1, &vertexBuffer);
   glGenBuffers(1, &vertexColorBuffer);
-  glGenFramebuffers(1, &frameBuffer);
 
   // Configure OpenGL rendering state
   glEnable(GL_BLEND);
