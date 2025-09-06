@@ -572,6 +572,10 @@ inline void initPages() {
     createCheckElement(page, cy, "frequency_markers", &Config::options.fft.markers, "Enable frequency markers",
                        "Enable frequency markers on the display");
 
+    // cursor
+    createCheckElement(page, cy, "cursor", &Config::options.fft.cursor, "Enable cursor",
+                       "Enable cursor on the display when hovering");
+
     // rotation
     {
       std::map<Config::Rotation, std::string> values = {
