@@ -178,6 +178,7 @@ std::string findFont(const std::string& path) {
   if (stat(inst.c_str(), &buf) == 0)
     return inst;
 
+  LOG_ERROR(std::string("Failed to find font file '") + path + "'");
   return "";
 }
 
@@ -233,6 +234,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
   FT_Set_Pixel_Sizes(face, 0, size);
 
   if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+    LOG_DEBUG("Failed to load glyph for character '" << c << "'" << " at size " << size);
     static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
     return empty;
   }
