@@ -1,7 +1,7 @@
 /*
  * Pulse Audio Visualizer
  * Copyright (C) 2025 Beacroxx
- * Copyright (C) 2025 Contributors (see CONTRIBUTORS)
+ * Copyright (C) 2025 Contributors (see CONTRIBUTORS.md)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,54 +98,54 @@ void init() {
     // If we're on Linux and GLEW failed, try falling back to X11
     if (Config::options.window.wayland && err == GLEW_ERROR_NO_GLX_DISPLAY) {
       LOG_DEBUG("GLEW failed under Wayland, attempting fallback to X11");
-      
+
       // Clean up current state
       deinit();
-      
+
       // Force X11 and retry
       SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
-      
+
       // Re-initialize SDL
       if (!SDL_Init(SDL_INIT_VIDEO)) {
         LOG_ERROR(std::string("SDL_Init failed on X11 fallback: ") + SDL_GetError());
         running.store(false);
         return;
       }
-      
+
       // Re-configure OpenGL context attributes
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
       SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
       SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
       SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-      
+
       // Re-create window
       createWindow("main", "Pulse " VERSION_FULL, Config::options.window.default_width,
                    Config::options.window.default_height);
-      
+
       if (states.find("main") == states.end()) {
         LOG_ERROR("Failed to create main window on X11 fallback");
         running.store(false);
         return;
       }
-      
+
       if (!selectWindow("main")) {
         LOG_ERROR("Failed to select main window on X11 fallback");
         running.store(false);
         return;
       }
-      
+
       // Retry GLEW initialization
       err = glewInit();
     }
 #endif
-    
+
     if (err != GLEW_OK) {
       std::string errorMsg = std::string("WindowManager::init(): GLEW initialization failed\n") +
-                            "Error code: " + std::to_string(err) + "\n" +
-                            "Error string: " + reinterpret_cast<const char*>(glewGetErrorString(err));
+                             "Error code: " + std::to_string(err) + "\n" +
+                             "Error string: " + reinterpret_cast<const char*>(glewGetErrorString(err));
       LOG_ERROR(errorMsg);
-      
+
       // Check if we have a valid OpenGL context
       const GLubyte* version = glGetString(GL_VERSION);
       if (version) {
@@ -153,11 +153,8 @@ void init() {
       } else {
         LOG_ERROR("No valid OpenGL context available");
       }
-      
-      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-                              "Pulse Visualizer Error",
-                              errorMsg.c_str(),
-                              nullptr);
+
+      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Pulse Visualizer Error", errorMsg.c_str(), nullptr);
       running.store(false);
       return;
     }

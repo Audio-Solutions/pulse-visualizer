@@ -1,7 +1,7 @@
 /*
  * Pulse Audio Visualizer
  * Copyright (C) 2025 Beacroxx
- * Copyright (C) 2025 Contributors (see CONTRIBUTORS)
+ * Copyright (C) 2025 Contributors (see CONTRIBUTORS.md)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +61,7 @@ void drawLine(const float& x1, const float& y1, const float& x2, const float& y2
   float nx = -dy / length;
   float ny = dx / length;
 
-  const int antialiasPasses = 3; // Reduced from 5 to 3 for better performance
+  const int antialiasPasses = 3;     // Reduced from 5 to 3 for better performance
   const float antialiasWidth = 1.5f; // Reduced from 2.0f
 
   for (int pass = 0; pass < antialiasPasses; ++pass) {
@@ -113,7 +113,7 @@ void drawArc(const float& x, const float& y, const float& radius, const float& s
   float startRad = (startAngle)*M_PI / 180.0f;
   float endRad = (endAngle)*M_PI / 180.0f;
 
-  const int antialiasPasses = 3; // Reduced from 5 to 3 for better performance
+  const int antialiasPasses = 3;     // Reduced from 5 to 3 for better performance
   const float antialiasWidth = 1.5f; // Reduced from 2.0f
 
   for (int pass = 0; pass < antialiasPasses; ++pass) {

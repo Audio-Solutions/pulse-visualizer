@@ -1,7 +1,7 @@
 /*
  * Pulse Audio Visualizer
  * Copyright (C) 2025 Beacroxx
- * Copyright (C) 2025 Contributors (see CONTRIBUTORS)
+ * Copyright (C) 2025 Contributors (see CONTRIBUTORS.md)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,10 +29,9 @@
 #include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
+#include <SDL3/SDL_main.h>
 #include <chrono>
 #include <thread>
-
-#include <SDL3/SDL_main.h>
 
 #if not(_WIN32)
 #include <errno.h>

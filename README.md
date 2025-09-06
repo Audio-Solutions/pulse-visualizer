@@ -137,7 +137,7 @@ sudo ninja install
 
 Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
 
-See [CONTRIBUTORS](CONTRIBUTORS) for a list of contributors to this project.
+See [CONTRIBUTORS](CONTRIBUTORS.md) for a list of contributors to this project.
 
 If you like pulse-visualizer, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 
