@@ -152,6 +152,11 @@ else()
   set(RESOURCE_FILE "")
 endif()
 
+# Fix Ninja RPATH error on ELF-based or XCOFF platforms
+if(UNIX AND NOT APPLE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+
 add_executable(pulse-visualizer ${SRC_FILES} ${RESOURCE_FILE})
 
 # Link libraries
