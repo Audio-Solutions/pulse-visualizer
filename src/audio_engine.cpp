@@ -316,8 +316,6 @@ void onStreamStateChanged(void*, enum pw_stream_state old, enum pw_stream_state 
   }
 }
 
-#include <immintrin.h>
-
 void onProcess(void*) {
   struct pw_buffer* b;
   struct spa_buffer* buf;

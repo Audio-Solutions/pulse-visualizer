@@ -229,9 +229,14 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
 }
 
 // 7x7 box blur using antialiased sampling in distorted space for RGB at once
-vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbeamEnabled) {
+vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbeamEnabled, float caStrength, vec2 center) {
   if (boxBlurSize == 0) {
-    return sampleAntialiasedDistortedRGB(distortedCenterUV, distortedCenterUV, distortedCenterUV, texelSize,
+    // Apply chromatic aberration to the center coordinates
+    vec2 toCenter = distortedCenterUV - center;
+    vec2 distortedCenterR = distortedCenterUV - toCenter * caStrength;
+    vec2 distortedCenterG = distortedCenterUV;
+    vec2 distortedCenterB = distortedCenterUV + toCenter * caStrength;
+    return sampleAntialiasedDistortedRGB(distortedCenterR, distortedCenterG, distortedCenterB, texelSize,
                                          colorbeamEnabled);
   }
 
@@ -241,8 +246,15 @@ vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbe
   for (int oy = -boxBlurSize / 2; oy <= boxBlurSize / 2; oy++) {
     for (int ox = -boxBlurSize / 2; ox <= boxBlurSize / 2; ox++) {
       vec2 offset = vec2(float(ox), float(oy)) * texelSize;
-      sum += sampleAntialiasedDistortedRGB(distortedCenterUV + offset, distortedCenterUV + offset, distortedCenterUV + offset,
-                                           texelSize, colorbeamEnabled);
+      vec2 sampleUV = distortedCenterUV + offset;
+      
+      // Apply chromatic aberration to each sample
+      vec2 toCenter = sampleUV - center;
+      vec2 sampleR = sampleUV + toCenter * caStrength;
+      vec2 sampleG = sampleUV;
+      vec2 sampleB = sampleUV - toCenter * caStrength;
+      
+      sum += sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorbeamEnabled);
     }
   }
   return sum * invKernelArea;
@@ -365,9 +377,9 @@ void main() {
 
       vec3 refRGB;
       if (colorbeam) {
-        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, true);
+        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, true, chromaticAberrationStrength, center);
       } else {
-        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false);
+        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
       }
 
       float rRef = refRGB.r / TANH_DIV_FACTOR;
