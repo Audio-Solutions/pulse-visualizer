@@ -50,9 +50,7 @@ nixpkgs.config.packageOverrides = pkgs: {
 
 environment.systemPackages = [ pkgs.pulse-visualizer ];
 ```
-
-### Nix
-Change directory to the project root and add it to your shell via:
+Or change directory to the project root and add it to your shell via:
 ```bash
 nix-shell
 ```
