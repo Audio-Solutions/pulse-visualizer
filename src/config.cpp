@@ -417,7 +417,7 @@ void load(bool recovering) {
   // Phosphor Decay
   get<float>(configData, "phosphor.decay.fast", options.phosphor.decay.fast);
   get<float>(configData, "phosphor.decay.slow", options.phosphor.decay.slow);
-  get<int>(configData, "phosphor.decay.threshold", options.phosphor.decay.threshold);
+  get<float>(configData, "phosphor.decay.threshold", options.phosphor.decay.threshold);
 
   // Phosphor Screen
   get<float>(configData, "phosphor.screen.curvature", options.phosphor.screen.curvature);

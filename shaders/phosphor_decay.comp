@@ -28,8 +28,10 @@ layout(binding = 3, r32ui) uniform uimage2D ageTex;
 
 uniform float decaySlow;
 uniform float decayFast;
-uniform uint ageThreshold;
+uniform float energyThreshold;
 uniform bool colorbeam;
+
+const float TANH_DIV_FACTOR = 4290000.0;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -43,21 +45,19 @@ void main() {
   uint currentEnergyG = colorbeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorbeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  uint age = imageLoad(ageTex, coord).r; 
+  // Use energy normalized by TANH_DIV_FACTOR to determine decay rate
+  float normalizedEnergy = float(currentEnergyR) / TANH_DIV_FACTOR;
+  float thresholdLow = energyThreshold * 0.5;
+  float thresholdHigh = energyThreshold;
 
   float decay;
-  if (age < ageThreshold - 2) {
-    decay = decayFast;
-  } else if (age >= ageThreshold) {
+  if (normalizedEnergy < thresholdLow) {
     decay = decaySlow;
+  } else if (normalizedEnergy >= thresholdHigh) {
+    decay = decayFast;
   } else {
-    float t = float(age - (ageThreshold - 2)) / 2.0f;
-    decay = mix(decayFast, decaySlow, t);
-  }
-
-  if (age < ageThreshold) {
-    age += 1;
-    imageStore(ageTex, coord, uvec4(age, 0, 0, 0));
+    float t = (normalizedEnergy - thresholdLow) / (thresholdHigh - thresholdLow);
+    decay = mix(decaySlow, decayFast, t);
   }
 
   uint newEnergyR = uint(currentEnergyR * decay);

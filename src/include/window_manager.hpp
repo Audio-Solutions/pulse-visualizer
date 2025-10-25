@@ -83,7 +83,6 @@ struct VisualizerWindow {
     GLuint energyTextureR = 0;
     GLuint energyTextureG = 0;
     GLuint energyTextureB = 0;
-    GLuint ageTexture = 0;
     GLuint tempTextureR = 0;
     GLuint tempTextureG = 0;
     GLuint tempTextureB = 0;

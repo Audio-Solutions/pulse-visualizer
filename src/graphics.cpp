@@ -638,9 +638,9 @@ void ensureShaders() {
   }
 }
 
-void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
-                     const GLuint& vertexBuffer, const GLuint& vertexColorBuffer, const GLuint& energyTexR,
-                     const GLuint& energyTexG, const GLuint& energyTexB) {
+void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& vertexBuffer,
+                     const GLuint& vertexColorBuffer, const GLuint& energyTexR, const GLuint& energyTexG,
+                     const GLuint& energyTexB) {
 
   auto& shader = shaders["phosphor_compute"];
   if (!shader)
@@ -663,7 +663,6 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(2, energyTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(3, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint g = (vertexCount + 63) / 64;
   glDispatchCompute(g, 1, 1);
@@ -672,8 +671,8 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   glUseProgram(0);
 }
 
-void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTexR,
-                   const GLuint& energyTexG, const GLuint& energyTexB) {
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& energyTexR, const GLuint& energyTexG,
+                   const GLuint& energyTexB) {
   auto& shader = shaders["phosphor_decay"];
   if (!shader)
     return;
@@ -687,25 +686,24 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& age
   static GLuint cachedProgram = 0;
   static GLint loc_decaySlow = -1;
   static GLint loc_decayFast = -1;
-  static GLint loc_ageThreshold = -1;
+  static GLint loc_energyThreshold = -1;
   static GLint loc_colorbeam = -1;
   if (cachedProgram != shader) {
     loc_decaySlow = glGetUniformLocation(shader, "decaySlow");
     loc_decayFast = glGetUniformLocation(shader, "decayFast");
-    loc_ageThreshold = glGetUniformLocation(shader, "ageThreshold");
+    loc_energyThreshold = glGetUniformLocation(shader, "energyThreshold");
     loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
     cachedProgram = shader;
   }
 
   glUniform1f(loc_decaySlow, decaySlow);
   glUniform1f(loc_decayFast, decayFast);
-  glUniform1ui(loc_ageThreshold, Config::options.phosphor.decay.threshold);
+  glUniform1f(loc_energyThreshold, Config::options.phosphor.decay.threshold);
   glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(2, energyTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(3, ageTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
   GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
@@ -860,12 +858,11 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
   Graphics::Shader::ensureShaders();
 
   // Apply decay to phosphor effect
-  Shader::dispatchDecay(win, win->phosphor.ageTexture, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
-                        win->phosphor.energyTextureB);
+  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB);
 
   // Add new points if rendering is enabled
   if (renderPoints)
-    Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), win->phosphor.ageTexture, SDLWindow::vertexBuffer,
+    Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer,
                             SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
                             win->phosphor.energyTextureB);
 

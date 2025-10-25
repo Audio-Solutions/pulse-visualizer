@@ -269,9 +269,9 @@ void VisualizerWindow::resizeTextures() {
       (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::states[group].windowSizes.second);
 
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
-                        &phosphor.ageTexture,     &phosphor.tempTextureR,   &phosphor.tempTextureG,
-                        &phosphor.tempTextureB,   &phosphor.tempTexture2R,  &phosphor.tempTexture2G,
-                        &phosphor.tempTexture2B,  &phosphor.outputTexture};
+                        &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
+                        &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
+                        &phosphor.outputTexture};
 
   bool textureUninitialized = [textures]() -> bool {
     for (auto texture : textures) {
@@ -601,9 +601,9 @@ void VisualizerWindow::cleanup() {
   SDLWindow::selectWindow(group);
   // Cleanup phosphor effect textures
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
-                        &phosphor.ageTexture,     &phosphor.tempTextureR,   &phosphor.tempTextureG,
-                        &phosphor.tempTextureB,   &phosphor.tempTexture2R,  &phosphor.tempTexture2G,
-                        &phosphor.tempTexture2B,  &phosphor.outputTexture};
+                        &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
+                        &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
+                        &phosphor.outputTexture};
 
   for (auto texture : textures) {
     if (*texture) {

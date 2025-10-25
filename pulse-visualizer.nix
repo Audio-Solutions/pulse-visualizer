@@ -19,14 +19,9 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "1.3.1";
+  version = "1.3.3";
 
-  src = fetchFromGitHub {
-    owner = "Audio-Solutions";
-    repo = "pulse-visualizer";
-    rev = "90dce5cc3c01c7a19d48fcb23cdc383cfb6008e8";
-    hash = "sha256-Ln3rI2U3dm7oxXeIqPyRqFXcZSKjCK11kkSQvBSmrnU=";
-  };
+  src = ./.;
 
   nativeBuildInputs = [
     cmake

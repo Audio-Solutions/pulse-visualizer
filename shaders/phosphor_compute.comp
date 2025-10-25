@@ -36,7 +36,6 @@ layout(std430, binding = 1) restrict readonly buffer SplineColorBuffer {
 layout(r32ui, binding = 0) restrict uniform uimage2D energyTexR;
 layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
-layout(r32ui, binding = 3) restrict uniform uimage2D ageTex;
 
 uniform bool colorbeam;
 
@@ -76,7 +75,7 @@ void main() {
   uint energyPerStep = max(1u, totalSegmentEnergy / uint(numSteps));
   float energyPerStepF = float(energyPerStep);
   const float ENERGY_THRESH_F = 100.0;
-  ivec2 texSize = imageSize(ageTex);
+  ivec2 texSize = imageSize(energyTexR);
   vec3 colorRGB = color.rgb * color.a;
   
   // Interpolate along the segment
@@ -98,7 +97,6 @@ void main() {
         imageAtomicAdd(energyTexR, coord00, uint(e00 * colorRGB.r));
         imageAtomicAdd(energyTexG, coord00, uint(e00 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord00, uint(e00 * colorRGB.b));
-        imageStore(ageTex, coord00, uvec4(0));
       }
 
       // Top-right (1,0)
@@ -108,7 +106,6 @@ void main() {
         imageAtomicAdd(energyTexR, coord10, uint(e10 * colorRGB.r));
         imageAtomicAdd(energyTexG, coord10, uint(e10 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord10, uint(e10 * colorRGB.b));
-        imageStore(ageTex, coord10, uvec4(0));
       }
 
       // Bottom-left (0,1)
@@ -118,7 +115,6 @@ void main() {
         imageAtomicAdd(energyTexR, coord01, uint(e01 * colorRGB.r));
         imageAtomicAdd(energyTexG, coord01, uint(e01 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord01, uint(e01 * colorRGB.b));
-        imageStore(ageTex, coord01, uvec4(0));
       }
 
       // Bottom-right (1,1)
@@ -128,7 +124,6 @@ void main() {
         imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
         imageAtomicAdd(energyTexG, coord11, uint(e11 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord11, uint(e11 * colorRGB.b));
-        imageStore(ageTex, coord11, uvec4(0));
       }
 
       interpPos += stepSize;
@@ -148,7 +143,6 @@ void main() {
       float e00 = energyPerStepF * (inv_fx * inv_fy);
       if (e00 > ENERGY_THRESH_F && coord00.x >= 0 && coord00.x < texSize.x && coord00.y >= 0 && coord00.y < texSize.y) {
         imageAtomicAdd(energyTexR, coord00, uint(e00 * colorRGB.r));
-        imageStore(ageTex, coord00, uvec4(0));
       }
 
       // Top-right (1,0)
@@ -156,7 +150,6 @@ void main() {
       float e10 = energyPerStepF * (fract.x * inv_fy);
       if (e10 > ENERGY_THRESH_F && coord10.x >= 0 && coord10.x < texSize.x && coord10.y >= 0 && coord10.y < texSize.y) {
         imageAtomicAdd(energyTexR, coord10, uint(e10 * colorRGB.r));
-        imageStore(ageTex, coord10, uvec4(0));
       }
 
       // Bottom-left (0,1)
@@ -164,7 +157,6 @@ void main() {
       float e01 = energyPerStepF * (inv_fx * fract.y);
       if (e01 > ENERGY_THRESH_F && coord01.x >= 0 && coord01.x < texSize.x && coord01.y >= 0 && coord01.y < texSize.y) {
         imageAtomicAdd(energyTexR, coord01, uint(e01 * colorRGB.r));
-        imageStore(ageTex, coord01, uvec4(0));
       }
 
       // Bottom-right (1,1)
@@ -172,7 +164,6 @@ void main() {
       float e11 = energyPerStepF * (fract.x * fract.y);
       if (e11 > ENERGY_THRESH_F && coord11.x >= 0 && coord11.x < texSize.x && coord11.y >= 0 && coord11.y < texSize.y) {
         imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
-        imageStore(ageTex, coord11, uvec4(0));
       }
 
       interpPos += stepSize;

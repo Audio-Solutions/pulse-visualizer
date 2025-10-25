@@ -892,9 +892,9 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "decay_fast", &Config::options.phosphor.decay.fast, 1.f, 100.f,
                                "Fast decay rate", "Fast decay rate of phosphor persistence");
 
-    // age_threshold
-    createSliderElement<int>(page, cy, "age_threshold", &Config::options.phosphor.decay.threshold, 1, 1000,
-                             "Age threshold", "Age threshold for phosphor decay", 0);
+    // energy_threshold
+    createSliderElement<float>(page, cy, "energy_threshold", &Config::options.phosphor.decay.threshold, 0.0f, 2.0f,
+                               "Energy threshold", "Energy threshold for phosphor decay", 3);
 
     createHeaderElement(page, cy, "screen", "Screen");
 
