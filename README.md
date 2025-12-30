@@ -54,6 +54,25 @@ Or change directory to the project root and add it to your shell via:
 ```bash
 nix-shell
 ```
+With flakes:
+```nix
+inputs.pulse-visualizer.url = "github:Audio-Solutions/pulse-visualizer";
+
+environment.systemPackages = [ pulse-visualizer.packages.${system}.default ];
+
+# or
+nixpkgs.overlays = [ pulse-visualizer.overlays.default ];
+environment.systemPackages = [ pkgs.pulse-visualizer ];
+```
+A flake-based shell can be activated using:
+```bash
+nix develop
+
+nix build .#pulse-visualizer
+# or
+nix run .#pulse-visualizer
+```
+Build artifacts are located in `result/bin`.
 ### Other Distros
 You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest). There is an install script in the tarball, make sure to run it as root before running the binary:
 ```bash

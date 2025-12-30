@@ -1,0 +1,93 @@
+{
+  description = "Real-time audio visualizer inspired by MiniMeters";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
+  outputs =
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      perSystem =
+        {
+          pkgs,
+          lib,
+          self',
+          ...
+        }:
+        let
+          mkPulseVisualizer = pkgs.stdenv.mkDerivation {
+            pname = "pulse-visualizer";
+            version = "1.3.3";
+            src = ./.;
+
+            nativeBuildInputs = [
+              pkgs.cmake
+              pkgs.ninja
+              pkgs.pkg-config
+              pkgs.clang
+            ];
+
+            buildInputs = [
+              pkgs.sdl3
+              pkgs.libpulseaudio
+              pkgs.pipewire
+              pkgs.fftwFloat
+              pkgs.freetype
+              pkgs.glew
+              pkgs.libGL
+              pkgs.yaml-cpp
+              pkgs.libebur128
+            ];
+
+            strictDeps = true;
+            enableParallelBuilding = true;
+
+            postPatch = ''
+              substituteInPlace CMakeLists.txt \
+                --replace-fail " -march=native" "" \
+                --replace-fail " -mtune=native" "" \
+                --replace-fail "-Wl,-s" "" \
+                --replace-fail " -s" "" \
+                --replace-fail 'set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix" FORCE)' ""
+            '';
+
+            cmakeFlags = [
+              "-G Ninja"
+              "-DCMAKE_CXX_COMPILER=clang++"
+              "-DCMAKE_C_COMPILER=clang"
+              "-DCMAKE_BUILD_TYPE=Release"
+            ];
+
+            meta = {
+              description = "Real-time audio visualizer inspired by MiniMeters";
+              homepage = "https://github.com/Audio-Solutions/pulse-visualizer";
+              license = lib.licenses.gpl3;
+              maintainers = with lib.maintainers; [ miyu ];
+              platforms = lib.platforms.linux;
+              badPlatforms = lib.platforms.darwin;
+            };
+          };
+        in
+        {
+          packages.default = mkPulseVisualizer;
+          packages.pulse-visualizer = mkPulseVisualizer;
+
+          devShells.default = pkgs.mkShell {
+            inputsFrom = [ mkPulseVisualizer ];
+          };
+
+          apps.default = {
+            type = "app";
+            program = "${self'.packages.default}/bin/pulse-visualizer";
+          };
+        };
+
+      flake.overlays.default = final: prev: {
+        pulse-visualizer = final.callPackage ./. { };
+      };
+    };
+}
