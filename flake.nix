@@ -5,7 +5,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
   outputs =
-    inputs@{ flake-parts, ... }:
+    inputs@{ flake-parts, self, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
         "x86_64-linux"
@@ -87,7 +87,7 @@
         };
 
       flake.overlays.default = final: prev: {
-        pulse-visualizer = final.callPackage ./. { };
+        pulse-visualizer = self.packages.${final.system}.default;
       };
     };
 }
