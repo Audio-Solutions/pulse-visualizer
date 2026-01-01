@@ -93,14 +93,25 @@ void render() {
     float x = static_cast<float>(i) * scale;
     float y;
 
+    float mul = 1.0f;
+    if (Config::options.oscilloscope.edge_compression.enabled) {
+      float r = Config::options.oscilloscope.edge_compression.range;
+      float t = x / (float)window->width;
+      float d = fminf(t, 1.0f - t);
+      float xnorm = fminf(fmaxf(d / r, 0.0f), 1.0f);
+
+      // smoothstep up from 0 at the edge to 1 at d >= r
+      mul = xnorm * xnorm * (3.0f - 2.0f * xnorm);
+    }
+
     // Choose between bandpassed or raw audio data
     if (Config::options.debug.show_bandpassed) [[unlikely]]
-      y = height * 0.5f + DSP::bandpassed[pos] * 0.5f * height - 0.5f;
+      y = height * 0.5f + DSP::bandpassed[pos] * mul * 0.5f * height - 0.5f;
     else if (Config::options.oscilloscope.lowpass.enabled)
       y = height * 0.5f +
-          DSP::lowpassed[(pos + DSP::FIR::bandpass_filter.order / 4) % DSP::bufferSize] * 0.5f * height - 0.5f;
+          DSP::lowpassed[(pos + DSP::FIR::bandpass_filter.order / 4) % DSP::bufferSize] * mul * 0.5f * height - 0.5f;
     else
-      y = height * 0.5f + DSP::bufferMid[pos] * 0.5f * height - 0.5f;
+      y = height * 0.5f + DSP::bufferMid[pos] * mul * 0.5f * height - 0.5f;
 
     if (Config::options.oscilloscope.flip_x)
       y = height - y;

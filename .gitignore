@@ -80,3 +80,7 @@ config
 
 # vcpkg stuff
 vcpkg_installed/
+
+# NixOS
+.envrc
+.direnv

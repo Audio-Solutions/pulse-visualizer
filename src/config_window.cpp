@@ -49,12 +49,12 @@ static struct DragState {
 
 // Friendly names for visualizers
 static std::map<std::string, std::string> vizLabels = {
-    {"spectrum_analyzer", "Spectrum"    },
-    {"lissajous",         "Lissajous"   },
-    {"oscilloscope",      "Oscilloscope"},
-    {"spectrogram",       "Spectrogram" },
-    {"lufs",              "LUFS"        },
-    {"vu",                "VU"          }
+    {"spectrum_analyzer", "Spectrum Analyzer"},
+    {"lissajous",         "Lissajous"        },
+    {"oscilloscope",      "Oscilloscope"     },
+    {"spectrogram",       "Spectrogram"      },
+    {"lufs",              "LUFS"             },
+    {"vu",                "VU"               }
 };
 
 static int newWindowCounter = 1;
@@ -356,6 +356,17 @@ inline void initPages() {
     // time_window
     createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.window, 1.f, 500.f,
                                "Time window (ms)", "Time window for oscilloscope in ms");
+
+    createHeaderElement(page, cy, "edgecomp", "Edge Compression");
+
+    // enabled
+    createCheckElement(page, cy, "enable_edgecomp", &Config::options.oscilloscope.edge_compression.enabled,
+                       "Enable edge compression",
+                       "Enable edge compression, an effect similar to Wave Candy in FL-Studio");
+
+    // range
+    createSliderElement(page, cy, "edgecomp_range", &Config::options.oscilloscope.edge_compression.range, 0.0f, 1.0f,
+                        "Range", "How much of the edges to compress", 2);
 
     createHeaderElement(page, cy, "filters", "Filters");
 
@@ -894,7 +905,11 @@ inline void initPages() {
 
     // energy_threshold
     createSliderElement<float>(page, cy, "energy_threshold", &Config::options.phosphor.decay.threshold, 0.0f, 2.0f,
-                               "Energy threshold", "Energy threshold for phosphor decay", 3);
+                               "Energy threshold", "Threshold where the decay speed changes from fast to slow", 3);
+
+    // Blend Factor
+    createSliderElement<float>(page, cy, "blend", &Config::options.phosphor.decay.blend, 0.0f, 1.0f, "Blend strength",
+                               "How much blend happens between the fast and slow decay rates.", 3);
 
     createHeaderElement(page, cy, "screen", "Screen");
 
@@ -1524,7 +1539,7 @@ std::string pageToString(PageType page) {
   case PageType::Lissajous:
     return "Lissajous";
   case PageType::FFT:
-    return "FFT";
+    return "Spectrum Analyzer";
   case PageType::Spectrogram:
     return "Spectrogram";
   case PageType::Audio:

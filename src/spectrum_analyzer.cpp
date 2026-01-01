@@ -481,8 +481,8 @@ void render() {
   float mouseXRel = state.mousePos.first - window->x;
   float mouseYRel = state.mousePos.second;
 
-  bool showCursor = window->hovering && !Config::options.fft.sphere.enabled &&
-                    Config::options.phosphor.screen.curvature < FLT_EPSILON && Config::options.fft.cursor;
+  bool showCursor = window->hovering && !Config::options.fft.sphere.enabled && Config::options.fft.cursor &&
+                    !Config::options.phosphor.enabled;
 
   if (showCursor) {
     // Check if mouse is within window bounds

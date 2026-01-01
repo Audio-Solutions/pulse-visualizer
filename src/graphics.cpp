@@ -687,11 +687,13 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   static GLint loc_decaySlow = -1;
   static GLint loc_decayFast = -1;
   static GLint loc_energyThreshold = -1;
+  static GLint loc_blendStrength = -1;
   static GLint loc_colorbeam = -1;
   if (cachedProgram != shader) {
     loc_decaySlow = glGetUniformLocation(shader, "decaySlow");
     loc_decayFast = glGetUniformLocation(shader, "decayFast");
     loc_energyThreshold = glGetUniformLocation(shader, "energyThreshold");
+    loc_blendStrength = glGetUniformLocation(shader, "blendStrength");
     loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
     cachedProgram = shader;
   }
@@ -699,6 +701,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   glUniform1f(loc_decaySlow, decaySlow);
   glUniform1f(loc_decayFast, decayFast);
   glUniform1f(loc_energyThreshold, Config::options.phosphor.decay.threshold);
+  glUniform1f(loc_blendStrength, Config::options.phosphor.decay.blend);
   glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);

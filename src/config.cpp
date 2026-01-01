@@ -317,6 +317,10 @@ void load(bool recovering) {
   get<Rotation>(configData, "oscilloscope.rotation", options.oscilloscope.rotation);
   get<float>(configData, "oscilloscope.window", options.oscilloscope.window);
 
+  // Oscilloscope Edge Comp
+  get<bool>(configData, "oscilloscope.edge_compression.enabled", options.oscilloscope.edge_compression.enabled);
+  get<float>(configData, "oscilloscope.edge_compression.range", options.oscilloscope.edge_compression.range);
+
   // Oscilloscope Pitch
   get<bool>(configData, "oscilloscope.pitch.follow", options.oscilloscope.pitch.follow);
   get<std::string>(configData, "oscilloscope.pitch.type", options.oscilloscope.pitch.type);
@@ -418,6 +422,7 @@ void load(bool recovering) {
   get<float>(configData, "phosphor.decay.fast", options.phosphor.decay.fast);
   get<float>(configData, "phosphor.decay.slow", options.phosphor.decay.slow);
   get<float>(configData, "phosphor.decay.threshold", options.phosphor.decay.threshold);
+  get<float>(configData, "phosphor.decay.blend", options.phosphor.decay.blend);
 
   // Phosphor Screen
   get<float>(configData, "phosphor.screen.curvature", options.phosphor.screen.curvature);
@@ -524,6 +529,10 @@ bool save() {
   root["oscilloscope"]["rotation"] = static_cast<int>(options.oscilloscope.rotation);
   root["oscilloscope"]["window"] = options.oscilloscope.window;
 
+  // Oscilloscope Edge Comp
+  root["oscilloscope"]["edge_compression"]["enabled"] = options.oscilloscope.edge_compression.enabled;
+  root["oscilloscope"]["edge_compression"]["range"] = options.oscilloscope.edge_compression.range;
+
   // Oscilloscope Pitch
   root["oscilloscope"]["pitch"]["follow"] = options.oscilloscope.pitch.follow;
   root["oscilloscope"]["pitch"]["type"] = options.oscilloscope.pitch.type;
@@ -558,6 +567,7 @@ bool save() {
   root["phosphor"]["decay"]["fast"] = options.phosphor.decay.fast;
   root["phosphor"]["decay"]["slow"] = options.phosphor.decay.slow;
   root["phosphor"]["decay"]["threshold"] = options.phosphor.decay.threshold;
+  root["phosphor"]["decay"]["blend"] = options.phosphor.decay.blend;
 
   // Phosphor Screen
   root["phosphor"]["screen"]["curvature"] = options.phosphor.screen.curvature;

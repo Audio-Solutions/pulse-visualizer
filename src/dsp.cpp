@@ -698,7 +698,7 @@ int FFTMain() {
       size_t bins = fftMid.size();
       size_t i = 0;
       bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
-                      !Config::options.fft.sphere.enabled && Config::options.phosphor.screen.curvature < FLT_EPSILON &&
+                      !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled &&
                       Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
@@ -852,7 +852,7 @@ int FFTAlt() {
       size_t bins = fftSide.size();
       size_t i = 0;
       bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
-                      !Config::options.fft.sphere.enabled && Config::options.phosphor.screen.curvature < FLT_EPSILON &&
+                      !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled &&
                       Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =

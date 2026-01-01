@@ -35,6 +35,11 @@ struct Options {
     Rotation rotation = ROTATION_0;
     float window = 50.0f;
 
+    struct EdgeCompression {
+      bool enabled = false;
+      float range = 0.1;
+    } edge_compression;
+
     struct Pitch {
       bool follow = true;
       std::string type = "zero_crossing";
@@ -156,7 +161,8 @@ struct Options {
     struct Decay {
       float fast = 40.0f;
       float slow = 6.0f;
-      float threshold = 1;
+      float threshold = 0.1;
+      float blend = 0.1;
     } decay;
 
     struct Screen {
