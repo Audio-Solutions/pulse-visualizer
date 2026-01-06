@@ -46,8 +46,9 @@ void main() {
   uint currentEnergyG = colorbeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorbeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  float totalEnergy = float(currentEnergyR + currentEnergyG + currentEnergyB);
-  float normalizedEnergy = totalEnergy / TANH_DIV_FACTOR;
+  float beamCount = colorbeam ? 3.0 : 1.0;
+  float avgEnergy = float(currentEnergyR + currentEnergyG + currentEnergyB) / beamCount;
+  float normalizedEnergy = avgEnergy / TANH_DIV_FACTOR;
 
   float maxHalfWidth = energyThreshold;
   float halfWidth = maxHalfWidth * blendStrength;
