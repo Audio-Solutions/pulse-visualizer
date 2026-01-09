@@ -443,13 +443,21 @@ inline void initPages() {
           "normal is the default mode");
     }
 
-    // readback_multiplier
-    createSliderElement<float>(page, cy, "readback_multiplier", &Config::options.lissajous.readback_multiplier, 0.f,
-                               10.f, "Readback multiplier",
-                               "Readback multiplier of the data\n"
-                               "Defines how much of the previous data is redrawn\n"
-                               "Higher value means more data is redrawn, which stabilizes the lissajous.\n"
-                               "Caveat is a minor increase in CPU usage.");
+    // spline_tension
+    createSliderElement<float>(page, cy, "spline_tension", &Config::options.lissajous.spline_tension, 0.f, 2.f,
+                               "Spline Tension",
+                               "Controls how strongly the curve bends between points.\n"
+                               "0 = straight segments (no smoothing), 1 = standard smooth Catmull-Rom.\n"
+                               "Higher values (>1) increase curvature and can cause overshoot around sharp peaks.",
+                               2);
+
+    // spline_segments
+    createSliderElement<int>(page, cy, "spline_segments", &Config::options.lissajous.spline_segments, 0, 32,
+                             "Spline Density",
+                             "Number of interpolated points between each pair of samples.\n"
+                             "Lower values: faster, more angular.\n"
+                             "Higher values: smoother, but more points to draw.",
+                             1, true);
 
     // beam_multiplier
     createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.lissajous.beam_multiplier, 0.f, 10.f,
@@ -951,10 +959,6 @@ inline void initPages() {
                        "Enable rainbow beam effect\n"
                        "This will make the beam color rotate around the hue depending on the direction its going.\n"
                        "This is GPU intensive, so it is disabled by default.");
-
-    // tension
-    createSliderElement<float>(page, cy, "tension", &Config::options.phosphor.beam.tension, 0.f, 1.f, "Tension",
-                               "Tension of Catmull-Rom splines", 3);
 
     // line_width
     createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.beam.width, 0.1f, 10.f, "Line width",

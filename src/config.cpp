@@ -339,7 +339,8 @@ void load(bool recovering) {
 
   // Load Lissajous configuration
   get<float>(configData, "lissajous.beam_multiplier", options.lissajous.beam_multiplier);
-  get<float>(configData, "lissajous.readback_multiplier", options.lissajous.readback_multiplier);
+  get<float>(configData, "lissajous.spline_tension", options.lissajous.spline_tension);
+  get<int>(configData, "lissajous.spline_density", options.lissajous.spline_segments);
   get<std::string>(configData, "lissajous.mode", options.lissajous.mode);
   get<Rotation>(configData, "lissajous.rotation", options.lissajous.rotation);
 
@@ -411,7 +412,6 @@ void load(bool recovering) {
   get<float>(configData, "phosphor.beam.energy", options.phosphor.beam.energy);
   get<bool>(configData, "phosphor.beam.rainbow", options.phosphor.beam.rainbow);
   get<float>(configData, "phosphor.beam.width", options.phosphor.beam.width);
-  get<float>(configData, "phosphor.beam.tension", options.phosphor.beam.tension);
 
   // Phosphor Blur
   get<float>(configData, "phosphor.blur.spread", options.phosphor.blur.spread);
@@ -515,7 +515,8 @@ bool save() {
   // Lissajous
   root["lissajous"]["beam_multiplier"] = options.lissajous.beam_multiplier;
   root["lissajous"]["mode"] = options.lissajous.mode;
-  root["lissajous"]["readback_multiplier"] = options.lissajous.readback_multiplier;
+  root["lissajous"]["spline_tension"] = options.lissajous.spline_tension;
+  root["lissajous"]["spline_density"] = options.lissajous.spline_segments;
   root["lissajous"]["rotation"] = static_cast<int>(options.lissajous.rotation);
 
   // LUFS
@@ -556,7 +557,6 @@ bool save() {
   root["phosphor"]["beam"]["energy"] = options.phosphor.beam.energy;
   root["phosphor"]["beam"]["rainbow"] = options.phosphor.beam.rainbow;
   root["phosphor"]["beam"]["width"] = options.phosphor.beam.width;
-  root["phosphor"]["beam"]["tension"] = options.phosphor.beam.tension;
 
   // Phosphor Blur
   root["phosphor"]["blur"]["spread"] = options.phosphor.blur.spread;

@@ -1169,16 +1169,35 @@ namespace RMS {
 float rms;
 
 void process() {
-  size_t samples = Config::options.audio.sample_rate * Config::options.vu.window / 1000.0f;
-  size_t start = (writePos - samples + bufferSize) % bufferSize;
-  rms = 0.0f;
-  for (size_t i = 0; i < samples; ++i) {
-    size_t bufferIdx = (start + i) % bufferSize;
-    float& sample = bufferMid[bufferIdx];
-    rms += sample * sample;
+  const float sampleRate = Config::options.audio.sample_rate;
+  const float windowMs = Config::options.vu.window;
+
+  size_t samples = 0;
+  if (sampleRate > 0.0f && windowMs > 0.0f) {
+    const double raw = static_cast<double>(sampleRate) * static_cast<double>(windowMs) / 1000.0;
+    if (raw > 0.0) {
+      const double clamped = std::min(raw, static_cast<double>(bufferSize));
+      samples = static_cast<size_t>(clamped);
+    }
   }
-  rms /= samples;
-  rms = sqrt(rms);
+
+  if (samples == 0) {
+    rms = 0.0f;
+    return;
+  }
+
+  const size_t start = (writePos + bufferSize - samples) % bufferSize;
+
+  double acc = 0.0;
+  for (size_t i = 0; i < samples; ++i) {
+    const size_t bufferIdx = (start + i);
+    const size_t wrappedIdx = bufferIdx % bufferSize;
+    const float sample = bufferMid[wrappedIdx];
+    acc += static_cast<double>(sample) * static_cast<double>(sample);
+  }
+
+  const double mean = acc / static_cast<double>(samples);
+  rms = static_cast<float>(std::sqrt(std::max(mean, 0.0)));
 }
 
 } // namespace RMS

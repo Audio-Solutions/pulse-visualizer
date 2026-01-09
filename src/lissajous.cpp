@@ -36,11 +36,22 @@ void render() {
     return;
 
   // Calculate how many samples to read based on buffer position
-  size_t readCount = Config::options.audio.sample_rate / Config::options.window.fps_limit *
-                     (1.f + Config::options.lissajous.readback_multiplier);
+  static size_t prevWrite = 0;
+  static size_t prevReadCount = 0;
 
-  if (readCount == 0)
-    return;
+  size_t readCount = (DSP::writePos + DSP::bufferSize - prevWrite) % DSP::bufferSize;
+  prevWrite = DSP::writePos;
+
+  // Sane limit to avoid lag (5x expected samples)
+  if (readCount > Config::options.audio.sample_rate / Config::options.window.fps_limit * 5)
+    readCount = Config::options.audio.sample_rate / Config::options.window.fps_limit * 5;
+
+  // Compensate for gap created with the shader's line drawing algo and potentially the catmull-rom spline
+  readCount++;
+
+  if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0) {
+    readCount += 3;
+  }
 
   // Resize points vector to hold new data
   points.resize(readCount);
@@ -73,7 +84,9 @@ void render() {
   }
 
   // Apply spline smoothing
-  points = Spline::generate<10>(points, {1.f, 0.f}, {window->width - 1, window->width});
+  if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0)
+    points = Spline::generate(points, {1.f, 0.f}, {window->width - 1, window->width},
+                              Config::options.lissajous.spline_segments, Config::options.lissajous.spline_tension);
 
   // Apply stretch mode if enabled
   const std::string& mode = Config::options.lissajous.mode;
@@ -163,11 +176,18 @@ void render() {
     constexpr float REF_AREA = 200.f * 200.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * window->width);
 
-    energy *= Config::options.lissajous.beam_multiplier / (1.f + Config::options.lissajous.readback_multiplier) / 10.f;
+    energy *= Config::options.lissajous.beam_multiplier /
+              (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0
+                   ? Config::options.lissajous.spline_segments
+                   : 1.0f);
 
-    float dt = 1.f / Config::options.audio.sample_rate;
+    float dt_sample = 1.f / Config::options.audio.sample_rate;
+    float dt_frame = WindowManager::dt;
 
-    // Calculate energy for each line segment
+    float slow = Config::options.phosphor.decay.slow;
+    float fast = Config::options.phosphor.decay.fast;
+    float blend = Config::options.phosphor.decay.blend;
+
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
       const auto& p2 = points[i + 1];
@@ -175,8 +195,17 @@ void render() {
       float dx = p2.first - p1.first;
       float dy = p2.second - p1.second;
       float len = std::max(FLT_EPSILON, sqrtf(dx * dx + dy * dy));
-      float totalE = energy * (dt / len);
 
+      // Age of this segment in seconds
+      size_t idx_from_end = points.size() - 1 - i;
+      float age = idx_from_end * dt_sample;
+
+      // Same decay law as shader
+      float decaySlow = expf(-slow * age);
+      float decayFast = expf(-fast * age);
+      float decay = decaySlow * (1.f - blend) + decayFast * blend;
+
+      float totalE = energy * decay * (dt_sample / len);
       energies.push_back(totalE);
     }
 

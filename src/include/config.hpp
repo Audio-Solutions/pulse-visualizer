@@ -62,7 +62,8 @@ struct Options {
 
   struct Lissajous {
     float beam_multiplier = 1.0f;
-    float readback_multiplier = 1.0f;
+    int spline_segments = 10;
+    float spline_tension = 0.5f;
     std::string mode = "none";
     Rotation rotation = ROTATION_0;
   } lissajous;
@@ -149,7 +150,6 @@ struct Options {
       float energy = 90.0f;
       bool rainbow = false;
       float width = 0.5f;
-      float tension = 0.5f;
     } beam;
 
     struct Blur {
