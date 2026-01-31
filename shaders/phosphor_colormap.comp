@@ -39,9 +39,6 @@ uniform bool colorbeam;
 uniform float borderReflectionStrength;
 uniform int boxBlurSize;
 
-// Precomputed constants
-const float TANH_DIV_FACTOR = 4290000;
-
 // CRT distortion function
 // Simulates the curved surface of a CRT monitor
 vec2 crtDistortion(vec2 uv) {
@@ -346,9 +343,9 @@ void main() {
   }
 
   // Scale energy for tanh mapping
-  energyR /= TANH_DIV_FACTOR;
-  energyG /= TANH_DIV_FACTOR;
-  energyB /= TANH_DIV_FACTOR;
+  energyR /= 5e5;
+  energyG /= 5e5;
+  energyB /= 5e5;
 
   // Map to color using tanhColormap per channel
   vec3 screenColor;
@@ -382,9 +379,9 @@ void main() {
         refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
       }
 
-      float rRef = refRGB.r / TANH_DIV_FACTOR;
-      float gRef = refRGB.g / TANH_DIV_FACTOR;
-      float bRef = refRGB.b / TANH_DIV_FACTOR;
+      float rRef = refRGB.r / 5e5;
+      float gRef = refRGB.g / 5e5;
+      float bRef = refRGB.b / 5e5;
 
       vec3 reflectColor;
       if (colorbeam) {

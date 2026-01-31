@@ -617,7 +617,7 @@ void ensureShaders() {
     if (!shaderProgram)
       continue;
 
-    LOG_DEBUG("Loading shader " << name);
+    LOG_DEBUG("Loading shader " << name << " from: " << path.second.c_str());
 
     // Create shader program
     shader = glCreateProgram();
@@ -672,41 +672,35 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 }
 
 void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& energyTexR, const GLuint& energyTexG,
-                   const GLuint& energyTexB) {
+                   const GLuint& energyTexB, const GLuint& outputTexR, const GLuint& outputTexG,
+                   const GLuint& outputTexB) {
   auto& shader = shaders["phosphor_decay"];
   if (!shader)
     return;
 
   glUseProgram(shader);
 
-  float decaySlow = exp(-WindowManager::dt * Config::options.phosphor.decay.slow);
-  float decayFast = exp(-WindowManager::dt * Config::options.phosphor.decay.fast);
+  float decay = exp(-WindowManager::dt * Config::options.phosphor.decay);
 
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
-  static GLint loc_decaySlow = -1;
-  static GLint loc_decayFast = -1;
-  static GLint loc_energyThreshold = -1;
-  static GLint loc_blendStrength = -1;
+  static GLint loc_decay = -1;
   static GLint loc_colorbeam = -1;
   if (cachedProgram != shader) {
-    loc_decaySlow = glGetUniformLocation(shader, "decaySlow");
-    loc_decayFast = glGetUniformLocation(shader, "decayFast");
-    loc_energyThreshold = glGetUniformLocation(shader, "energyThreshold");
-    loc_blendStrength = glGetUniformLocation(shader, "blendStrength");
+    loc_decay = glGetUniformLocation(shader, "decay");
     loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
     cachedProgram = shader;
   }
 
-  glUniform1f(loc_decaySlow, decaySlow);
-  glUniform1f(loc_decayFast, decayFast);
-  glUniform1f(loc_energyThreshold, Config::options.phosphor.decay.threshold);
-  glUniform1f(loc_blendStrength, Config::options.phosphor.decay.blend);
+  glUniform1f(loc_decay, decay);
   glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(2, energyTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(3, outputTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(4, outputTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+  glBindImageTexture(5, outputTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->width + 7) / 8;
   GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
@@ -860,38 +854,39 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   Graphics::Shader::ensureShaders();
 
-  // Apply decay to phosphor effect
-  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB);
-
   // Add new points if rendering is enabled
   if (renderPoints)
     Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer,
                             SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
                             win->phosphor.energyTextureB);
 
-  // Copy energyTexture{R,G,B} to tempTexture2{R,G,B}
-  glCopyImageSubData(win->phosphor.energyTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2R,
-                     GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+  // Apply decay to phosphor effect
+  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB,
+                        win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB);
+
+  // Copy tempTexture{R,G,B} to tempTexture3{R,G,B}
+  glCopyImageSubData(win->phosphor.tempTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3R, GL_TEXTURE_2D,
+                     0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
 
   if (Config::options.phosphor.beam.rainbow) {
-    glCopyImageSubData(win->phosphor.energyTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2G,
+    glCopyImageSubData(win->phosphor.tempTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3G,
                        GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
-    glCopyImageSubData(win->phosphor.energyTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2B,
+    glCopyImageSubData(win->phosphor.tempTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3B,
                        GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
   }
 
   // Apply multiple additive blur passes
   for (int k = 0; k < 2; k++) {
-    Shader::dispatchBlur(win, 0, k, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
-                         win->phosphor.energyTextureB, win->phosphor.tempTextureR, win->phosphor.tempTextureG,
-                         win->phosphor.tempTextureB);
-    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB,
+    Shader::dispatchBlur(win, 0, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB,
                          win->phosphor.tempTexture2R, win->phosphor.tempTexture2G, win->phosphor.tempTexture2B);
+    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
+                         win->phosphor.tempTexture2B, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
+                         win->phosphor.tempTexture3B);
   }
 
   // Apply colormap to final result
-  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
-                           win->phosphor.tempTexture2B, win->phosphor.outputTexture);
+  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
+                           win->phosphor.tempTexture3B, win->phosphor.outputTexture);
 }
 } // namespace Phosphor
 

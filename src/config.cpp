@@ -419,10 +419,7 @@ void load(bool recovering) {
   get<float>(configData, "phosphor.blur.far_intensity", options.phosphor.blur.far_intensity);
 
   // Phosphor Decay
-  get<float>(configData, "phosphor.decay.fast", options.phosphor.decay.fast);
-  get<float>(configData, "phosphor.decay.slow", options.phosphor.decay.slow);
-  get<float>(configData, "phosphor.decay.threshold", options.phosphor.decay.threshold);
-  get<float>(configData, "phosphor.decay.blend", options.phosphor.decay.blend);
+  get<float>(configData, "phosphor.decay", options.phosphor.decay);
 
   // Phosphor Screen
   get<float>(configData, "phosphor.screen.curvature", options.phosphor.screen.curvature);
@@ -564,10 +561,7 @@ bool save() {
   root["phosphor"]["blur"]["far_intensity"] = options.phosphor.blur.far_intensity;
 
   // Phosphor Decay
-  root["phosphor"]["decay"]["fast"] = options.phosphor.decay.fast;
-  root["phosphor"]["decay"]["slow"] = options.phosphor.decay.slow;
-  root["phosphor"]["decay"]["threshold"] = options.phosphor.decay.threshold;
-  root["phosphor"]["decay"]["blend"] = options.phosphor.decay.blend;
+  root["phosphor"]["decay"] = options.phosphor.decay;
 
   // Phosphor Screen
   root["phosphor"]["screen"]["curvature"] = options.phosphor.screen.curvature;

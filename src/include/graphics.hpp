@@ -198,7 +198,6 @@ void cleanup();
  * @brief Dispatch compute shader for phosphor effect
  * @param win Visualizer window
  * @param vertexCount Number of vertices
- * @param ageTex Age texture
  * @param vertexBuffer Vertex buffer
  * @param vertexColorBuffer Vertex color buffer
  * @param energyTexR Energy texture R
@@ -206,19 +205,23 @@ void cleanup();
  * @param energyTexB Energy texture B
  * @param out Output texture
  */
-void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& ageTex,
-                     const GLuint& vertexBuffer, const GLuint& vertexColorBuffer, const GLuint& energyTexR,
-                     const GLuint& energyTexG, const GLuint& energyTexB);
+void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& vertexBuffer,
+                     const GLuint& vertexColorBuffer, const GLuint& energyTexR, const GLuint& energyTexG,
+                     const GLuint& energyTexB);
 
 /**
  * @brief Dispatch decay shader for phosphor effect
  * @param win Visualizer window
- * @param ageTex Age texture
- * @param in Input texture
- * @param out Output texture
+ * @param energyTexR Energy texture R
+ * @param energyTexG Energy texture G
+ * @param energyTexB Energy texture B
+ * @param outputTexR Output texture R
+ * @param outputTexG Output texture G
+ * @param outputTexB Output texture B
  */
-void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ageTex, const GLuint& energyTexR,
-                   const GLuint& energyTexG, const GLuint& energyTexB);
+void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& energyTexR, const GLuint& energyTexG,
+                   const GLuint& energyTexB, const GLuint& outputTexR, const GLuint& outputTexG,
+                   const GLuint& outputTexB);
 
 /**
  * @brief Dispatch blur shader

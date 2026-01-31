@@ -158,12 +158,7 @@ struct Options {
       float far_intensity = 0.8f;
     } blur;
 
-    struct Decay {
-      float fast = 40.0f;
-      float slow = 6.0f;
-      float threshold = 0.1;
-      float blend = 0.1;
-    } decay;
+    float decay;
 
     struct Screen {
       float curvature = 0.1f;

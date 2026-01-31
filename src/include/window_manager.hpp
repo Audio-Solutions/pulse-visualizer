@@ -89,6 +89,9 @@ struct VisualizerWindow {
     GLuint tempTexture2R = 0;
     GLuint tempTexture2G = 0;
     GLuint tempTexture2B = 0;
+    GLuint tempTexture3R = 0;
+    GLuint tempTexture3G = 0;
+    GLuint tempTexture3B = 0;
     GLuint outputTexture = 0;
     int textureWidth = 0;
     int textureHeight = 0;

@@ -182,11 +182,8 @@ void render() {
                    : 1.0f);
 
     float dt_sample = 1.f / Config::options.audio.sample_rate;
-    float dt_frame = WindowManager::dt;
 
-    float slow = Config::options.phosphor.decay.slow;
-    float fast = Config::options.phosphor.decay.fast;
-    float blend = Config::options.phosphor.decay.blend;
+    float decay = Config::options.phosphor.decay;
 
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
@@ -200,12 +197,7 @@ void render() {
       size_t idx_from_end = points.size() - 1 - i;
       float age = idx_from_end * dt_sample;
 
-      // Same decay law as shader
-      float decaySlow = expf(-slow * age);
-      float decayFast = expf(-fast * age);
-      float decay = decaySlow * (1.f - blend) + decayFast * blend;
-
-      float totalE = energy * decay * (dt_sample / len);
+      float totalE = energy * expf(-decay * age) * (dt_sample / len);
       energies.push_back(totalE);
     }
 

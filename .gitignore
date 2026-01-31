@@ -47,6 +47,7 @@ Pulse
 *.swp
 *.swo
 *~
+.cspell.json
 
 # OS generated files
 .DS_Store

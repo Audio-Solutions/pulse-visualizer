@@ -24,12 +24,11 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(binding = 0, r32ui) uniform uimage2D energyTexR;
 layout(binding = 1, r32ui) uniform uimage2D energyTexG;
 layout(binding = 2, r32ui) uniform uimage2D energyTexB;
-layout(binding = 3, r32ui) uniform uimage2D ageTex;
+layout(binding = 3, r32ui) uniform uimage2D outputTexR;
+layout(binding = 4, r32ui) uniform uimage2D outputTexG;
+layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
-uniform float decaySlow;
-uniform float decayFast;
-uniform float energyThreshold;
-uniform float blendStrength;
+uniform float decay;
 uniform bool colorbeam;
 
 const float TANH_DIV_FACTOR = 4290000.0;
@@ -46,34 +45,16 @@ void main() {
   uint currentEnergyG = colorbeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorbeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  float beamCount = colorbeam ? 3.0 : 1.0;
-  float avgEnergy = float(currentEnergyR + currentEnergyG + currentEnergyB) / beamCount;
-  float normalizedEnergy = avgEnergy / TANH_DIV_FACTOR;
-
-  float maxHalfWidth = energyThreshold;
-  float halfWidth = maxHalfWidth * blendStrength;
-
-  float thresholdLow  = max(energyThreshold - halfWidth, 0.0);
-  float thresholdHigh = max(energyThreshold + halfWidth, thresholdLow);
-
-  float decay;
-
-  if (normalizedEnergy <= thresholdLow || thresholdHigh <= thresholdLow) {
-    decay = decaySlow;
-  } else if (normalizedEnergy >= thresholdHigh) {
-    decay = decayFast;
-  } else {
-    float t = (normalizedEnergy - thresholdLow) / (thresholdHigh - thresholdLow);
-    decay = mix(decaySlow, decayFast, t);
-  }
-
   uint newEnergyR = uint(float(currentEnergyR) * decay);
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
+  imageStore(outputTexR, coord, uvec4((currentEnergyR - newEnergyR) * decay, 0, 0, 0));
 
   if (colorbeam) {
     uint newEnergyG = uint(float(currentEnergyG) * decay);
     uint newEnergyB = uint(float(currentEnergyB) * decay);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
     imageStore(energyTexB, coord, uvec4(newEnergyB, 0, 0, 0));
+    imageStore(outputTexG, coord, uvec4((currentEnergyG - newEnergyG) * decay, 0, 0, 0));
+    imageStore(outputTexB, coord, uvec4((currentEnergyB - newEnergyB) * decay, 0, 0, 0));
   }
 }

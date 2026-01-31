@@ -69,7 +69,7 @@ void main() {
   vec2 stepSize = delta / float(numSteps);
   
   // Total energy for this segment is proportional to its length
-  uint totalSegmentEnergy = uint(segmentEnergyLinear * distance * 4.29e9);
+  uint totalSegmentEnergy = uint(segmentEnergyLinear * distance * 4e9);
   
   // Distribute energy evenly across all steps to maintain constant energy density
   uint energyPerStep = max(1u, totalSegmentEnergy / uint(numSteps));

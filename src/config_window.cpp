@@ -903,21 +903,9 @@ inline void initPages() {
 
     createHeaderElement(page, cy, "decay", "Decay");
 
-    // decay_slow
-    createSliderElement<float>(page, cy, "decay_slow", &Config::options.phosphor.decay.slow, 1.f, 100.f,
-                               "Slow decay rate", "Slow decay rate of phosphor persistence");
-
-    // decay_fast
-    createSliderElement<float>(page, cy, "decay_fast", &Config::options.phosphor.decay.fast, 1.f, 100.f,
-                               "Fast decay rate", "Fast decay rate of phosphor persistence");
-
-    // energy_threshold
-    createSliderElement<float>(page, cy, "energy_threshold", &Config::options.phosphor.decay.threshold, 0.0f, 2.0f,
-                               "Energy threshold", "Threshold where the decay speed changes from fast to slow", 3);
-
-    // Blend Factor
-    createSliderElement<float>(page, cy, "blend", &Config::options.phosphor.decay.blend, 0.0f, 1.0f, "Blend strength",
-                               "How much blend happens between the fast and slow decay rates.", 3);
+    // decay
+    createSliderElement<float>(page, cy, "decay", &Config::options.phosphor.decay, 1.f, 100.f, "Decay rate",
+                               "How fast the phosphor loses energy");
 
     createHeaderElement(page, cy, "screen", "Screen");
 
