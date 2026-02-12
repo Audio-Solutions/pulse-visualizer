@@ -3,6 +3,7 @@ project(Pulse VERSION 1.3.5)
 
 option(CI_SPECIFIC "Enable CI specific configuration" OFF)
 option(SKIP_CPACK "Skip packaging configuration" ON)
+option(USE_UPDATER "Enable the new version window" ON)
 
 # Get git version info
 execute_process(
@@ -114,6 +115,13 @@ find_package(yaml-cpp REQUIRED)
 # Find libebur128
 pkg_check_modules(EBUR128 REQUIRED IMPORTED_TARGET libebur128)
 
+if(USE_UPDATER)
+  # Find libcurl
+  find_package(CURL REQUIRED)
+  include_directories(${CURL_INCLUDE_DIRS})
+  add_compile_definitions(USE_UPDATER)
+endif()
+
 # Include directories
 include_directories(${SDL3_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
@@ -186,6 +194,10 @@ if(PIPEWIRE_FOUND)
   target_include_directories(pulse-visualizer PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
   target_compile_options(pulse-visualizer PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
   target_compile_options(pulse-visualizer PRIVATE -Wno-nan-infinity-disabled)
+endif()
+
+if(USE_UPDATER)
+  target_link_libraries(pulse-visualizer PRIVATE CURL::libcurl)
 endif()
 
 #include cpack if skip_cpack is not set

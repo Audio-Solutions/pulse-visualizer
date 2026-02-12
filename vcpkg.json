@@ -3,9 +3,10 @@
     "fftw3",
     "freetype",
     "glew",
+    "libebur128",
     "opengl",
     "sdl3",
     "yaml-cpp",
-    "libebur128"
+    "curl"
   ]
 }

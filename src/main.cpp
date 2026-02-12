@@ -26,6 +26,7 @@
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
+#include "include/update_window.hpp"
 #include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
@@ -36,6 +37,10 @@
 #if not(_WIN32)
 #include <errno.h>
 #include <sys/ptrace.h>
+#endif
+
+#ifdef USE_UPDATER
+#include <curl/curl.h>
 #endif
 
 namespace CmdlineArgs {
@@ -220,6 +225,15 @@ int main(int argc, char** argv) {
   LOG_DEBUG("Starting DSP processing thread");
   std::thread DSPThread(DSP::Threads::mainThread);
 
+  // Initialise libcurl
+#ifdef USE_UPDATER
+  LOG_DEBUG("Initialising libcurl")
+  if (curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK) {
+    LOG_DEBUG("Checking for updates");
+    UpdaterWindow::check();
+  }
+#endif
+
   // Frame timing variables
   LOG_DEBUG("Setting up frame timing variables");
   int frameCount = 0;
@@ -249,6 +263,7 @@ int main(int argc, char** argv) {
     while (SDL_PollEvent(&event)) {
       SDLWindow::handleEvent(event);
       ConfigWindow::handleEvent(event);
+      UpdaterWindow::handleEvent(event);
       WindowManager::handleEvent(event);
       for (auto& [key, vec] : WindowManager::splitters)
         for (auto& splitter : vec)
@@ -287,6 +302,7 @@ int main(int argc, char** argv) {
     WindowManager::renderAll();
     WindowManager::drawSplitters();
     ConfigWindow::draw();
+    UpdaterWindow::draw();
     SDLWindow::display();
 
     // FPS logging if enabled
@@ -312,5 +328,10 @@ int main(int argc, char** argv) {
   Config::cleanup();
   Theme::cleanup();
   SDLWindow::deinit();
+
+#ifdef USE_UPDATER
+  curl_global_cleanup();
+#endif
+
   return 0;
 }
