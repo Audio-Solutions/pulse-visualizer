@@ -71,7 +71,7 @@ void _check() {
     return;
   }
 
-  MemoryBlock chunk;
+  MemoryBlock chunk = {nullptr, 0};
 
   curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/Audio-Solutions/pulse-visualizer/releases/latest");
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "pulse-visualizer/" VERSION_STRING);
@@ -163,7 +163,8 @@ void handleEvent(const SDL_Event& event) {
   if (!shown && event.type != eventId)
     return;
 
-  if (!SDLWindow::states["update"].focused && event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.type != eventId)
+  if (SDLWindow::states.find("update") != SDLWindow::states.end() && !SDLWindow::states["update"].focused &&
+      event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.type != eventId)
     return;
 
   switch (event.type) {
@@ -204,7 +205,8 @@ void handleEvent(const SDL_Event& event) {
 }
 
 void draw() {
-  if (!shown) return;
+  if (!shown)
+    return;
 
   SDLWindow::selectWindow("update");
   configViewport(300, 100);
@@ -223,13 +225,20 @@ void draw() {
     const float w = textSize.first + 20;
     const float h = textSize.second + 15;
 
-    Graphics::drawFilledRect(x, y, w, h, mouseOverRect(x,y,w,h) ? Theme::colors.accent : Theme::colors.bgaccent);
+    Graphics::drawFilledRect(x, y, w, h, mouseOverRect(x, y, w, h) ? Theme::colors.accent : Theme::colors.bgaccent);
     Graphics::Font::drawText("OK", 300 - 10 - (textSize.first + 10), 20, 20, Theme::colors.text);
+  }
+}
+
+void cleanup() {
+  if (checkThread.joinable()) {
+    checkThread.join();
   }
 }
 #else
 void check() {};
 void handleEvent(SDL_Event*) {};
 void draw() {};
+void cleanup() {};
 #endif
 }; // namespace UpdaterWindow

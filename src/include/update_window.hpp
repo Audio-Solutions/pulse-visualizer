@@ -38,4 +38,8 @@ void draw();
  */
 void handleEvent(const SDL_Event& event);
 
+/**
+ * @brief Cleanup
+ */
+void cleanup();
 }; // namespace UpdaterWindow

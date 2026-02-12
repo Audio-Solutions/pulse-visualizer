@@ -330,6 +330,7 @@ int main(int argc, char** argv) {
   SDLWindow::deinit();
 
 #ifdef USE_UPDATER
+  UpdaterWindow::cleanup();
   curl_global_cleanup();
 #endif
 

@@ -1175,7 +1175,8 @@ void handleEvent(const SDL_Event& event) {
   if (!shown)
     return;
 
-  if (!SDLWindow::states["menu"].focused && event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+  if (SDLWindow::states.find("menu") != SDLWindow::states.end() && !SDLWindow::states["menu"].focused &&
+      event.type != SDL_EVENT_WINDOW_CLOSE_REQUESTED)
     return;
 
   switch (event.type) {
