@@ -134,7 +134,7 @@ oscilloscope:
   # Flip the oscilloscope display along the time axis
   flip_x: false
   # Center the oscilloscope display
-  centered: true
+  centered: false
   
   # Edge compression settings
   edge_compression:
