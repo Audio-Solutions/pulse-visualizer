@@ -118,6 +118,7 @@ inline void initTop() {
     leftChevron.clicked = [](Element* self) {
       if (currentPage == PageType::Oscilloscope) {
         currentPage = PageType::VU;
+        return;
       }
       currentPage = static_cast<PageType>(static_cast<int>(currentPage) - 1);
     };
