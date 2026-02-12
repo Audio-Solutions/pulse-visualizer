@@ -358,6 +358,10 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.window, 1.f, 500.f,
                                "Time window (ms)", "Time window for oscilloscope in ms");
 
+    // centered
+    createCheckElement(page, cy, "osc_centered", &Config::options.oscilloscope.centered, "Centered",
+                       "Center the oscilloscope if possible.");
+
     createHeaderElement(page, cy, "edgecomp", "Edge Compression");
 
     // enabled

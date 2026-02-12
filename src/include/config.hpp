@@ -34,6 +34,7 @@ struct Options {
     bool flip_x = false;
     Rotation rotation = ROTATION_0;
     float window = 50.0f;
+    bool centered = false;
 
     struct EdgeCompression {
       bool enabled = false;

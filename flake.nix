@@ -39,6 +39,7 @@
               pkgs.freetype
               pkgs.glew
               pkgs.libGL
+              pkgs.curl
               pkgs.yaml-cpp
               pkgs.libebur128
             ];

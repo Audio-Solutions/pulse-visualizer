@@ -41,6 +41,7 @@ stdenv.mkDerivation (finalAttrs: {
     pipewire
     fftwFloat
     freetype
+    curl
     glew
     libGL
     yaml-cpp

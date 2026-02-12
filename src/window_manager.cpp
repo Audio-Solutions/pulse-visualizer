@@ -596,6 +596,22 @@ void updateSplitters() {
       moveSplitter(key, draggingIndex);
     }
   }
+
+  // Special handling for centered oscilloscope
+  if (Config::options.oscilloscope.centered) {
+    for (auto& [key, windowVec] : windows) {
+      for (size_t i = 0; i < windowVec.size(); ++i) {
+        if (windowVec[i].render == Oscilloscope::render) {
+          int mainWindowWidth = SDLWindow::states[key].windowSizes.first;
+          // Mirror right splitter if left splitter is in left half of screen
+          if (i > 0 && i < splitters[key].size() && splitters[key][i - 1].x < mainWindowWidth / 2 - MIN_WIDTH / 2) {
+            splitters[key][i].x = mainWindowWidth - splitters[key][i - 1].x;
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 
 void VisualizerWindow::cleanup() {

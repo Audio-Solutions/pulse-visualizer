@@ -194,14 +194,8 @@ phosphor:
     # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
     far_intensity: 0.8
   
-  # Decay settings for phosphor persistence
-  decay:
-    # Fast decay rate of phosphor persistence (higher=shorter persistence)
-    fast: 40.0
-    # Slow decay rate of phosphor persistence (higher=shorter persistence)
-    slow: 6.0
-    # Age threshold for phosphor decay (higher=shorter persistence)
-    threshold: 14
+  # Decay rate of phosphor persistence (higher=shorter persistence)
+  decay: 30
   
   # Screen effect settings
   screen:

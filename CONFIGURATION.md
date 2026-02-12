@@ -14,12 +14,14 @@ Most config options update live, so you can change them without restarting Pulse
 Boolean configuration options accept multiple formats:
 
 **True values:**
+
 - `true`
 - `yes`
 - `on`
 - `1`
 
 **False values:**
+
 - `false`
 - `no`
 - `off`
@@ -57,6 +59,7 @@ audio:
 ```
 
 **Audio Device Examples:**
+
 - PulseAudio: `alsa_output.pci-0000_0e_00.4.iec958-stereo`
 - PipeWire: `alsa_output.pci-0000_0e_00.4.iec958-stereo`
 - USB Audio: `alsa_output.usb-Focusrite_Scarlett_2i2_USB-00.analog-stereo`
@@ -302,16 +305,8 @@ phosphor:
     # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
     far_intensity: 0.8
   
-  # Decay settings for phosphor persistence
-  decay:
-    # Fast decay rate of phosphor persistence (higher=shorter persistence)
-    fast: 40.0
-    
-    # Slow decay rate of phosphor persistence (higher=longer persistence)
-    slow: 6.0
-    
-    # Age threshold for phosphor decay (higher=longer persistence)
-    threshold: 14
+  # Decay rate of phosphor persistence (higher=shorter persistence)
+  decay: 30
   
   # Screen effect settings
   screen:
@@ -483,30 +478,34 @@ window:
 ### Common Issues
 
 **No Audio Input:**
+
 - Check your audio device name with `pactl list sources short` (PulseAudio) or `pw-cli ls Node` (PipeWire)
 - On Windows, use the Human Readable device name or a substring of it.
 - Ensure the device is not muted
 - Try different audio engines (`pulseaudio`, `pipewire`, `wasapi`, or `auto`)
 
 **High CPU Usage/Poor Performance:**
+
 - Disable phosphor effects: `phosphor.enabled: false`
 - Reduce FFT size: `fft.size: 2048`
 - Disable CQT: `fft.cqt.enabled: false`
 - Lower FPS limit: `window.fps_limit: 60`
 
 **Visual Artifacts:**
+
 - Adjust phosphor settings
 - Check your GPU drivers and OpenGL support
 
 ### Finding Your Audio Device
 
 **PulseAudio:**
+
 ```bash
 pactl list sources short
 ```
 
 **PipeWire:**
+
 ```bash
 pw-cli ls Node
 ```
-

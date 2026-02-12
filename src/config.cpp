@@ -316,6 +316,7 @@ void load(bool recovering) {
   get<bool>(configData, "oscilloscope.flip_x", options.oscilloscope.flip_x);
   get<Rotation>(configData, "oscilloscope.rotation", options.oscilloscope.rotation);
   get<float>(configData, "oscilloscope.window", options.oscilloscope.window);
+  get<bool>(configData, "oscilloscope.centered", options.oscilloscope.centered);
 
   // Oscilloscope Edge Comp
   get<bool>(configData, "oscilloscope.edge_compression.enabled", options.oscilloscope.edge_compression.enabled);
@@ -526,6 +527,7 @@ bool save() {
   root["oscilloscope"]["flip_x"] = options.oscilloscope.flip_x;
   root["oscilloscope"]["rotation"] = static_cast<int>(options.oscilloscope.rotation);
   root["oscilloscope"]["window"] = options.oscilloscope.window;
+  root["oscilloscope"]["centered"] = options.oscilloscope.centered;
 
   // Oscilloscope Edge Comp
   root["oscilloscope"]["edge_compression"]["enabled"] = options.oscilloscope.edge_compression.enabled;

@@ -1049,6 +1049,15 @@ int mainThread() {
       std::lock_guard<std::mutex> lock(::mainThread);
       dataReady = true;
       mainCv.notify_one();
+
+      // Also push an SDL user event so the main thread's SDL_PollEvent loop wakes
+      SDL_Event event;
+      SDL_zero(event);
+      event.type = SDL_EVENT_USER + 2;
+      event.user.code = 1;
+      if (!SDL_PushEvent(&event)) {
+        LOG_DEBUG("DSP thread: failed to push SDL user event");
+      }
     }
   }
 
