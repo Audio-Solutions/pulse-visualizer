@@ -54,7 +54,7 @@ fft:
   # Flip the FFT display along the frequency axis
   flip_x: false
   # Enable hover cursor for FFT display
-  cursor: true
+  cursor: false
   
   # Frequency and amplitude limits
   limits:
@@ -76,7 +76,7 @@ fft:
     # Hover fall speed when audio is quiet (higher=faster fall)
     hover_fall_speed: 10.0
     # Rise speed of FFT bars (higher=faster rise, more responsive)
-    rise_speed: 500.0
+    rise_speed: 495.0
   
   # Constant-Q Transform settings (better frequency resolution for musical notes)
   cqt:
@@ -103,15 +103,12 @@ font: JetBrainsMonoNerdFont-Medium.ttf
 # Lissajous Curve Settings
 # Controls the Lissajous curve visualization (X-Y plot of left vs right channel)
 lissajous:
-  # Enable Catmull-Rom spline interpolation for smoother curves
-  enable_splines: true
   # Beam multiplier for phosphor effect
-  beam_multiplier: 1.5
-  # Readback multiplier of the data
-  # Defines how much of the previous data is redrawn
-  # Higher value means more data is redrawn, which stabilizes the lissajous.
-  # Caveat is a minor increase in CPU usage.
-  readback_multiplier: 3.0
+  beam_multiplier: 1.00000024
+  # Spline tension for curve smoothness (0.0-1.0)
+  spline_tension: 1.00000012
+  # Spline density for curve detail
+  spline_density: 10
   # Options: "normal", "circle", "pulsar", "rotate", "black_hole"
   # rotate is a 45 degree rotation of the curve
   # circle is the rotated curve stretched to a circle
@@ -136,6 +133,15 @@ oscilloscope:
   rotation: 0
   # Flip the oscilloscope display along the time axis
   flip_x: false
+  # Center the oscilloscope display
+  centered: true
+  
+  # Edge compression settings
+  edge_compression:
+    # Enable edge compression
+    enabled: false
+    # Range for edge compression
+    range: 0.100000016
   
   # Pitch following and alignment settings
   pitch:
@@ -146,7 +152,7 @@ oscilloscope:
     # Alignment position: "left", "center", or "right"
     alignment: center
     # Number of cycles to track
-    cycles: 3
+    cycles: 0
     # Minimum time window to display in oscilloscope in ms
     min_cycle_time: 16.0
   
@@ -177,13 +183,11 @@ phosphor:
   # Electron beam settings
   beam:
     # Energy of the electron beam (affects brightness of phosphor effect)
-    energy: 90.0
+    energy: 59.9627686
     # Enable rainbow color effect for the beam
-    rainbow: true
+    rainbow: false
     # Width of the phosphor lines
     width: 0.5
-    # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
-    tension: 0.5
   
   # Blur effect settings
   blur:
@@ -200,22 +204,22 @@ phosphor:
   # Screen effect settings
   screen:
     # Curvature intensity for curved screen effect (0.0-1.0)
-    curvature: 0.1
+    curvature: 0.0900000036
     # Gap scalar for curved screen effect (0.0-1.0)
-    gap: 0.03
+    gap: 0.0299999993
     # Vignette strength (0.0-1.0)
-    vignette: 0.3
+    vignette: 0.26000005
     # Chromatic aberration strength (0.0-1.0)
-    chromatic_aberration: 0.008
+    chromatic_aberration: 0.0100000016
     # Grain strength (spatial noise, 0.0-1.0)
-    grain: 0.1
+    grain: 0.100000001
 
   # Reflections settings
   reflections:
     # Strength of reflections (0.0-1.0)
-    strength: 0.5
+    strength: 0.699999988
     # Box blur size for reflections
-    box_blur_size: 4
+    box_blur_size: 7
 
 # Spectrogram Settings
 # Controls the spectrogram visualization (time-frequency heat map)
@@ -280,15 +284,14 @@ vu:
 # Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
 # Only one instance of a visualizer can exist at a time.
 visualizers:
+  hidden:
+    - spectrogram
   main:
     - vu
     - lufs
     - lissajous
     - oscilloscope
     - spectrum_analyzer
-# additional_window: # remove the spectrum analyzer and oscilloscope from the main window!!
-#   - spectrum_analyzer
-#   - oscilloscope
 
 # Window Settings
 # Controls the main application window
@@ -301,7 +304,7 @@ window:
   # This will also throttle the audio thread to save CPU
   # Note: this does not define the exact FPS limit,
   # as pipewire/pulseaudio only accept base-2 read sizes.
-  fps_limit: 240
+  fps_limit: 60
   # Default theme file (from themes/ directory)
   theme: mocha.txt 
   # Enable window decorations in your desktop environment
