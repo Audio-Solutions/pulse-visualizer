@@ -206,7 +206,7 @@ bool init() {
   if (dev.empty())
     return true;
 
-  std::cout << "Connected to PulseAudio device '" << dev << "'" << std::endl;
+  LOG_DEBUG("Connected to PulseAudio device '" << dev << "'");
   return true;
 }
 
@@ -549,7 +549,7 @@ bool init() {
   while (!running && std::chrono::steady_clock::now() - start < TIMEOUT)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  std::cout << "Connected to PipeWire device: '" << dev << "'" << std::endl;
+  LOG_DEBUG("Connected to PipeWire device: '" << dev << "'");
 
   initialized = true;
   return true;
@@ -827,12 +827,17 @@ bool init() {
       continue;
     }
 
+    std::stringstream ss;
+    ss << "Selected device: ";
+
     PROPVARIANT name;
     PropVariantInit(&name);
     if (SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &name))) {
       std::wstring wname(name.pwszVal);
       std::string sname = WideToUtf8(wname);
-      std::cout << "Selected device: " << sname;
+      ss << sname;
+    } else {
+      ss << "N/A";
     }
 
     PropVariantClear(&name);
@@ -843,23 +848,25 @@ bool init() {
       if (SUCCEEDED(endpoint->GetDataFlow(&flow))) {
         switch (flow) {
         case eRender:
-          std::cout << "(render)";
+          ss << " (render)";
           break;
         case eCapture:
-          std::cout << "(capture)";
+          ss << " (capture)";
           break;
         case eAll:
-          std::cout << "(all)";
+          ss << " (all)";
           break;
         default:
-          std::cout << "(unknown)";
+          ss << " (unknown)";
           break;
         }
       }
       endpoint->Release();
     } else {
-      std::cout << "(unknown)";
+      ss << " (unknown)";
     }
+
+    LOG_DEBUG(ss.str());
   } while (false);
 
   // Activate the current device
@@ -935,7 +942,7 @@ bool init() {
   // start thread
   wasapiThread = std::thread(threadFunc);
 
-  std::cout << "Connected to WASAPI" << std::endl;
+  LOG_DEBUG("Connected to WASAPI");
 
   initialized = true;
   return true;
