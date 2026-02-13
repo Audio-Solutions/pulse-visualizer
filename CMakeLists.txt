@@ -302,50 +302,65 @@ else()
 endif()
 
 include(CheckCXXCompilerFlag)
+include(CheckCXXSourceRuns)
 
-# Check for GCC/Clang-style AVX2 support
-check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_MAVX2)
-
-# Check for MSVC-style AVX2 support
-check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_ARCH_AVX2)
-
-if(COMPILER_SUPPORTS_MAVX2)
-  add_compile_definitions(HAVE_AVX2)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
-elseif(COMPILER_SUPPORTS_ARCH_AVX2)
-  add_compile_definitions(HAVE_AVX2)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+if(MSVC)
+  set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
+else()
+  set(CMAKE_REQUIRED_FLAGS "-mavx2 -mfma")
 endif()
 
-unset(HAS_MM256_LOG10_PS CACHE)
-unset(HAS_MM256_POW_PS CACHE)
-
-include(CheckCXXSourceCompiles)
-
-check_cxx_source_compiles("
+check_cxx_source_runs("
   #include <immintrin.h>
   int main() {
-    __m256 x = _mm256_set1_ps(1.0f);
-    __m256 y = _mm256_log10_ps(x);
-    (void)y;
+    __m256i a = _mm256_set1_epi32(1);
+    __m256i b = _mm256_add_epi32(a, a);
+    (void)b;
     return 0;
   }
-" HAS_MM256_LOG10_PS)
+" HAVE_WORKING_AVX2)
 
-check_cxx_source_compiles("
-  #include <immintrin.h>
-  int main() {
-    __m256 x = _mm256_set1_ps(1.0f);
-    __m256 y = _mm256_pow_ps(x, x);
-    (void)y;
-    return 0;
-  }
-" HAS_MM256_POW_PS)
+unset(CMAKE_REQUIRED_FLAGS)
 
-if(HAS_MM256_LOG10_PS)
-  add_compile_definitions(HAVE_MM256_LOG10_PS)
+if(HAVE_WORKING_AVX2)
+  add_compile_definitions(HAVE_AVX2)
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
+  endif()
+
+  unset(HAS_MM256_LOG10_PS CACHE)
+  unset(HAS_MM256_POW_PS CACHE)
+
+  include(CheckCXXSourceCompiles)
+
+  check_cxx_source_compiles("
+    #include <immintrin.h>
+    int main() {
+      __m256 x = _mm256_set1_ps(1.0f);
+      __m256 y = _mm256_log10_ps(x);
+      (void)y;
+      return 0;
+    }
+  " HAS_MM256_LOG10_PS)
+
+  check_cxx_source_compiles("
+    #include <immintrin.h>
+    int main() {
+      __m256 x = _mm256_set1_ps(1.0f);
+      __m256 y = _mm256_pow_ps(x, x);
+      (void)y;
+      return 0;
+    }
+  " HAS_MM256_POW_PS)
+
+  if(HAS_MM256_LOG10_PS)
+    add_compile_definitions(HAVE_MM256_LOG10_PS)
+  endif()
+
+  if(HAS_MM256_POW_PS)
+    add_compile_definitions(HAVE_MM256_POW_PS)
+  endif()
 endif()
 
-if(HAS_MM256_POW_PS)
-  add_compile_definitions(HAVE_MM256_POW_PS)
-endif()
