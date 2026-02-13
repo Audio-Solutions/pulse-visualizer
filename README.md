@@ -92,6 +92,7 @@ sudo ./install.sh
 - GLEW
 - YAML-CPP
 - libebur128
+- libcurl
 
 **Works on:**
 - Linux (PulseAudio or PipeWire)
@@ -132,12 +133,12 @@ If you want to build from source, you can do so with the following commands:
 - C++17 compiler
 - CMake 3.10+
 - Ninja-build
-- Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128
+- Development headers for: SDL3, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128, libcurl
 
 Fedora:
-```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel```  
+```sudo dnf5 install SDL3-devel fftw3-devel freetype-devel glew-devel yaml-cpp-devel ninja pipewire-devel libebur128-devel libcurl-devel```  
 Debian:
-```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev```  
+```sudo apt install clang cmake libsdl3-dev libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja libebur128-dev libcurl-dev```  
 
 ```bash
 mkdir build
