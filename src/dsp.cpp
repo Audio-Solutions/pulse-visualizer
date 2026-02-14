@@ -693,7 +693,7 @@ int FFTMain() {
     pitchDB = peakDb;
 
     // Apply smoothing if enabled
-    if (Config::options.fft.smoothing.enabled && Config::options.fft.cqt.enabled) {
+    if (Config::options.fft.smoothing.enabled) {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;

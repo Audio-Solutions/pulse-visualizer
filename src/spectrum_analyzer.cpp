@@ -370,9 +370,9 @@ void render() {
 
     float dt = 1.0f / Config::options.audio.sample_rate;
 
-    for (size_t i = 0; i < pointsMain.size() - 1; i++) {
-      const auto& p1 = pointsMain[i];
-      const auto& p2 = pointsMain[i + 1];
+    for (size_t i = 1; i < pointsMain.size(); i++) {
+      const auto& p1 = pointsMain[i - 1];
+      const auto& p2 = pointsMain[i];
 
       float dx = p2.first - p1.first;
       float dy = p2.second - p1.second;

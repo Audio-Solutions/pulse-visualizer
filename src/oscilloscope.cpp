@@ -39,7 +39,7 @@ void render() {
 
   // Calculate number of samples to display
   size_t samples = Config::options.oscilloscope.window * Config::options.audio.sample_rate / 1000;
-  if (Config::options.oscilloscope.pitch.cycles > 0) {
+  if (Config::options.oscilloscope.pitch.cycles > 0 && DSP::pitch > FLT_EPSILON) {
     samples = Config::options.audio.sample_rate / DSP::pitch * Config::options.oscilloscope.pitch.cycles;
     samples = std::max(samples, static_cast<size_t>(Config::options.oscilloscope.pitch.min_cycle_time *
                                                     Config::options.audio.sample_rate / 1000.0f));
