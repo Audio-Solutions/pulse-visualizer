@@ -114,16 +114,14 @@ std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
 
 int main(int argc, char** argv) {
-  // Set up signal handling for Ctrl+C etc
-  signal(SIGINT, [](int) { SDLWindow::running.store(false); });
-  signal(SIGTERM, [](int) { SDLWindow::running.store(false); });
 #ifndef _WIN32
-  signal(SIGQUIT, [](int) { SDLWindow::running.store(false); });
-
-  // Block SIGWINCH (Causing crashes for some reason)
+  // Block Signals so they can be polled
   sigset_t sigset;
   sigemptyset(&sigset);
   sigaddset(&sigset, SIGWINCH);
+  sigaddset(&sigset, SIGINT);
+  sigaddset(&sigset, SIGTERM);
+  sigaddset(&sigset, SIGQUIT);
   sigprocmask(SIG_BLOCK, &sigset, nullptr);
 #endif
 
@@ -272,6 +270,13 @@ int main(int argc, char** argv) {
         for (auto& window : vec)
           window.handleEvent(event);
     }
+
+    // Poll Signals
+    struct timespec ts = {0, 0};
+    int sig = sigtimedwait(&sigset, nullptr, &ts);
+    if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT)
+      SDLWindow::running = false;
+
     if (!SDLWindow::running) {
       LOG_DEBUG("Quit signal received, exiting");
       break;
