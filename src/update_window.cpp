@@ -131,18 +131,6 @@ void check() {
   checkThread = std::thread(_check);
 }
 
-void configViewport(float width, float height) {
-  // Set OpenGL viewport and projection matrix for rendering
-  glViewport(0, 0, width, height);
-
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0, width, 0, height, -10, 10);
-
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-}
-
 bool mouseOverRect(float x, float y, float w, float h) {
   const float mx = SDLWindow::states["update"].mousePos.first;
   const float my = SDLWindow::states["update"].mousePos.second;
@@ -209,7 +197,7 @@ void draw() {
     return;
 
   SDLWindow::selectWindow("update");
-  configViewport(300, 100);
+  WindowManager::setViewport(0, 300, 100);
 
   Graphics::Font::drawText("An update is available!", 10, 100 - 30, 20, Theme::colors.text);
 
