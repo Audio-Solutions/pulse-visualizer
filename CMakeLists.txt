@@ -156,6 +156,7 @@ if(WIN32)
   configure_file(${CMAKE_SOURCE_DIR}/version.rc.in ${CMAKE_BINARY_DIR}/version.rc @ONLY)
 
   set(RESOURCE_FILE "resources.rc" "${CMAKE_BINARY_DIR}/version.rc")
+  set(CMAKE_RC_COMPILER "rc.exe")
 else()
   set(RESOURCE_FILE "")
 endif()
@@ -180,6 +181,11 @@ target_link_libraries(pulse-visualizer PRIVATE
 
 if(WIN32)
   target_link_libraries(pulse-visualizer PRIVATE ole32 uuid avrt)
+  
+  # uncomment to build as a GUI application without console window
+  # set_target_properties(pulse-visualizer PROPERTIES
+  #   WIN32_EXECUTABLE TRUE
+  # )
 endif()
 
 # Link audio backends conditionally
