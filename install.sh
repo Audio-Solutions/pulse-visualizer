@@ -76,6 +76,8 @@ cp "pulse-visualizer.desktop" "$PREFIX/share/applications/"
 # Install icon
 echo "cp pulse-visualizer.png $DATA_DIR/icons/"
 cp "pulse-visualizer.png" "$DATA_DIR/icons/"
+echo "cp icon.ico $DATA_DIR/icons/"
+cp "icon.ico" "$DATA_DIR/icons/"
 
 # Install man page
 echo "cp pulse-visualizer.1 $PREFIX/share/man/man1/"

@@ -57,6 +57,7 @@ find_package(PkgConfig REQUIRED)
 
 # Find SDL3 package
 find_package(SDL3 REQUIRED)
+find_package(SDL3_image REQUIRED)
 
 # Find audio backends - check for both PulseAudio and PipeWire
 set(AUDIO_BACKENDS_FOUND FALSE)
@@ -177,6 +178,7 @@ target_link_libraries(pulse-visualizer PRIVATE
   ${GLEW_LIBRARIES}
   yaml-cpp::yaml-cpp
   PkgConfig::EBUR128
+  SDL3_image::SDL3_image
 )
 
 if(WIN32)
@@ -275,6 +277,10 @@ else()
   install(DIRECTORY themes/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/themes
     FILES_MATCHING PATTERN "*.txt"
+  )
+
+  install(FILES media/icon/icon.ico
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
   )
 
   if(NOT WIN32)

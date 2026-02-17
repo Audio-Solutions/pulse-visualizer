@@ -60,6 +60,10 @@ install(FILES media/icon/main.png
   RENAME "pulse-visualizer.png"
 )
 
+install(FILES media/icon/icon.ico
+  DESTINATION .
+)
+
 install(PROGRAMS install.sh
   DESTINATION .
 )

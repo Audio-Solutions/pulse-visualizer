@@ -19,6 +19,7 @@
 
 #include "include/sdl_window.hpp"
 
+#include <SDL3_image/SDL_image.h>
 #include "include/config.hpp"
 #include "include/config_window.hpp"
 #include "include/graphics.hpp"
@@ -35,11 +36,15 @@ GLuint vertexColorBuffer = 0;
 
 std::atomic<bool> running {false};
 
+SDL_Surface* icon = nullptr;
+
 void deinit() {
   for (auto& [group, state] : states) {
     SDL_DestroyWindow(state.win);
     SDL_GL_DestroyContext(state.glContext);
   }
+
+  SDL_DestroySurface(icon);
 
   glDeleteBuffers(1, &vertexBuffer);
   glDeleteBuffers(1, &vertexColorBuffer);
@@ -266,6 +271,14 @@ void createWindow(const std::string& group, const std::string& title, int width,
     SDL_DestroyWindow(win);
     return;
   }
+
+  if (!icon)
+    icon = IMG_Load((Config::getInstallDir() + "/icons/icon.ico").c_str());
+
+  if (!icon)
+    LOG_ERROR("Failed to load window icon (icons/icon.ico)")
+  else
+    SDL_SetWindowIcon(win, icon);
 
   states[group] = {win, SDL_GetWindowID(win), glContext, std::make_pair(width, height), std::make_pair(0, 0), false};
 }

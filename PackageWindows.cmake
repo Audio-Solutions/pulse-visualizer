@@ -39,6 +39,10 @@ install(DIRECTORY themes/
   FILES_MATCHING PATTERN "*.txt"
 )
 
+install(FILES media/icon/icon.ico
+  DESTINATION icons/
+)
+
 set(CPACK_GENERATOR "NSIS")
 set(CPACK_PACKAGE_NAME "pulse-visualizer")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
