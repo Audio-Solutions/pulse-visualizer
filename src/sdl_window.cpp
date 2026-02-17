@@ -272,6 +272,9 @@ void createWindow(const std::string& group, const std::string& title, int width,
     return;
   }
 
+  // Fix nvidia bug
+  SDL_GL_SetSwapInterval(0);
+
   if (!icon)
     icon = IMG_Load((Config::getInstallDir() + "/icons/icon.ico").c_str());
 
