@@ -6,6 +6,7 @@
   ninja,
   pkg-config,
   sdl3,
+  sdl3-image
   libpulseaudio,
   pipewire,
   fftwFloat,
@@ -37,6 +38,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildInputs = [
     sdl3
+    sdl3-image
     libpulseaudio
     pipewire
     fftwFloat

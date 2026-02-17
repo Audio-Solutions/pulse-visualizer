@@ -33,6 +33,7 @@
 
             buildInputs = [
               pkgs.sdl3
+              pkgs.sdl3-image
               pkgs.libpulseaudio
               pkgs.pipewire
               pkgs.fftwFloat
