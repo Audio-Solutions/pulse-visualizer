@@ -560,6 +560,11 @@ inline void initPages() {
 
     createHeaderElement(page, cy, "misc", "Misc");
 
+    // readout_header
+    createCheckElement(page, cy, "readout_header", &Config::options.fft.readout_header, "Readout Header",
+                       "Enable the readout header which displays Peak level, frequency, note and cent offset of the "
+                       "strongest partial.");
+
     // stereo_mode
     {
       std::map<std::string, std::string> values = {

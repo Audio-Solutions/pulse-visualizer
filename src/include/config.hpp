@@ -79,6 +79,7 @@ struct Options {
     std::string key = "sharp";
     std::string mode = "midside";
     bool cursor = false;
+    bool readout_header = true;
 
     struct Limits {
       float max_db = 0.0f;
