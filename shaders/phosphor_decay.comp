@@ -29,7 +29,7 @@ layout(binding = 4, r32ui) uniform uimage2D outputTexG;
 layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
 uniform float decay;
-uniform bool colorbeam;
+uniform bool colorBeam;
 
 const float TANH_DIV_FACTOR = 4290000.0;
 
@@ -42,14 +42,14 @@ void main() {
   }
 
   uint currentEnergyR = imageLoad(energyTexR, coord).r;
-  uint currentEnergyG = colorbeam ? imageLoad(energyTexG, coord).r : 0u;
-  uint currentEnergyB = colorbeam ? imageLoad(energyTexB, coord).r : 0u;
+  uint currentEnergyG = colorBeam ? imageLoad(energyTexG, coord).r : 0u;
+  uint currentEnergyB = colorBeam ? imageLoad(energyTexB, coord).r : 0u;
 
   uint newEnergyR = uint(float(currentEnergyR) * decay);
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
   imageStore(outputTexR, coord, uvec4((currentEnergyR - newEnergyR) * decay, 0, 0, 0));
 
-  if (colorbeam) {
+  if (colorBeam) {
     uint newEnergyG = uint(float(currentEnergyG) * decay);
     uint newEnergyB = uint(float(currentEnergyB) * decay);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));

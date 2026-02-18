@@ -37,7 +37,7 @@ layout(r32ui, binding = 0) restrict uniform uimage2D energyTexR;
 layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 
-uniform bool colorbeam;
+uniform bool colorBeam;
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
@@ -79,12 +79,12 @@ void main() {
   vec3 colorRGB = color.rgb * color.a;
   
   // Interpolate along the segment
-  vec2 interpPos = pos;
-  if (colorbeam) {
+  vec2 interpolPos = pos;
+  if (colorBeam) {
     for (int i = 0; i < numSteps; ++i) {
       // Get the base pixel coordinate (floor) and fractional part
-      ivec2 baseCoord = ivec2(floor(interpPos));
-      vec2 fract = interpPos - vec2(baseCoord);
+      ivec2 baseCoord = ivec2(floor(interpolPos));
+      vec2 fract = interpolPos - vec2(baseCoord);
 
       // Precompute bilinear weights
       float inv_fx = 1.0 - fract.x;
@@ -126,13 +126,13 @@ void main() {
         imageAtomicAdd(energyTexB, coord11, uint(e11 * colorRGB.b));
       }
 
-      interpPos += stepSize;
+      interpolPos += stepSize;
     }
   } else {
     for (int i = 0; i < numSteps; ++i) {
       // Get the base pixel coordinate (floor) and fractional part
-      ivec2 baseCoord = ivec2(floor(interpPos));
-      vec2 fract = interpPos - vec2(baseCoord);
+      ivec2 baseCoord = ivec2(floor(interpolPos));
+      vec2 fract = interpolPos - vec2(baseCoord);
 
       // Precompute bilinear weights
       float inv_fx = 1.0 - fract.x;
@@ -166,7 +166,7 @@ void main() {
         imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
       }
 
-      interpPos += stepSize;
+      interpolPos += stepSize;
     }
   }
 }

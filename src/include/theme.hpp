@@ -31,7 +31,7 @@ struct Colors {
   float text[4] = {0};
   float accent[4] = {0};
   float background[4] = {0};
-  float bgaccent[4] = {0};
+  float bgAccent[4] = {0};
 
   float waveform[4] = {0};
 
@@ -47,11 +47,11 @@ struct Colors {
   float oscilloscope_main[4] = {0};
   float oscilloscope_bg[4] = {0};
 
-  float stereometer[4] = {0};
+  float stereoMeter[4] = {0};
 
-  float stereometer_low[4] = {0};
-  float stereometer_mid[4] = {0};
-  float stereometer_high[4] = {0};
+  float stereoMeter_low[4] = {0};
+  float stereoMeter_mid[4] = {0};
+  float stereoMeter_high[4] = {0};
 
   float spectrum_analyzer_main[4] = {0};
   float spectrum_analyzer_secondary[4] = {0};

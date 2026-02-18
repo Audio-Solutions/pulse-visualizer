@@ -98,10 +98,10 @@ void render() {
       float r = Config::options.oscilloscope.edge_compression.range;
       float t = x / (float)window->width;
       float d = fminf(t, 1.0f - t);
-      float xnorm = fminf(fmaxf(d / r, 0.0f), 1.0f);
+      float xNorm = fminf(fmaxf(d / r, 0.0f), 1.0f);
 
       // smoothstep up from 0 at the edge to 1 at d >= r
-      mul = xnorm * xnorm * (3.0f - 2.0f * xnorm);
+      mul = xNorm * xNorm * (3.0f - 2.0f * xNorm);
     }
 
     // Choose between bandpassed or raw audio data

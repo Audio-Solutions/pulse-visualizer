@@ -102,7 +102,7 @@ void render() {
     // And scales the output such that the point near origin (1e-6, 0) ends up at (1, 0)
     // For black hole, scales the input such that the point (1, 0) is unchanged
     // And scales the output such that the point near origin (1e-6, 0) ends up at (0.5, 0)
-    // Singularity scales the logarythmic space to make the points distribute more to the outer edge
+    // Singularity scales the logarithmic space to make the points distribute more to the outer edge
     // Transformation is nullified at exactly 1/e, below makes it a pulsar, above it makes a black hole
     float k = 0.0f, kPost = 0.0f, singularity = 1.0f / M_E + (mode == "pulsar" ? -1e-3f : 1e-3f);
     if (isPulsarMode) {

@@ -134,12 +134,12 @@ static inline __m256 _mm256_pow_ps(__m256 a, __m256 b) {
  * @return Sum of all elements in the vector
  */
 inline float avx2_reduce_add_ps(__m256 v) {
-  __m128 vlow = _mm256_castps256_ps128(v);
-  __m128 vhigh = _mm256_extractf128_ps(v, 1);
-  vlow = _mm_add_ps(vlow, vhigh);
-  vlow = _mm_hadd_ps(vlow, vlow);
-  vlow = _mm_hadd_ps(vlow, vlow);
-  return _mm_cvtss_f32(vlow);
+  __m128 vLow = _mm256_castps256_ps128(v);
+  __m128 vHigh = _mm256_extractf128_ps(v, 1);
+  vLow = _mm_add_ps(vLow, vHigh);
+  vLow = _mm_hadd_ps(vLow, vLow);
+  vLow = _mm_hadd_ps(vLow, vLow);
+  return _mm_cvtss_f32(vLow);
 }
 #endif
 

@@ -271,11 +271,13 @@ int main(int argc, char** argv) {
           window.handleEvent(event);
     }
 
+#ifndef _WIN32
     // Poll Signals
     struct timespec ts = {0, 0};
     int sig = sigtimedwait(&sigset, nullptr, &ts);
     if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT)
       SDLWindow::running = false;
+#endif
 
     if (!SDLWindow::running) {
       LOG_DEBUG("Quit signal received, exiting");

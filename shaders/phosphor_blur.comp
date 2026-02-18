@@ -35,7 +35,7 @@ uniform int blur_direction;
 uniform int kernel_type;
 uniform float f_intensity;
 uniform float g_intensity;
-uniform bool colorbeam;
+uniform bool colorBeam;
 
 const float PI = 3.14159265359;
 
@@ -49,18 +49,18 @@ void main() {
 
   if (line_blur_spread < 1e-6) {
     uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = colorbeam ? imageLoad(inputTexG, coord).r : 0u;
-    uint valueB = colorbeam ? imageLoad(inputTexB, coord).r : 0u;
+    uint valueG = colorBeam ? imageLoad(inputTexG, coord).r : 0u;
+    uint valueB = colorBeam ? imageLoad(inputTexB, coord).r : 0u;
     
     if (blur_direction == 1) {
       imageAtomicAdd(outputTexR, coord, valueR);
-      if (colorbeam) {
+      if (colorBeam) {
         imageAtomicAdd(outputTexG, coord, valueG);
         imageAtomicAdd(outputTexB, coord, valueB);
       }
     } else {
       imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
-      if (colorbeam) {
+      if (colorBeam) {
         imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
         imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
       }
@@ -73,18 +73,18 @@ void main() {
   
   if (half_range == 0) {
     uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = colorbeam ? imageLoad(inputTexG, coord).r : 0u;
-    uint valueB = colorbeam ? imageLoad(inputTexB, coord).r : 0u;
+    uint valueG = colorBeam ? imageLoad(inputTexG, coord).r : 0u;
+    uint valueB = colorBeam ? imageLoad(inputTexB, coord).r : 0u;
 
     if (blur_direction == 1) {
       imageAtomicAdd(outputTexR, coord, valueR);
-      if (colorbeam) {
+      if (colorBeam) {
         imageAtomicAdd(outputTexG, coord, valueG);
         imageAtomicAdd(outputTexB, coord, valueB);
       }
     } else {
       imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
-      if (colorbeam) {
+      if (colorBeam) {
         imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
         imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
       }
@@ -134,7 +134,7 @@ void main() {
     uint vR = imageLoad(inputTexR, c0).r;
     sample_sumR += float(vR) * kernel_weight;
     effective_kernel_sum += kernel_weight;
-    if (colorbeam) {
+    if (colorBeam) {
       uint vG = imageLoad(inputTexG, c0).r;
       uint vB = imageLoad(inputTexB, c0).r;
       sample_sumG += float(vG) * kernel_weight;
@@ -143,7 +143,7 @@ void main() {
   }
 
   // Symmetric accumulation for i = 1..i_max
-  if (colorbeam) {
+  if (colorBeam) {
     for (int i = 1; i <= i_max; ++i) {
       w *= m;     // update weight for current i
       m *= r;     // update multiplier for next i
@@ -215,13 +215,13 @@ void main() {
 
   if (blur_direction == 1) {
     imageAtomicAdd(outputTexR, coord, uint(max(0.0, resultR)));
-    if (colorbeam) {
+    if (colorBeam) {
       imageAtomicAdd(outputTexG, coord, uint(max(0.0, resultG)));
       imageAtomicAdd(outputTexB, coord, uint(max(0.0, resultB)));
     }
   } else {
     imageStore(outputTexR, coord, uvec4(uint(max(0.0, resultR)), 0, 0, 0));
-    if (colorbeam) {
+    if (colorBeam) {
       imageStore(outputTexG, coord, uvec4(uint(max(0.0, resultG)), 0, 0, 0));
       imageStore(outputTexB, coord, uvec4(uint(max(0.0, resultB)), 0, 0, 0));
     }

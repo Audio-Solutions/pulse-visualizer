@@ -712,7 +712,7 @@ int FFTMain() {
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
-      const __m256 minvVec = _mm256_set1_ps(FLT_EPSILON);
+      const __m256 minVVec = _mm256_set1_ps(FLT_EPSILON);
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
@@ -734,8 +734,8 @@ int FFTMain() {
         __m256 cur = _mm256_loadu_ps(&fftMidRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftMid[i]);
 
-        __m256 curDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(cur, minvVec)), dbScaleVec);
-        __m256 prevDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(prev, minvVec)), dbScaleVec);
+        __m256 curDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(cur, minVVec)), dbScaleVec);
+        __m256 prevDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(prev, minVVec)), dbScaleVec);
 
         __m256 diff = _mm256_sub_ps(curDB, prevDB);
         __m256 isRise = _mm256_cmp_ps(diff, _mm256_setzero_ps(), _CMP_GT_OS);
@@ -748,7 +748,7 @@ int FFTMain() {
             _mm256_blendv_ps(_mm256_add_ps(prevDB, change), curDB,
                              _mm256_cmp_ps(absDiff, _mm256_blendv_ps(fallSpeedVec, riseSpeedVec, isRise), _CMP_LE_OS));
 
-        __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minvVec);
+        __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minVVec);
 
         __m256 frequencies;
         if (Config::options.fft.cqt.enabled)
@@ -866,7 +866,7 @@ int FFTAlt() {
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
-      const __m256 minvVec = _mm256_set1_ps(FLT_EPSILON);
+      const __m256 minVVec = _mm256_set1_ps(FLT_EPSILON);
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
@@ -888,8 +888,8 @@ int FFTAlt() {
         __m256 cur = _mm256_loadu_ps(&fftSideRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftSide[i]);
 
-        __m256 curDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(cur, minvVec)), dbScaleVec);
-        __m256 prevDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(prev, minvVec)), dbScaleVec);
+        __m256 curDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(cur, minVVec)), dbScaleVec);
+        __m256 prevDB = _mm256_mul_ps(_mm256_log10_ps(_mm256_add_ps(prev, minVVec)), dbScaleVec);
 
         __m256 diff = _mm256_sub_ps(curDB, prevDB);
         __m256 isRise = _mm256_cmp_ps(diff, _mm256_setzero_ps(), _CMP_GT_OS);
@@ -902,7 +902,7 @@ int FFTAlt() {
             _mm256_blendv_ps(_mm256_add_ps(prevDB, change), curDB,
                              _mm256_cmp_ps(absDiff, _mm256_blendv_ps(fallSpeedVec, riseSpeedVec, isRise), _CMP_LE_OS));
 
-        __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minvVec);
+        __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minVVec);
 
         __m256 frequencies;
         if (Config::options.fft.cqt.enabled)
@@ -989,7 +989,7 @@ int mainThread() {
       __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
       __m256i right_idx = _mm256_setr_epi32(1, 3, 5, 7, 0, 0, 0, 0);
 
-      __m256 vgain = _mm256_set1_ps(0.5f * gain);
+      __m256 vGain = _mm256_set1_ps(0.5f * gain);
 
       for (; i < simd_samples; i += 8) {
         __m256 samples = _mm256_loadu_ps(&readBuf[i]);
@@ -997,8 +997,8 @@ int mainThread() {
         __m256 left = _mm256_permutevar8x32_ps(samples, left_idx);
         __m256 right = _mm256_permutevar8x32_ps(samples, right_idx);
 
-        __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), vgain);
-        __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), vgain);
+        __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), vGain);
+        __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), vGain);
 
         _mm_storeu_ps(&bufferMid[writePos], _mm256_castps256_ps128(mid));
         _mm_storeu_ps(&bufferSide[writePos], _mm256_castps256_ps128(side));
@@ -1128,16 +1128,16 @@ void process() {
   if (!state)
     return;
 
-  double lufsd;
+  double lufsD;
   if (Config::options.lufs.mode == "shortterm")
-    ebur128_loudness_shortterm(state, &lufsd);
+    ebur128_loudness_shortterm(state, &lufsD);
   else if (Config::options.lufs.mode == "momentary")
-    ebur128_loudness_momentary(state, &lufsd);
+    ebur128_loudness_momentary(state, &lufsD);
   else if (Config::options.lufs.mode == "integrated")
-    ebur128_loudness_global(state, &lufsd);
+    ebur128_loudness_global(state, &lufsD);
   else
-    ebur128_loudness_momentary(state, &lufsd);
-  lufs = static_cast<float>(lufsd);
+    ebur128_loudness_momentary(state, &lufsD);
+  lufs = static_cast<float>(lufsD);
 }
 
 void reset() {

@@ -2,20 +2,25 @@
 
 <video autoplay loop muted src="https://github.com/user-attachments/assets/3f2e2ba1-3832-4127-b34b-d59f4c67c148"></video>
 <a href="https://repology.org/project/pulse-visualizer/versions">
-    <img src="https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg?allow_ignored=1" alt="Packaging status" align="right">
+    <img src="https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg?allow_ignored=1"
+         alt="Packaging status" align="right">
 </a>
 
 ## What Even Is This?
 
-Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired by [MiniMeters](https://minimeters.app/). It turns whatever your system is playing into eye-candy (or at least, that's the idea). Built in C++ with SDL3, OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it sounds. Unless your system sucks, then, well, good luck.
+Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired
+by [MiniMeters](https://minimeters.app/). It turns whatever your system is
+playing into eye-candy (or at least, that's the idea). Built in C++ with SDL3,
+OpenGL, PulseAudio, and FFTW, Pulse tries to make your music look as cool as it
+sounds. Unless your system sucks, then, well, good luck.
 
 ## Features
 
 - Experimental colorful beam
 - Real-time, low-latency audio visualization
-- CRT phosphor emulation with GPU compute shaders (glow, persistence, all the retro stuff)
+- CRT phosphor emulation with GPU compute shaders (glow, persistence, etc)
   - Curved screen, vignette, grain, chromatic aberration (toggle as you like)
-  - Blur, light spread, and overdrive are all tweakable
+  - Blur, light spread, and overdrive are all configurable
   - Reflections on curved screen
 - Multiple visualizer styles:
   - Lissajous curve (with fancy spline interpolation and stretch modes)
@@ -37,12 +42,17 @@ Ever wanted to *see* your music? Pulse is a real-time audio visualizer inspired 
 ## Installation
 
 ### Arch Linux (AUR)
+
 Just grab it from the AUR as `pulse-visualizer-git`:
+
 ```bash
 yay -S pulse-visualizer-git
 ```
+
 ### NixOS
+
 Download `pulse-visualizer.nix` and add this to your flake:
+
 ```nix
 nixpkgs.config.packageOverrides = pkgs: {
   pulse-visualizer = pkgs.callPackage ./pulse-visualizer.nix { };
@@ -50,11 +60,15 @@ nixpkgs.config.packageOverrides = pkgs: {
 
 environment.systemPackages = [ pkgs.pulse-visualizer ];
 ```
+
 Or change directory to the project root and add it to your shell via:
+
 ```bash
 nix-shell
 ```
+
 With flakes:
+
 ```nix
 inputs.pulse-visualizer.url = "github:Audio-Solutions/pulse-visualizer";
 
@@ -64,7 +78,9 @@ environment.systemPackages = [ pulse-visualizer.packages.${system}.default ];
 nixpkgs.overlays = [ pulse-visualizer.overlays.default ];
 environment.systemPackages = [ pkgs.pulse-visualizer ];
 ```
+
 A flake-based shell can be activated using:
+
 ```bash
 nix develop
 
@@ -72,9 +88,15 @@ nix build .#pulse-visualizer
 # or
 nix run .#pulse-visualizer
 ```
+
 Build artifacts are located in `result/bin`.
+
 ### Other Distros
-You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest). There is an install script in the tarball, make sure to run it as root before running the binary:
+
+You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest).
+There is an install script in the tarball,
+make sure to run it as root before running the binary:
+
 ```bash
 tar -xvf pulse-visualizer-<version>.tar.gz
 cd pulse-visualizer-<version>
@@ -96,13 +118,15 @@ sudo ./install.sh
 - libcurl
 
 **Works on:**
+
 - Linux (PulseAudio or PipeWire)
 - BSD (PulseAudio)
 - Windows (WASAPI)
 
 ## Configuration
 
-pulse-visualizer now has a settings menu! You can open it by pressing `m`. You can also edit the config file directly.
+pulse-visualizer now has a settings menu! You can open it by pressing `m`.
+You can also edit the config file directly.
 
 For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURATION.md).
 
@@ -110,8 +134,12 @@ For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURAT
 
 You can pick a theme in the `Window` page in the settings menu.
 
-You can also create your own themes by copying a template and editing the colors. Theme files support a bunch of color and property keys (see `_TEMPLATE.txt` for all options). All the main colors are required. You can fine-tune visualizer-specific stuff too. Theme and config changes reload live.
- 
+You can also create your own themes by copying a template and editing the colors.
+Theme files support a bunch of color and property keys
+(see `_TEMPLATE.txt` for all options). All the main colors are required.
+You can fine-tune visualizer-specific stuff too.
+Theme and config changes reload live.
+
 ## Usage
 
 Just run:
@@ -129,7 +157,7 @@ pulse-visualizer
 
 If you want to build from source, you can do so with the following commands:
 
-#### Build dependencies
+### Build dependencies
 
 - C++17 compiler
 - CMake 3.10+
@@ -150,11 +178,16 @@ sudo ninja install
 ```
 
 #### Note
- Do not build with `sudo ninja install`. This will cause ownership and permission issues. Please run the build as a regular user (`ninja`) and only use `sudo ninja install` for the install step.
+
+Do not build with `sudo ninja install`.
+This will cause ownership and permission issues.
+Please run the build as a regular user (`ninja`)
+and only use `sudo ninja install` for the install step.
 
 ## Contributing & Support
 
-Want to help? PRs welcome! Please clang-format your code before submitting (see the clang-format file). Sorry for the chaos.
+Want to help? PRs welcome! Please clang-format your code before submitting
+(see the clang-format file). Sorry for the chaos.
 
 See [CONTRIBUTORS](CONTRIBUTORS.md) for a list of contributors to this project.
 
@@ -162,11 +195,14 @@ If you like pulse-visualizer, you can buy me a coffee at [ko-fi.com/beacrox](htt
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 -
+see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
 - [MiniMeters](https://minimeters.app/) for inspiration
 - [Richard Andersson](https://richardandersson.net/?p=350) for the Phosphor effect
-- [JetBrains](https://www.jetbrains.com/) and the [Nerd Fonts](https://www.nerdfonts.com/) project for the JetBrains Mono Nerd Font
-- SDL3, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone else who made this possible
+- [JetBrains](https://www.jetbrains.com/) and the [Nerd Fonts](https://www.nerdfonts.com/)
+project for the JetBrains Mono Nerd Font
+- SDL3, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone
+else who made this possible

@@ -218,7 +218,7 @@ void draw() {
     const float w = textSize.first + 20;
     const float h = textSize.second + 15;
 
-    Graphics::drawFilledRect(x, y, w, h, mouseOverRect(x, y, w, h) ? Theme::colors.accent : Theme::colors.bgaccent);
+    Graphics::drawFilledRect(x, y, w, h, mouseOverRect(x, y, w, h) ? Theme::colors.accent : Theme::colors.bgAccent);
     Graphics::Font::drawText("OK", 300 - 10 - (textSize.first + 10), 20, 20, Theme::colors.text);
   }
 }

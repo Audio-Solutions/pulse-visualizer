@@ -650,13 +650,13 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
-  static GLint loc_colorbeam = -1;
+  static GLint loc_colorBeam = -1;
   if (cachedProgram != shader) {
-    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
     cachedProgram = shader;
   }
 
-  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
+  glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -685,15 +685,15 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
   static GLint loc_decay = -1;
-  static GLint loc_colorbeam = -1;
+  static GLint loc_colorBeam = -1;
   if (cachedProgram != shader) {
     loc_decay = glGetUniformLocation(shader, "decay");
-    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
     cachedProgram = shader;
   }
 
   glUniform1f(loc_decay, decay);
-  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
+  glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -727,7 +727,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   static GLint loc_f_intensity = -1;
   static GLint loc_g_intensity = -1;
   static GLint loc_texSize = -1;
-  static GLint loc_colorbeam = -1;
+  static GLint loc_colorBeam = -1;
   if (cachedProgram != shader) {
     loc_line_blur_spread = glGetUniformLocation(shader, "line_blur_spread");
     loc_line_width = glGetUniformLocation(shader, "line_width");
@@ -736,7 +736,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
     loc_f_intensity = glGetUniformLocation(shader, "f_intensity");
     loc_g_intensity = glGetUniformLocation(shader, "g_intensity");
     loc_texSize = glGetUniformLocation(shader, "texSize");
-    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
     cachedProgram = shader;
   }
 
@@ -748,7 +748,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glUniform1f(loc_g_intensity, Config::options.phosphor.blur.far_intensity);
   glUniform2f(loc_texSize, static_cast<float>(win->width),
               static_cast<float>(SDLWindow::states[win->group].windowSizes.second));
-  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
+  glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -783,7 +783,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   static GLint loc_texSize = -1;
   static GLint loc_vignetteStrength = -1;
   static GLint loc_chromaticAberrationStrength = -1;
-  static GLint loc_colorbeam = -1;
+  static GLint loc_colorBeam = -1;
   static GLint loc_borderReflectionStrength = -1;
   static GLint loc_boxBlurSize = -1;
   static GLint loc_borderColor = -1;
@@ -796,7 +796,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
     loc_texSize = glGetUniformLocation(shader, "texSize");
     loc_vignetteStrength = glGetUniformLocation(shader, "vignetteStrength");
     loc_chromaticAberrationStrength = glGetUniformLocation(shader, "chromaticAberrationStrength");
-    loc_colorbeam = glGetUniformLocation(shader, "colorbeam");
+    loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
     loc_borderReflectionStrength = glGetUniformLocation(shader, "borderReflectionStrength");
     loc_boxBlurSize = glGetUniformLocation(shader, "boxBlurSize");
     loc_borderColor = glGetUniformLocation(shader, "borderColor");
@@ -820,7 +820,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glUniform2i(loc_texSize, win->width, SDLWindow::states[win->group].windowSizes.second);
   glUniform1f(loc_vignetteStrength, Config::options.phosphor.screen.vignette);
   glUniform1f(loc_chromaticAberrationStrength, Config::options.phosphor.screen.chromatic_aberration);
-  glUniform1i(loc_colorbeam, Config::options.phosphor.beam.rainbow);
+  glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
   glUniform1f(loc_borderReflectionStrength, Config::options.phosphor.reflections.strength);
   glUniform1i(loc_boxBlurSize, Config::options.phosphor.reflections.box_blur_size);
 
@@ -892,13 +892,13 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
 void rgbaToHsva(float* rgba, float* hsva) {
   float r = rgba[0], g = rgba[1], b = rgba[2], a = rgba[3];
-  float maxc = std::max({r, g, b}), minc = std::min({r, g, b});
-  float d = maxc - minc;
-  float h = 0, s = (maxc == 0 ? 0 : d / maxc), v = maxc;
+  float maxC = std::max({r, g, b}), minC = std::min({r, g, b});
+  float d = maxC - minC;
+  float h = 0, s = (maxC == 0 ? 0 : d / maxC), v = maxC;
   if (d > FLT_EPSILON) {
-    if (maxc == r)
+    if (maxC == r)
       h = (g - b) / d + (g < b ? 6 : 0);
-    else if (maxc == g)
+    else if (maxC == g)
       h = (b - r) / d + 2;
     else
       h = (r - g) / d + 4;

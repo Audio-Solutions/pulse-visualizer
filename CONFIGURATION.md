@@ -1,13 +1,17 @@
 # Pulse Audio Visualizer Configuration Guide
 
-This guide provides comprehensive documentation for configuring Pulse Audio Visualizer. The configuration file is located at `~/.config/pulse-visualizer/config.yml` for linux and `C:\Users\<username>\.config\pulse-visualizer\config.yml` for windows and uses YAML format.
+This guide provides comprehensive documentation for configuring Pulse Audio Visualizer.
+The configuration file is located at `~/.config/pulse-visualizer/config.yml` for
+linux and `C:\Users\<username>\.config\pulse-visualizer\config.yml` for windows
+and uses YAML format.
 
 ## Quick Start
 
 1. Start Pulse at least once to generate the config file
 2. Edit the configuration file to match your system
 
-Most config options update live, so you can change them without restarting Pulse, but some may require a restart.
+Most config options update live, so you can change them without restarting Pulse,
+but some may require a restart.
 
 ## Boolean Values
 
@@ -27,7 +31,10 @@ Boolean configuration options accept multiple formats:
 - `off`
 - `0`
 
-**Note:** Some boolean options that previously existed are now implied by their respective int/float counterparts being nonzero. For example, `phosphor.screen.curvature_enabled: true` is implied when `phosphor.screen.curvature > FLT_EPSILON` (FLT_EPSILON is 1e-6).
+**Note:** Some boolean options that previously existed are now implied by their
+respective int/float counterparts being nonzero. For example,
+`phosphor.screen.curvature_enabled: true` is implied when
+`phosphor.screen.curvature > FLT_EPSILON` (FLT_EPSILON is 1e-6).
 
 ## Configuration Sections
 
@@ -270,7 +277,7 @@ oscilloscope:
 
 Controls the CRT phosphor simulation effect (realistic glow and persistence).
 
-**⚠️ WARNING: These settings are computationally expensive and affect performance**
+#### ⚠️ WARNING: These settings are computationally expensive and affect performance
 
 ```yaml
 phosphor:
@@ -427,7 +434,8 @@ Each group (like "main") creates a window with visualizers arranged left-to-righ
 Visualizers can be moved between windows by clicking arrow buttons
 Windows can be split by right-clicking to pop out visualizers into new windows
 Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
-Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
+Note: you cannot have the same visualizer multiple times either
+in the same window or in different windows.
 Only one instance of a visualizer can exist at a time.
 
 ```yaml

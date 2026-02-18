@@ -179,7 +179,7 @@ void Splitter::draw() {
   setViewport(x - 5, 10, SDLWindow::states[group].windowSizes.second);
 
   // Draw splitter line
-  Graphics::drawLine(5, 0, 5, SDLWindow::states[group].windowSizes.second, Theme::colors.bgaccent, 2.0f);
+  Graphics::drawLine(5, 0, 5, SDLWindow::states[group].windowSizes.second, Theme::colors.bgAccent, 2.0f);
 
   // Draw hover highlight if mouse is over splitter
   if (hovering) {
@@ -382,7 +382,7 @@ void VisualizerWindow::drawArrow(int dir) {
   if (arrowX == -1 && arrowY == -1)
     return;
 
-  float* bgcolor = Theme::colors.bgaccent;
+  float* bgcolor = Theme::colors.bgAccent;
   if (buttonHovering(dir, SDLWindow::states[group].mousePos.first,
                      SDLWindow::states[group].windowSizes.second - SDLWindow::states[group].mousePos.second))
     bgcolor = Theme::colors.accent;
@@ -671,7 +671,7 @@ void reorder() {
       }
     }
 
-    // Create window if not main and doesnt already exist
+    // Create window if not main and doesn't already exist
     if (key != "main" && windows.find(key) == windows.end()) {
       SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
     }

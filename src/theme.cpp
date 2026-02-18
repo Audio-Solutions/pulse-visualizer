@@ -81,7 +81,7 @@ void load() {
       {"text",                              colors.text                             },
       {"accent",                            colors.accent                           },
       {"bg",                                colors.background                       },
-      {"bgaccent",                          colors.bgaccent                         },
+      {"bgaccent",                          colors.bgAccent                         },
       {"waveform",                          colors.waveform                         },
       {"history_low",                       colors.history_low                      },
       {"history_mid",                       colors.history_mid                      },
@@ -91,10 +91,10 @@ void load() {
       {"waveform_high",                     colors.waveform_high                    },
       {"oscilloscope_main",                 colors.oscilloscope_main                },
       {"oscilloscope_bg",                   colors.oscilloscope_bg                  },
-      {"stereometer",                       colors.stereometer                      },
-      {"stereometer_low",                   colors.stereometer_low                  },
-      {"stereometer_mid",                   colors.stereometer_mid                  },
-      {"stereometer_high",                  colors.stereometer_high                 },
+      {"stereometer",                       colors.stereoMeter                      },
+      {"stereometer_low",                   colors.stereoMeter_low                  },
+      {"stereometer_mid",                   colors.stereoMeter_mid                  },
+      {"stereometer_high",                  colors.stereoMeter_high                 },
       {"spectrum_analyzer_main",            colors.spectrum_analyzer_main           },
       {"spectrum_analyzer_secondary",       colors.spectrum_analyzer_secondary      },
       {"spectrum_analyzer_frequency_lines", colors.spectrum_analyzer_frequency_lines},
@@ -187,7 +187,7 @@ void load() {
   }
 
   static std::vector<float*> mainColors = {colors.color,  colors.selection,  colors.text,
-                                           colors.accent, colors.background, colors.bgaccent};
+                                           colors.accent, colors.background, colors.bgAccent};
 
   static std::vector<std::string> colorNames = {"color", "selection", "text", "accent", "bg", "bgaccent"};
 

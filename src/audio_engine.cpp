@@ -351,9 +351,9 @@ void onProcess(void*) {
     __m256 left = _mm256_permutevar8x32_ps(data, left_idx);
     __m256 right = _mm256_permutevar8x32_ps(data, right_idx);
 
-    __m256 vgain = _mm256_set1_ps(gain);
-    left = _mm256_mul_ps(left, vgain);
-    right = _mm256_mul_ps(right, vgain);
+    __m256 vGain = _mm256_set1_ps(gain);
+    left = _mm256_mul_ps(left, vGain);
+    right = _mm256_mul_ps(right, vGain);
 
     __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), _mm256_set1_ps(0.5f));
     __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), _mm256_set1_ps(0.5f));
@@ -649,9 +649,9 @@ void threadFunc() {
           __m256 left = _mm256_permutevar8x32_ps(data, left_idx);
           __m256 right = _mm256_permutevar8x32_ps(data, right_idx);
 
-          __m256 vgain = _mm256_set1_ps(gain);
-          left = _mm256_mul_ps(left, vgain);
-          right = _mm256_mul_ps(right, vgain);
+          __m256 vGain = _mm256_set1_ps(gain);
+          left = _mm256_mul_ps(left, vGain);
+          right = _mm256_mul_ps(right, vGain);
 
           __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), _mm256_set1_ps(0.5f));
           __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), _mm256_set1_ps(0.5f));

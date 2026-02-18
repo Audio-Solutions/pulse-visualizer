@@ -105,7 +105,7 @@ inline void initTop() {
     };
 
     leftChevron.render = [](Element* self) {
-      float* bgcolor = Theme::colors.bgaccent;
+      float* bgcolor = Theme::colors.bgAccent;
       if (mouseOverRect(self->x, self->y, self->w, self->h))
         bgcolor = Theme::colors.accent;
 
@@ -137,7 +137,7 @@ inline void initTop() {
     };
 
     centerLabel.render = [](Element* self) {
-      Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
+      Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgAccent);
 
       const std::string str = pageToString(currentPage);
       std::pair<float, float> textSize = Graphics::Font::getTextSize(str.c_str(), fontSizeTop);
@@ -158,7 +158,7 @@ inline void initTop() {
     };
 
     rightChevron.render = [](Element* self) {
-      float* bgcolor = Theme::colors.bgaccent;
+      float* bgcolor = Theme::colors.bgAccent;
       if (mouseOverRect(self->x, self->y, self->w, self->h))
         bgcolor = Theme::colors.accent;
 
@@ -192,7 +192,7 @@ inline void initTop() {
 
     defaultButton.render = [](Element* self) {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                               self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                               self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
       std::pair<float, float> textSize = Graphics::Font::getTextSize("Load default", fontSizeTop);
       Graphics::Font::drawText("Load default", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
@@ -229,7 +229,7 @@ inline void initTop() {
 
     saveButton.render = [](Element* self) {
       Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                               self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                               self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
       std::pair<float, float> textSize = Graphics::Font::getTextSize("Save", fontSizeTop);
       Graphics::Font::drawText("Save", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
@@ -269,7 +269,7 @@ inline void initTop() {
 
       for (auto& pair : popupMessages) {
         float bgColor[4];
-        std::copy(Theme::colors.bgaccent, Theme::colors.bgaccent + 4, bgColor);
+        std::copy(Theme::colors.bgAccent, Theme::colors.bgAccent + 4, bgColor);
         float fontColor[4];
         std::copy(Theme::colors.text, Theme::colors.text + 4, fontColor);
         std::pair<float, float> textSize = Graphics::Font::getTextSize(pair.second.c_str(), fontSize);
@@ -863,7 +863,7 @@ inline void initPages() {
           cyOther += fontSizeHeader;
         }
 
-        // instantenous fps text
+        // instantaneous fps text
         {
           std::stringstream ss;
           ss << "FPS: " << std::fixed << std::setprecision(1) << fpsLerp;
@@ -1128,7 +1128,7 @@ void createHeaderElement(Page& page, float& cy, const std::string key, const std
     std::pair<float, float> textSize = Graphics::Font::getTextSize(header.c_str(), fontSizeHeader);
     Graphics::Font::drawText(header.c_str(), self->x + self->w / 2 - textSize.first / 2,
                              (int)(self->y + self->h / 2 - textSize.second / 2), fontSizeHeader, Theme::colors.text);
-    Graphics::drawLine(self->x, self->y, self->x + self->w, self->y, Theme::colors.bgaccent, 2);
+    Graphics::drawLine(self->x, self->y, self->x + self->w, self->y, Theme::colors.bgAccent, 2);
   };
 
   page.elements.insert({key, headerElement});
@@ -1148,7 +1148,7 @@ void createCheckElement(Page& page, float& cy, const std::string key, bool* valu
 
   checkElement.render = [value, key](Element* self) {
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                             self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
     if (*value) {
       Graphics::drawLine(self->x + padding, self->y + padding, self->x + self->w - padding, self->y + self->h - padding,
@@ -1494,7 +1494,7 @@ void draw() {
   // configure viewport for top layer
   configViewport(w, h);
 
-  // make sure the current page doesnt draw below the elements
+  // make sure the current page doesn't draw below the elements
   Graphics::drawFilledRect(0, h - scrollingDisplayMargin, w, scrollingDisplayMargin, Theme::colors.background);
   Graphics::drawFilledRect(0, 0, w, scrollingDisplayMargin, Theme::colors.background);
 
@@ -1595,9 +1595,9 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
     bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
 
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                             hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             hovered ? Theme::colors.accent : Theme::colors.bgAccent);
     Graphics::drawFilledRect(self->x + handleX + sliderPadding, self->y + sliderPadding, sliderHandleWidth,
-                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgaccent : Theme::colors.accent);
+                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgAccent : Theme::colors.accent);
 
     std::stringstream ss;
     if (zeroOff && *value <= FLT_EPSILON) {
@@ -1695,9 +1695,9 @@ void createDetentSliderElement(Page& page, float& cy, const std::string key, Val
     bool hovered = mouseOverRectTranslated(self->x, self->y, self->w, self->h);
 
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                             hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             hovered ? Theme::colors.accent : Theme::colors.bgAccent);
     Graphics::drawFilledRect(self->x + handleX + sliderPadding, self->y + sliderPadding, sliderHandleWidth,
-                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgaccent : Theme::colors.accent);
+                             self->h - sliderPadding * 2, hovered ? Theme::colors.bgAccent : Theme::colors.accent);
 
     std::stringstream ss;
     ss << std::fixed << std::setprecision(precision) << *value;
@@ -1773,7 +1773,7 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
 
     // draw the dropdown button thing
     Graphics::drawFilledRect(self->x, originalY, self->w, stdSize,
-                             dropdownHovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             dropdownHovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
     drawArrow((self->focused ? 2 : -2), self->x + self->w - (stdSize * 0.75), originalY + (stdSize / 4), stdSize / 2);
 
@@ -1811,7 +1811,7 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
 
         Graphics::drawFilledRect(self->x, y, self->w, stdSize,
                                  thingHovered ? Theme::colors.accent
-                                              : (current ? Theme::colors.text : Theme::colors.bgaccent));
+                                              : (current ? Theme::colors.text : Theme::colors.bgAccent));
 
         std::string actualLabel = Graphics::Font::truncateText(kv.second, self->w - padding * 2, fontSizeValue);
 
@@ -1883,7 +1883,7 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
   };
 
   tickLabelElement.render = [value, possibleValues, key](Element* self) {
-    Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgaccent);
+    Graphics::drawFilledRect(self->x, self->y, self->w, self->h, Theme::colors.bgAccent);
 
     std::pair<ValueType, std::string> currentPair;
     for (std::pair<const ValueType, std::string> kv : possibleValues) {
@@ -1926,7 +1926,7 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
 
   tickLeftElement.render = [](Element* self) {
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                             self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
     drawArrow(-1, self->x, self->y, stdSize);
   };
@@ -1955,7 +1955,7 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
 
   tickRightElement.render = [](Element* self) {
     Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
-                             self->hovered ? Theme::colors.accent : Theme::colors.bgaccent);
+                             self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
 
     drawArrow(1, self->x, self->y, stdSize);
   };
@@ -2037,7 +2037,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       // Group header
       float headerY = yTop - groupHeaderH;
-      Graphics::drawFilledRect(self->x, headerY, self->w, groupHeaderH, Theme::colors.bgaccent);
+      Graphics::drawFilledRect(self->x, headerY, self->w, groupHeaderH, Theme::colors.bgAccent);
       std::pair<float, float> textSize = Graphics::Font::getTextSize(group.c_str(), fontSizeHeader);
       Graphics::Font::drawText(group.c_str(), (int)(self->x + padding),
                                (int)(headerY + groupHeaderH / 2 - textSize.second / 2), fontSizeHeader,
@@ -2062,7 +2062,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         bool isPlaceholder = items.empty();
         bool isDragged = dragState.active && dragState.fromGroup == group && dragState.index == i && !isPlaceholder;
         bool hovered = mouseOverRectTranslated(itemX, itemY, itemW, itemHh);
-        float* bg = hovered ? Theme::colors.accent : Theme::colors.bgaccent;
+        float* bg = hovered ? Theme::colors.accent : Theme::colors.bgAccent;
         if (isDragged)
           bg = Theme::colors.accent;
         Graphics::drawFilledRect(itemX, itemY, itemW, itemHh, bg);
@@ -2092,7 +2092,7 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     float createY = yTop - createZoneH;
     bool overCreate = mouseOverRectTranslated(self->x, createY, self->w, createZoneH);
     Graphics::drawFilledRect(self->x, createY, self->w, createZoneH,
-                             overCreate && dragState.active ? Theme::colors.accent : Theme::colors.bgaccent);
+                             overCreate && dragState.active ? Theme::colors.accent : Theme::colors.bgAccent);
     const char* createLabel = "+ Create new window (drop here)";
     std::pair<float, float> t = Graphics::Font::getTextSize(createLabel, fontSizeHeader);
     Graphics::Font::drawText(createLabel, (int)(self->x + self->w / 2 - t.first / 2),

@@ -86,15 +86,15 @@ void render() {
   // Draw background bar
   Graphics::drawFilledRect(lufsBarX, 0, LUFS_BAR_WIDTH,
                            state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
-                           Theme::colors.bgaccent);
+                           Theme::colors.bgAccent);
 
   // Draw peak background bars
   Graphics::drawFilledRect(leftPeakX, 0, PEAK_BAR_WIDTH,
                            state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
-                           Theme::colors.bgaccent);
+                           Theme::colors.bgAccent);
   Graphics::drawFilledRect(rightPeakX, 0, PEAK_BAR_WIDTH,
                            state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
-                           Theme::colors.bgaccent);
+                           Theme::colors.bgAccent);
 
   // Draw zero lines in each background rect at barHeight
   Graphics::drawLine(lufsBarX, barHeight, lufsBarX + LUFS_BAR_WIDTH, barHeight, Theme::colors.accent, 1);

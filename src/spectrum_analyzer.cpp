@@ -513,24 +513,24 @@ void render() {
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Transform mouse coordinates back to unrotated coordinate system
-    float unrotatedX, unrotatedY;
+    // Transform mouse coordinates back to original coordinate system
+    float originalX, originalY;
     switch (Config::options.fft.rotation) {
     case Config::ROTATION_0:
-      unrotatedX = mouseXRel;
-      unrotatedY = mouseYRel;
+      originalX = mouseXRel;
+      originalY = mouseYRel;
       break;
     case Config::ROTATION_90:
-      unrotatedX = mouseYRel;
-      unrotatedY = window->width - mouseXRel;
+      originalX = mouseYRel;
+      originalY = window->width - mouseXRel;
       break;
     case Config::ROTATION_180:
-      unrotatedX = window->width - mouseXRel;
-      unrotatedY = state.windowSizes.second - mouseYRel;
+      originalX = window->width - mouseXRel;
+      originalY = state.windowSizes.second - mouseYRel;
       break;
     case Config::ROTATION_270:
-      unrotatedX = state.windowSizes.second - mouseYRel;
-      unrotatedY = mouseXRel;
+      originalX = state.windowSizes.second - mouseYRel;
+      originalY = mouseXRel;
       break;
     }
 
@@ -545,11 +545,11 @@ void render() {
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
             : state.windowSizes.second;
-    float logX = unrotatedX / effectiveWidth;
+    float logX = originalX / effectiveWidth;
     float logFreq = logMin + logX * (logMax - logMin);
     float freq = exp(logFreq);
 
-    float normalizedY = unrotatedY / effectiveHeight;
+    float normalizedY = originalY / effectiveHeight;
     float dB = Config::options.fft.limits.min_db +
                normalizedY * (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db);
     float k = Config::options.fft.slope / 20.f / log10f(2.f);

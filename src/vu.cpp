@@ -72,7 +72,7 @@ void render() {
     const size_t vuBarX = LABEL_WIDTH + LABEL_GAP;
 
     // Draw background bar
-    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, state.windowSizes.second - topHeight, Theme::colors.bgaccent);
+    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, state.windowSizes.second - topHeight, Theme::colors.bgAccent);
 
     // Draw zero line in background rect at 0dB
     float zeroLineY = state.windowSizes.second - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);

@@ -35,7 +35,7 @@ uniform float grainStrength;
 uniform float vignetteStrength;
 uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
-uniform bool colorbeam;
+uniform bool colorBeam;
 uniform float borderReflectionStrength;
 uniform int boxBlurSize;
 
@@ -133,7 +133,7 @@ float fast_exp(float a) {
 // Tanh-based color mapping function
 // Equivalent to MATLAB: map = [tanh(map_index*RGB(1)*multfactor);tanh(map_index*RGB(2)*multfactor);tanh(map_index*RGB(3)*multfactor)]'
 // map = min(map,1);
-float tanhColormapChannel(float mapIndex) {
+float tanhColorMapChannel(float mapIndex) {
   return clamp(fast_tanh(mapIndex), 0.0, 1.0);
 }
 
@@ -160,9 +160,9 @@ vec2 radialSquareMirror(vec2 uv) {
 }
 
 // Antialiased sampling in distorted space for three channels at once.
-// When colorbeam is false, G/B are sampled from R texture at their offsets.
+// When colorBeam is false, G/B are sampled from R texture at their offsets.
 vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG, vec2 distortedCenterB, vec2 texelSize,
-                                   bool colorbeamEnabled) {
+                                   bool colorBeamEnabled) {
   vec3 result = vec3(0.0);
   float weightSum = 0.0;
   const float AA_WEIGHT = 1.0 / 64.0;
@@ -197,7 +197,7 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
       if (inR) {
         eR = float(imageLoad(energyTexR, cR).r);
       }
-      if (colorbeamEnabled) {
+      if (colorBeamEnabled) {
         if (inG) {
           eG = float(imageLoad(energyTexG, cG).r);
         }
@@ -226,7 +226,7 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
 }
 
 // 7x7 box blur using antialiased sampling in distorted space for RGB at once
-vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbeamEnabled, float caStrength, vec2 center) {
+vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 center) {
   if (boxBlurSize == 0) {
     // Apply chromatic aberration to the center coordinates
     vec2 toCenter = distortedCenterUV - center;
@@ -234,7 +234,7 @@ vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbe
     vec2 distortedCenterG = distortedCenterUV;
     vec2 distortedCenterB = distortedCenterUV + toCenter * caStrength;
     return sampleAntialiasedDistortedRGB(distortedCenterR, distortedCenterG, distortedCenterB, texelSize,
-                                         colorbeamEnabled);
+                                         colorBeamEnabled);
   }
 
   vec3 sum = vec3(0.0);
@@ -251,7 +251,7 @@ vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorbe
       vec2 sampleG = sampleUV;
       vec2 sampleB = sampleUV - toCenter * caStrength;
       
-      sum += sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorbeamEnabled);
+      sum += sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
     }
   }
   return sum * invKernelArea;
@@ -311,7 +311,7 @@ void main() {
       vec2 distortedG = crtDistortion(scaledUVG);
       vec2 distortedB = crtDistortion(scaledUVB);
 
-      vec3 energies = sampleAntialiasedDistortedRGB(distortedR, distortedG, distortedB, texelSize, colorbeam);
+      vec3 energies = sampleAntialiasedDistortedRGB(distortedR, distortedG, distortedB, texelSize, colorBeam);
       energyR = energies.r;
       energyG = energies.g;
       energyB = energies.b;
@@ -325,7 +325,7 @@ void main() {
     coordB = clamp(coordB, vec2(0), texSize - 1);
 
     energyR = float(imageLoad(energyTexR, ivec2(round(coordR))).r);
-    if (colorbeam) {
+    if (colorBeam) {
       energyG = float(imageLoad(energyTexG, ivec2(round(coordG))).r);
       energyB = float(imageLoad(energyTexB, ivec2(round(coordB))).r);
     } else {
@@ -347,16 +347,16 @@ void main() {
   energyG /= 5e5;
   energyB /= 5e5;
 
-  // Map to color using tanhColormap per channel
+  // Map to color using tanhColorMap per channel
   vec3 screenColor;
-  if (colorbeam) {
-    screenColor.r = tanhColormapChannel(energyR);
-    screenColor.g = tanhColormapChannel(energyG);
-    screenColor.b = tanhColormapChannel(energyB);
+  if (colorBeam) {
+    screenColor.r = tanhColorMapChannel(energyR);
+    screenColor.g = tanhColorMapChannel(energyG);
+    screenColor.b = tanhColorMapChannel(energyB);
   } else {
-    screenColor.r = tanhColormapChannel(energyR * beamColor.r);
-    screenColor.g = tanhColormapChannel(energyG * beamColor.g);
-    screenColor.b = tanhColormapChannel(energyB * beamColor.b);
+    screenColor.r = tanhColorMapChannel(energyR * beamColor.r);
+    screenColor.g = tanhColorMapChannel(energyG * beamColor.g);
+    screenColor.b = tanhColorMapChannel(energyB * beamColor.b);
   }
 
   // add bg
@@ -373,7 +373,7 @@ void main() {
       vec2 baseReflected = radialSquareMirror(distortedUVBase);
 
       vec3 refRGB;
-      if (colorbeam) {
+      if (colorBeam) {
         refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, true, chromaticAberrationStrength, center);
       } else {
         refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
@@ -384,10 +384,10 @@ void main() {
       float bRef = refRGB.b / 5e5;
 
       vec3 reflectColor;
-      if (colorbeam) {
-        reflectColor = vec3(tanhColormapChannel(rRef), tanhColormapChannel(gRef), tanhColormapChannel(bRef));
+      if (colorBeam) {
+        reflectColor = vec3(tanhColorMapChannel(rRef), tanhColorMapChannel(gRef), tanhColorMapChannel(bRef));
       } else {
-        reflectColor = vec3(tanhColormapChannel(rRef * beamColor.r), tanhColormapChannel(gRef * beamColor.g), tanhColormapChannel(bRef * beamColor.b));
+        reflectColor = vec3(tanhColorMapChannel(rRef * beamColor.r), tanhColorMapChannel(gRef * beamColor.g), tanhColorMapChannel(bRef * beamColor.b));
       }
 
       // Pixel-thin exponential darkening along the corner diagonals
