@@ -65,6 +65,7 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
 void _check() {
   LOG_DEBUG("Checking for updates");
 
+  // Init cURL request
   CURL* curl = curl_easy_init();
   if (!curl) {
     LOG_ERROR("Failed to initialise curl request")
@@ -73,12 +74,14 @@ void _check() {
 
   MemoryBlock chunk = {nullptr, 0};
 
+  // Set cURL options
   curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/Audio-Solutions/pulse-visualizer/releases/latest");
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "pulse-visualizer/" VERSION_STRING);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
+  // Send request
   CURLcode res = curl_easy_perform(curl);
 
   if (res != CURLE_OK) {
@@ -92,6 +95,7 @@ void _check() {
 
   curl_easy_cleanup(curl);
 
+  // JSON regex
   std::regex re(R"_rx("tag_name"\s*:\s*"v?(\d+(?:\.\d+)+)")_rx");
   std::smatch m;
   std::string json(chunk.data);
@@ -112,6 +116,7 @@ void _check() {
     LOG_DEBUG("Regex failed");
   }
 
+  // Notify main thread about data
   SDL_Event event;
   SDL_zero(event);
   event.type = eventId;

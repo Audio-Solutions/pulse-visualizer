@@ -7,6 +7,7 @@
     "opengl",
     "sdl3",
     "yaml-cpp",
-    "curl"
+    "curl",
+    "sdl3-image"
   ]
 }
