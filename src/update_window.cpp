@@ -68,7 +68,7 @@ void _check() {
   // Init cURL request
   CURL* curl = curl_easy_init();
   if (!curl) {
-    LOG_ERROR("Failed to initialise curl request")
+    LOG_ERROR("Failed to initialise curl request");
     return;
   }
 

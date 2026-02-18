@@ -84,10 +84,10 @@ template <std::size_t N> constexpr const char* constexpr_strrchr(const char (&st
 
 // Logging macros
 #define LOG_ERROR(x)                                                                                                   \
-  std::cout << "ERROR in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl;
+  std::cout << "ERROR in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl
 #define LOG_DEBUG(x)                                                                                                   \
   if (CmdlineArgs::debug)                                                                                              \
-    std::cout << "DEBUG in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl;
+  std::cout << "DEBUG in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl
 
 #ifdef HAVE_AVX2
 #include <immintrin.h>

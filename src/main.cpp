@@ -225,7 +225,7 @@ int main(int argc, char** argv) {
 
   // Initialise libcurl
 #ifdef USE_UPDATER
-  LOG_DEBUG("Initialising libcurl")
+  LOG_DEBUG("Initialising libcurl");
   if (curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK) {
     LOG_DEBUG("Checking for updates");
     UpdaterWindow::check();

@@ -19,12 +19,13 @@
 
 #include "include/sdl_window.hpp"
 
-#include <SDL3_image/SDL_image.h>
 #include "include/config.hpp"
 #include "include/config_window.hpp"
 #include "include/graphics.hpp"
 #include "include/theme.hpp"
 #include "include/window_manager.hpp"
+
+#include <SDL3_image/SDL_image.h>
 
 namespace SDLWindow {
 // Map of window states by group
@@ -279,7 +280,7 @@ void createWindow(const std::string& group, const std::string& title, int width,
     icon = IMG_Load((Config::getInstallDir() + "/icons/icon.ico").c_str());
 
   if (!icon)
-    LOG_ERROR("Failed to load window icon (icons/icon.ico)")
+    LOG_ERROR("Failed to load window icon (icons/icon.ico)");
   else
     SDL_SetWindowIcon(win, icon);
 
