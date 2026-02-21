@@ -72,9 +72,9 @@ void loadAll() {
 
   for (const auto& entry : std::filesystem::directory_iterator {dir}) {
 #ifdef _WIN32
-    if (!entry.is_regular_file() && entry.path().extension() != ".dll")
+    if (!entry.is_regular_file() || entry.path().extension() != ".dll")
 #else
-    if (!entry.is_regular_file() && entry.path().extension() != ".so")
+    if (!entry.is_regular_file() || entry.path().extension() != ".so")
 #endif
       continue;
 
@@ -154,7 +154,7 @@ void unloadAll() {
   for (auto& pl : plugins) {
     if (pl.stop)
       pl.stop();
-    
+
     if (pl.handle)
 #ifdef _WIN32
       FreeLibrary(static_cast<HMODULE>(pl.handle));

@@ -63,7 +63,7 @@ jobs:
 
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 2
-      SDL_BRANCH: "release-3.2.20"
+      SDL_BRANCH: "release-3.4.0"
 
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
 
       - name: Build SDL3_image from source
         run: |
-          git clone https://github.com/libsdl-org/SDL_image.git --depth 1
+          git clone https://github.com/libsdl-org/SDL_image.git --branch "${{ env.SDL_BRANCH }}" --depth 1
           cd SDL_image
           mkdir -p build && cd build
           cmake .. -DSDLIMAGE_TEST=OFF -DSDLIMAGE_INSTALL=ON
