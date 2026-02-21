@@ -75,7 +75,7 @@ jobs:
             libasound2-dev libpulse-dev libpipewire-0.3-dev libaudio-dev libjack-dev libsndio-dev libsamplerate0-dev
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxinerama-dev
             libwayland-dev libxkbcommon-dev wayland-protocols
-            libdrm-dev libgbm-dev
+            libdrm-dev libgbm-dev libxtst-dev libxss-dev
           version: 1.0
 
       - name: Cache SDL3
@@ -100,7 +100,7 @@ jobs:
           fi
           cd SDL
           mkdir -p build && cd build
-          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF -DSDL_X11_XSCRNSAVER=OFF
+          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF
           make -j2
           sudo make install
 
