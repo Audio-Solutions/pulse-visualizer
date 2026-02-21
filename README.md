@@ -144,7 +144,9 @@ Theme and config changes reload live.
 ## Plugin Support
 
 Pulse has experimental plugin support.  
-Plugins are `.so`/`.dll` files dropped into `~/.config/pulse-visualizer/plugins/` and can draw using a small rendering API, handle SDL events, and access config/theme data.
+Plugins are `.so`/`.dll` files dropped into `~/.config/pulse-visualizer/plugins/` on linux
+and `C:\Users\<username>\.config\pulse-visualizer\plugins` on Windows
+and can draw using a small rendering API, handle SDL events, and access config/theme data.
 
 See [PLUGINS.md](docs/PLUGINS.md) for details on the plugin lifecycle, required symbols, and the `PvAPI` interface.
 

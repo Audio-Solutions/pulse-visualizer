@@ -115,13 +115,14 @@ Plugins are regular shared libraries built against the public headers.
 Minimal manual build on Linux/BSD:
 
 ```bash
-clang++ -std=c++20 -fPIC -shared \
+clang++ -std=c++20 -lSDL3 -fPIC -shared \
   -I../include \
   -o helloworld.so \
   helloworld.cpp
 ```
 
-- `-std=c++23` matches the main project  
+- `-std=c++20` matches the main project  
+- `-lSDL3` is required for SDL3
 - `-fPIC` is required for shared libraries on most ELF systems  
 - `-shared` produces a `.so` instead of an executable  
 - `-I../include` must point to the directory containing `plugin_api.hpp`  
@@ -137,7 +138,13 @@ set(CMAKE_CXX_STANDARD 20)
 add_library(myplugin SHARED myplugin.cpp)
 
 target_include_directories(myplugin PRIVATE
-  ../include  # adjust to your layout
+  ../include
+)
+
+find_package(SDL3 REQUIRED)
+
+target_link_libraries(myplugin PRIVATE
+  SDL3::SDL3
 )
 
 set_target_properties(myplugin PROPERTIES
@@ -160,11 +167,12 @@ Use the same compiler and general build settings as Pulse itself for best ABI co
 Pulse Visualizer scans for plugins at startup in:
 
 - `~/.config/pulse-visualizer/plugins/` on Linux/BSD (and other Unix‑like systems)  
+- `C:\Users\<username>\.config\pulse-visualizer\plugins` on Windows
 
 Basic workflow:
 
 - Build `myplugin.so`  
-- Copy it into `~/.config/pulse-visualizer/plugins/`  
+- Copy it into the plugins folder
 - Start Pulse Visualizer and check its logs for plugin load status  
 
 If `pvPluginInit` returns non‑zero, the plugin is logged as failed and ignored for the session.
@@ -219,7 +227,7 @@ PV_API void handleEvent(SDL_Event& event) {
 Build it:
 
 ```bash
-clang++ -std=c++20 -fPIC -shared \
+clang++ -std=c++20 -lSDL3 -fPIC -shared \
   -I../include \
   -o helloworld.so \
   helloworld.cpp

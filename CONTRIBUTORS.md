@@ -7,4 +7,4 @@ Thanks to the following people who have contributed to this project:
 - [evolvewithevan](https://github.com/evolvewithevan)  
 - [ajshout](https://github.com/ajshout)  
 - [fndov](https://github.com/fndov)  
-- [Nikola](https://github.com/nikolchaa)   
+- [Nikola](https://github.com/nikolchaa)
