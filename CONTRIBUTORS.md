@@ -8,3 +8,4 @@ Thanks to the following people who have contributed to this project:
 - [ajshout](https://github.com/ajshout)  
 - [fndov](https://github.com/fndov)  
 - [Nikola](https://github.com/nikolchaa)
+- [Debarchito](https://github.com/debarchito)
