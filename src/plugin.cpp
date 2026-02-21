@@ -26,6 +26,8 @@
 
 #ifndef _WIN32
 #include <dlfcn.h>
+#else
+#include <windows.h>
 #endif
 
 namespace Plugin {
@@ -68,20 +70,36 @@ void loadAll() {
   if (!std::filesystem::is_directory(dir))
     return;
 
-#ifndef _WIN32
   for (const auto& entry : std::filesystem::directory_iterator {dir}) {
+#ifdef _WIN32
+    if (!entry.is_regular_file() && entry.path().extension() != ".dll")
+#else
     if (!entry.is_regular_file() && entry.path().extension() != ".so")
+#endif
       continue;
 
     LOG_DEBUG("Loading " << entry.path().filename());
 
+#ifdef _WIN32
+    HMODULE handle = LoadLibrary(entry.path().string().c_str());
+    if (!handle) {
+      LOG_ERROR("LoadLibrary failed: " << GetLastError());
+#else
     void* handle = dlopen(entry.path().string().c_str(), RTLD_NOW);
     if (!handle) {
       LOG_ERROR("dlopen failed: " << dlerror());
+#endif
       continue;
     }
 
     auto loadSymbol = [&](auto& fn, const char* name) {
+#ifdef _WIN32
+      FARPROC sym = GetProcAddress(handle, name);
+      if (!sym) {
+        LOG_ERROR("GetProcAddress " << name << " failed: " << GetLastError());
+        return false;
+      }
+#else
       void* sym = dlsym(handle, name);
       if (const char* e = dlerror()) {
         LOG_ERROR("dlsym " << name << " failed: " << e);
@@ -91,6 +109,7 @@ void loadAll() {
         LOG_ERROR("dlsym " << name << " returned null");
         return false;
       }
+#endif
       using Fn = std::remove_reference_t<decltype(fn)>;
       fn = reinterpret_cast<Fn>(sym);
       return true;
@@ -102,19 +121,26 @@ void loadAll() {
     if (!loadSymbol(pl.init, "pvPluginInit") || !loadSymbol(pl.start, "pvPluginStart") ||
         !loadSymbol(pl.stop, "pvPluginStop") || !loadSymbol(pl.draw, "draw") ||
         !loadSymbol(pl.handleEvent, "handleEvent")) {
+#ifdef _WIN32
+      FreeLibrary(handle);
+#else
       dlclose(handle);
+#endif
       continue;
     }
 
     if (pl.init(&api) != 0) {
       LOG_ERROR("init returned non-zero");
+#ifdef _WIN32
+      FreeLibrary(handle);
+#else
       dlclose(handle);
+#endif
       continue;
     }
 
     plugins.push_back(pl);
   }
-#endif
 }
 
 void startAll() {
@@ -128,8 +154,11 @@ void unloadAll() {
   for (auto& pl : plugins) {
     if (pl.stop)
       pl.stop();
-#ifndef _WIN32
+    
     if (pl.handle)
+#ifdef _WIN32
+      FreeLibrary(static_cast<HMODULE>(pl.handle));
+#else
       dlclose(pl.handle);
 #endif
   }

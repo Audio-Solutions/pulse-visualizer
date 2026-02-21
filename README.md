@@ -143,8 +143,8 @@ Theme and config changes reload live.
 
 ## Plugin Support
 
-Pulse has experimental plugin support on Linux/BSD.  
-Plugins are `.so` files dropped into `~/.config/pulse-visualizer/plugins/` and can draw using a small rendering API, handle SDL events, and access config/theme data.
+Pulse has experimental plugin support.  
+Plugins are `.so`/`.dll` files dropped into `~/.config/pulse-visualizer/plugins/` and can draw using a small rendering API, handle SDL events, and access config/theme data.
 
 See [PLUGINS.md](docs/PLUGINS.md) for details on the plugin lifecycle, required symbols, and the `PvAPI` interface.
 
@@ -167,7 +167,7 @@ If you want to build from source, you can do so with the following commands:
 
 ### Build dependencies
 
-- C++17 compiler
+- C++20 compiler
 - CMake 3.10+
 - Ninja-build
 - Development headers for: SDL3, SDL3_image, PulseAudio or PipeWire (0.3+), FFTW3, FreeType2, GLEW, YAML-CPP, libebur128, libcurl

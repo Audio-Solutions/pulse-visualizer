@@ -7,7 +7,6 @@ Current limitations:
 
 - Plugins cannot create their own visualizers yet  
 - Plugins do not have access to the full internal rendering pipeline  
-- No Windows support yet  
 
 For the full API surface and data structures, see [`plugin_api.hpp`](../src/include/plugin_api.hpp) in `src/include`.
 
@@ -16,16 +15,16 @@ For the full API surface and data structures, see [`plugin_api.hpp`](../src/incl
 Each plugin is a shared library that must export a fixed set of C‑linkage entry points:
 
 ```cpp
-extern "C" int pvPluginInit(const PvAPI* api);
-extern "C" void pvPluginStart();
-extern "C" void pvPluginStop();
-extern "C" void draw();
-extern "C" void handleEvent(SDL_Event& event);
+PV_API int pvPluginInit(const PvAPI* api);
+PV_API void pvPluginStart();
+PV_API void pvPluginStop();
+PV_API void draw();
+PV_API void handleEvent(SDL_Event& event);
 ```
 
 Pulse Visualizer will:
 
-- Load `.so` files from the plugin directory  
+- Load `.so`/`.dll` files from the plugin directory  
 - Call `pvPluginInit` once after loading  
 - Call `pvPluginStart` when the plugin is activated  
 - Call `draw` once per frame  
@@ -43,7 +42,7 @@ A typical plugin looks like this:
 
 static const PvAPI* api = nullptr;
 
-extern "C" int pvPluginInit(const PvAPI* a) {
+PV_API int pvPluginInit(const PvAPI* a) {
   if (!a || a->apiVersion < 1)
     return -1;
 
@@ -53,28 +52,28 @@ extern "C" int pvPluginInit(const PvAPI* a) {
   return 0;
 }
 
-extern "C" void pvPluginStart() {
+PV_API void pvPluginStart() {
   if (!api)
     return;
 
   // one-time startup code
 }
 
-extern "C" void pvPluginStop() {
+PV_API void pvPluginStop() {
   if (!api)
     return;
 
   // cleanup code
 }
 
-extern "C" void draw() {
+PV_API void draw() {
   if (!api)
     return;
 
   // per-frame drawing using api helpers
 }
 
-extern "C" void handleEvent(SDL_Event& event) {
+PV_API void handleEvent(SDL_Event& event) {
   if (!api)
     return;
 
@@ -116,7 +115,7 @@ Plugins are regular shared libraries built against the public headers.
 Minimal manual build on Linux/BSD:
 
 ```bash
-clang++ -std=c++23 -fPIC -shared \
+clang++ -std=c++20 -fPIC -shared \
   -I../include \
   -o helloworld.so \
   helloworld.cpp
@@ -133,7 +132,7 @@ Example CMake setup:
 cmake_minimum_required(VERSION 3.10)
 project(MyPulsePlugin)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 
 add_library(myplugin SHARED myplugin.cpp)
 
@@ -180,7 +179,7 @@ This is a very small plugin that just prints to stdout on start/stop:
 
 static const PvAPI* api = nullptr;
 
-extern "C" int pvPluginInit(const PvAPI* a) {
+PV_API int pvPluginInit(const PvAPI* a) {
   if (!a || a->apiVersion < 1)
     return -1;
 
@@ -188,28 +187,28 @@ extern "C" int pvPluginInit(const PvAPI* a) {
   return 0;
 }
 
-extern "C" void pvPluginStart() {
+PV_API void pvPluginStart() {
   if (!api)
     return;
 
   std::cout << "hello world from plugin\n";
 }
 
-extern "C" void pvPluginStop() {
+PV_API void pvPluginStop() {
   if (!api)
     return;
 
   std::cout << "bye from plugin\n";
 }
 
-extern "C" void draw() {
+PV_API void draw() {
   if (!api)
     return;
 
   // nothing to draw yet
 }
 
-extern "C" void handleEvent(SDL_Event& event) {
+PV_API void handleEvent(SDL_Event& event) {
   if (!api)
     return;
 
@@ -220,7 +219,7 @@ extern "C" void handleEvent(SDL_Event& event) {
 Build it:
 
 ```bash
-clang++ -std=c++23 -fPIC -shared \
+clang++ -std=c++20 -fPIC -shared \
   -I../include \
   -o helloworld.so \
   helloworld.cpp

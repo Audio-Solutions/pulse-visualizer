@@ -26,6 +26,12 @@
 
 #define PLUGIN_API_VERSION 1
 
+#ifdef _WIN32
+#define PV_API extern "C" __declspec(dllexport)
+#else
+#define PV_API extern "C"
+#endif
+
 struct PvAPI {
   uint32_t apiVersion;
 
@@ -218,8 +224,8 @@ using pvPluginStopFn = void (*)(void);
 using pvPluginDrawFn = void (*)(void);
 using pvPluginHandleEventFn = void (*)(SDL_Event& event);
 
-extern "C" int pvPluginInit(const PvAPI* api);
-extern "C" void pvPluginStart();
-extern "C" void pvPluginStop();
-extern "C" void draw();
-extern "C" void handleEvent(SDL_Event& event);
+PV_API int pvPluginInit(const PvAPI* api);
+PV_API void pvPluginStart();
+PV_API void pvPluginStop();
+PV_API void draw();
+PV_API void handleEvent(SDL_Event& event);
