@@ -100,7 +100,7 @@ jobs:
           fi
           cd SDL
           mkdir -p build && cd build
-          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF
+          cmake .. -DSDL_TEST=OFF -DSDL_STATIC=OFF -DSDL_X11_XSCRNSAVER=OFF
           make -j2
           sudo make install
 
