@@ -104,6 +104,15 @@ jobs:
           make -j2
           sudo make install
 
+      - name: Build SDL3_image from source
+        run: |
+          git clone https://github.com/libsdl-org/SDL_image.git --depth 1
+          cd SDL_image
+          mkdir -p build && cd build
+          cmake .. -DSDLIMAGE_TEST=OFF -DSDLIMAGE_INSTALL=ON
+          make -j2
+          sudo make install
+
       - name: Configure CMake
         run: cmake -DSKIP_CPACK=OFF -B ${{github.workspace}}/build --preset linux-release
 

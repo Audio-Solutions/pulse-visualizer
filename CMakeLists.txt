@@ -157,7 +157,6 @@ if(WIN32)
   configure_file(${CMAKE_SOURCE_DIR}/version.rc.in ${CMAKE_BINARY_DIR}/version.rc @ONLY)
 
   set(RESOURCE_FILE "resources.rc" "${CMAKE_BINARY_DIR}/version.rc")
-  set(CMAKE_RC_COMPILER "rc.exe")
 else()
   set(RESOURCE_FILE "")
 endif()
