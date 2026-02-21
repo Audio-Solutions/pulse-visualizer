@@ -305,4 +305,21 @@ bool selectWindow(const std::string& group) {
   SDL_GL_MakeCurrent(states[group].win, states[group].glContext);
   return true;
 }
+
+std::optional<std::pair<int, int>> getWindowSize(const std::string& group) {
+  auto it = states.find(group);
+  if (it == states.end()) {
+    return std::nullopt;
+  }
+  return it->second.windowSizes;
+}
+
+std::optional<std::pair<int, int>> getCursorPos(const std::string& group) {
+  auto it = states.find(group);
+  if (it == states.end()) {
+    return std::nullopt;
+  }
+  return it->second.mousePos;
+}
+
 } // namespace SDLWindow

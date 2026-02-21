@@ -23,6 +23,7 @@
 #include "include/config_window.hpp"
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
+#include "include/plugin.hpp"
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
@@ -177,6 +178,10 @@ int main(int argc, char** argv) {
   DSP::bandpassed.resize(DSP::bufferSize);
   DSP::lowpassed.resize(DSP::bufferSize);
 
+  // Load plugins
+  LOG_DEBUG("Loading Plugins");
+  Plugin::loadAll();
+
   // Setup configuration
   LOG_DEBUG("Copying files");
   Config::copyFiles();
@@ -236,6 +241,10 @@ int main(int argc, char** argv) {
   LOG_DEBUG("Setting up frame timing variables");
   int frameCount = 0;
 
+  // Start plugins
+  LOG_DEBUG("Starting plugins");
+  Plugin::startAll();
+
   // Main application loop
   LOG_DEBUG("Starting main application loop");
   while (1) {
@@ -269,6 +278,7 @@ int main(int argc, char** argv) {
       for (auto& [key, vec] : WindowManager::windows)
         for (auto& window : vec)
           window.handleEvent(event);
+      Plugin::handleEvent(event);
     }
 
 #ifndef _WIN32
@@ -310,6 +320,7 @@ int main(int argc, char** argv) {
     WindowManager::drawSplitters();
     ConfigWindow::draw();
     UpdaterWindow::draw();
+    Plugin::drawAll();
     SDLWindow::display();
 
     // FPS logging if enabled
@@ -328,6 +339,7 @@ int main(int argc, char** argv) {
   // Cleanup
   LOG_DEBUG("Cleaning up...");
   SDLWindow::running.store(false);
+  Plugin::unloadAll();
   Graphics::Font::cleanup();
   DSPThread.join();
   AudioEngine::cleanup();

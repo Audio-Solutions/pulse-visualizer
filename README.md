@@ -38,6 +38,7 @@ sounds. Unless your system sucks, then, well, good luck.
 - Cross-platform: PulseAudio and PipeWire
 - Hardware-accelerated graphics (OpenGL)
 - A pile of ready-made themes (see `themes/`)
+- Plugin support
 
 ## Installation
 
@@ -128,7 +129,7 @@ sudo ./install.sh
 pulse-visualizer now has a settings menu! You can open it by pressing `m`.
 You can also edit the config file directly.
 
-For comprehensive configuration documentation, see [CONFIGURATION.md](CONFIGURATION.md).
+For comprehensive configuration documentation, see [CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ### Theming
 
@@ -139,6 +140,13 @@ Theme files support a bunch of color and property keys
 (see `_TEMPLATE.txt` for all options). All the main colors are required.
 You can fine-tune visualizer-specific stuff too.
 Theme and config changes reload live.
+
+## Plugin Support
+
+Pulse has experimental plugin support on Linux/BSD.  
+Plugins are `.so` files dropped into `~/.config/pulse-visualizer/plugins/` and can draw using a small rendering API, handle SDL events, and access config/theme data.
+
+See [PLUGINS.md](docs/PLUGINS.md) for details on the plugin lifecycle, required symbols, and the `PvAPI` interface.
 
 ## Usage
 

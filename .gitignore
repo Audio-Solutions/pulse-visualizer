@@ -85,3 +85,6 @@ vcpkg_installed/
 # NixOS
 .envrc
 .direnv
+
+# plugin directory
+plugins
