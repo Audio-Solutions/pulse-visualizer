@@ -69,8 +69,9 @@ void init() {
   }
 
   // Configure OpenGL context attributes
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
@@ -88,81 +89,29 @@ void init() {
     return;
   }
 
-  // Make the OpenGL context current before initializing GLEW
+  // Make the OpenGL context current before initializing GLAD
   if (!selectWindow("main")) {
     LOG_ERROR("Failed to select main window");
     running.store(false);
     return;
   }
 
-  // Initialize GLEW
-  GLenum err = glewInit();
-  if (err != GLEW_OK) {
-#ifdef __linux
-    // If we're on Linux and GLEW failed, try falling back to X11
-    if (Config::options.window.wayland && err == GLEW_ERROR_NO_GLX_DISPLAY) {
-      LOG_DEBUG("GLEW failed under Wayland, attempting fallback to X11");
+  // Initialize GLAD
+  int version = gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
+  if (version == 0) {
+    LOG_ERROR("GLAD initialization failed");
 
-      // Clean up current state
-      deinit();
+    const GLubyte* glVersion = glGetString(GL_VERSION);
+    if (glVersion)
+      LOG_ERROR("OpenGL Version: " << reinterpret_cast<const char*>(glVersion));
+    else
+      LOG_ERROR("No valid OpenGL context available");
 
-      // Force X11 and retry
-      SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
-
-      // Re-initialize SDL
-      if (!SDL_Init(SDL_INIT_VIDEO)) {
-        LOG_ERROR(std::string("SDL_Init failed on X11 fallback: ") + SDL_GetError());
-        running.store(false);
-        return;
-      }
-
-      // Re-configure OpenGL context attributes
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-      SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-      SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-
-      // Re-create window
-      createWindow("main", "Pulse " VERSION_FULL, Config::options.window.default_width,
-                   Config::options.window.default_height);
-
-      if (states.find("main") == states.end()) {
-        LOG_ERROR("Failed to create main window on X11 fallback");
-        running.store(false);
-        return;
-      }
-
-      if (!selectWindow("main")) {
-        LOG_ERROR("Failed to select main window on X11 fallback");
-        running.store(false);
-        return;
-      }
-
-      // Retry GLEW initialization
-      err = glewInit();
-    }
-#endif
-
-    if (err != GLEW_OK) {
-      std::string errorMsg = std::string("WindowManager::init(): GLEW initialization failed\n") +
-                             "Error code: " + std::to_string(err) + "\n" +
-                             "Error string: " + reinterpret_cast<const char*>(glewGetErrorString(err));
-      LOG_ERROR(errorMsg);
-
-      // Check if we have a valid OpenGL context
-      const GLubyte* version = glGetString(GL_VERSION);
-      if (version) {
-        LOG_ERROR(std::string("OpenGL version: ") + reinterpret_cast<const char*>(version));
-      } else {
-        LOG_ERROR("No valid OpenGL context available");
-      }
-
-      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Pulse Visualizer Error", errorMsg.c_str(), nullptr);
-      running.store(false);
-      return;
-    }
+    running.store(false);
+    return;
   }
+
+  LOG_DEBUG("OpenGL Loaded via GLAD: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version));
 
   Graphics::Font::load();
 

@@ -11,7 +11,6 @@
   pipewire,
   fftwFloat,
   freetype,
-  glew,
   libGL,
   yaml-cpp,
   libebur128,
@@ -44,7 +43,6 @@ stdenv.mkDerivation (finalAttrs: {
     fftwFloat
     freetype
     curl
-    glew
     libGL
     yaml-cpp
     libebur128

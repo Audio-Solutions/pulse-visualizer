@@ -107,9 +107,6 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 
-# Find GLEW
-find_package(GLEW REQUIRED)
-
 # Find YAML-CPP
 find_package(yaml-cpp REQUIRED)
 
@@ -124,7 +121,7 @@ if(USE_UPDATER)
 endif()
 
 # Include directories
-include_directories(${SDL3_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
+include_directories(${SDL3_INCLUDE_DIRS} ${PULSE_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
 
 if(WIN32)
   # Set installation prefix to C:\Program Files\pulse-visualizer
@@ -168,16 +165,25 @@ endif()
 
 add_executable(pulse-visualizer ${SRC_FILES} ${RESOURCE_FILE})
 
+# Add GLAD
+add_library(glad OBJECT
+  external/glad/src/gl.c
+)
+
+target_include_directories(glad PUBLIC
+  external/glad/include
+)
+
 # Link libraries
 target_link_libraries(pulse-visualizer PRIVATE
   ${SDL3_LIBRARIES}
   PkgConfig::FFTW
   PkgConfig::FREETYPE
   OpenGL::GL
-  ${GLEW_LIBRARIES}
   yaml-cpp::yaml-cpp
   PkgConfig::EBUR128
   SDL3_image::SDL3_image
+  glad
 )
 
 if(WIN32)

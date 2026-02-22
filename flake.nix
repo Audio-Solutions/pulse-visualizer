@@ -38,7 +38,6 @@
               pkgs.pipewire
               pkgs.fftwFloat
               pkgs.freetype
-              pkgs.glew
               pkgs.libGL
               pkgs.curl
               pkgs.yaml-cpp

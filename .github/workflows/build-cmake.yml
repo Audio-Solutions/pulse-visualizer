@@ -71,7 +71,7 @@ jobs:
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: |
-            libfftw3-dev libfreetype-dev libglew-dev libyaml-cpp-dev ninja-build libebur128-dev
+            libfftw3-dev libfreetype-dev libyaml-cpp-dev ninja-build libebur128-dev
             libasound2-dev libpulse-dev libpipewire-0.3-dev libaudio-dev libjack-dev libsndio-dev libsamplerate0-dev
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxinerama-dev
             libwayland-dev libxkbcommon-dev wayland-protocols

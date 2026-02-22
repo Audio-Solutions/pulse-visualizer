@@ -21,7 +21,8 @@
 
 #define _USE_MATH_DEFINES
 
-#include <GL/glew.h>
+#include <glad/gl.h>
+// ^ glad needs to be included first
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 #include <algorithm>

@@ -2,7 +2,6 @@
   "dependencies": [
     "fftw3",
     "freetype",
-    "glew",
     "libebur128",
     "opengl",
     "sdl3",
