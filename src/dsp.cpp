@@ -704,9 +704,6 @@ int FFTMain() {
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
           WindowManager::dt;
-      // Calculate minimum value for clamping (1 dB below screen minimum)
-      const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
-      const float k = Config::options.fft.slope / 20.f / log10f(2.f);
 
       // Pre-calculate constants for AVX2
 #ifdef HAVE_AVX2
@@ -717,11 +714,6 @@ int FFTMain() {
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
       const __m256 refFreqVec = _mm256_set1_ps(440.0f * 2.0f);
-      const __m256 kVec = _mm256_set1_ps(k);
-      const __m256 minValVec = _mm256_set1_ps(minValue);
-      const __m256 sampleRateVec = _mm256_set1_ps(Config::options.audio.sample_rate);
-      const __m256 fftSizeVec = _mm256_set1_ps(static_cast<float>(bins));
-      const __m256 freqScaleVec = _mm256_div_ps(sampleRateVec, fftSizeVec);
       const __m256 incrementVec = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
 #endif
 
@@ -749,18 +741,6 @@ int FFTMain() {
                              _mm256_cmp_ps(absDiff, _mm256_blendv_ps(fallSpeedVec, riseSpeedVec, isRise), _CMP_LE_OS));
 
         __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minVVec);
-
-        __m256 frequencies;
-        if (Config::options.fft.cqt.enabled)
-          frequencies = _mm256_loadu_ps(DSP::ConstantQ::frequencies.data() + i);
-        else
-          frequencies = _mm256_mul_ps(_mm256_add_ps(_mm256_set1_ps(static_cast<float>(i)), incrementVec), freqScaleVec);
-
-        // Apply inverse slope correction: 1.0f / powf(f * 1.0f / (440.0f * 2.0f), k)
-        newVal = _mm256_max_ps(
-            newVal, _mm256_mul_ps(minValVec,
-                                  _mm256_div_ps(oneVec, _mm256_pow_ps(_mm256_div_ps(frequencies, refFreqVec), kVec))));
-
         _mm256_storeu_ps(&fftMid[i], newVal);
       }
 #endif
@@ -778,17 +758,6 @@ int FFTMain() {
         else
           newDB = prevDB + change;
         fftMid[i] = powf(10.f, newDB / 20.f) - FLT_EPSILON;
-
-        float f;
-        if (Config::options.fft.cqt.enabled)
-          f = DSP::ConstantQ::frequencies[i];
-        else
-          f = static_cast<float>(i) * (Config::options.audio.sample_rate / bins);
-        float adjustedMinValue = minValue * 1.0f / powf(f / refFreq, k);
-
-        if (fftMid[i] < adjustedMinValue) {
-          fftMid[i] = adjustedMinValue;
-        }
       }
     }
   }
@@ -858,9 +827,6 @@ int FFTAlt() {
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
           WindowManager::dt;
-      // Calculate minimum value for clamping (1 dB below screen minimum)
-      const float minValue = powf(10.f, (Config::options.fft.limits.min_db - 1.0f) / 20.f);
-      const float k = Config::options.fft.slope / 20.f / log10f(2.f);
 
       // Pre-calculate constants for AVX2
 #ifdef HAVE_AVX2
@@ -871,11 +837,6 @@ int FFTAlt() {
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
       const __m256 refFreqVec = _mm256_set1_ps(440.0f * 2.0f);
-      const __m256 kVec = _mm256_set1_ps(k);
-      const __m256 minValVec = _mm256_set1_ps(minValue);
-      const __m256 sampleRateVec = _mm256_set1_ps(Config::options.audio.sample_rate);
-      const __m256 fftSizeVec = _mm256_set1_ps(static_cast<float>(bins));
-      const __m256 freqScaleVec = _mm256_div_ps(sampleRateVec, fftSizeVec);
       const __m256 incrementVec = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
 #endif
 
@@ -903,18 +864,6 @@ int FFTAlt() {
                              _mm256_cmp_ps(absDiff, _mm256_blendv_ps(fallSpeedVec, riseSpeedVec, isRise), _CMP_LE_OS));
 
         __m256 newVal = _mm256_sub_ps(_mm256_pow_ps(_mm256_set1_ps(10.f), _mm256_div_ps(newDB, dbScaleVec)), minVVec);
-
-        __m256 frequencies;
-        if (Config::options.fft.cqt.enabled)
-          frequencies = _mm256_loadu_ps(DSP::ConstantQ::frequencies.data() + i);
-        else
-          frequencies = _mm256_mul_ps(_mm256_add_ps(_mm256_set1_ps(static_cast<float>(i)), incrementVec), freqScaleVec);
-
-        // Apply inverse slope correction: 1.0f / powf(f * 1.0f / (440.0f * 2.0f), k)
-        newVal = _mm256_max_ps(
-            newVal, _mm256_mul_ps(minValVec,
-                                  _mm256_div_ps(oneVec, _mm256_pow_ps(_mm256_div_ps(frequencies, refFreqVec), kVec))));
-
         _mm256_storeu_ps(&fftSide[i], newVal);
       }
 #endif
@@ -931,20 +880,7 @@ int FFTAlt() {
           newDB = currentDB;
         else
           newDB = prevDB + change;
-        float newVal = powf(10.f, newDB / 20.f) - FLT_EPSILON;
-
-        // Apply slope correction and minimum value clamping (same as main FFT)
-        float frequency;
-        if (Config::options.fft.cqt.enabled)
-          frequency = DSP::ConstantQ::frequencies[i];
-        else
-          frequency = static_cast<float>(i) * Config::options.audio.sample_rate / static_cast<float>(bins);
-
-        // Apply inverse slope correction: 1.0f / powf(f * 1.0f / (440.0f * 2.0f), k)
-        float minVal = minValue / powf(frequency / refFreq, k);
-        newVal = std::max(newVal, minVal);
-
-        fftSide[i] = newVal;
+        fftSide[i] = powf(10.f, newDB / 20.f) - FLT_EPSILON;
       }
     }
   }

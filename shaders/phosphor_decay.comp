@@ -31,8 +31,6 @@ layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 uniform float decay;
 uniform bool colorBeam;
 
-const float TANH_DIV_FACTOR = 4290000.0;
-
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSize = imageSize(energyTexR);

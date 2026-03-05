@@ -37,7 +37,6 @@ uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
 uniform bool colorBeam;
 uniform float borderReflectionStrength;
-uniform bool blurReflections;
 
 // CRT distortion function
 // Simulates the curved surface of a CRT monitor
@@ -57,6 +56,24 @@ vec2 crtDistortion(vec2 uv) {
   return (distorted + 1.0) * 0.5;
 }
 
+vec2 crtDistortionInverse(vec2 uvCurved) {
+  vec2 d = uvCurved * 2.0 - 1.0;
+  float R = length(d);
+
+  if (R < 1e-8 || abs(screenCurvature) < 1e-6) {
+    return uvCurved;
+  }
+
+  float k = screenCurvature;
+  float r = R; // Initial guess
+  for (int i = 0; i < 4; ++i) {
+    r = R / (1.0 + k * r * r);
+  }
+
+  float scale = r / R;
+  return (d * scale + 1.0) * 0.5;
+}
+
 // Compute screen-gap and curvature-normalized coordinates with precomputed scale
 vec2 computeScaledUVWithScale(vec2 uv, float gapPercent, float scale) {
   if (screenCurvature < 1e-6) {
@@ -68,6 +85,19 @@ vec2 computeScaledUVWithScale(vec2 uv, float gapPercent, float scale) {
   vec2 scaledUV = (uv - gapOffset) / visiblePercent;
   scaledUV = (scaledUV - 0.5) * scale + 0.5;
   return scaledUV;
+}
+
+vec2 computeUVFromScaled(vec2 scaledUV, float gapPercent, float scale) {
+  if (screenCurvature < 1e-6) {
+    return scaledUV;
+  }
+
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+
+  vec2 t = (scaledUV - 0.5) / scale + 0.5;
+  vec2 uv = t * visiblePercent + gapOffset;
+  return uv;
 }
 
 // Calculate border mask with antialiasing
@@ -220,63 +250,6 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
   return result;
 }
 
-// Cheap Separable blur using antialiased sampling in distorted space
-// Gaussian weights for 7-tap kernel (sigma ≈ 1.6, sum=1.0)
-const float gauss7[7] = float[7](0.222224, 0.192308, 0.137361, 0.083676, 0.043407, 0.019098, 0.007126);
-
-vec3 horizontalGauss7(vec2 centerUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 screenCenter) {
-  vec3 result = vec3(0.0);
-  vec2 baseToCenter = centerUV - screenCenter;
-
-  for (int i = -3; i <= 3; i++) {
-    float weight = gauss7[i + 3];
-    vec2 offsetUV = centerUV + vec2(float(i) * texelSize.x, 0.0);
-    vec2 toCenter = offsetUV - screenCenter;
-    vec2 sampleR = offsetUV + toCenter * caStrength * 0.5;
-    vec2 sampleG = offsetUV;
-    vec2 sampleB = offsetUV - toCenter * caStrength * 0.5;
-
-    result += weight * sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
-  }
-  return result;
-}
-
-vec3 verticalGauss7(vec2 centerUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 screenCenter) {
-  vec3 result = vec3(0.0);
-  vec2 baseToCenter = centerUV - screenCenter;
-
-  for (int i = -3; i <= 3; i++) {
-    float weight = gauss7[i + 3];
-    vec2 offsetUV = centerUV + vec2(0.0, float(i) * texelSize.y);
-    vec2 toCenter = offsetUV - screenCenter;
-    vec2 sampleR = offsetUV + toCenter * caStrength * 0.5;
-    vec2 sampleG = offsetUV;
-    vec2 sampleB = offsetUV - toCenter * caStrength * 0.5;
-
-    result += weight * sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
-  }
-  return result;
-}
-
-vec3 reflectionBlurDistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorBeamEnabled, float caStrength,
-                                vec2 center) {
-  if (!blurReflections) {
-    vec2 toCenter = distortedCenterUV - center;
-    vec2 distortedCenterR = distortedCenterUV - toCenter * caStrength;
-    vec2 distortedCenterG = distortedCenterUV;
-    vec2 distortedCenterB = distortedCenterUV + toCenter * caStrength;
-    return sampleAntialiasedDistortedRGB(distortedCenterR, distortedCenterG, distortedCenterB, texelSize,
-                                         colorBeamEnabled);
-  }
-
-  // Two-pass separable Gaussian
-  vec3 horizontalResult = horizontalGauss7(distortedCenterUV, texelSize, colorBeamEnabled, caStrength, center);
-  vec3 verticalResult = verticalGauss7(distortedCenterUV, texelSize, colorBeamEnabled, caStrength, center);
-
-  // Blend
-  return mix(horizontalResult, verticalResult, 0.5);
-}
-
 void main() {
   ivec2 texSizeInt = ivec2(texSize);
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -320,38 +293,20 @@ void main() {
   float energyG = 0.0;
   float energyB = 0.0;
 
-  if (screenCurvature > 1e-6) {
-    // If the pixel is fully outside the screen area, skip expensive sampling
-    if (screenMask > 0.0) {
-      vec2 scaledUVR = computeScaledUVWithScale(uvR, gapPercent, scale);
-      vec2 scaledUVG = computeScaledUVWithScale(uvG, gapPercent, scale);
-      vec2 scaledUVB = computeScaledUVWithScale(uvB, gapPercent, scale);
+  vec2 coordR = vec2(uvR * vec2(texSize));
+  vec2 coordG = vec2(uvG * vec2(texSize));
+  vec2 coordB = vec2(uvB * vec2(texSize));
+  coordR = clamp(coordR, vec2(0), texSize - 1);
+  coordG = clamp(coordG, vec2(0), texSize - 1);
+  coordB = clamp(coordB, vec2(0), texSize - 1);
 
-      vec2 distortedR = crtDistortion(scaledUVR);
-      vec2 distortedG = crtDistortion(scaledUVG);
-      vec2 distortedB = crtDistortion(scaledUVB);
-
-      vec3 energies = sampleAntialiasedDistortedRGB(distortedR, distortedG, distortedB, texelSize, colorBeam);
-      energyR = energies.r;
-      energyG = energies.g;
-      energyB = energies.b;
-    }
+  energyR = float(imageLoad(energyTexR, ivec2(round(coordR))).r);
+  if (colorBeam) {
+    energyG = float(imageLoad(energyTexG, ivec2(round(coordG))).r);
+    energyB = float(imageLoad(energyTexB, ivec2(round(coordB))).r);
   } else {
-    vec2 coordR = vec2(uvR * vec2(texSize));
-    vec2 coordG = vec2(uvG * vec2(texSize));
-    vec2 coordB = vec2(uvB * vec2(texSize));
-    coordR = clamp(coordR, vec2(0), texSize - 1);
-    coordG = clamp(coordG, vec2(0), texSize - 1);
-    coordB = clamp(coordB, vec2(0), texSize - 1);
-
-    energyR = float(imageLoad(energyTexR, ivec2(round(coordR))).r);
-    if (colorBeam) {
-      energyG = float(imageLoad(energyTexG, ivec2(round(coordG))).r);
-      energyB = float(imageLoad(energyTexB, ivec2(round(coordB))).r);
-    } else {
-      energyG = float(imageLoad(energyTexR, ivec2(round(coordG))).r);
-      energyB = float(imageLoad(energyTexR, ivec2(round(coordB))).r);
-    }
+    energyG = float(imageLoad(energyTexR, ivec2(round(coordG))).r);
+    energyB = float(imageLoad(energyTexR, ivec2(round(coordB))).r);
   }
 
   // Apply normalized spatial grain to the energy
@@ -390,13 +345,22 @@ void main() {
     // Add a dim reflection using multi-sample average if enabled
     if (screenMask < 1 - 1e-6 && borderReflectionStrength > 1e-6) {
       // Reflect radially against square boundary for CRT-like corner reflections
-      vec2 baseReflected = radialSquareMirror(distortedUVBase);
+      vec2 baseReflected =
+          computeUVFromScaled(crtDistortionInverse(radialSquareMirror(distortedUVBase)), gapPercent, scale);
 
-      vec3 refRGB;
-      if (colorBeam) {
-        refRGB = reflectionBlurDistortedRGB(baseReflected, texelSize, true, chromaticAberrationStrength, center);
-      } else {
-        refRGB = reflectionBlurDistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
+      vec2 toCenter = baseReflected - center;
+      vec2 distortedCenterR = baseReflected + toCenter * chromaticAberrationStrength;
+      vec2 distortedCenterG = baseReflected;
+      vec2 distortedCenterB = baseReflected - toCenter * chromaticAberrationStrength;
+      vec3 refRGB = vec3(0.0);
+
+      for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+          vec2 blurOffset = vec2(float(x), float(y)) * texelSize * 0.5;
+          refRGB +=
+              0.111111 * sampleAntialiasedDistortedRGB(distortedCenterR + blurOffset, distortedCenterG + blurOffset,
+                                                       distortedCenterB + blurOffset, texelSize, colorBeam);
+        }
       }
 
       float rRef = refRGB.r / 5e5;
@@ -414,7 +378,7 @@ void main() {
       // Pixel-thin exponential darkening along the corner diagonals
       float diagDist =
           min(abs(distortedUVBase.x - distortedUVBase.y), abs(distortedUVBase.x + distortedUVBase.y - 1.0));
-      float borderAmountLocal = 1.0 - screenMask;
+      float borderAmount = 1 - screenMask;
 
       // Start darkening ~5-8px away from the diagonal, ramping exponentially toward the diagonal
       float pixelDist = diagDist * max(texSizeF.x, texSizeF.y);
@@ -424,10 +388,7 @@ void main() {
         diagWeight = 1.0 - fast_exp(-0.2 * delta);
       }
 
-      float borderWeight = borderAmountLocal * borderAmountLocal;
-      float darkAmount = clamp(diagWeight * borderWeight, 0.0, 1.0);
-
-      float borderAmount = 1.0 - screenMask;
+      float darkAmount = clamp(diagWeight * borderAmount * borderAmount, 0.0, 1.0);
       outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0) *
                  (1.0 - darkAmount * 0.2);
     }

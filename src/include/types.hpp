@@ -172,7 +172,6 @@ struct Options {
 
     struct Reflections {
       float strength = 0.7f;
-      bool blur = true;
     } reflections;
   } phosphor;
 

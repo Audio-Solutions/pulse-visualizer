@@ -651,12 +651,18 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
   static GLint loc_colorBeam = -1;
+  static GLint loc_screenCurvature = -1;
+  static GLint loc_screenGapFactor = -1;
   if (cachedProgram != shader) {
     loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
+    loc_screenCurvature = glGetUniformLocation(shader, "screenCurvature");
+    loc_screenGapFactor = glGetUniformLocation(shader, "screenGapFactor");
     cachedProgram = shader;
   }
 
   glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
+  glUniform1f(loc_screenCurvature, Config::options.phosphor.screen.curvature);
+  glUniform1f(loc_screenGapFactor, Config::options.phosphor.screen.gap);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -785,7 +791,6 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   static GLint loc_chromaticAberrationStrength = -1;
   static GLint loc_colorBeam = -1;
   static GLint loc_borderReflectionStrength = -1;
-  static GLint loc_blurReflections = -1;
   static GLint loc_borderColor = -1;
   if (cachedProgram != shader) {
     loc_beamColor = glGetUniformLocation(shader, "beamColor");
@@ -798,7 +803,6 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
     loc_chromaticAberrationStrength = glGetUniformLocation(shader, "chromaticAberrationStrength");
     loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
     loc_borderReflectionStrength = glGetUniformLocation(shader, "borderReflectionStrength");
-    loc_blurReflections = glGetUniformLocation(shader, "blurReflections");
     loc_borderColor = glGetUniformLocation(shader, "borderColor");
     cachedProgram = shader;
   }
@@ -822,7 +826,6 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glUniform1f(loc_chromaticAberrationStrength, Config::options.phosphor.screen.chromatic_aberration);
   glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
   glUniform1f(loc_borderReflectionStrength, Config::options.phosphor.reflections.strength);
-  glUniform1i(loc_blurReflections, Config::options.phosphor.reflections.blur);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);

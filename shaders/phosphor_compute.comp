@@ -38,12 +38,68 @@ layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 
 uniform bool colorBeam;
+uniform float screenCurvature;
+uniform float screenGapFactor;
+
+float cbrt(float x) { return sign(x) * pow(abs(x), 1.0 / 3.0); }
+
+// CRT curvature distortion
+vec2 crtDistortion(vec2 uv) {
+  // [0,1] -> [-1,1]
+  vec2 centered = uv * 2.0 - 1.0;
+
+  // Barrel/pincushion term
+  float distortion = screenCurvature;
+  float r2 = dot(centered, centered);
+  float distortionFactor = 1.0 + distortion * r2;
+
+  vec2 distorted = centered * distortionFactor;
+
+  // [-1,1] -> [0,1]
+  return (distorted + 1.0) * 0.5;
+}
+
+vec2 crtDistortionInverse(vec2 uvCurved) {
+  vec2 d = uvCurved * 2.0 - 1.0;
+  float R = length(d);
+
+  if (R < 1e-8 || abs(screenCurvature) < 1e-6) {
+    return uvCurved;
+  }
+
+  float k = screenCurvature;
+  float r = R;
+  for (int i = 0; i < 4; ++i) {
+    r = R / (1.0 + k * r * r);
+  }
+
+  float scale = r / R;
+  return (d * scale + 1.0) * 0.5;
+}
+
+// Undo scale/gap normalization in UV space
+vec2 computeUVFromScaled(vec2 scaledUV, float gapPercent, float scale) {
+  if (screenCurvature < 1e-6) {
+    return scaledUV;
+  }
+
+  float visiblePercent = 1.0 - gapPercent;
+  vec2 gapOffset = vec2(gapPercent * 0.5);
+
+  vec2 t = (scaledUV - 0.5) / scale + 0.5;
+  vec2 uv = t * visiblePercent + gapOffset;
+  return uv;
+}
+
+vec2 inversePipeline(vec2 pos, float gapPercent, float scale, vec2 texSize) {
+  return computeUVFromScaled(crtDistortionInverse(pos / texSize), gapPercent, scale) * texSize;
+}
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
   uint vertexCount = vertices.length();
 
-  // Early exit with single comparison
+  // Out of range
   if (index >= vertexCount)
     return;
 
@@ -52,18 +108,29 @@ void main() {
   vec2 pos = vertex.xy;
   float segmentEnergyLinear = vertex.z;
 
-  // Early exit if no next vertex
+  // Last vertex has no segment
   if (index + 1 >= vertexCount)
     return;
+
+  ivec2 texSize = imageSize(energyTexR);
 
   vec3 nextVertex = vertices[index + 1];
   vec2 nextPos = nextVertex.xy;
 
-  // Calculate direction and distance
+  vec2 texelSize = 1.0 / vec2(texSize);
+
+  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
+  float scale = 1.0;
+  if (screenCurvature > 1e-6) {
+    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
+    scale = 0.5 / edgeNorm;
+  }
+
+  // Segment vector/length
   vec2 delta = nextPos - pos;
   float distance = length(delta);
 
-  // Early exit if no distance to avoid division by zero
+  // Degenerate segment
   if (distance <= 0.0)
     return;
 
@@ -71,14 +138,13 @@ void main() {
   int numSteps = min(256, max(1, int(ceil(distance))));
   vec2 stepSize = delta / float(numSteps);
 
-  // Total energy for this segment is proportional to its length
+  // Segment energy scales with length
   uint totalSegmentEnergy = uint(segmentEnergyLinear * distance * 4e9);
 
-  // Distribute energy evenly across all steps to maintain constant energy density
+  // Even distribution per step
   uint energyPerStep = max(1u, totalSegmentEnergy / uint(numSteps));
   float energyPerStepF = float(energyPerStep);
   const float ENERGY_THRESH_F = 100.0;
-  ivec2 texSize = imageSize(energyTexR);
   vec3 colorRGB = color.rgb * color.a;
 
   // Interpolate along the segment
@@ -86,10 +152,11 @@ void main() {
   if (colorBeam) {
     for (int i = 0; i < numSteps; ++i) {
       // Get the base pixel coordinate (floor) and fractional part
-      ivec2 baseCoord = ivec2(floor(interpolPos));
-      vec2 fract = interpolPos - vec2(baseCoord);
+      vec2 distortedPos = computeUVFromScaled(crtDistortionInverse(interpolPos / texSize), gapPercent, scale) * texSize;
+      ivec2 baseCoord = ivec2(floor(distortedPos));
+      vec2 fract = distortedPos - vec2(baseCoord);
 
-      // Precompute bilinear weights
+      // Bilinear weights
       float inv_fx = 1.0 - fract.x;
       float inv_fy = 1.0 - fract.y;
 
@@ -134,10 +201,11 @@ void main() {
   } else {
     for (int i = 0; i < numSteps; ++i) {
       // Get the base pixel coordinate (floor) and fractional part
-      ivec2 baseCoord = ivec2(floor(interpolPos));
-      vec2 fract = interpolPos - vec2(baseCoord);
+      vec2 distortedPos = computeUVFromScaled(crtDistortionInverse(interpolPos / texSize), gapPercent, scale) * texSize;
+      ivec2 baseCoord = ivec2(floor(distortedPos));
+      vec2 fract = distortedPos - vec2(baseCoord);
 
-      // Precompute bilinear weights
+      // Bilinear weights
       float inv_fx = 1.0 - fract.x;
       float inv_fy = 1.0 - fract.y;
 
