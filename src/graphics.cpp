@@ -668,7 +668,6 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   glDispatchCompute(g, 1, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-  glFinish();
   glUseProgram(0);
 }
 
@@ -708,7 +707,6 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-  glFinish();
   glUseProgram(0);
 }
 
@@ -764,7 +762,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-  glFinish();
   glUseProgram(0);
 }
 
@@ -837,7 +834,6 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-  glFinish();
   glUseProgram(0);
 }
 
@@ -853,35 +849,20 @@ void cleanup() {
 } // namespace Shader
 
 namespace Phosphor {
-
-template <typename F> std::chrono::microseconds timeDispatch(F&& func) {
-  auto t0 = std::chrono::high_resolution_clock::now();
-  func();
-  return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0);
-}
-
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
             bool renderPoints, const float* beamColor) {
 
   Graphics::Shader::ensureShaders();
 
-  std::chrono::microseconds times[4] {};
-
   // Add new points if rendering is enabled
   if (renderPoints)
-    times[0] = timeDispatch([&] {
-      Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer,
-                              SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
-                              win->phosphor.energyTextureB);
-    });
-  else
-    times[0] = std::chrono::microseconds {0};
+    Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer,
+                            SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
+                            win->phosphor.energyTextureB);
 
   // Apply decay to phosphor effect
-  times[1] = timeDispatch([&] {
-    Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB,
-                          win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB);
-  });
+  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB,
+                        win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB);
 
   // Copy tempTexture{R,G,B} to tempTexture3{R,G,B}
   glCopyImageSubData(win->phosphor.tempTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3R, GL_TEXTURE_2D,
@@ -895,43 +876,17 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
   }
 
   // Apply multiple additive blur passes
-  times[2] = timeDispatch([&] {
-    for (int k = 0; k < 2; k++) {
-      Shader::dispatchBlur(win, 0, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG,
-                           win->phosphor.tempTextureB, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
-                           win->phosphor.tempTexture2B);
-      Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
-                           win->phosphor.tempTexture2B, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
-                           win->phosphor.tempTexture3B);
-    }
-  });
-
-  // Apply colormap to final result
-  times[3] = timeDispatch([&] {
-    Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
-                             win->phosphor.tempTexture3B, win->phosphor.outputTexture);
-  });
-
-  static std::chrono::microseconds avg_times[4] = {std::chrono::microseconds(0), std::chrono::microseconds(0),
-                                                   std::chrono::microseconds(0), std::chrono::microseconds(0)};
-  static double alpha = 0.01; // Lerp factor (0.1 = smooth, 1.0 = instant)
-
-  long total_us = 0;
-  for (auto& t : times)
-    total_us += t.count();
-
-  // Temporal smoothing (exponential moving average)
-  for (int i = 0; i < 4; i++) {
-    avg_times[i] =
-        std::chrono::microseconds(static_cast<long>(alpha * times[i].count() + (1.0 - alpha) * avg_times[i].count()));
+  for (int k = 0; k < 2; k++) {
+    Shader::dispatchBlur(win, 0, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB,
+                         win->phosphor.tempTexture2R, win->phosphor.tempTexture2G, win->phosphor.tempTexture2B);
+    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
+                         win->phosphor.tempTexture2B, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
+                         win->phosphor.tempTexture3B);
   }
 
-  long avg_total = (avg_times[0] + avg_times[1] + avg_times[2] + avg_times[3]).count();
-  printf("avg >> compute: %ldµs (%.1f%%)  decay: %ldµs (%.1f%%)  blur: %ldµs (%.1f%%)  cmap: %ldµs (%.1f%%)\n",
-         avg_times[0].count(), avg_total ? 100.0 * avg_times[0].count() / avg_total : 0, avg_times[1].count(),
-         avg_total ? 100.0 * avg_times[1].count() / avg_total : 0, avg_times[2].count(),
-         avg_total ? 100.0 * avg_times[2].count() / avg_total : 0, avg_times[3].count(),
-         avg_total ? 100.0 * avg_times[3].count() / avg_total : 0);
+  // Apply colormap to final result
+  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
+                           win->phosphor.tempTexture3B, win->phosphor.outputTexture);
 }
 } // namespace Phosphor
 
