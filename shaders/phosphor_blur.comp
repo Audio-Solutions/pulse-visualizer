@@ -31,8 +31,8 @@ layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 uniform float line_blur_spread;
 uniform float line_width;
 uniform vec2 texSize;
-uniform int blur_direction;
-uniform int kernel_type;
+uniform int blur_direction; // 0: horizontal, 1: vertical
+uniform int kernel_type;    // 0: F kernel, 1: G kernel
 uniform float f_intensity;
 uniform float g_intensity;
 uniform bool colorBeam;
@@ -43,39 +43,18 @@ void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 texSizeInt = ivec2(texSize);
 
-  if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y) {
+  // Out-of-bounds check
+  if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y)
     return;
-  }
-
-  if (line_blur_spread < 1e-6) {
-    uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = colorBeam ? imageLoad(inputTexG, coord).r : 0u;
-    uint valueB = colorBeam ? imageLoad(inputTexB, coord).r : 0u;
-    
-    if (blur_direction == 1) {
-      imageAtomicAdd(outputTexR, coord, valueR);
-      if (colorBeam) {
-        imageAtomicAdd(outputTexG, coord, valueG);
-        imageAtomicAdd(outputTexB, coord, valueB);
-      }
-    } else {
-      imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
-      if (colorBeam) {
-        imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
-        imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
-      }
-    }
-    return;
-  }
 
   int range_filter = int(ceil(line_blur_spread * 2.0)) * 2 + 1;
   int half_range = range_filter / 2;
-  
+
+  // Early exit for negligible blur or zero kernel
   if (half_range == 0) {
     uint valueR = imageLoad(inputTexR, coord).r;
     uint valueG = colorBeam ? imageLoad(inputTexG, coord).r : 0u;
     uint valueB = colorBeam ? imageLoad(inputTexB, coord).r : 0u;
-
     if (blur_direction == 1) {
       imageAtomicAdd(outputTexR, coord, valueR);
       if (colorBeam) {
@@ -83,34 +62,28 @@ void main() {
         imageAtomicAdd(outputTexB, coord, valueB);
       }
     } else {
-      imageStore(outputTexR, coord, uvec4(uint(max(0u, valueR)), 0, 0, 0));
+      imageStore(outputTexR, coord, uvec4(valueR, 0, 0, 0));
       if (colorBeam) {
-        imageStore(outputTexG, coord, uvec4(uint(max(0u, valueG)), 0, 0, 0));
-        imageStore(outputTexB, coord, uvec4(uint(max(0u, valueB)), 0, 0, 0));
+        imageStore(outputTexG, coord, uvec4(valueG, 0, 0, 0));
+        imageStore(outputTexB, coord, uvec4(valueB, 0, 0, 0));
       }
     }
     return;
   }
 
+  // Compute kernel parameters
   float inv_2variance;
-  
   if (kernel_type == 0) {
-    float equivalent_width = 0.693147 * (line_blur_spread * 0.1);
-    float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
+    float eq_width = 0.693147 * (line_blur_spread * 0.1);
+    float variance = (eq_width / 1.177) * (eq_width / 1.177);
     inv_2variance = 1.0 / (2.0 * variance);
   } else {
-    float equivalent_width = 0.693147 * (float(range_filter) / 8.0);
-    float variance = (equivalent_width / 1.177) * (equivalent_width / 1.177);
+    float eq_width = 0.693147 * (float(range_filter) / 8.0);
+    float variance = (eq_width / 1.177) * (eq_width / 1.177);
     inv_2variance = 1.0 / (2.0 * variance);
   }
 
-  float sample_sumR = 0.0;
-  float sample_sumG = 0.0;
-  float sample_sumB = 0.0;
-  float effective_kernel_sum = 0.0;
-
-  // Dynamic cutoff for negligible Gaussian weights to reduce the sampling radius
-  // cutoff derived from exp(-inv_2variance * i^2) >= eps, where eps = 1e-4
+  // Dynamic cutoff for negligible Gaussian weights
   const float LOG_CUTOFF = 9.210340371976184; // ln(1e4)
   int max_i_by_cutoff = int(floor(sqrt(LOG_CUTOFF / max(inv_2variance, 1e-12))));
   int i_max = min(half_range, max(0, max_i_by_cutoff));
@@ -118,113 +91,74 @@ void main() {
   ivec2 stepVec = (blur_direction == 0) ? ivec2(1, 0) : ivec2(0, 1);
 
   // Gaussian weight via recurrence (avoid per-iteration exp)
-  // w(i) = exp(-inv_2variance * i^2)
-  // w(0) = 1
-  // m(0) = exp(-inv_2variance)
-  // w(i+1) = w(i) * m(i),   m(i+1) = m(i) * exp(-2*inv_2variance)
   float k = inv_2variance;
-  float w = 1.0;                 // w(0)
-  float m = exp(-k);             // m(0)
-  float r = exp(-2.0 * k);       // constant ratio for m update
+  float w = 1.0;           // w(0)
+  float m = exp(-k);       // m(0)
+  float r = exp(-2.0 * k); // constant ratio for m update
 
-  // Center sample (i = 0)
-  {
-    ivec2 c0 = coord;
-    float kernel_weight = w; // norm cancels after division
-    uint vR = imageLoad(inputTexR, c0).r;
-    sample_sumR += float(vR) * kernel_weight;
-    effective_kernel_sum += kernel_weight;
-    if (colorBeam) {
-      uint vG = imageLoad(inputTexG, c0).r;
-      uint vB = imageLoad(inputTexB, c0).r;
-      sample_sumG += float(vG) * kernel_weight;
-      sample_sumB += float(vB) * kernel_weight;
-    }
+  float sumR = 0.0, sumG = 0.0, sumB = 0.0, kernelSum = 0.0;
+
+  // Center sample (i=0)
+  float kernel_weight = w;
+  sumR += float(imageLoad(inputTexR, coord).r) * kernel_weight;
+  if (colorBeam) {
+    sumG += float(imageLoad(inputTexG, coord).r) * kernel_weight;
+    sumB += float(imageLoad(inputTexB, coord).r) * kernel_weight;
   }
+  kernelSum += kernel_weight;
 
   // Symmetric accumulation for i = 1..i_max
-  if (colorBeam) {
-    for (int i = 1; i <= i_max; ++i) {
-      w *= m;     // update weight for current i
-      m *= r;     // update multiplier for next i
-      float kernel_weight = w;
+  for (int i = 1; i <= i_max; ++i) {
+    w *= m;
+    m *= r;
+    float kernel_weight = w;
 
-      ivec2 pos = coord + i * stepVec;
-      ivec2 neg = coord - i * stepVec;
+    ivec2 pos = coord + i * stepVec;
+    ivec2 neg = coord - i * stepVec;
 
-      bool pos_in = (pos.x >= 0 && pos.x < texSizeInt.x && pos.y >= 0 && pos.y < texSizeInt.y);
-      bool neg_in = (neg.x >= 0 && neg.x < texSizeInt.x && neg.y >= 0 && neg.y < texSizeInt.y);
-
-      if (pos_in) {
-        uvec4 tR = imageLoad(inputTexR, pos);
-        uvec4 tG = imageLoad(inputTexG, pos);
-        uvec4 tB = imageLoad(inputTexB, pos);
-        sample_sumR += float(tR.r) * kernel_weight;
-        sample_sumG += float(tG.r) * kernel_weight;
-        sample_sumB += float(tB.r) * kernel_weight;
-        effective_kernel_sum += kernel_weight;
+    if (pos.x >= 0 && pos.x < texSizeInt.x && pos.y >= 0 && pos.y < texSizeInt.y) {
+      sumR += float(imageLoad(inputTexR, pos).r) * kernel_weight;
+      if (colorBeam) {
+        sumG += float(imageLoad(inputTexG, pos).r) * kernel_weight;
+        sumB += float(imageLoad(inputTexB, pos).r) * kernel_weight;
       }
-      if (neg_in) {
-        uvec4 tR = imageLoad(inputTexR, neg);
-        uvec4 tG = imageLoad(inputTexG, neg);
-        uvec4 tB = imageLoad(inputTexB, neg);
-        sample_sumR += float(tR.r) * kernel_weight;
-        sample_sumG += float(tG.r) * kernel_weight;
-        sample_sumB += float(tB.r) * kernel_weight;
-        effective_kernel_sum += kernel_weight;
-      }
+      kernelSum += kernel_weight;
     }
-  } else {
-    for (int i = 1; i <= i_max; ++i) {
-      w *= m;
-      m *= r;
-      float kernel_weight = w;
-
-      ivec2 pos = coord + i * stepVec;
-      ivec2 neg = coord - i * stepVec;
-
-      bool pos_in = (pos.x >= 0 && pos.x < texSizeInt.x && pos.y >= 0 && pos.y < texSizeInt.y);
-      bool neg_in = (neg.x >= 0 && neg.x < texSizeInt.x && neg.y >= 0 && neg.y < texSizeInt.y);
-
-      if (pos_in) {
-        uvec4 tR = imageLoad(inputTexR, pos);
-        sample_sumR += float(tR.r) * kernel_weight;
-        effective_kernel_sum += kernel_weight;
+    if (neg.x >= 0 && neg.x < texSizeInt.x && neg.y >= 0 && neg.y < texSizeInt.y) {
+      sumR += float(imageLoad(inputTexR, neg).r) * kernel_weight;
+      if (colorBeam) {
+        sumG += float(imageLoad(inputTexG, neg).r) * kernel_weight;
+        sumB += float(imageLoad(inputTexB, neg).r) * kernel_weight;
       }
-      if (neg_in) {
-        uvec4 tR = imageLoad(inputTexR, neg);
-        sample_sumR += float(tR.r) * kernel_weight;
-        effective_kernel_sum += kernel_weight;
-      }
+      kernelSum += kernel_weight;
     }
   }
 
-  float resultR = sample_sumR / max(effective_kernel_sum, 1e-6);
-  float resultG = sample_sumG / max(effective_kernel_sum, 1e-6);
-  float resultB = sample_sumB / max(effective_kernel_sum, 1e-6);
+  float invKernel = 1.0 / max(kernelSum, 1e-6);
+  float resultR = sumR * invKernel;
+  float resultG = sumG * invKernel;
+  float resultB = sumB * invKernel;
 
-  if (kernel_type == 0) {
-    resultR *= f_intensity;
-    resultG *= f_intensity;
-    resultB *= f_intensity;
-  } else {
-    resultR *= g_intensity;
-    resultG *= g_intensity;
-    resultB *= g_intensity;
-  }
+  float intensity = (kernel_type == 0) ? f_intensity : g_intensity;
+  resultR *= intensity;
+  resultG *= intensity;
+  resultB *= intensity;
+
+  uint outR = uint(max(0.0, resultR));
+  uint outG = uint(max(0.0, resultG));
+  uint outB = uint(max(0.0, resultB));
 
   if (blur_direction == 1) {
-    imageAtomicAdd(outputTexR, coord, uint(max(0.0, resultR)));
+    imageAtomicAdd(outputTexR, coord, outR);
     if (colorBeam) {
-      imageAtomicAdd(outputTexG, coord, uint(max(0.0, resultG)));
-      imageAtomicAdd(outputTexB, coord, uint(max(0.0, resultB)));
+      imageAtomicAdd(outputTexG, coord, outG);
+      imageAtomicAdd(outputTexB, coord, outB);
     }
   } else {
-    imageStore(outputTexR, coord, uvec4(uint(max(0.0, resultR)), 0, 0, 0));
+    imageStore(outputTexR, coord, uvec4(outR, 0, 0, 0));
     if (colorBeam) {
-      imageStore(outputTexG, coord, uvec4(uint(max(0.0, resultG)), 0, 0, 0));
-      imageStore(outputTexB, coord, uvec4(uint(max(0.0, resultB)), 0, 0, 0));
+      imageStore(outputTexG, coord, uvec4(outG, 0, 0, 0));
+      imageStore(outputTexB, coord, uvec4(outB, 0, 0, 0));
     }
   }
 }
-

@@ -37,22 +37,22 @@ uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
 uniform bool colorBeam;
 uniform float borderReflectionStrength;
-uniform int boxBlurSize;
+uniform bool blurReflections;
 
 // CRT distortion function
 // Simulates the curved surface of a CRT monitor
 vec2 crtDistortion(vec2 uv) {
   // Normalize coordinates to [-1, 1] range
   vec2 centered = uv * 2.0 - 1.0;
-  
+
   // Apply barrel distortion (pincushion for CRT)
   float distortion = screenCurvature;
   float r2 = dot(centered, centered);
   float distortionFactor = 1.0 + distortion * r2;
-  
+
   // Apply distortion
   vec2 distorted = centered * distortionFactor;
-  
+
   // Convert back to [0, 1] range
   return (distorted + 1.0) * 0.5;
 }
@@ -82,10 +82,10 @@ float calculateBorderMaskScaled(vec2 scaledUV, vec2 texelSize) {
   // Adaptive border thickness based on pixel size
   float borderThickness = min(texelSize.x, texelSize.y) * 8.0;
 
-  float insideX = smoothstep(0.0, borderThickness, distortedUV.x) *
-                  smoothstep(1.0, 1.0 - borderThickness, distortedUV.x);
-  float insideY = smoothstep(0.0, borderThickness, distortedUV.y) *
-                  smoothstep(1.0, 1.0 - borderThickness, distortedUV.y);
+  float insideX =
+      smoothstep(0.0, borderThickness, distortedUV.x) * smoothstep(1.0, 1.0 - borderThickness, distortedUV.x);
+  float insideY =
+      smoothstep(0.0, borderThickness, distortedUV.y) * smoothstep(1.0, 1.0 - borderThickness, distortedUV.y);
 
   return insideX * insideY;
 }
@@ -94,20 +94,21 @@ float calculateBorderMaskScaled(vec2 scaledUV, vec2 texelSize) {
 float spatialGrain(vec2 coord) {
   // Normalize coordinates to avoid large number artifacts
   vec2 p = coord * 0.01;
-  
+
   // Multiple octaves for more natural variation
   float noise = 0.0;
   float amplitude = 1.0;
   float frequency = 1.0;
-  
-  // Add 3 octaves of noise
-  for (int i = 0; i < 3; i++) {
+
+  // Add 2 octaves of noise
+  for (int i = 0; i < 2; i++) {
     vec2 q = p * frequency;
-    noise += amplitude * (fract(sin(dot(q, vec2(127.1 + float(i) * 43.0, 311.7 + float(i) * 67.0))) * 43758.5453) - 0.5);
+    noise +=
+        amplitude * (fract(sin(dot(q, vec2(127.1 + float(i) * 43.0, 311.7 + float(i) * 67.0))) * 43758.5453) - 0.5);
     amplitude *= 0.5;
     frequency *= 2.0;
   }
-  
+
   return noise * grainStrength;
 }
 
@@ -117,25 +118,24 @@ float spatialGrain(vec2 coord) {
 float fast_tanh(float x) {
   // Clamp input to prevent overflow
   x = clamp(x, -3.0, 3.0);
-  
+
   float x2 = x * x;
   return x * (27.0 + x2) / (27.0 + 9.0 * x2);
 }
 
 // CUDA-inspired fast exp function
 float fast_exp(float a) {
-  float j = floor(a * 1.442695f + 0.5);
+  float j = floor(a * 1.442695 + 0.5);
   float f = a - j * 0.69314718; // ln(2)
   float r = 1.0 + f * (0.5 + f * (0.1666667 + f * (0.04166667 + f * (0.008333333 + f * 0.001388889))));
   return exp2(j) * r;
 }
 
 // Tanh-based color mapping function
-// Equivalent to MATLAB: map = [tanh(map_index*RGB(1)*multfactor);tanh(map_index*RGB(2)*multfactor);tanh(map_index*RGB(3)*multfactor)]'
-// map = min(map,1);
-float tanhColorMapChannel(float mapIndex) {
-  return clamp(fast_tanh(mapIndex), 0.0, 1.0);
-}
+// Equivalent to MATLAB: map =
+// [tanh(map_index*RGB(1)*multfactor);tanh(map_index*RGB(2)*multfactor);tanh(map_index*RGB(3)*multfactor)]' map =
+// min(map,1);
+float tanhColorMapChannel(float mapIndex) { return clamp(fast_tanh(mapIndex), 0.0, 1.0); }
 
 // Radial reflection against square boundary centered at 0.5
 // This mirrors radius w.r.t. the square edge along the ray from center
@@ -160,16 +160,15 @@ vec2 radialSquareMirror(vec2 uv) {
 }
 
 // Antialiased sampling in distorted space for three channels at once.
-// When colorBeam is false, G/B are sampled from R texture at their offsets.
 vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG, vec2 distortedCenterB, vec2 texelSize,
                                    bool colorBeamEnabled) {
   vec3 result = vec3(0.0);
   float weightSum = 0.0;
-  const float AA_WEIGHT = 1.0 / 64.0;
+  const float AA_WEIGHT = 1.0 / 16.0;
 
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      vec2 offset = vec2(float(i), float(j)) / float(8 - 1) - 0.5;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      vec2 offset = vec2(float(i), float(j)) / float(4 - 1) - 0.5;
 
       vec2 dr = distortedCenterR + offset * texelSize;
       vec2 dg = distortedCenterG + offset * texelSize;
@@ -194,23 +193,19 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
       float eG = 0.0;
       float eB = 0.0;
 
-      if (inR) {
+      if (inR)
         eR = float(imageLoad(energyTexR, cR).r);
-      }
+
       if (colorBeamEnabled) {
-        if (inG) {
+        if (inG)
           eG = float(imageLoad(energyTexG, cG).r);
-        }
-        if (inB) {
+        if (inB)
           eB = float(imageLoad(energyTexB, cB).r);
-        }
       } else {
-        if (inG) {
+        if (inG)
           eG = float(imageLoad(energyTexR, cG).r);
-        }
-        if (inB) {
+        if (inB)
           eB = float(imageLoad(energyTexR, cB).r);
-        }
       }
 
       result += vec3(eR, eG, eB) * AA_WEIGHT;
@@ -225,10 +220,47 @@ vec3 sampleAntialiasedDistortedRGB(vec2 distortedCenterR, vec2 distortedCenterG,
   return result;
 }
 
-// 7x7 box blur using antialiased sampling in distorted space for RGB at once
-vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 center) {
-  if (boxBlurSize == 0) {
-    // Apply chromatic aberration to the center coordinates
+// Cheap Separable blur using antialiased sampling in distorted space
+// Gaussian weights for 7-tap kernel (sigma ≈ 1.6, sum=1.0)
+const float gauss7[7] = float[7](0.222224, 0.192308, 0.137361, 0.083676, 0.043407, 0.019098, 0.007126);
+
+vec3 horizontalGauss7(vec2 centerUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 screenCenter) {
+  vec3 result = vec3(0.0);
+  vec2 baseToCenter = centerUV - screenCenter;
+
+  for (int i = -3; i <= 3; i++) {
+    float weight = gauss7[i + 3];
+    vec2 offsetUV = centerUV + vec2(float(i) * texelSize.x, 0.0);
+    vec2 toCenter = offsetUV - screenCenter;
+    vec2 sampleR = offsetUV + toCenter * caStrength * 0.5;
+    vec2 sampleG = offsetUV;
+    vec2 sampleB = offsetUV - toCenter * caStrength * 0.5;
+
+    result += weight * sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
+  }
+  return result;
+}
+
+vec3 verticalGauss7(vec2 centerUV, vec2 texelSize, bool colorBeamEnabled, float caStrength, vec2 screenCenter) {
+  vec3 result = vec3(0.0);
+  vec2 baseToCenter = centerUV - screenCenter;
+
+  for (int i = -3; i <= 3; i++) {
+    float weight = gauss7[i + 3];
+    vec2 offsetUV = centerUV + vec2(0.0, float(i) * texelSize.y);
+    vec2 toCenter = offsetUV - screenCenter;
+    vec2 sampleR = offsetUV + toCenter * caStrength * 0.5;
+    vec2 sampleG = offsetUV;
+    vec2 sampleB = offsetUV - toCenter * caStrength * 0.5;
+
+    result += weight * sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
+  }
+  return result;
+}
+
+vec3 reflectionBlurDistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorBeamEnabled, float caStrength,
+                                vec2 center) {
+  if (!blurReflections) {
     vec2 toCenter = distortedCenterUV - center;
     vec2 distortedCenterR = distortedCenterUV - toCenter * caStrength;
     vec2 distortedCenterG = distortedCenterUV;
@@ -237,24 +269,12 @@ vec3 boxBlur7x7DistortedRGB(vec2 distortedCenterUV, vec2 texelSize, bool colorBe
                                          colorBeamEnabled);
   }
 
-  vec3 sum = vec3(0.0);
-  const float kernelArea = float(boxBlurSize * boxBlurSize);
-  float invKernelArea = 1.0 / kernelArea;
-  for (int oy = -boxBlurSize / 2; oy <= boxBlurSize / 2; oy++) {
-    for (int ox = -boxBlurSize / 2; ox <= boxBlurSize / 2; ox++) {
-      vec2 offset = vec2(float(ox), float(oy)) * texelSize;
-      vec2 sampleUV = distortedCenterUV + offset;
-      
-      // Apply chromatic aberration to each sample
-      vec2 toCenter = sampleUV - center;
-      vec2 sampleR = sampleUV + toCenter * caStrength;
-      vec2 sampleG = sampleUV;
-      vec2 sampleB = sampleUV - toCenter * caStrength;
-      
-      sum += sampleAntialiasedDistortedRGB(sampleR, sampleG, sampleB, texelSize, colorBeamEnabled);
-    }
-  }
-  return sum * invKernelArea;
+  // Two-pass separable Gaussian
+  vec3 horizontalResult = horizontalGauss7(distortedCenterUV, texelSize, colorBeamEnabled, caStrength, center);
+  vec3 verticalResult = verticalGauss7(distortedCenterUV, texelSize, colorBeamEnabled, caStrength, center);
+
+  // Blend
+  return mix(horizontalResult, verticalResult, 0.5);
 }
 
 void main() {
@@ -284,7 +304,7 @@ void main() {
 
   vec2 center = vec2(0.5, 0.5);
   vec2 toCenter = uv - center;
-  
+
   vec2 uvR, uvG, uvB;
   if (chromaticAberrationStrength < 1e-6) {
     uvR = uv;
@@ -374,9 +394,9 @@ void main() {
 
       vec3 refRGB;
       if (colorBeam) {
-        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, true, chromaticAberrationStrength, center);
+        refRGB = reflectionBlurDistortedRGB(baseReflected, texelSize, true, chromaticAberrationStrength, center);
       } else {
-        refRGB = boxBlur7x7DistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
+        refRGB = reflectionBlurDistortedRGB(baseReflected, texelSize, false, chromaticAberrationStrength, center);
       }
 
       float rRef = refRGB.r / 5e5;
@@ -387,11 +407,13 @@ void main() {
       if (colorBeam) {
         reflectColor = vec3(tanhColorMapChannel(rRef), tanhColorMapChannel(gRef), tanhColorMapChannel(bRef));
       } else {
-        reflectColor = vec3(tanhColorMapChannel(rRef * beamColor.r), tanhColorMapChannel(gRef * beamColor.g), tanhColorMapChannel(bRef * beamColor.b));
+        reflectColor = vec3(tanhColorMapChannel(rRef * beamColor.r), tanhColorMapChannel(gRef * beamColor.g),
+                            tanhColorMapChannel(bRef * beamColor.b));
       }
 
       // Pixel-thin exponential darkening along the corner diagonals
-      float diagDist = min(abs(distortedUVBase.x - distortedUVBase.y), abs(distortedUVBase.x + distortedUVBase.y - 1.0));
+      float diagDist =
+          min(abs(distortedUVBase.x - distortedUVBase.y), abs(distortedUVBase.x + distortedUVBase.y - 1.0));
       float borderAmountLocal = 1.0 - screenMask;
 
       // Start darkening ~5-8px away from the diagonal, ramping exponentially toward the diagonal
@@ -406,15 +428,16 @@ void main() {
       float darkAmount = clamp(diagWeight * borderWeight, 0.0, 1.0);
 
       float borderAmount = 1.0 - screenMask;
-      outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0) * (1.0 - darkAmount * 0.2);
+      outColor = clamp(outColor + reflectColor * (borderReflectionStrength * 0.5) * borderAmount, 0.0, 1.0) *
+                 (1.0 - darkAmount * 0.2);
     }
-    
+
     // Border darkening gradient: strong at the inner edge, fading toward the outer edge
     if (screenMask < 0.5) {
       float overshootX = max(-distortedUVBase.x, distortedUVBase.x - 1.0);
       float overshootY = max(-distortedUVBase.y, distortedUVBase.y - 1.0);
       float overshoot = max(overshootX, overshootY);
-      
+
       float borderDepthPx = overshoot * max(texSizeF.x, texSizeF.y);
       float gradient = fast_exp(-0.15 * borderDepthPx);
       float darkStrength = 0.3 * (1.0 - screenMask * 2);

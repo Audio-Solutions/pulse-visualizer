@@ -946,9 +946,9 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "reflections", &Config::options.phosphor.reflections.strength, 0.f, 1.f,
                                "Reflections strength", "Reflections strength", 3, true);
 
-    // box_blur_size
-    createSliderElement<int>(page, cy, "box_blur_size", &Config::options.phosphor.reflections.box_blur_size, 0, 10,
-                             "Box blur size", "Box blur size", 0, true);
+    // box_blur
+    createCheckElement(page, cy, "blur_reflections", &Config::options.phosphor.reflections.blur, "Blur",
+                       "Enable blur on reflections.");
 
     createHeaderElement(page, cy, "misc", "Misc");
 

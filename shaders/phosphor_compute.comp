@@ -42,18 +42,20 @@ uniform bool colorBeam;
 void main() {
   uint index = gl_GlobalInvocationID.x;
   uint vertexCount = vertices.length();
-  
+
   // Early exit with single comparison
-  if (index >= vertexCount) return;
+  if (index >= vertexCount)
+    return;
 
   vec3 vertex = vertices[index];
   vec4 color = colors[index];
   vec2 pos = vertex.xy;
   float segmentEnergyLinear = vertex.z;
-  
+
   // Early exit if no next vertex
-  if (index + 1 >= vertexCount) return;
-  
+  if (index + 1 >= vertexCount)
+    return;
+
   vec3 nextVertex = vertices[index + 1];
   vec2 nextPos = nextVertex.xy;
 
@@ -62,22 +64,23 @@ void main() {
   float distance = length(delta);
 
   // Early exit if no distance to avoid division by zero
-  if (distance <= 0.0) return;
+  if (distance <= 0.0)
+    return;
 
   // Calculate number of steps needed based on distance
   int numSteps = min(256, max(1, int(ceil(distance))));
   vec2 stepSize = delta / float(numSteps);
-  
+
   // Total energy for this segment is proportional to its length
   uint totalSegmentEnergy = uint(segmentEnergyLinear * distance * 4e9);
-  
+
   // Distribute energy evenly across all steps to maintain constant energy density
   uint energyPerStep = max(1u, totalSegmentEnergy / uint(numSteps));
   float energyPerStepF = float(energyPerStep);
   const float ENERGY_THRESH_F = 100.0;
   ivec2 texSize = imageSize(energyTexR);
   vec3 colorRGB = color.rgb * color.a;
-  
+
   // Interpolate along the segment
   vec2 interpolPos = pos;
   if (colorBeam) {
