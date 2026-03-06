@@ -349,9 +349,9 @@ Controls the spectrogram visualization (time-frequency heat map).
 spectrogram:
   # Frequency scale: "log" or "linear"
   frequency_scale: log
-  
-  # Enable interpolation for smoother spectrogram display
-  interpolation: true
+
+  # Sharpen broad spectral peaks by iteratively reassigning energy to nearby dominant bins
+  iterative_reassignment: true
   
   # Time window for spectrogram in seconds
   window: 4.0
@@ -363,12 +363,6 @@ spectrogram:
     
     # Minimum dB level for spectrogram display
     min_db: -60.0
-    
-    # Maximum frequency to display in Hz
-    max_freq: 22000.0
-    
-    # Minimum frequency to display in Hz
-    min_freq: 20.0
 ```
 
 ### LUFS Settings

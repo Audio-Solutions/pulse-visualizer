@@ -380,12 +380,10 @@ void load(bool recovering) {
 
   // Load Spectrogram configuration
   get<float>(configData, "spectrogram.window", options.spectrogram.window);
-  get<bool>(configData, "spectrogram.interpolation", options.spectrogram.interpolation);
+  get<bool>(configData, "spectrogram.iterative_reassignment", options.spectrogram.iterative_reassignment);
   get<std::string>(configData, "spectrogram.frequency_scale", options.spectrogram.frequency_scale);
   get<float>(configData, "spectrogram.limits.max_db", options.spectrogram.limits.max_db);
-  get<float>(configData, "spectrogram.limits.max_freq", options.spectrogram.limits.max_freq);
   get<float>(configData, "spectrogram.limits.min_db", options.spectrogram.limits.min_db);
-  get<float>(configData, "spectrogram.limits.min_freq", options.spectrogram.limits.min_freq);
 
   // Load Audio configuration
   get<float>(configData, "audio.silence_threshold", options.audio.silence_threshold);
@@ -578,12 +576,10 @@ bool save() {
 
   // Spectrogram
   root["spectrogram"]["frequency_scale"] = options.spectrogram.frequency_scale;
-  root["spectrogram"]["interpolation"] = options.spectrogram.interpolation;
+  root["spectrogram"]["iterative_reassignment"] = options.spectrogram.iterative_reassignment;
   root["spectrogram"]["window"] = options.spectrogram.window;
   root["spectrogram"]["limits"]["max_db"] = options.spectrogram.limits.max_db;
-  root["spectrogram"]["limits"]["max_freq"] = options.spectrogram.limits.max_freq;
   root["spectrogram"]["limits"]["min_db"] = options.spectrogram.limits.min_db;
-  root["spectrogram"]["limits"]["min_freq"] = options.spectrogram.limits.min_freq;
 
   // Visualizers
   {

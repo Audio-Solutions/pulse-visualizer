@@ -651,18 +651,12 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
   static GLint loc_colorBeam = -1;
-  static GLint loc_screenCurvature = -1;
-  static GLint loc_screenGapFactor = -1;
   if (cachedProgram != shader) {
     loc_colorBeam = glGetUniformLocation(shader, "colorBeam");
-    loc_screenCurvature = glGetUniformLocation(shader, "screenCurvature");
-    loc_screenGapFactor = glGetUniformLocation(shader, "screenGapFactor");
     cachedProgram = shader;
   }
 
   glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
-  glUniform1f(loc_screenCurvature, Config::options.phosphor.screen.curvature);
-  glUniform1f(loc_screenGapFactor, Config::options.phosphor.screen.gap);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);

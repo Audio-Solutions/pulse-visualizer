@@ -25,7 +25,12 @@
 #include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 namespace Spectrogram {
+
+constexpr float kTwoPi = static_cast<float>(2.0 * M_PI);
 
 // Spectrogram window
 WindowManager::VisualizerWindow* window;
@@ -41,14 +46,29 @@ float normalize(float db) {
   return std::clamp(norm, 0.f, 1.f);
 }
 
+float principalArg(float phase) {
+  while (phase > static_cast<float>(M_PI))
+    phase -= kTwoPi;
+  while (phase < static_cast<float>(-M_PI))
+    phase += kTwoPi;
+  return phase;
+}
+
 /**
  * @brief Map spectrum data to visualization format
  * @param in Input spectrum data
  * @return Mapped spectrum data
  */
-std::vector<float>& mapSpectrum(const std::vector<float>& in) {
+std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase, float frameDt) {
   static std::vector<float> spectrum;
-  spectrum.resize(window->phosphor.textureHeight);
+  spectrum.assign(window->phosphor.textureHeight, 0.0f);
+
+  const bool useLogScale = Config::options.spectrogram.frequency_scale == "log";
+  const bool useCqt = Config::options.fft.cqt.enabled;
+  const float sampleRate = Config::options.audio.sample_rate;
+  const float safeInputSize = std::max(static_cast<float>(in.size()), 1.0f);
+  const float halfBinHz = sampleRate * 0.5f / safeInputSize;
+  const float fullBinHz = sampleRate / safeInputSize;
 
   // Calculate frequency mapping parameters
   float logMin = log10f(Config::options.fft.limits.min_freq);
@@ -56,39 +76,155 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in) {
   float logRange = logMax - logMin;
   float freqRange = Config::options.fft.limits.max_freq - Config::options.fft.limits.min_freq;
 
-  // Map each pixel row to a frequency bin
-  for (size_t i = 0; i < spectrum.size(); i++) {
-    float normalized = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
-    float logFreq = logMin + normalized * logRange;
-    float linFreq = Config::options.fft.limits.min_freq + normalized * freqRange;
-    float target = powf(10.f, Config::options.spectrogram.frequency_scale == "log" ? logFreq : linFreq);
+  if (!Config::options.spectrogram.iterative_reassignment) {
+    // Standard spectrogram mapping with interpolation
+    for (size_t i = 0; i < spectrum.size(); ++i) {
+      float normalized = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
+      float logFreq = logMin + normalized * logRange;
+      float linFreq = Config::options.fft.limits.min_freq + normalized * freqRange;
+      float target = useLogScale ? powf(10.f, logFreq) : linFreq;
 
-    // Find corresponding frequency bins
-    size_t bin1, bin2;
-    if (Config::options.fft.cqt.enabled) {
-      std::tie(bin1, bin2) = DSP::ConstantQ::find(target);
-    } else {
-      bin1 = target / (Config::options.audio.sample_rate * 0.5f / in.size());
-      bin2 = bin1 + 1;
-    }
-
-    // Interpolate between bins if necessary
-    if (bin1 < in.size()) {
-      if (bin2 < in.size() && bin1 != bin2) {
-        if (Config::options.fft.cqt.enabled) {
-          float f1 = DSP::ConstantQ::frequencies[bin1];
-          float f2 = DSP::ConstantQ::frequencies[bin2];
-          float frac = (target - f1) / (f2 - f1);
-          spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
-        } else {
-          float frac = static_cast<float>(target) / (Config::options.audio.sample_rate * 0.5f / in.size()) - bin1;
-          spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
-        }
+      size_t bin1, bin2;
+      if (useCqt) {
+        std::tie(bin1, bin2) = DSP::ConstantQ::find(target);
       } else {
-        spectrum[i] = in[bin1];
+        bin1 = target / halfBinHz;
+        bin2 = bin1 + 1;
+      }
+
+      if (bin1 < in.size()) {
+        if (bin2 < in.size() && bin1 != bin2) {
+          if (useCqt) {
+            float f1 = DSP::ConstantQ::frequencies[bin1];
+            float f2 = DSP::ConstantQ::frequencies[bin2];
+            float frac = (target - f1) / std::max(f2 - f1, FLT_EPSILON);
+            spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
+          } else {
+            float frac = target / halfBinHz - static_cast<float>(bin1);
+            spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
+          }
+        } else {
+          spectrum[i] = in[bin1];
+        }
       }
     }
+
+    return spectrum;
   }
+
+  // Iterative reassignment mode: hard-assign significant local peaks to corrected frequency rows.
+  static std::vector<float> lastPhase;
+  static bool haveLastPhase = false;
+  if (lastPhase.size() != phase.size()) {
+    lastPhase = phase;
+    haveLastPhase = false;
+  }
+
+  const size_t sourceBins = std::min(in.size(), phase.size());
+  const float safeDt = std::max(frameDt, 1e-4f);
+  constexpr int iterations = 1;
+  const float ampThreshold = powf(10.0f, Config::options.spectrogram.limits.min_db / 20.0f);
+
+  auto clampFreq = [&](float f) {
+    return std::clamp(f, Config::options.fft.limits.min_freq, Config::options.fft.limits.max_freq);
+  };
+
+  auto toRow = [&](float freq) {
+    float clamped = clampFreq(freq);
+    float normalized = 0.0f;
+    if (useLogScale) {
+      normalized = (log10f(clamped) - logMin) / std::max(logRange, FLT_EPSILON);
+    } else {
+      normalized = (clamped - Config::options.fft.limits.min_freq) / std::max(freqRange, FLT_EPSILON);
+    }
+    float pos = normalized * static_cast<float>(spectrum.size() - 1);
+    return static_cast<size_t>(std::clamp(std::lround(pos), 0l, static_cast<long>(spectrum.size() - 1)));
+  };
+
+  for (size_t k = 0; k < sourceBins; ++k) {
+    float mag = in[k];
+    if (mag <= ampThreshold)
+      continue;
+
+    if (k > 0 && k + 1 < sourceBins && (in[k] < in[k - 1] || in[k] < in[k + 1]))
+      continue;
+
+    float nominalFreq = 0.0f;
+    if (useCqt) {
+      if (k >= DSP::ConstantQ::frequencies.size())
+        continue;
+      nominalFreq = DSP::ConstantQ::frequencies[k];
+    } else {
+      nominalFreq = static_cast<float>(k) * fullBinHz;
+    }
+
+    if (nominalFreq < Config::options.fft.limits.min_freq || nominalFreq > Config::options.fft.limits.max_freq)
+      continue;
+
+    float reassignedFreq = nominalFreq;
+    if (haveLastPhase) {
+      float expected = kTwoPi * nominalFreq * safeDt;
+      float delta = principalArg(phase[k] - lastPhase[k] - expected);
+
+      float correctionHz = delta / (kTwoPi * safeDt);
+      float bandwidthHz;
+      if (useCqt && k > 0 && k + 1 < DSP::ConstantQ::frequencies.size()) {
+        bandwidthHz = 0.5f * ((DSP::ConstantQ::frequencies[k] - DSP::ConstantQ::frequencies[k - 1]) +
+                              (DSP::ConstantQ::frequencies[k + 1] - DSP::ConstantQ::frequencies[k]));
+      } else {
+        bandwidthHz = fullBinHz;
+      }
+
+      float maxCorrection = std::max(1.5f * bandwidthHz, 1.0f);
+      correctionHz = std::clamp(correctionHz, -maxCorrection, maxCorrection);
+      reassignedFreq = nominalFreq + correctionHz;
+      reassignedFreq = clampFreq(reassignedFreq);
+    }
+
+    for (int iter = 0; iter < iterations; ++iter) {
+      size_t center;
+      if (useCqt) {
+        auto [b1, b2] = DSP::ConstantQ::find(reassignedFreq);
+        center = std::min(b1, sourceBins - 1);
+        if (b2 < sourceBins && in[b2] > in[center])
+          center = b2;
+      } else {
+        float bin = reassignedFreq / fullBinHz;
+        center =
+            static_cast<size_t>(std::clamp(static_cast<int>(std::lround(bin)), 0, static_cast<int>(sourceBins - 1)));
+      }
+
+      size_t l = center > 0 ? center - 1 : center;
+      size_t r = std::min(center + 1, sourceBins - 1);
+      float wl = in[l];
+      float wc = in[center];
+      float wr = in[r];
+      float sum = wl + wc + wr;
+      if (sum <= FLT_EPSILON)
+        break;
+
+      auto binToFreq = [&](size_t idx) {
+        if (useCqt)
+          return DSP::ConstantQ::frequencies[idx];
+        return static_cast<float>(idx) * fullBinHz;
+      };
+
+      float centroidFreq = (binToFreq(l) * wl + binToFreq(center) * wc + binToFreq(r) * wr) / sum;
+      reassignedFreq = 0.5f * reassignedFreq + 0.5f * centroidFreq;
+      reassignedFreq = clampFreq(reassignedFreq);
+    }
+
+    size_t row = toRow(reassignedFreq);
+    spectrum[row] = std::max(spectrum[row], mag);
+
+    if (row > 0)
+      spectrum[row - 1] = std::max(spectrum[row - 1], mag * 0.2f);
+    if (row + 1 < spectrum.size())
+      spectrum[row + 1] = std::max(spectrum[row + 1], mag * 0.2f);
+  }
+
+  lastPhase = phase;
+  haveLastPhase = true;
 
   return spectrum;
 }
@@ -124,7 +260,8 @@ void render() {
   // Add new column when interval is reached
   if (accumulator > interval) {
     accumulator -= interval;
-    std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw);
+    float frameDt = 1.0f / std::max(static_cast<float>(Config::options.window.fps_limit), 1.0f);
+    std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw, DSP::fftMidPhase, frameDt);
 
     // Prepare column data for rendering
     static std::vector<float> columnData;
@@ -146,8 +283,7 @@ void render() {
       monochrome = false;
     }
 
-    float lowRgba[4], highRgba[4];
-    for (size_t i = 0; i < spectrum.size(); i++) {
+    for (size_t i = 0; i < spectrum.size(); ++i) {
       float mag = spectrum[i];
 
       if (mag > FLT_EPSILON) {
@@ -166,7 +302,9 @@ void render() {
               Graphics::hsvaToRgba(hsva, rgba);
               Theme::mix(Theme::colors.background, rgba, intensColor, intens * 2.f);
             } else {
-              hsva[0] = std::lerp(Theme::colors.spectrogram_low, Theme::colors.spectrogram_high, (intens - 0.5f) * 2.f);
+              float t = (intens - 0.5f) * 2.f;
+              hsva[0] =
+                  Theme::colors.spectrogram_low + (Theme::colors.spectrogram_high - Theme::colors.spectrogram_low) * t;
               Graphics::hsvaToRgba(hsva, intensColor);
             }
           }

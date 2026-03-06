@@ -524,48 +524,61 @@ int moveSplitter(std::string key, int index, int targetX) {
 
   // Lambda function to handle splitter movement constraints
   auto move = [&](int direction) -> bool {
+    constexpr int SPLITTER_WIDTH = 2;
     Splitter* neighborSplitter = direction == 1 ? splitterRight : splitterLeft;
     VisualizerWindow* neighborWindow = direction == 1 ? right : left;
     int boundary = direction == 1 ? SDLWindow::states[group].windowSizes.first : 0;
     if (!neighborWindow) {
       // Handle minimum width constraints for null window case
       if (neighborSplitter) {
-        if (direction * (neighborSplitter->x - splitter->x) < MIN_WIDTH) {
-          moveSplitter(key, index + direction, splitter->x + direction * MIN_WIDTH);
+        int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
+        if (dist < MIN_WIDTH) {
+          moveSplitter(key, index + direction, splitter->x + direction * (MIN_WIDTH + SPLITTER_WIDTH));
           return false;
         }
-      } else if (direction * (boundary - splitter->x) < MIN_WIDTH) {
-        splitter->x = boundary - direction * MIN_WIDTH;
-        return false;
+      } else {
+        int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
+        if (dist < MIN_WIDTH) {
+          splitter->x = boundary - direction * (MIN_WIDTH + SPLITTER_WIDTH);
+          return false;
+        }
       }
       return true;
     }
 
     int forceWidth = neighborWindow->forceWidth;
     if (!forceWidth && neighborWindow->aspectRatio != 0.0f) {
-      forceWidth = std::min(
-          static_cast<int>(neighborWindow->aspectRatio * SDLWindow::states[group].windowSizes.second),
-          static_cast<int>(SDLWindow::states[group].windowSizes.first - (windows[key].size() - 1) * MIN_WIDTH));
+      forceWidth = std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::states[group].windowSizes.second),
+                            static_cast<int>(SDLWindow::states[group].windowSizes.first -
+                                             (windows[key].size() - 1) * (MIN_WIDTH + SPLITTER_WIDTH)));
     }
 
     if (forceWidth > 0) {
       if (neighborSplitter) {
-        if (direction * (neighborSplitter->x - splitter->x) != forceWidth) {
-          moveSplitter(key, index + direction, splitter->x + direction * forceWidth);
+        int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
+        if (dist != forceWidth) {
+          moveSplitter(key, index + direction, splitter->x + direction * (forceWidth + SPLITTER_WIDTH));
           return false;
         }
-      } else if (direction * (boundary - splitter->x) != forceWidth) {
-        splitter->x = boundary - direction * forceWidth;
-        return false;
+      } else {
+        int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
+        if (dist != forceWidth) {
+          splitter->x = boundary - direction * (forceWidth + SPLITTER_WIDTH);
+          return false;
+        }
       }
     } else if (neighborSplitter) {
-      if (direction * (neighborSplitter->x - splitter->x) < MIN_WIDTH) {
-        moveSplitter(key, index + direction, splitter->x + direction * MIN_WIDTH);
+      int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
+      if (dist < MIN_WIDTH) {
+        moveSplitter(key, index + direction, splitter->x + direction * (MIN_WIDTH + SPLITTER_WIDTH));
         return false;
       }
-    } else if (direction * (boundary - splitter->x) < MIN_WIDTH) {
-      splitter->x = boundary - direction * MIN_WIDTH;
-      return false;
+    } else {
+      int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
+      if (dist < MIN_WIDTH) {
+        splitter->x = boundary - direction * (MIN_WIDTH + SPLITTER_WIDTH);
+        return false;
+      }
     }
 
     return true;

@@ -38,62 +38,6 @@ layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 
 uniform bool colorBeam;
-uniform float screenCurvature;
-uniform float screenGapFactor;
-
-float cbrt(float x) { return sign(x) * pow(abs(x), 1.0 / 3.0); }
-
-// CRT curvature distortion
-vec2 crtDistortion(vec2 uv) {
-  // [0,1] -> [-1,1]
-  vec2 centered = uv * 2.0 - 1.0;
-
-  // Barrel/pincushion term
-  float distortion = screenCurvature;
-  float r2 = dot(centered, centered);
-  float distortionFactor = 1.0 + distortion * r2;
-
-  vec2 distorted = centered * distortionFactor;
-
-  // [-1,1] -> [0,1]
-  return (distorted + 1.0) * 0.5;
-}
-
-vec2 crtDistortionInverse(vec2 uvCurved) {
-  vec2 d = uvCurved * 2.0 - 1.0;
-  float R = length(d);
-
-  if (R < 1e-8 || abs(screenCurvature) < 1e-6) {
-    return uvCurved;
-  }
-
-  float k = screenCurvature;
-  float r = R;
-  for (int i = 0; i < 4; ++i) {
-    r = R / (1.0 + k * r * r);
-  }
-
-  float scale = r / R;
-  return (d * scale + 1.0) * 0.5;
-}
-
-// Undo scale/gap normalization in UV space
-vec2 computeUVFromScaled(vec2 scaledUV, float gapPercent, float scale) {
-  if (screenCurvature < 1e-6) {
-    return scaledUV;
-  }
-
-  float visiblePercent = 1.0 - gapPercent;
-  vec2 gapOffset = vec2(gapPercent * 0.5);
-
-  vec2 t = (scaledUV - 0.5) / scale + 0.5;
-  vec2 uv = t * visiblePercent + gapOffset;
-  return uv;
-}
-
-vec2 inversePipeline(vec2 pos, float gapPercent, float scale, vec2 texSize) {
-  return computeUVFromScaled(crtDistortionInverse(pos / texSize), gapPercent, scale) * texSize;
-}
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
@@ -117,15 +61,6 @@ void main() {
   vec3 nextVertex = vertices[index + 1];
   vec2 nextPos = nextVertex.xy;
 
-  vec2 texelSize = 1.0 / vec2(texSize);
-
-  float gapPercent = clamp(screenGapFactor, 0.0, 1.0);
-  float scale = 1.0;
-  if (screenCurvature > 1e-6) {
-    float edgeNorm = (0.5 - crtDistortion(vec2(0.5, 0.0)).y);
-    scale = 0.5 / edgeNorm;
-  }
-
   // Segment vector/length
   vec2 delta = nextPos - pos;
   float distance = length(delta);
@@ -135,7 +70,7 @@ void main() {
     return;
 
   // Calculate number of steps needed based on distance
-  int numSteps = min(256, max(1, int(ceil(distance * 2))));
+  int numSteps = min(256, max(1, int(ceil(distance))));
   vec2 stepSize = delta / float(numSteps);
 
   // Segment energy scales with length
@@ -149,95 +84,56 @@ void main() {
 
   // Interpolate along the segment
   vec2 interpolPos = pos;
-  if (colorBeam) {
-    for (int i = 0; i < numSteps; ++i) {
-      // Get the base pixel coordinate (floor) and fractional part
-      vec2 distortedPos = computeUVFromScaled(crtDistortionInverse(interpolPos / texSize), gapPercent, scale) * texSize;
-      ivec2 baseCoord = ivec2(floor(distortedPos));
-      vec2 fract = distortedPos - vec2(baseCoord);
+  for (int i = 0; i < numSteps; ++i) {
+    ivec2 baseCoord = ivec2(floor(interpolPos));
+    vec2 fract = interpolPos - vec2(baseCoord);
+    float inv_fx = 1.0 - fract.x;
+    float inv_fy = 1.0 - fract.y;
+    const float ENERGY_THRESH_F = 100.0;
 
-      // Bilinear weights
-      float inv_fx = 1.0 - fract.x;
-      float inv_fy = 1.0 - fract.y;
-
-      // Top-left (0,0)
-      ivec2 coord00 = baseCoord;
-      float e00 = energyPerStepF * (inv_fx * inv_fy);
-      if (e00 > ENERGY_THRESH_F && coord00.x >= 0 && coord00.x < texSize.x && coord00.y >= 0 && coord00.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord00, uint(e00 * colorRGB.r));
+    // Top-left (0,0)
+    ivec2 coord00 = baseCoord;
+    float e00 = energyPerStepF * (inv_fx * inv_fy);
+    if (e00 > ENERGY_THRESH_F && coord00.x >= 0 && coord00.x < texSize.x && coord00.y >= 0 && coord00.y < texSize.y) {
+      imageAtomicAdd(energyTexR, coord00, uint(e00 * colorRGB.r));
+      if (colorBeam) {
         imageAtomicAdd(energyTexG, coord00, uint(e00 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord00, uint(e00 * colorRGB.b));
       }
+    }
 
-      // Top-right (1,0)
-      ivec2 coord10 = baseCoord + ivec2(1, 0);
-      float e10 = energyPerStepF * (fract.x * inv_fy);
-      if (e10 > ENERGY_THRESH_F && coord10.x >= 0 && coord10.x < texSize.x && coord10.y >= 0 && coord10.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord10, uint(e10 * colorRGB.r));
+    // Top-right (1,0)
+    ivec2 coord10 = baseCoord + ivec2(1, 0);
+    float e10 = energyPerStepF * (fract.x * inv_fy);
+    if (e10 > ENERGY_THRESH_F && coord10.x >= 0 && coord10.x < texSize.x && coord10.y >= 0 && coord10.y < texSize.y) {
+      imageAtomicAdd(energyTexR, coord10, uint(e10 * colorRGB.r));
+      if (colorBeam) {
         imageAtomicAdd(energyTexG, coord10, uint(e10 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord10, uint(e10 * colorRGB.b));
       }
+    }
 
-      // Bottom-left (0,1)
-      ivec2 coord01 = baseCoord + ivec2(0, 1);
-      float e01 = energyPerStepF * (inv_fx * fract.y);
-      if (e01 > ENERGY_THRESH_F && coord01.x >= 0 && coord01.x < texSize.x && coord01.y >= 0 && coord01.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord01, uint(e01 * colorRGB.r));
+    // Bottom-left (0,1)
+    ivec2 coord01 = baseCoord + ivec2(0, 1);
+    float e01 = energyPerStepF * (inv_fx * fract.y);
+    if (e01 > ENERGY_THRESH_F && coord01.x >= 0 && coord01.x < texSize.x && coord01.y >= 0 && coord01.y < texSize.y) {
+      imageAtomicAdd(energyTexR, coord01, uint(e01 * colorRGB.r));
+      if (colorBeam) {
         imageAtomicAdd(energyTexG, coord01, uint(e01 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord01, uint(e01 * colorRGB.b));
       }
+    }
 
-      // Bottom-right (1,1)
-      ivec2 coord11 = baseCoord + ivec2(1, 1);
-      float e11 = energyPerStepF * (fract.x * fract.y);
-      if (e11 > ENERGY_THRESH_F && coord11.x >= 0 && coord11.x < texSize.x && coord11.y >= 0 && coord11.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
+    // Bottom-right (1,1)
+    ivec2 coord11 = baseCoord + ivec2(1, 1);
+    float e11 = energyPerStepF * (fract.x * fract.y);
+    if (e11 > ENERGY_THRESH_F && coord11.x >= 0 && coord11.x < texSize.x && coord11.y >= 0 && coord11.y < texSize.y) {
+      imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
+      if (colorBeam) {
         imageAtomicAdd(energyTexG, coord11, uint(e11 * colorRGB.g));
         imageAtomicAdd(energyTexB, coord11, uint(e11 * colorRGB.b));
       }
-
-      interpolPos += stepSize;
     }
-  } else {
-    for (int i = 0; i < numSteps; ++i) {
-      // Get the base pixel coordinate (floor) and fractional part
-      vec2 distortedPos = computeUVFromScaled(crtDistortionInverse(interpolPos / texSize), gapPercent, scale) * texSize;
-      ivec2 baseCoord = ivec2(floor(distortedPos));
-      vec2 fract = distortedPos - vec2(baseCoord);
-
-      // Bilinear weights
-      float inv_fx = 1.0 - fract.x;
-      float inv_fy = 1.0 - fract.y;
-
-      // Top-left (0,0)
-      ivec2 coord00 = baseCoord;
-      float e00 = energyPerStepF * (inv_fx * inv_fy);
-      if (e00 > ENERGY_THRESH_F && coord00.x >= 0 && coord00.x < texSize.x && coord00.y >= 0 && coord00.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord00, uint(e00 * colorRGB.r));
-      }
-
-      // Top-right (1,0)
-      ivec2 coord10 = baseCoord + ivec2(1, 0);
-      float e10 = energyPerStepF * (fract.x * inv_fy);
-      if (e10 > ENERGY_THRESH_F && coord10.x >= 0 && coord10.x < texSize.x && coord10.y >= 0 && coord10.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord10, uint(e10 * colorRGB.r));
-      }
-
-      // Bottom-left (0,1)
-      ivec2 coord01 = baseCoord + ivec2(0, 1);
-      float e01 = energyPerStepF * (inv_fx * fract.y);
-      if (e01 > ENERGY_THRESH_F && coord01.x >= 0 && coord01.x < texSize.x && coord01.y >= 0 && coord01.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord01, uint(e01 * colorRGB.r));
-      }
-
-      // Bottom-right (1,1)
-      ivec2 coord11 = baseCoord + ivec2(1, 1);
-      float e11 = energyPerStepF * (fract.x * fract.y);
-      if (e11 > ENERGY_THRESH_F && coord11.x >= 0 && coord11.x < texSize.x && coord11.y >= 0 && coord11.y < texSize.y) {
-        imageAtomicAdd(energyTexR, coord11, uint(e11 * colorRGB.r));
-      }
-
-      interpolPos += stepSize;
-    }
+    interpolPos += stepSize;
   }
 }

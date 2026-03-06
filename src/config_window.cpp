@@ -641,28 +641,22 @@ inline void initPages() {
     createSliderElement<float>(page, cy, "max_db", &Config::options.spectrogram.limits.max_db, -120.f, 12.f,
                                "Maximum level (dB)", "Maximum dB level for spectrogram display");
 
-    // min_freq
-    createSliderElement<float>(page, cy, "min_freq", &Config::options.spectrogram.limits.min_freq, 10.f, 22000.f,
-                               "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
-
-    // max_freq
-    createSliderElement<float>(page, cy, "max_freq", &Config::options.spectrogram.limits.max_freq, 10.f, 22000.f,
-                               "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
-
     createHeaderElement(page, cy, "misc", "Misc");
 
     // time_window
     createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.window, 0.1f, 10.f,
                                "Time window (seconds)", "Time window for spectrogram in seconds");
-    // interpolation
-    createCheckElement(page, cy, "interpolation", &Config::options.spectrogram.interpolation, "Enable interpolation",
-                       "Enable interpolation for smoother spectrogram display");
+
+    // iterative_reassignment
+    createCheckElement(page, cy, "iterative_reassignment", &Config::options.spectrogram.iterative_reassignment,
+                       "Enable iterative reassignment",
+                       "Sharpen broad spectral peaks by iteratively reassigning energy to dominant neighboring bins");
 
     // frequency_scale
     {
       std::map<std::string, std::string> values = {
-          {"log",   "Logarithmic"},
-          {"liner", "Linear"     },
+          {"log",    "Logarithmic"},
+          {"linear", "Linear"     },
       };
 
       createEnumDropElement<std::string>(page, cy, "frequency_scale", &Config::options.spectrogram.frequency_scale,
@@ -920,7 +914,7 @@ inline void initPages() {
     createHeaderElement(page, cy, "screen", "Screen");
 
     // screen_curvature (Implies enable_curved_screen == true if non-zero)
-    createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen.curvature, 0.f, 1.f,
+    createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen.curvature, 0.f, 0.5f,
                                "Screen curvature", "Curvature intensity for curved screen effect", 3, true);
 
     // screen_gap

@@ -26,7 +26,7 @@ sounds. Unless your system sucks, then, well, good luck.
   - Lissajous curve (with fancy spline interpolation and stretch modes)
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
-  - Spectrogram (log/linear scale, interpolation)
+  - Spectrogram (log/linear scale, iterative reassignment)
   - Peak and LUFS (shortterm, momentary, integrated)
   - VU meter (digital and analog)
 - Configurable order at runtime
@@ -49,6 +49,7 @@ Just grab it from the AUR as `pulse-visualizer-git`:
 ```bash
 yay -S pulse-visualizer-git
 ```
+
 ### NixOS
 
 Use the unstable channel for packages:
@@ -56,6 +57,7 @@ Use the unstable channel for packages:
 ```bash
 environment.systemPackages = [ pkgs.pulse-visualizer ];
 ```
+
 ### Other Distros
 
 You can get the binary from the [Releases page](https://github.com/Beacroxx/pulse-visualizer/releases/latest).
@@ -149,14 +151,19 @@ cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
 ninja
 sudo ninja install
 ```
+
 NixOS:
-* If you want to try out the latest version:
+
+- If you want to try out the latest version:
+
 ```bash
 git clone https://github.com/Audio-Solutions/pulse-visualizer
 cd pulse-visualizer
 nix-shell
 ```
-* To install download `pulse-visualizer.nix` and add this to your configuration.nix
+
+- To install download `pulse-visualizer.nix` and add this to your configuration.nix
+
 ```nix
 nixpkgs.config.packageOverrides = pkgs: {
   pulse-visualizer = pkgs.callPackage ./pulse-visualizer.nix { };
@@ -164,7 +171,9 @@ nixpkgs.config.packageOverrides = pkgs: {
 
 environment.systemPackages = [ pkgs.pulse-visualizer ];
 ```
-* With flakes:
+
+- With flakes:
+
 ```nix
 inputs.pulse-visualizer.url = "github:Audio-Solutions/pulse-visualizer";
 

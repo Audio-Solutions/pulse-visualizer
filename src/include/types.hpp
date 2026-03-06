@@ -109,14 +109,12 @@ struct Options {
 
   struct Spectrogram {
     float window = 2.0f;
-    bool interpolation = true;
+    bool iterative_reassignment = true;
     std::string frequency_scale = "log";
 
     struct Limits {
       float max_db = -10.0f;
-      float max_freq = 22000.0f;
       float min_db = -60.0f;
-      float min_freq = 20.0f;
     } limits;
   } spectrogram;
 

@@ -35,6 +35,8 @@ void render() {
   if (!window)
     return;
 
+  auto& state = SDLWindow::states[window->group];
+
   // Calculate how many samples to read based on buffer position
   static size_t prevWrite = 0;
   static size_t prevReadCount = 0;
@@ -66,7 +68,7 @@ void render() {
 
     // Basic mapping to screen coordinates
     float x = (1.f + left) * window->width / 2.f;
-    float y = (1.f + right) * window->width / 2.f;
+    float y = (1.f + right) * state.windowSizes.second / 2.f;
     switch (Config::options.lissajous.rotation) {
     case Config::ROTATION_0:
       points[i] = {x, y};
@@ -75,17 +77,17 @@ void render() {
       points[i] = {window->width - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {window->width - x, window->width - y};
+      points[i] = {window->width - x, state.windowSizes.second - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, window->width - x};
+      points[i] = {y, state.windowSizes.second - x};
       break;
     }
   }
 
   // Apply spline smoothing
   if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0)
-    points = Spline::generate(points, {1.f, 0.f}, {window->width - 1, window->width},
+    points = Spline::generate(points, {1.f, 0.f}, {window->width - 1, state.windowSizes.second - 1},
                               Config::options.lissajous.spline_segments, Config::options.lissajous.spline_tension);
 
   // Apply stretch mode if enabled
@@ -174,7 +176,7 @@ void render() {
 
     // Calculate energy per segment for phosphor effect
     constexpr float REF_AREA = 200.f * 200.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * window->width);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state.windowSizes.second);
 
     energy *= Config::options.lissajous.beam_multiplier /
               (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0
