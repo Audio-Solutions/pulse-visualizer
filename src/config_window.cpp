@@ -206,6 +206,9 @@ void buildSchemaPage(Page& page, float& cy, PageType pageType) {
         });
       },
       [&](const auto& field) {
+        if (field.path == "font")
+          return;
+
         tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
           std::string& value = f.get(Config::options);
           std::map<std::string, std::string> values = makeChoiceMap(f.ui.choices);
