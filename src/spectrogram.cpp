@@ -250,17 +250,29 @@ void render() {
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
 
-  // Calculate time interval for new columns
-  float interval = window->phosphor.textureWidth > 0
-                       ? Config::options.spectrogram.window / static_cast<float>(window->phosphor.textureWidth)
-                       : 0.0f;
-  static float accumulator = 0;
-  accumulator += WindowManager::dt;
+  // Pace column emission so full texture width represents spectrogram.window seconds.
+  const size_t textureWidth = window->phosphor.textureWidth;
+  const float safeWindowSeconds = std::max(Config::options.spectrogram.window, 1e-3f);
+  const float interval = textureWidth > 0 ? safeWindowSeconds / static_cast<float>(textureWidth) : 0.0f;
 
-  // Add new column when interval is reached
-  if (accumulator > interval) {
-    accumulator -= interval;
-    float frameDt = 1.0f / std::max(static_cast<float>(Config::options.window.fps_limit), 1.0f);
+  static float columnAccumulator = 0.0f;
+  static float phaseDtAccumulator = 0.0f;
+  const float dt = std::max(WindowManager::dt, 0.0f);
+  columnAccumulator += dt;
+  phaseDtAccumulator += dt;
+
+  size_t columnsToWrite = 0;
+  if (interval > FLT_EPSILON) {
+    columnsToWrite = static_cast<size_t>(columnAccumulator / interval);
+    if (columnsToWrite > 0)
+      columnAccumulator -= interval * static_cast<float>(columnsToWrite);
+  }
+
+  if (textureWidth > 0 && columnsToWrite > 0) {
+    columnsToWrite = std::min(columnsToWrite, textureWidth);
+    float frameDt = std::max(phaseDtAccumulator, 1e-4f);
+    phaseDtAccumulator = 0.0f;
+
     std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw, DSP::fftMidPhase, frameDt);
 
     // Prepare column data for rendering
@@ -316,13 +328,14 @@ void render() {
       }
     }
 
-    if (current >= window->phosphor.textureWidth)
-      current = window->phosphor.textureWidth - 1;
+    if (current >= textureWidth)
+      current = textureWidth - 1;
 
-    glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->phosphor.textureHeight, GL_RGB, GL_FLOAT,
-                    columnData.data());
-
-    current = (current + 1) % window->phosphor.textureWidth;
+    for (size_t col = 0; col < columnsToWrite; ++col) {
+      glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->phosphor.textureHeight, GL_RGB, GL_FLOAT,
+                      columnData.data());
+      current = (current + 1) % textureWidth;
+    }
   }
 
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
