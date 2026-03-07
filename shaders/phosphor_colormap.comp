@@ -257,7 +257,7 @@ void main() {
 
   // Jimenez 2D Interleaved gradient noise (anti-banding)
   float dither = fract(52.9829189 * fract(dot(vec2(coord), vec2(0.06711056, 0.00583715)))) * 2.0 - 1.0;
-  outColor.rgb += dither / 512.0;
+  outColor.rgb += dither / 256.0;
   outColor.rgb = clamp(outColor.rgb, 0.0, 1.0);
 
   // Write result to color texture
