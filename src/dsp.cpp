@@ -705,7 +705,7 @@ int FFTMain() {
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
           WindowManager::dt;
 
-      // Pre-calculate constants for AVX2
+      // SIMD-optimized smoothing
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
@@ -713,15 +713,6 @@ int FFTMain() {
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
-      const __m256 refFreqVec = _mm256_set1_ps(440.0f * 2.0f);
-      const __m256 incrementVec = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
-#endif
-
-      // Pre-calculate constants for scalar loop
-      const float refFreq = 440.0f * 2.0f;
-
-      // SIMD-optimized smoothing
-#ifdef HAVE_AVX2
       for (; i + 7 < bins; i += 8) {
         __m256 cur = _mm256_loadu_ps(&fftMidRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftMid[i]);
@@ -828,7 +819,7 @@ int FFTAlt() {
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
           WindowManager::dt;
 
-      // Pre-calculate constants for AVX2
+      // SIMD-optimized smoothing
 #ifdef HAVE_AVX2
       const __m256 riseSpeedVec = _mm256_set1_ps(riseSpeed);
       const __m256 fallSpeedVec = _mm256_set1_ps(fallSpeed);
@@ -836,15 +827,6 @@ int FFTAlt() {
       const __m256 dbScaleVec = _mm256_set1_ps(20.0f);
       const __m256 oneVec = _mm256_set1_ps(1.0f);
       const __m256 negOneVec = _mm256_set1_ps(-1.0f);
-      const __m256 refFreqVec = _mm256_set1_ps(440.0f * 2.0f);
-      const __m256 incrementVec = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
-#endif
-
-      // Pre-calculate constants for scalar loop
-      const float refFreq = 440.0f * 2.0f;
-
-      // SIMD-optimized smoothing
-#ifdef HAVE_AVX2
       for (; i + 7 < bins; i += 8) {
         __m256 cur = _mm256_loadu_ps(&fftSideRaw[i]);
         __m256 prev = _mm256_loadu_ps(&fftSide[i]);

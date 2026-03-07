@@ -1575,8 +1575,6 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
       float groupX = self->x;
       float groupW = self->w;
 
-      float groupAreaYBottomStart = y;
-
       // List items vertically
       for (size_t i = 0; i < std::max<size_t>(1, items.size()); ++i) {
         y -= itemH;
@@ -1670,8 +1668,6 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float itemPad = padding;
 
     float yTop = self->y + self->h;
-    float mouseX = SDLWindow::states["menu"].mousePos.first;
-    float mouseY = SDLWindow::states["menu"].mousePos.second;
 
     for (const auto& kv : *value) {
       const std::string& group = kv.first;
@@ -1713,8 +1709,6 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float groupBottomMargin = margin;
 
     float yTop = self->y + self->h;
-    float mouseX = SDLWindow::states["menu"].mousePos.first;
-    float mouseY = SDLWindow::states["menu"].mousePos.second;
 
     std::string targetGroup;
     bool foundTarget = false;

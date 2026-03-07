@@ -39,7 +39,6 @@ void render() {
 
   // Calculate how many samples to read based on buffer position
   static size_t prevWrite = 0;
-  static size_t prevReadCount = 0;
 
   size_t readCount = (DSP::writePos + DSP::bufferSize - prevWrite) % DSP::bufferSize;
   prevWrite = DSP::writePos;
