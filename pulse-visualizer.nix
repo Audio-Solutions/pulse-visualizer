@@ -6,7 +6,8 @@
   ninja,
   pkg-config,
   sdl3,
-  sdl3-image
+  sdl3-image,
+  curl,
   libpulseaudio,
   pipewire,
   fftwFloat,
@@ -19,13 +20,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pulse-visualizer";
-  version = "1.3.6";
+  version = "1.3.7";
 
   src = fetchFromGitHub {
     owner = "Audio-Solutions";
     repo = "pulse-visualizer";
-    rev = "d90519b790f2e64829097bf1d490ecc0ba7ecbe5";
-    hash = "sha256-rczElD5POFmFY1QGD06BAyNftpN29cwpR01OZDEvZlY=";
+    rev = "a9de4d164b9c13e68b6032faff2bc81b4623a695";
+    hash = "sha256-qUpBWmZSLeXVOKKH+hntzgEjftH6IntEOjzdqEBFUjc=";
   };
 
   nativeBuildInputs = [
