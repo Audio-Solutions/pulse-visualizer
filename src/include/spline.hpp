@@ -22,12 +22,15 @@
 
 namespace Spline {
 
+/**
+ * @brief Utility functions for spline basis evaluation.
+ */
 struct SplineConfig {
-  // Compute cubic Hermite basis functions for parameter t in [0, 1].
-  // h00 =  2t^3 - 3t^2 + 1
-  // h10 =  t^3 - 2t^2 + t
-  // h01 = -2t^3 + 3t^2
-  // h11 = t^3 - t^2
+  /**
+   * @brief Compute cubic Hermite basis coefficients for parameter t in [0, 1].
+   * @param t Parametric position along the segment
+   * @param hb Output basis array: h00, h10, h01, h11
+   */
   static void hermite_basis(float t, float (&hb)[4]) {
     float t2 = t * t;
     float t3 = t2 * t;

@@ -27,6 +27,8 @@
 #include <SDL3/SDL_opengl.h>
 #include <algorithm>
 #include <any>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -35,13 +37,18 @@
 #include <filesystem>
 #include <fstream>
 #include <ft2build.h>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <sstream>
+#include <string_view>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <thread>
+#include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -55,20 +62,6 @@
 #include <numeric>
 #include <signal.h>
 #include <yaml-cpp/yaml.h>
-
-// Define to shut up intellisense
-#ifndef PULSE_DATA_DIR
-#define PULSE_DATA_DIR ""
-#endif
-#ifndef VERSION_STRING
-#define VERSION_STRING "0.0.0"
-#endif
-#ifndef VERSION_COMMIT
-#define VERSION_COMMIT "0000000"
-#endif
-#ifndef VERSION_FULL
-#define VERSION_FULL "0.0.0-0000000"
-#endif
 
 namespace CmdlineArgs {
 extern bool debug;

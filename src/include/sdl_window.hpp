@@ -67,7 +67,7 @@ void display();
 void clear();
 
 /**
- * @brief create a new window
+ * @brief Create a new window.
  * @param group The group of the window
  * @param title The title of the window
  * @param width The width of the window
@@ -78,7 +78,7 @@ void createWindow(const std::string& group, const std::string& title, int width,
                   uint32_t flags = SDL_WINDOW_RESIZABLE);
 
 /**
- * @brief destroy a window
+ * @brief Destroy a window.
  * @param group The group of the window
  * @return true if the window was destroyed, false otherwise
  * @note if the window is the current window, the current window will be set to "main"
@@ -86,23 +86,23 @@ void createWindow(const std::string& group, const std::string& title, int width,
 bool destroyWindow(const std::string& group);
 
 /**
- * @brief select a window for rendering
+ * @brief Select a window for rendering.
  * @param group The group of the window
  * @return true if the window was selected, false otherwise
  */
 bool selectWindow(const std::string& group);
 
 /**
- * @brief get a window's dimensions
- * @param group the group of the window
- * @return a pair of integers: width and height in pixels.
+ * @brief Get a window's dimensions.
+ * @param group The group of the window
+ * @return A pair of integers: width and height in pixels
  */
 std::optional<std::pair<int, int>> getWindowSize(const std::string& group);
 
 /**
- * @brief get a window's cursor position
- * @param group the group of the window
- * @return a pair of integers: x and y in pixels
+ * @brief Get a window's cursor position.
+ * @param group The group of the window
+ * @return A pair of integers: x and y in pixels
  */
 std::optional<std::pair<int, int>> getCursorPos(const std::string& group);
 } // namespace SDLWindow

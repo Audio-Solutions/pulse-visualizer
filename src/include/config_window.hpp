@@ -56,7 +56,7 @@ extern float offsetX, offsetY;
 extern bool alt, ctrl, shift;
 
 /**
- * @brief create/destroy the window
+ * @brief Toggle the configuration window visibility.
  */
 void toggle();
 
@@ -77,7 +77,15 @@ void draw();
  * @brief Creates the top page and the pages
  */
 void init();
+
+/**
+ * @brief Initialize static top-bar UI elements.
+ */
 inline void initTop();
+
+/**
+ * @brief Initialize page containers and initial page content.
+ */
 inline void initPages();
 
 /**
@@ -121,6 +129,9 @@ void layer(float z);
  */
 void layer();
 
+/**
+ * @brief Config window pages.
+ */
 enum class PageType {
   Oscilloscope,
   Lissajous,
@@ -143,6 +154,9 @@ extern PageType currentPage;
  */
 std::string pageToString(PageType page);
 
+/**
+ * @brief UI element descriptor used by the config window renderer.
+ */
 struct Element {
   // hitbox
   float x, y, w, h;
@@ -161,6 +175,9 @@ struct Element {
   std::function<void(Element*)> cleanup;
 };
 
+/**
+ * @brief A scrollable page of UI elements.
+ */
 struct Page {
   std::map<std::string, Element> elements;
   float height;
@@ -186,7 +203,7 @@ void createLabelElement(Page& page, float& cy, const std::string key, const std:
  * @param page Destination page
  * @param cy Current Y axis
  * @param key Element key
- * @param label Header string
+ * @param header Header string
  */
 void createHeaderElement(Page& page, float& cy, const std::string key, const std::string header);
 
@@ -222,7 +239,7 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
  */
 template <typename ValueType>
 void createDetentSliderElement(Page& page, float& cy, const std::string key, ValueType* value,
-                               const std::vector<ValueType>& detents, const std::string label,
+                               const std::span<const ValueType> detents, const std::string label,
                                const std::string description, const int precision = 1);
 
 /**
@@ -259,7 +276,6 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
 
 /**
  * @brief Creates a checkmark element
- * @tparam ValueType Type for @p value
  * @param page Destination page
  * @param cy Current Y axis
  * @param key Element key

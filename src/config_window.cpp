@@ -21,6 +21,7 @@
 
 #include "include/audio_engine.hpp"
 #include "include/config.hpp"
+#include "include/config_schema.hpp"
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
@@ -58,13 +59,250 @@ static std::map<std::string, std::string> vizLabels = {
 };
 
 static int newWindowCounter = 1;
-static std::string generateNewWindowKey() {
-  // ensure uniqueness
-  std::string key;
-  do {
-    key = std::string("win_") + std::to_string(newWindowCounter++);
-  } while (Config::options.visualizers.find(key) != Config::options.visualizers.end());
-  return key;
+
+inline constexpr std::array<PageType, 11> pageOrder = {
+    PageType::Oscilloscope, PageType::Lissajous,   PageType::FFT,    PageType::Spectrogram,
+    PageType::Audio,        PageType::Visualizers, PageType::Window, PageType::Debug,
+    PageType::Phosphor,     PageType::LUFS,        PageType::VU,
+};
+
+inline void ensurePageInitialized(PageType pageType);
+inline void buildVisualizersPage();
+
+PageType pageAtOffset(PageType current, int offset) {
+  auto it = std::find(pageOrder.begin(), pageOrder.end(), current);
+  size_t index = (it == pageOrder.end()) ? 0 : static_cast<size_t>(std::distance(pageOrder.begin(), it));
+  size_t size = pageOrder.size();
+  size_t nextIndex =
+      (index + size +
+       static_cast<size_t>((offset % static_cast<int>(size) + static_cast<int>(size)) % static_cast<int>(size))) %
+      size;
+  return pageOrder[nextIndex];
+}
+
+constexpr ConfigSchema::SchemaPage schemaPageFromWindowPage(PageType pageType) {
+  switch (pageType) {
+  case PageType::Oscilloscope:
+    return ConfigSchema::SchemaPage::Oscilloscope;
+  case PageType::Lissajous:
+    return ConfigSchema::SchemaPage::Lissajous;
+  case PageType::FFT:
+    return ConfigSchema::SchemaPage::FFT;
+  case PageType::Spectrogram:
+    return ConfigSchema::SchemaPage::Spectrogram;
+  case PageType::Audio:
+    return ConfigSchema::SchemaPage::Audio;
+  case PageType::Window:
+    return ConfigSchema::SchemaPage::Window;
+  case PageType::Debug:
+    return ConfigSchema::SchemaPage::Debug;
+  case PageType::Phosphor:
+    return ConfigSchema::SchemaPage::Phosphor;
+  case PageType::LUFS:
+    return ConfigSchema::SchemaPage::LUFS;
+  case PageType::VU:
+    return ConfigSchema::SchemaPage::VU;
+  case PageType::Visualizers:
+    return ConfigSchema::SchemaPage::Unknown;
+  }
+
+  return ConfigSchema::SchemaPage::Unknown;
+}
+
+template <typename T> std::map<T, std::string> makeChoiceMap(std::span<const ConfigSchema::Choice<T>> choices) {
+  std::map<T, std::string> values;
+  for (const auto& choice : choices)
+    values.emplace(choice.value, std::string(choice.label));
+  return values;
+}
+
+std::map<std::string, std::string> makeChoiceMap(std::span<const ConfigSchema::Choice<std::string_view>> choices) {
+  std::map<std::string, std::string> values;
+  for (const auto& choice : choices)
+    values.emplace(std::string(choice.value), std::string(choice.label));
+  return values;
+}
+
+struct GeneratedField {
+  std::string path;
+  std::string groupKey;
+  std::string groupLabel;
+  std::function<void(Page&, float&)> render;
+};
+
+template <typename FieldType, typename RenderFn>
+void tryPushField(PageType pageType, std::vector<GeneratedField>& out, const FieldType& field, RenderFn renderFn) {
+  if (field.page != schemaPageFromWindowPage(pageType))
+    return;
+
+  std::string groupKey(field.groupKey);
+
+  std::string groupLabel = groupKey;
+  bool upperNext = true;
+  for (char& ch : groupLabel) {
+    if (ch == '_') {
+      ch = ' ';
+      upperNext = true;
+      continue;
+    }
+    if (upperNext) {
+      ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+      upperNext = false;
+    }
+  }
+
+  std::string elementKey(field.path);
+  std::replace(elementKey.begin(), elementKey.end(), '.', '_');
+
+  out.push_back({std::string(field.path), groupKey, groupLabel,
+                 [field, renderFn, elementKey](Page& page, float& cy) { renderFn(page, cy, field, elementKey); }});
+}
+
+void buildSchemaPage(Page& page, float& cy, PageType pageType) {
+  std::vector<GeneratedField> fields;
+  fields.reserve(ConfigSchema::boolFields.size() + ConfigSchema::intFields.size() + ConfigSchema::floatFields.size() +
+                 ConfigSchema::stringFields.size() + ConfigSchema::rotationFields.size());
+
+  ConfigSchema::forEachFieldByType(
+      [&](const auto& field) {
+        tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
+          bool& value = f.get(Config::options);
+          createCheckElement(p, localCy, key, &value, std::string(f.label), std::string(f.description));
+        });
+      },
+      [&](const auto& field) {
+        tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
+          int& value = f.get(Config::options);
+          if (!f.ui.detents.empty()) {
+            createDetentSliderElement<int>(p, localCy, key, &value, f.ui.detents, std::string(f.label),
+                                           std::string(f.description), f.ui.precision);
+            return;
+          }
+
+          if (f.ui.hasRange) {
+            createSliderElement<int>(p, localCy, key, &value, f.ui.min, f.ui.max, std::string(f.label),
+                                     std::string(f.description), f.ui.precision, f.ui.zeroOff);
+          }
+        });
+      },
+      [&](const auto& field) {
+        tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
+          float& value = f.get(Config::options);
+          if (!f.ui.choices.empty()) {
+            std::map<float, std::string> values = makeChoiceMap<float>(f.ui.choices);
+            if (f.ui.useTick)
+              createEnumTickElement<float>(p, localCy, key, &value, std::move(values), std::string(f.label),
+                                           std::string(f.description));
+            else
+              createEnumDropElement<float>(p, localCy, key, &value, std::move(values), std::string(f.label),
+                                           std::string(f.description));
+            return;
+          }
+
+          if (f.ui.hasRange) {
+            createSliderElement<float>(p, localCy, key, &value, f.ui.min, f.ui.max, std::string(f.label),
+                                       std::string(f.description), f.ui.precision, f.ui.zeroOff);
+          }
+        });
+      },
+      [&](const auto& field) {
+        tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
+          std::string& value = f.get(Config::options);
+          std::map<std::string, std::string> values = makeChoiceMap(f.ui.choices);
+          if (f.path == "audio.engine") {
+#if !HAVE_PIPEWIRE
+            values.erase("pipewire");
+#endif
+#if !HAVE_PULSEAUDIO
+            values.erase("pulseaudio");
+#endif
+#if !HAVE_WASAPI
+            values.erase("wasapi");
+#endif
+          }
+          if (values.empty()) {
+            if (f.path == "audio.device") {
+              for (const std::string& device : AudioEngine::enumerate())
+                values.emplace(device, device);
+            } else if (f.path == "window.theme") {
+              try {
+                std::filesystem::directory_iterator iterator(expandUserPath("~/.config/pulse-visualizer/themes/"));
+                for (const auto& file : iterator) {
+                  if (file.path().extension() != ".txt")
+                    continue;
+                  const std::string filename = file.path().filename().string();
+                  const std::string baseName = filename.substr(0, filename.size() - 4);
+                  values.emplace(filename, baseName);
+                }
+              } catch (const std::exception&) {
+              }
+            }
+          }
+          if (values.empty()) {
+            if (value.empty())
+              return;
+            values.emplace(value, value);
+          }
+
+          if (f.ui.useTick)
+            createEnumTickElement<std::string>(p, localCy, key, &value, std::move(values), std::string(f.label),
+                                               std::string(f.description));
+          else
+            createEnumDropElement<std::string>(p, localCy, key, &value, std::move(values), std::string(f.label),
+                                               std::string(f.description));
+        });
+      },
+      [&](const auto& field) {
+        tryPushField(pageType, fields, field, [](Page& p, float& localCy, const auto& f, const std::string& key) {
+          Config::Rotation& value = f.get(Config::options);
+          std::map<Config::Rotation, std::string> values = makeChoiceMap<Config::Rotation>(f.ui.choices);
+          createEnumDropElement<Config::Rotation>(p, localCy, key, &value, std::move(values), std::string(f.label),
+                                                  std::string(f.description));
+        });
+      });
+
+  std::sort(fields.begin(), fields.end(), [](const GeneratedField& a, const GeneratedField& b) {
+    const int aMiscRank = a.groupKey == "misc" ? 1 : 0;
+    const int bMiscRank = b.groupKey == "misc" ? 1 : 0;
+    return std::tie(aMiscRank, a.groupKey, a.path) < std::tie(bMiscRank, b.groupKey, b.path);
+  });
+
+  std::string currentGroup;
+  for (auto& field : fields) {
+    if (field.groupKey != currentGroup) {
+      createHeaderElement(page, cy, "group_" + field.groupKey, field.groupLabel);
+      currentGroup = field.groupKey;
+    }
+    field.render(page, cy);
+  }
+
+  if (pageType == PageType::Debug) {
+    Element element = {0};
+    element.render = [](Element* self) {
+      float cyOther = scrollingDisplayMargin;
+      float fps = 1.f / WindowManager::dt;
+      static float fpsLerp = 0.f;
+      float diff = abs(fps - fpsLerp);
+      float t = diff / (diff + Config::options.window.fps_limit * 2.0f);
+      fpsLerp = std::lerp(fpsLerp, fps, t);
+
+      Graphics::Font::drawText("Pulse " VERSION_STRING " commit " VERSION_COMMIT, 0, cyOther, fontSizeHeader,
+                               Theme::colors.text);
+      cyOther += fontSizeHeader;
+
+      std::stringstream ss;
+      ss << "FPS: " << std::fixed << std::setprecision(1) << fpsLerp;
+      Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text);
+      cyOther += fontSizeHeader;
+
+      self->x = 0;
+      self->y = scrollingDisplayMargin;
+      self->w = 100;
+      self->h = cyOther - scrollingDisplayMargin;
+    };
+
+    page.elements.insert({"debug", element});
+  }
 }
 
 void init() {
@@ -116,11 +354,8 @@ inline void initTop() {
     };
 
     leftChevron.clicked = [](Element* self) {
-      if (currentPage == PageType::Oscilloscope) {
-        currentPage = PageType::VU;
-        return;
-      }
-      currentPage = static_cast<PageType>(static_cast<int>(currentPage) - 1);
+      currentPage = pageAtOffset(currentPage, -1);
+      ensurePageInitialized(currentPage);
     };
 
     topPage.elements.insert({"leftChevron", leftChevron});
@@ -169,11 +404,8 @@ inline void initTop() {
     };
 
     rightChevron.clicked = [](Element* self) {
-      if (currentPage == PageType::VU) {
-        currentPage = PageType::Oscilloscope;
-        return;
-      }
-      currentPage = static_cast<PageType>(static_cast<int>(currentPage) + 1);
+      currentPage = pageAtOffset(currentPage, 1);
+      ensurePageInitialized(currentPage);
     };
 
     topPage.elements.insert({"rightChevron", rightChevron});
@@ -308,764 +540,59 @@ inline void initTop() {
 }
 
 inline void initPages() {
-  // TODO: refactor to use common cy variable in the Page struct
+  ensurePageInitialized(currentPage);
+  ensurePageInitialized(PageType::Visualizers);
+}
+
+inline void ensurePageInitialized(PageType pageType) {
+  if (pages.find(pageType) != pages.end())
+    return;
+
+  if (pageType == PageType::Visualizers) {
+    buildVisualizersPage();
+    return;
+  }
 
   const float cyInit = h - scrollingDisplayMargin;
+  Page page;
+  float cy = cyInit;
+  buildSchemaPage(page, cy, pageType);
+  page.height = cyInit - cy;
+  pages.insert({pageType, std::move(page)});
+}
 
-  // oscilloscope
-  {
-    Page page;
-    float cy = cyInit;
+inline void buildVisualizersPage() {
+  if (pages.find(PageType::Visualizers) != pages.end())
+    return;
 
-    createHeaderElement(page, cy, "pitch", "Pitch");
+  const float cyInit = h - scrollingDisplayMargin;
+  Page page;
+  float cy = cyInit;
 
-    // follow_pitch
-    createCheckElement(page, cy, "follow_pitch", &Config::options.oscilloscope.pitch.follow, "Follow pitch",
-                       "Stabilizes the oscilloscope to the pitch of the sound");
-
-    // alignment
-    {
-      std::map<std::string, std::string> values = {
-          {"left",   "Left"  },
-          {"center", "Center"},
-          {"right",  "Right" },
-      };
-
-      createEnumDropElement<std::string>(page, cy, "alignment", &Config::options.oscilloscope.pitch.alignment, values,
-                                         "Alignment", "Alignment position");
-    }
-
-    // alignment_type
-    {
-      std::map<std::string, std::string> values = {
-          {"peak",          "Peak"         },
-          {"zero_crossing", "Zero crossing"},
-      };
-
-      createEnumDropElement<std::string>(page, cy, "alignment_type", &Config::options.oscilloscope.pitch.type, values,
-                                         "Alignment type", "Alignment type");
-    }
-
-    // cycles (Implies limit_cycles == true if non-zero)
-    createSliderElement<int>(page, cy, "cycles", &Config::options.oscilloscope.pitch.cycles, 0, 16, "Cycle count",
-                             "Number of cycles to display", 0, true);
-
-    // min_cycle_time
-    createSliderElement<float>(page, cy, "min_cycle_time", &Config::options.oscilloscope.pitch.min_cycle_time, 1.f,
-                               100.f, "Minimum time (ms)", "Minimum time window to display in oscilloscope in ms");
-
-    // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.oscilloscope.window, 1.f, 500.f,
-                               "Time window (ms)", "Time window for oscilloscope in ms");
-
-    // centered
-    createCheckElement(page, cy, "osc_centered", &Config::options.oscilloscope.centered, "Centered",
-                       "Center the oscilloscope if possible.");
-
-    createHeaderElement(page, cy, "edgecomp", "Edge Compression");
-
-    // enabled
-    createCheckElement(page, cy, "enable_edgecomp", &Config::options.oscilloscope.edge_compression.enabled,
-                       "Enable edge compression",
-                       "Enable edge compression, an effect similar to Wave Candy in FL-Studio");
-
-    // range
-    createSliderElement(page, cy, "edgecomp_range", &Config::options.oscilloscope.edge_compression.range, 0.0f, 1.0f,
-                        "Range", "How much of the edges to compress", 2);
-
-    createHeaderElement(page, cy, "filters", "Filters");
-
-    // enable_lowpass
-    createCheckElement(page, cy, "enable_lowpass", &Config::options.oscilloscope.lowpass.enabled, "Enable lowpass",
-                       "Enable lowpass filter for oscilloscope");
-
-    // lowpass.cutoff
-    createSliderElement<float>(page, cy, "cutoff", &Config::options.oscilloscope.lowpass.cutoff, 0, 4000.f,
-                               "Lowpass cutoff (Hz)", "Cutoff frequency in Hz");
-
-    // lowpass.order
-    createSliderElement<int>(page, cy, "order", &Config::options.oscilloscope.lowpass.order, 1, 16, "Lowpass order",
-                             "Cutoff frequency in Hz", 0);
-
-    // bandwidth
-    createSliderElement<float>(page, cy, "bandwidth", &Config::options.oscilloscope.bandpass.bandwidth, 0, 1000.f,
-                               "Bandpass bandwidth (Hz)", "Bandwidth of the bandpass filter in Hz");
-
-    // sidelobe
-    createSliderElement<float>(page, cy, "sidelobe", &Config::options.oscilloscope.bandpass.sidelobe, 0, 120.f,
-                               "Bandpass sidelobe (dB)", "Sidelobe attenuation of the bandpass filter in dB");
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // beam_multiplier
-    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.oscilloscope.beam_multiplier, 0.f, 10.f,
-                               "Beam multiplier", "Beam intensity multiplier for phosphor effect");
-
-    // rotation
-    {
-      std::map<Config::Rotation, std::string> values = {
-          {Config::Rotation::ROTATION_0,   "0deg"  },
-          {Config::Rotation::ROTATION_90,  "90deg" },
-          {Config::Rotation::ROTATION_180, "180deg"},
-          {Config::Rotation::ROTATION_270, "270deg"},
-      };
-
-      createEnumDropElement<Config::Rotation>(page, cy, "rotation", &Config::options.oscilloscope.rotation, values,
-                                              "Display rotation", "Rotation of the oscilloscope display");
-    }
-
-    // flip_x
-    createCheckElement(page, cy, "flip_x", &Config::options.oscilloscope.flip_x, "Flip X axis",
-                       "Flip the oscilloscope display along the time axis");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Oscilloscope, page});
+  if (Config::options.visualizers.find("hidden") == Config::options.visualizers.end()) {
+    Config::options.visualizers["hidden"] = {};
   }
 
-  // lissajous
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // mode
-    {
-      std::map<std::string, std::string> values = {
-          {"rotate",     "Rotate"    },
-          {"circle",     "Circle"    },
-          {"pulsar",     "Pulsar"    },
-          {"black_hole", "Black hole"},
-          {"normal",     "Normal"    },
-      };
-
-      createEnumDropElement<std::string>(
-          page, cy, "mode", &Config::options.lissajous.mode, values, "Mode",
-          "rotate is a 45 degree rotation of the curve\n"
-          "circle is the rotated curve stretched to a circle\n"
-          "pulsar is all of the above, makes the outside be silent and the inside be loud which looks really cool\n"
-          "black_hole is a rotated circle with a black hole-like effect\n"
-          "normal is the default mode");
+  std::vector<std::string> missingVisualizers;
+  for (const auto& [vizKey, vizLabel] : vizLabels) {
+    if (!std::any_of(Config::options.visualizers.begin(), Config::options.visualizers.end(), [&](const auto& group) {
+          return std::find(group.second.begin(), group.second.end(), vizKey) != group.second.end();
+        })) {
+      missingVisualizers.push_back(vizKey);
     }
-
-    // spline_tension
-    createSliderElement<float>(page, cy, "spline_tension", &Config::options.lissajous.spline_tension, 0.f, 2.f,
-                               "Spline Tension",
-                               "Controls how strongly the curve bends between points.\n"
-                               "0 = straight segments (no smoothing), 1 = standard smooth Catmull-Rom.\n"
-                               "Higher values (>1) increase curvature and can cause overshoot around sharp peaks.",
-                               2);
-
-    // spline_segments
-    createSliderElement<int>(page, cy, "spline_segments", &Config::options.lissajous.spline_segments, 0, 32,
-                             "Spline Density",
-                             "Number of interpolated points between each pair of samples.\n"
-                             "Lower values: faster, more angular.\n"
-                             "Higher values: smoother, but more points to draw.",
-                             1, true);
-
-    // beam_multiplier
-    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.lissajous.beam_multiplier, 0.f, 10.f,
-                               "Beam multiplier", "Beam multiplier for phosphor effect");
-
-    // rotation
-    {
-      std::map<Config::Rotation, std::string> values = {
-          {Config::Rotation::ROTATION_0,   "0deg"  },
-          {Config::Rotation::ROTATION_90,  "90deg" },
-          {Config::Rotation::ROTATION_180, "180deg"},
-          {Config::Rotation::ROTATION_270, "270deg"},
-      };
-
-      createEnumDropElement<Config::Rotation>(page, cy, "rotation", &Config::options.lissajous.rotation, values,
-                                              "Display rotation", "Rotation of the lissajous display");
-    }
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Lissajous, page});
   }
 
-  // fft
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "limits", "Limits");
-
-    // min_freq
-    createSliderElement<float>(page, cy, "min_freq", &Config::options.fft.limits.min_freq, 10.f, 22000.f,
-                               "Minimum frequency (Hz)", "Minimum frequency to display in Hz");
-
-    // max_freq
-    createSliderElement<float>(page, cy, "max_freq", &Config::options.fft.limits.max_freq, 10.f, 22000.f,
-                               "Maximum frequency (Hz)", "Maximum frequency to display in Hz");
-
-    // slope_correction_db
-    createSliderElement<float>(page, cy, "slope_correction_db", &Config::options.fft.slope, -12.f, 12.f,
-                               "Slope correction (dB/oct)",
-                               "Slope correction for frequency response (dB per octave, visual only)");
-
-    // min_db
-    createSliderElement<float>(page, cy, "min_db", &Config::options.fft.limits.min_db, -120.f, 12.f,
-                               "Minimum level (dB)", "dB level at the bottom of the display before slope correction");
-
-    // max_db
-    createSliderElement<float>(page, cy, "max_db", &Config::options.fft.limits.max_db, -120.f, 12.f,
-                               "Maximum level (dB)", "dB level at the top of the display before slope correction");
-
-    createHeaderElement(page, cy, "cqt", "Constant-Q Transform");
-
-    // enable_cqt
-    createCheckElement(page, cy, "enable_cqt", &Config::options.fft.cqt.enabled, "Enable Constant-Q Transform",
-                       "Enable Constant-Q Transform (better frequency resolution in the low end but more CPU usage)");
-
-    // cqt_bins_per_octave
-    createSliderElement<int>(page, cy, "cqt_bins_per_octave", &Config::options.fft.cqt.bins_per_octave, 16, 128,
-                             "CQT bins per octave",
-                             "Number of frequency bins per octave for CQT (higher=better resolution)\n"
-                             "Significant CPU usage increase with higher values",
-                             0);
-
-    createHeaderElement(page, cy, "smoothing", "Smoothing");
-
-    // enable_smoothing
-    createCheckElement(page, cy, "enable_smoothing", &Config::options.fft.smoothing.enabled, "Enable smoothing",
-                       "Enable velocity smoothing for FFT values");
-
-    // rise_speed
-    createSliderElement<float>(page, cy, "rise_speed", &Config::options.fft.smoothing.rise_speed, 10.f, 1000.f,
-                               "Bar rise speed", "Rise speed of FFT bars");
-
-    // fall_speed
-    createSliderElement<float>(page, cy, "fall_speed", &Config::options.fft.smoothing.fall_speed, 10.f, 1000.f,
-                               "Bar fall speed", "Fall speed of FFT bars");
-
-    // hover_fall_speed
-    createSliderElement<float>(page, cy, "hover_fall_speed", &Config::options.fft.smoothing.hover_fall_speed, 10.f,
-                               1000.f, "Bar fall speed on hover", "Fall speed when window is hovered over");
-
-    createHeaderElement(page, cy, "sphere", "Sphere");
-
-    // Sphere enabled
-    createCheckElement(page, cy, "sphere_enabled", &Config::options.fft.sphere.enabled, "Enable sphere",
-                       "Enable sphere for FFT display");
-
-    // Sphere max freq
-    createSliderElement<float>(page, cy, "sphere_max_freq", &Config::options.fft.sphere.max_freq, 10.f, 22000.f,
-                               "Sphere max frequency (Hz)", "Maximum frequency for sphere in Hz");
-
-    // Sphere base radius
-    createSliderElement<float>(page, cy, "sphere_base_radius", &Config::options.fft.sphere.base_radius, 0.f, 1.f,
-                               "Sphere base radius", "Base radius for sphere", 3);
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // readout_header
-    createCheckElement(page, cy, "readout_header", &Config::options.fft.readout_header, "Readout Header",
-                       "Enable the readout header which displays Peak level, frequency, note and cent offset of the "
-                       "strongest partial.");
-
-    // stereo_mode
-    {
-      std::map<std::string, std::string> values = {
-          {"midside",   "Mid/Side"  },
-          {"leftright", "Left/Right"},
-      };
-
-      createEnumDropElement<std::string>(page, cy, "stereo_mode", &Config::options.fft.mode, values, "Stereo mode",
-                                         "Use mid/side channels or left/right channels");
+  if (!missingVisualizers.empty()) {
+    for (const auto& visualizer : missingVisualizers) {
+      Config::options.visualizers["hidden"].push_back(visualizer);
     }
-
-    // note_key_mode
-    {
-      std::map<std::string, std::string> values = {
-          {"sharp", "Sharp"},
-          {"flat",  "Flat" },
-      };
-
-      createEnumDropElement<std::string>(page, cy, "note_key_mode", &Config::options.fft.key, values, "Note key mode",
-                                         "Use sharp or flat frequency label");
-    }
-
-    // size
-    {
-      std::vector<int> values = {128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768};
-      createDetentSliderElement<int>(page, cy, "size", &Config::options.fft.size, values, "FFT Size", "FFT size", 0);
-    }
-
-    // beam_multiplier
-    createSliderElement<float>(page, cy, "beam_multiplier", &Config::options.fft.beam_multiplier, 0.f, 10.f,
-                               "Beam multiplier", "Beam multiplier for phosphor effect");
-
-    // frequency_markers
-    createCheckElement(page, cy, "frequency_markers", &Config::options.fft.markers, "Enable frequency markers",
-                       "Enable frequency markers on the display");
-
-    // cursor
-    createCheckElement(page, cy, "cursor", &Config::options.fft.cursor, "Enable cursor",
-                       "Enable cursor on the display when hovering");
-
-    // rotation
-    {
-      std::map<Config::Rotation, std::string> values = {
-          {Config::Rotation::ROTATION_0,   "0deg"  },
-          {Config::Rotation::ROTATION_90,  "90deg" },
-          {Config::Rotation::ROTATION_180, "180deg"},
-          {Config::Rotation::ROTATION_270, "270deg"},
-      };
-
-      createEnumDropElement<Config::Rotation>(page, cy, "rotation", &Config::options.fft.rotation, values,
-                                              "Display rotation", "Rotation of the FFT display");
-    }
-
-    // flip_x
-    createCheckElement(page, cy, "flip_x", &Config::options.fft.flip_x, "Flip X axis",
-                       "Flip the FFT display along the time axis");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::FFT, page});
+    Config::save();
   }
 
-  // spectrogram
-  {
-    Page page;
-    float cy = cyInit;
+  createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
 
-    createHeaderElement(page, cy, "limits", "Limits");
-
-    // min_db
-    createSliderElement<float>(page, cy, "min_db", &Config::options.spectrogram.limits.min_db, -120.f, 12.f,
-                               "Minimum level (dB)", "Minimum dB level for spectrogram display");
-
-    // max_db
-    createSliderElement<float>(page, cy, "max_db", &Config::options.spectrogram.limits.max_db, -120.f, 12.f,
-                               "Maximum level (dB)", "Maximum dB level for spectrogram display");
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.spectrogram.window, 0.1f, 10.f,
-                               "Time window (seconds)", "Time window for spectrogram in seconds");
-
-    // iterative_reassignment
-    createCheckElement(page, cy, "iterative_reassignment", &Config::options.spectrogram.iterative_reassignment,
-                       "Enable iterative reassignment",
-                       "Sharpen broad spectral peaks by iteratively reassigning energy to dominant neighboring bins");
-
-    // frequency_scale
-    {
-      std::map<std::string, std::string> values = {
-          {"log",    "Logarithmic"},
-          {"linear", "Linear"     },
-      };
-
-      createEnumDropElement<std::string>(page, cy, "frequency_scale", &Config::options.spectrogram.frequency_scale,
-                                         values, "Frequency scale", "Logarithmic or linear frequency scaling");
-    }
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Spectrogram, page});
-  }
-
-  // audio
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "engine", "Audio Engine");
-
-    // engine
-    {
-      std::map<std::string, std::string> values = {
-          {"auto",       "Auto"      },
-#if HAVE_PIPEWIRE
-          {"pipewire",   "PipeWire"  },
-#endif
-#if HAVE_PULSEAUDIO
-          {"pulseaudio", "PulseAudio"},
-#endif
-#if HAVE_WASAPI
-          {"wasapi",     "WASAPI"    },
-#endif
-      };
-
-      createEnumDropElement<std::string>(page, cy, "engine", &Config::options.audio.engine, values, "Audio engine",
-                                         "Select the audio engine to use\n"
-                                         "auto is recommended for most systems, but you can force a specific backend");
-    }
-
-    {
-      std::vector<std::string> result = AudioEngine::enumerate();
-      std::map<std::string, std::string> values;
-
-      for (std::string v : result) {
-        values.insert({v, v});
-      }
-
-      createEnumTickElement<std::string>(page, cy, "device", &Config::options.audio.device, values, "Device",
-                                         "Audio device name");
-    }
-
-    // sample_rate
-    // TODO: Read sample rate from audio engine
-    {
-      std::map<float, std::string> values = {
-          {44100.f,  "44.1kHz" },
-          {48000.f,  "48kHz"   },
-          {88200.f,  "88.2kHz" },
-          {96000.f,  "96kHz"   },
-          {176400.f, "176.4kHz"},
-          {192000.f, "192kHz"  },
-          {352800.f, "352.8kHz"},
-          {384000.f, "384kHz"  },
-      };
-
-      createEnumDropElement<float>(page, cy, "sample_rate", &Config::options.audio.sample_rate, values, "Sample rate",
-                                   "Audio sample rate in Hz (must match your system's audio output!)");
-    }
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // gain_db
-    createSliderElement<float>(page, cy, "gain_db", &Config::options.audio.gain_db, -60.f, 12.f, "Gain (dB)",
-                               "Audio gain adjustment in dB\n"
-                               "Adjust if audio is too quiet, like when Spotify or YouTube normalizes the volume.");
-
-    // silence_threshold
-    createSliderElement<float>(page, cy, "silence_threshold", &Config::options.audio.silence_threshold, -120.f, 0.f,
-                               "Silence threshold", "Threshold below which audio is considered silent (in dB)");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Audio, page});
-  }
-
-  // visualizers
-  {
-    Page page;
-    float cy = cyInit;
-
-    // Ensure a persistent 'hidden' window group exists and can be empty
-    if (Config::options.visualizers.find("hidden") == Config::options.visualizers.end()) {
-      Config::options.visualizers["hidden"] = {};
-    }
-
-    // Find all visualizers that don't exist in any group
-    std::vector<std::string> missingVisualizers;
-    for (auto& [vizKey, vizLabel] : vizLabels) {
-      if (!std::any_of(Config::options.visualizers.begin(), Config::options.visualizers.end(), [&](const auto& group) {
-            return std::find(group.second.begin(), group.second.end(), vizKey) != group.second.end();
-          }))
-        missingVisualizers.push_back(vizKey);
-    }
-
-    // If there are any missing visualizers, add them to hidden
-    if (!missingVisualizers.empty()) {
-      for (auto& visualizer : missingVisualizers) {
-        Config::options.visualizers["hidden"].push_back(visualizer);
-      }
-      Config::save();
-    }
-
-    createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Visualizers, page});
-  }
-
-  // window
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // TODO: change limits for these or throw these two out entirely
-
-    // default_width
-    createSliderElement<int>(page, cy, "default_width", &Config::options.window.default_width, 100.f, 1920.f,
-                             "Default width", "Default window width", 0);
-
-    // default_height
-    createSliderElement<int>(page, cy, "default_height", &Config::options.window.default_height, 100.f, 1920.f,
-                             "Default height", "Default window height", 0);
-
-    // theme
-    {
-      std::map<std::string, std::string> values = {};
-      std::filesystem::directory_iterator iterator(expandUserPath("~/.config/pulse-visualizer/themes/"));
-      for (auto file : iterator) {
-        if (file.path().extension() == ".txt") {
-          std::string filename = file.path().filename().string();
-          std::string baseName = filename.substr(0, filename.size() - 4);
-          values.insert({filename, baseName});
-        }
-      }
-
-      createEnumTickElement<std::string>(page, cy, "theme", &Config::options.window.theme, values, "Theme", "Theme");
-    }
-
-    // fps_limit
-    createSliderElement<int>(
-        page, cy, "fps_limit", &Config::options.window.fps_limit, 1, 1000, "FPS limit",
-        "FPS limit for the main window\n"
-        "Note: this does not define the exact FPS limit as pipewire/pulseaudio only accept base 2 read sizes.");
-
-    // decorations
-    createCheckElement(page, cy, "decorations", &Config::options.window.decorations, "Enable window decorations",
-                       "Enable window decorations in your desktop environment");
-
-    // always_on_top
-    createCheckElement(page, cy, "always_on_top", &Config::options.window.always_on_top, "Always on top",
-                       "Forces the window to always be on top");
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Window, page});
-  }
-
-  // debug
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // log_fps
-    createCheckElement(page, cy, "log_fps", &Config::options.debug.log_fps, "Enable FPS logging",
-                       "Enable FPS logging to console");
-
-    // show_bandpassed
-    createCheckElement(page, cy, "show_bandpassed", &Config::options.debug.show_bandpassed,
-                       "Show bandpassed signal on oscilloscope", "Shows the filtered signal used for pitch detection");
-
-    {
-      Element element = {0};
-
-      element.render = [](Element* self) {
-        float cyOther = scrollingDisplayMargin;
-        float fps = 1.f / WindowManager::dt;
-        static float fpsLerp = 0.f;
-        float diff = abs(fps - fpsLerp);
-        float t = diff / (diff + Config::options.window.fps_limit * 2.0f);
-        fpsLerp = std::lerp(fpsLerp, fps, t);
-
-        // bottom-to-top
-
-        // version text
-        {
-          Graphics::Font::drawText("Pulse " VERSION_STRING " commit " VERSION_COMMIT, 0, cyOther, fontSizeHeader,
-                                   Theme::colors.text);
-          cyOther += fontSizeHeader;
-        }
-
-        // instantaneous fps text
-        {
-          std::stringstream ss;
-          ss << "FPS: " << std::fixed << std::setprecision(1) << fpsLerp;
-          Graphics::Font::drawText(ss.str().c_str(), 0, cyOther, fontSizeHeader, Theme::colors.text);
-          cyOther += fontSizeHeader;
-        }
-
-        self->x = 0;
-        self->y = scrollingDisplayMargin;
-        self->w = 100;
-        self->h = cyOther - scrollingDisplayMargin;
-      };
-
-      page.elements.insert({"debug", element});
-    }
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Debug, page});
-  }
-
-  // phosphor
-  {
-    Page page;
-    float cy = cyInit;
-
-    // enabled
-    createCheckElement(page, cy, "enabled", &Config::options.phosphor.enabled, "Enable",
-                       "Enable or disable phosphor effects globally");
-
-    // beam_energy
-    createSliderElement<float>(page, cy, "beam_energy", &Config::options.phosphor.beam.energy, 1.f, 1000.f,
-                               "Beam energy", "Base energy of the electron beam");
-
-    createHeaderElement(page, cy, "blur", "Blur");
-
-    // line_blur_spread
-    createSliderElement<float>(page, cy, "line_blur_spread", &Config::options.phosphor.blur.spread, 1.f, 512.f,
-                               "Line blur spread", "Spread of the blur effect");
-
-    // near_blur_intensity
-    createSliderElement<float>(page, cy, "near_blur_intensity", &Config::options.phosphor.blur.near_intensity, 0.f, 1.f,
-                               "Near blur intensity", "Intensity of blur for nearby pixels", 3);
-
-    // far_blur_intensity
-    createSliderElement<float>(page, cy, "far_blur_intensity", &Config::options.phosphor.blur.far_intensity, 0.f, 1.f,
-                               "Far blur intensity", "Intensity of blur for distant pixels", 3);
-
-    createHeaderElement(page, cy, "decay", "Decay");
-
-    // decay
-    createSliderElement<float>(page, cy, "decay", &Config::options.phosphor.decay, 1.f, 100.f, "Decay rate",
-                               "How fast the phosphor loses energy");
-
-    createHeaderElement(page, cy, "screen", "Screen");
-
-    // screen_curvature (Implies enable_curved_screen == true if non-zero)
-    createSliderElement<float>(page, cy, "screen_curvature", &Config::options.phosphor.screen.curvature, 0.f, 0.5f,
-                               "Screen curvature", "Curvature intensity for curved screen effect", 3, true);
-
-    // screen_gap
-    createSliderElement<float>(page, cy, "screen_gap", &Config::options.phosphor.screen.gap, 0.f, 1.f, "Screen gap",
-                               "Gap factor between screen edges and border", 3);
-
-    // vignette_strength
-    createSliderElement<float>(page, cy, "vignette_strength", &Config::options.phosphor.screen.vignette, 0.f, 1.f,
-                               "Vignette strength", "Vignette strength", 3);
-
-    // chromatic_aberration_strength
-    createSliderElement<float>(page, cy, "chromatic_aberration_strength",
-                               &Config::options.phosphor.screen.chromatic_aberration, 0.f, 1.f, "Chromatic aberration",
-                               "Chromatic aberration strength", 3);
-
-    // grain_strength (Implies enable_grain == true if non-zero)
-    createSliderElement<float>(page, cy, "grain_strength", &Config::options.phosphor.screen.grain, 0.f, 1.f,
-                               "Grain strength", "Grain strength", 3, true);
-
-    createHeaderElement(page, cy, "reflections", "Reflections");
-
-    // reflections
-    createSliderElement<float>(page, cy, "reflections", &Config::options.phosphor.reflections.strength, 0.f, 1.f,
-                               "Reflections strength", "Reflections strength", 3, true);
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // rainbow
-    createCheckElement(page, cy, "rainbow", &Config::options.phosphor.beam.rainbow, "Enable rainbow beam effect",
-                       "Enable rainbow beam effect\n"
-                       "This will make the beam color rotate around the hue depending on the direction its going.\n"
-                       "This is GPU intensive, so it is disabled by default.");
-
-    // line_width
-    createSliderElement<float>(page, cy, "line_width", &Config::options.phosphor.beam.width, 0.1f, 10.f, "Line width",
-                               "Size of the electron beam", 2);
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::Phosphor, page});
-  }
-
-  // lufs
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // mode
-    {
-      std::map<std::string, std::string> values = {
-          {"shortterm",  "Short-term"},
-          {"momentary",  "Momentary" },
-          {"integrated", "Integrated"},
-      };
-
-      createEnumDropElement<std::string>(page, cy, "mode", &Config::options.lufs.mode, values, "Mode",
-                                         "momentary is over a 400ms window\n"
-                                         "shortterm is over a 3s window\n"
-                                         "integrated is over the entire recording");
-    }
-
-    // scale
-    {
-      std::map<std::string, std::string> values = {
-          {"log",    "Logarithmic"},
-          {"linear", "Linear"     },
-      };
-
-      createEnumDropElement<std::string>(page, cy, "scale", &Config::options.lufs.scale, values, "Scale", "Scale");
-    }
-
-    // label
-    {
-      std::map<std::string, std::string> values = {
-          {"on",      "On"     },
-          {"off",     "Off"    },
-          {"compact", "Compact"},
-      };
-
-      createEnumDropElement<std::string>(page, cy, "label", &Config::options.lufs.label, values, "Label",
-                                         "on: full label following the LUFS bar on the right\n"
-                                         "off: no label\n"
-                                         "compact: compact label above the LUFS bar");
-    }
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::LUFS, page});
-  }
-
-  // vu
-  {
-    Page page;
-    float cy = cyInit;
-
-    createHeaderElement(page, cy, "needle", "Needle");
-
-    // enable_momentum
-    createCheckElement(page, cy, "enable_momentum", &Config::options.vu.momentum.enabled, "Enable momentum",
-                       "Enable physics simulation for the needle");
-
-    // spring_constant
-    createSliderElement<float>(page, cy, "spring_constant", &Config::options.vu.momentum.spring_constant, 100.f, 1000.f,
-                               "Spring constant", "Spring constant of needle");
-
-    // damping_ratio
-    createSliderElement<float>(page, cy, "damping_ratio", &Config::options.vu.momentum.damping_ratio, 1.f, 100.f,
-                               "Damping ratio", "Damping ratio of needle");
-
-    // needle_width
-    createSliderElement<float>(page, cy, "needle_width", &Config::options.vu.needle_width, 0.1f, 16.f, "Needle width",
-                               "Needle width");
-
-    createHeaderElement(page, cy, "misc", "Misc");
-
-    // time_window
-    createSliderElement<float>(page, cy, "time_window", &Config::options.vu.window, 1.f, 500.f, "Time window (ms)",
-                               "Time window for VU meter in ms");
-
-    // style
-    {
-      std::map<std::string, std::string> values = {
-          {"analog",  "Analog" },
-          {"digital", "Digital"},
-      };
-
-      createEnumDropElement<std::string>(page, cy, "style", &Config::options.vu.style, values, "Style",
-                                         "Style: analog or digital");
-    }
-
-    // time_window
-    createSliderElement<float>(page, cy, "calibration_db", &Config::options.vu.calibration_db, -12.f, 12.f,
-                               "Calibration level (dB)",
-                               "A calibration of 3dB means a full scale pure sine wave is at 0dB in the meter");
-
-    // scale
-    {
-      std::map<std::string, std::string> values = {
-          {"log",    "Logarithmic"},
-          {"linear", "Linear"     },
-      };
-
-      createEnumDropElement<std::string>(page, cy, "scale", &Config::options.vu.scale, values, "Scale", "Scale");
-    }
-
-    page.height = cyInit - cy;
-    pages.insert({PageType::VU, page});
-  }
-
-  // TODO: put font somewhere
-  // TODO: text input
+  page.height = cyInit - cy;
+  pages.insert({PageType::Visualizers, std::move(page)});
 }
 
 void createLabelElement(Page& page, float& cy, const std::string key, const std::string label,
@@ -1205,6 +732,7 @@ void handleEvent(const SDL_Event& event) {
       }
 
       // loop over the current page, checking if any is focused (takes priority over non focused elements)
+      ensurePageInitialized(currentPage);
       auto it = pages.find(currentPage);
       if (it != pages.end()) {
         for (std::pair<const std::string, Element>& kv : it->second.elements) {
@@ -1239,6 +767,9 @@ void handleEvent(const SDL_Event& event) {
           e->click = true;
         }
       }
+
+      ensurePageInitialized(currentPage);
+      it = pages.find(currentPage);
 
       // loop over the current page
       if (it != pages.end()) {
@@ -1445,6 +976,8 @@ void draw() {
   if (!shown)
     return;
 
+  ensurePageInitialized(currentPage);
+
   // make sure offset is correct
   auto it = pages.find(currentPage);
   {
@@ -1647,7 +1180,7 @@ void createSliderElement(Page& page, float& cy, const std::string key, ValueType
 
 template <typename ValueType>
 void createDetentSliderElement(Page& page, float& cy, const std::string key, ValueType* value,
-                               const std::vector<ValueType>& detents, const std::string label,
+                               const std::span<const ValueType> detents, const std::string label,
                                const std::string description, const int precision) {
   Element sliderElement = {0};
 
@@ -2253,7 +1786,10 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
       // Target destination
       if (overCreate) {
-        std::string newKey = generateNewWindowKey();
+        std::string newKey;
+        do {
+          newKey = std::string("win_") + std::to_string(newWindowCounter++);
+        } while (Config::options.visualizers.find(newKey) != Config::options.visualizers.end());
         Config::options.visualizers[newKey].push_back(dragState.viz);
       } else {
         auto& dst = Config::options.visualizers[targetGroup];

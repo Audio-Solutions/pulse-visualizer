@@ -19,6 +19,8 @@
 
 #include "include/config.hpp"
 
+#include "include/config_schema.hpp"
+
 namespace Config {
 
 bool broken = false;
@@ -80,9 +82,9 @@ void copyFiles() {
     if (std::filesystem::exists(cfgSource)) {
       try {
         std::filesystem::copy_file(cfgSource, userCfgDir + "/config.yml");
-        LOG_DEBUG(std::string("Created user config file: ") + userCfgDir + "/config.yml");
+        LOG_DEBUG("Created user config file: " << userCfgDir << "/config.yml");
       } catch (const std::exception& e) {
-        LOG_ERROR(std::string("Warning: Failed to copy config template: ") + e.what());
+        LOG_ERROR("Warning: Failed to copy config template: " << e.what());
       }
     }
   }
@@ -99,9 +101,9 @@ void copyFiles() {
           }
         }
       }
-      LOG_DEBUG(std::string("Copied themes to: ") + userThemeDir);
+      LOG_DEBUG("Copied themes to: " << userThemeDir);
     } catch (const std::exception& e) {
-      LOG_ERROR(std::string("Warning: Failed to copy themes: ") + e.what());
+      LOG_ERROR("Warning: Failed to copy themes: " << e.what());
     }
   }
 
@@ -112,27 +114,27 @@ void copyFiles() {
     try {
       if (!std::filesystem::exists(userFontFile)) {
         std::filesystem::copy_file(fontSource, userFontFile);
-        LOG_DEBUG(std::string("Copied font to: ") + userFontFile);
+        LOG_DEBUG("Copied font to: " << userFontFile);
       }
     } catch (const std::exception& e) {
-      LOG_ERROR(std::string("Warning: Failed to copy font: ") + e.what());
+      LOG_ERROR("Warning: Failed to copy font: " << e.what());
     }
   }
 }
 
-std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path) {
-  if (root[path].IsDefined())
-    return root[path];
+std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path) {
+  const std::string pathStr(path);
+  if (root[pathStr].IsDefined())
+    return root[pathStr];
 
-  // Handle nested paths with dot notation
-  size_t dotIndex = path.find('.');
-  if (dotIndex == std::string::npos) {
+  const size_t dotIndex = path.find('.');
+  if (dotIndex == std::string_view::npos) {
     broken = true;
     return std::nullopt;
   }
 
-  std::string section = path.substr(0, dotIndex);
-  std::string sub = path.substr(dotIndex + 1);
+  const std::string section(path.substr(0, dotIndex));
+  const std::string_view sub = path.substr(dotIndex + 1);
 
   if (!root[section].IsDefined()) {
     broken = true;
@@ -148,7 +150,20 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
  * @param path Dot-separated path to the desired value
  * @param out Output reference to receive the parsed value
  */
-template <typename T> void get(const YAML::Node& root, const std::string& path, T& out) {
+template <typename T> void get(const YAML::Node& root, std::string_view path, T& out) {
+  constexpr auto typeName = []() constexpr -> std::string_view {
+    if constexpr (std::is_same_v<T, std::string>)
+      return "string";
+    else if constexpr (std::is_same_v<T, int>)
+      return "int";
+    else if constexpr (std::is_same_v<T, float>)
+      return "float";
+    else if constexpr (std::is_same_v<T, Rotation>)
+      return "Rotation";
+    else
+      return "unknown";
+  }();
+
   auto node = getNode(root, path);
   if (node.has_value()) {
     try {
@@ -156,23 +171,14 @@ template <typename T> void get(const YAML::Node& root, const std::string& path, 
       out = value;
       return;
     } catch (std::exception) {
-      std::string typeStr = "unknown";
-      if (typeid(T) == typeid(std::string))
-        typeStr = "string";
-      else if (typeid(T) == typeid(int))
-        typeStr = "int";
-      else if (typeid(T) == typeid(float))
-        typeStr = "float";
-      else if (typeid(T) == typeid(Rotation))
-        typeStr = "Rotation";
       broken = true;
-      LOG_ERROR(std::string("Converting ") + path + " to " + typeStr + " failed");
+      LOG_ERROR("Converting " << path << " to " << typeName << " failed");
       return;
     }
   }
 
   broken = true;
-  LOG_ERROR(path + " is missing.");
+  LOG_ERROR(path << " is missing.");
 }
 
 /**
@@ -181,7 +187,7 @@ template <typename T> void get(const YAML::Node& root, const std::string& path, 
  * @param path Dot-separated path to the desired value
  * @param out Output reference to receive the parsed value
  */
-template <> void get<bool>(const YAML::Node& root, const std::string& path, bool& out) {
+template <> void get<bool>(const YAML::Node& root, std::string_view path, bool& out) {
   auto node = getNode(root, path);
   if (!node.has_value()) {
     broken = true;
@@ -204,7 +210,7 @@ template <> void get<bool>(const YAML::Node& root, const std::string& path, bool
         out = false;
         return;
       }
-      LOG_ERROR(std::string("Converting ") + path + " to bool failed");
+      LOG_ERROR("Converting " << path << " to bool failed");
       broken = true;
       return;
     } catch (...) {
@@ -212,7 +218,7 @@ template <> void get<bool>(const YAML::Node& root, const std::string& path, bool
         out = (value.as<int>() != 0);
         return;
       } catch (...) {
-        LOG_ERROR(std::string("Converting  ") + path + " to bool failed");
+        LOG_ERROR("Converting " << path << " to bool failed");
         broken = true;
         return;
       }
@@ -227,7 +233,7 @@ template <> void get<bool>(const YAML::Node& root, const std::string& path, bool
  * @param out Output reference to receive the parsed sequence
  */
 template <>
-void get<std::vector<std::string>>(const YAML::Node& root, const std::string& path, std::vector<std::string>& out) {
+void get<std::vector<std::string>>(const YAML::Node& root, std::string_view path, std::vector<std::string>& out) {
   auto node = getNode(root, path);
   if (!node.has_value() || !node.value().IsSequence()) {
     broken = true;
@@ -248,7 +254,7 @@ void get<std::vector<std::string>>(const YAML::Node& root, const std::string& pa
  * @param out Output reference to receive the parsed mapping
  */
 template <>
-void get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, const std::string& path,
+void get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, std::string_view path,
                                                           std::map<std::string, std::vector<std::string>>& out) {
   auto node = getNode(root, path);
   if (!node.has_value() || !node.value().IsMap()) {
@@ -258,9 +264,16 @@ void get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root
 
   std::map<std::string, std::vector<std::string>> result;
   for (const auto& item : node.value()) {
+    const std::string itemKey = item.first.as<std::string>();
+    std::string nestedPath;
+    nestedPath.reserve(path.size() + 1 + itemKey.size());
+    nestedPath.append(path);
+    nestedPath.push_back('.');
+    nestedPath.append(itemKey);
+
     std::vector<std::string> arr;
-    get<std::vector<std::string>>(root, path + "." + item.first.as<std::string>(), arr);
-    result[item.first.as<std::string>()] = std::move(arr);
+    get<std::vector<std::string>>(root, nestedPath, arr);
+    result[itemKey] = std::move(arr);
   }
   out = std::move(result);
 }
@@ -271,10 +284,22 @@ void get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root
  * @param path Dot-separated path to the desired value
  * @param out Output reference to receive the parsed enum value
  */
-template <> void get<Rotation>(const YAML::Node& root, const std::string& path, Rotation& out) {
+template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Rotation& out) {
   int tmp = static_cast<int>(out);
   get<int>(root, path, tmp);
   out = static_cast<Rotation>(tmp);
+}
+
+template <typename T> void setNodeByPath(YAML::Node& node, std::string_view path, const T& value) {
+  const size_t dot = path.find('.');
+  if (dot == std::string_view::npos) {
+    node[std::string(path)] = value;
+    return;
+  }
+
+  const std::string section(path.substr(0, dot));
+  YAML::Node child = node[section];
+  setNodeByPath<T>(child, path.substr(dot + 1), value);
 }
 
 void load(bool recovering) {
@@ -289,8 +314,8 @@ void load(bool recovering) {
   } catch (YAML::BadFile e) {
     LOG_ERROR("Failed to load config file");
   } catch (YAML::ParserException e) {
-    LOG_ERROR(std::string("Parser error when loading the config file: \"") + e.msg + "\" at " +
-              std::to_string(e.mark.line + 1) + "(" + std::to_string(e.mark.column + 1) + ")");
+    LOG_ERROR("Parser error when loading the config file: \"" << e.msg << "\" at " << (e.mark.line + 1) << "("
+                                                              << (e.mark.column + 1) << ")");
     broken = true;
   }
 
@@ -311,143 +336,12 @@ void load(bool recovering) {
   // Load visualizer window layouts
   get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers", options.visualizers);
 
-  // Load Oscilloscope configuration
-  get<float>(configData, "oscilloscope.beam_multiplier", options.oscilloscope.beam_multiplier);
-  get<bool>(configData, "oscilloscope.flip_x", options.oscilloscope.flip_x);
-  get<Rotation>(configData, "oscilloscope.rotation", options.oscilloscope.rotation);
-  get<float>(configData, "oscilloscope.window", options.oscilloscope.window);
-  get<bool>(configData, "oscilloscope.centered", options.oscilloscope.centered);
-
-  // Oscilloscope Edge Comp
-  get<bool>(configData, "oscilloscope.edge_compression.enabled", options.oscilloscope.edge_compression.enabled);
-  get<float>(configData, "oscilloscope.edge_compression.range", options.oscilloscope.edge_compression.range);
-
-  // Oscilloscope Pitch
-  get<bool>(configData, "oscilloscope.pitch.follow", options.oscilloscope.pitch.follow);
-  get<std::string>(configData, "oscilloscope.pitch.type", options.oscilloscope.pitch.type);
-  get<std::string>(configData, "oscilloscope.pitch.alignment", options.oscilloscope.pitch.alignment);
-  get<int>(configData, "oscilloscope.pitch.cycles", options.oscilloscope.pitch.cycles);
-  get<float>(configData, "oscilloscope.pitch.min_cycle_time", options.oscilloscope.pitch.min_cycle_time);
-
-  // Oscilloscope Lowpass
-  get<bool>(configData, "oscilloscope.lowpass.enabled", options.oscilloscope.lowpass.enabled);
-  get<float>(configData, "oscilloscope.lowpass.cutoff", options.oscilloscope.lowpass.cutoff);
-  get<int>(configData, "oscilloscope.lowpass.order", options.oscilloscope.lowpass.order);
-
-  // Oscilloscope Bandpass
-  get<float>(configData, "oscilloscope.bandpass.bandwidth", options.oscilloscope.bandpass.bandwidth);
-  get<float>(configData, "oscilloscope.bandpass.sidelobe", options.oscilloscope.bandpass.sidelobe);
-
-  // Load Lissajous configuration
-  get<float>(configData, "lissajous.beam_multiplier", options.lissajous.beam_multiplier);
-  get<float>(configData, "lissajous.spline_tension", options.lissajous.spline_tension);
-  get<int>(configData, "lissajous.spline_density", options.lissajous.spline_segments);
-  get<std::string>(configData, "lissajous.mode", options.lissajous.mode);
-  get<Rotation>(configData, "lissajous.rotation", options.lissajous.rotation);
-
-  // Load FFT configuration
-  get<float>(configData, "fft.beam_multiplier", options.fft.beam_multiplier);
-  get<Rotation>(configData, "fft.rotation", options.fft.rotation);
-  get<bool>(configData, "fft.flip_x", options.fft.flip_x);
-  get<bool>(configData, "fft.markers", options.fft.markers);
-  get<int>(configData, "fft.size", options.fft.size);
-  get<float>(configData, "fft.slope", options.fft.slope);
-  get<std::string>(configData, "fft.key", options.fft.key);
-  get<std::string>(configData, "fft.mode", options.fft.mode);
-  get<bool>(configData, "fft.cursor", options.fft.cursor);
-  get<bool>(configData, "fft.readout_header", options.fft.readout_header);
-
-  // FFT Limits
-  get<float>(configData, "fft.limits.max_db", options.fft.limits.max_db);
-  get<float>(configData, "fft.limits.max_freq", options.fft.limits.max_freq);
-  get<float>(configData, "fft.limits.min_db", options.fft.limits.min_db);
-  get<float>(configData, "fft.limits.min_freq", options.fft.limits.min_freq);
-
-  // FFT Smoothing
-  get<bool>(configData, "fft.smoothing.enabled", options.fft.smoothing.enabled);
-  get<float>(configData, "fft.smoothing.fall_speed", options.fft.smoothing.fall_speed);
-  get<float>(configData, "fft.smoothing.hover_fall_speed", options.fft.smoothing.hover_fall_speed);
-  get<float>(configData, "fft.smoothing.rise_speed", options.fft.smoothing.rise_speed);
-
-  // FFT CQT
-  get<int>(configData, "fft.cqt.bins_per_octave", options.fft.cqt.bins_per_octave);
-  get<bool>(configData, "fft.cqt.enabled", options.fft.cqt.enabled);
-
-  // FFT Sphere
-  get<bool>(configData, "fft.sphere.enabled", options.fft.sphere.enabled);
-  get<float>(configData, "fft.sphere.max_freq", options.fft.sphere.max_freq);
-  get<float>(configData, "fft.sphere.base_radius", options.fft.sphere.base_radius);
-
-  // Load Spectrogram configuration
-  get<float>(configData, "spectrogram.window", options.spectrogram.window);
-  get<bool>(configData, "spectrogram.iterative_reassignment", options.spectrogram.iterative_reassignment);
-  get<std::string>(configData, "spectrogram.frequency_scale", options.spectrogram.frequency_scale);
-  get<float>(configData, "spectrogram.limits.max_db", options.spectrogram.limits.max_db);
-  get<float>(configData, "spectrogram.limits.min_db", options.spectrogram.limits.min_db);
-
-  // Load Audio configuration
-  get<float>(configData, "audio.silence_threshold", options.audio.silence_threshold);
-  get<float>(configData, "audio.sample_rate", options.audio.sample_rate);
-  get<float>(configData, "audio.gain_db", options.audio.gain_db);
-  get<std::string>(configData, "audio.engine", options.audio.engine);
-  get<std::string>(configData, "audio.device", options.audio.device);
-
-  // Load window configuration
-  get<int>(configData, "window.default_width", options.window.default_width);
-  get<int>(configData, "window.default_height", options.window.default_height);
-  get<std::string>(configData, "window.theme", options.window.theme);
-  get<int>(configData, "window.fps_limit", options.window.fps_limit);
-  get<bool>(configData, "window.decorations", options.window.decorations);
-  get<bool>(configData, "window.always_on_top", options.window.always_on_top);
-  get<bool>(configData, "window.wayland", options.window.wayland);
-
-  // Load Debug configuration
-  get<bool>(configData, "debug.log_fps", options.debug.log_fps);
-  get<bool>(configData, "debug.show_bandpassed", options.debug.show_bandpassed);
-
-  // Load Phosphor effect configuration
-  get<bool>(configData, "phosphor.enabled", options.phosphor.enabled);
-
-  // Phosphor Beam
-  get<float>(configData, "phosphor.beam.energy", options.phosphor.beam.energy);
-  get<bool>(configData, "phosphor.beam.rainbow", options.phosphor.beam.rainbow);
-  get<float>(configData, "phosphor.beam.width", options.phosphor.beam.width);
-
-  // Phosphor Blur
-  get<float>(configData, "phosphor.blur.spread", options.phosphor.blur.spread);
-  get<float>(configData, "phosphor.blur.near_intensity", options.phosphor.blur.near_intensity);
-  get<float>(configData, "phosphor.blur.far_intensity", options.phosphor.blur.far_intensity);
-
-  // Phosphor Decay
-  get<float>(configData, "phosphor.decay", options.phosphor.decay);
-
-  // Phosphor Screen
-  get<float>(configData, "phosphor.screen.curvature", options.phosphor.screen.curvature);
-  get<float>(configData, "phosphor.screen.gap", options.phosphor.screen.gap);
-  get<float>(configData, "phosphor.screen.vignette", options.phosphor.screen.vignette);
-  get<float>(configData, "phosphor.screen.chromatic_aberration", options.phosphor.screen.chromatic_aberration);
-  get<float>(configData, "phosphor.screen.grain", options.phosphor.screen.grain);
-
-  // Phosphor Reflections
-  get<float>(configData, "phosphor.reflections.strength", options.phosphor.reflections.strength);
-
-  // Load LUFS configuration
-  get<std::string>(configData, "lufs.mode", options.lufs.mode);
-  get<std::string>(configData, "lufs.scale", options.lufs.scale);
-  get<std::string>(configData, "lufs.label", options.lufs.label);
-
-  // Load VU configuration
-  get<float>(configData, "vu.window", options.vu.window);
-  get<std::string>(configData, "vu.style", options.vu.style);
-  get<float>(configData, "vu.calibration_db", options.vu.calibration_db);
-  get<std::string>(configData, "vu.scale", options.vu.scale);
-  get<bool>(configData, "vu.momentum.enabled", options.vu.momentum.enabled);
-  get<float>(configData, "vu.momentum.spring_constant", options.vu.momentum.spring_constant);
-  get<float>(configData, "vu.momentum.damping_ratio", options.vu.momentum.damping_ratio);
-  get<float>(configData, "vu.needle_width", options.vu.needle_width);
-
-  // Load font configuration
-  get<std::string>(configData, "font", options.font);
+  ConfigSchema::forEachFieldByType(
+      [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<int>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<float>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<std::string>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<Rotation>(configData, field.path, field.get(options)); });
 
   // If the config is broken, attempt to recover by merging defaults
   if (broken && !recovering) {
@@ -462,124 +356,12 @@ bool save() {
 
   YAML::Node root;
 
-  // Audio
-  root["audio"]["device"] = options.audio.device;
-  root["audio"]["engine"] = options.audio.engine;
-  root["audio"]["gain_db"] = options.audio.gain_db;
-  root["audio"]["sample_rate"] = options.audio.sample_rate;
-  root["audio"]["silence_threshold"] = options.audio.silence_threshold;
-
-  // Debug
-  root["debug"]["log_fps"] = options.debug.log_fps;
-  root["debug"]["show_bandpassed"] = options.debug.show_bandpassed;
-
-  // FFT
-  root["fft"]["beam_multiplier"] = options.fft.beam_multiplier;
-  root["fft"]["rotation"] = static_cast<int>(options.fft.rotation);
-  root["fft"]["flip_x"] = options.fft.flip_x;
-  root["fft"]["markers"] = options.fft.markers;
-  root["fft"]["size"] = options.fft.size;
-  root["fft"]["slope"] = options.fft.slope;
-  root["fft"]["key"] = options.fft.key;
-  root["fft"]["mode"] = options.fft.mode;
-  root["fft"]["cursor"] = options.fft.cursor;
-  root["fft"]["readout_header"] = options.fft.readout_header;
-
-  // FFT Limits
-  root["fft"]["limits"]["max_db"] = options.fft.limits.max_db;
-  root["fft"]["limits"]["max_freq"] = options.fft.limits.max_freq;
-  root["fft"]["limits"]["min_db"] = options.fft.limits.min_db;
-  root["fft"]["limits"]["min_freq"] = options.fft.limits.min_freq;
-
-  // FFT Smoothing
-  root["fft"]["smoothing"]["enabled"] = options.fft.smoothing.enabled;
-  root["fft"]["smoothing"]["fall_speed"] = options.fft.smoothing.fall_speed;
-  root["fft"]["smoothing"]["hover_fall_speed"] = options.fft.smoothing.hover_fall_speed;
-  root["fft"]["smoothing"]["rise_speed"] = options.fft.smoothing.rise_speed;
-
-  // FFT CQT
-  root["fft"]["cqt"]["bins_per_octave"] = options.fft.cqt.bins_per_octave;
-  root["fft"]["cqt"]["enabled"] = options.fft.cqt.enabled;
-
-  // FFT Sphere
-  root["fft"]["sphere"]["enabled"] = options.fft.sphere.enabled;
-  root["fft"]["sphere"]["max_freq"] = options.fft.sphere.max_freq;
-  root["fft"]["sphere"]["base_radius"] = options.fft.sphere.base_radius;
-
-  // Font
-  root["font"] = options.font;
-
-  // Lissajous
-  root["lissajous"]["beam_multiplier"] = options.lissajous.beam_multiplier;
-  root["lissajous"]["mode"] = options.lissajous.mode;
-  root["lissajous"]["spline_tension"] = options.lissajous.spline_tension;
-  root["lissajous"]["spline_density"] = options.lissajous.spline_segments;
-  root["lissajous"]["rotation"] = static_cast<int>(options.lissajous.rotation);
-
-  // LUFS
-  root["lufs"]["label"] = options.lufs.label;
-  root["lufs"]["mode"] = options.lufs.mode;
-  root["lufs"]["scale"] = options.lufs.scale;
-
-  // Oscilloscope
-  root["oscilloscope"]["beam_multiplier"] = options.oscilloscope.beam_multiplier;
-  root["oscilloscope"]["flip_x"] = options.oscilloscope.flip_x;
-  root["oscilloscope"]["rotation"] = static_cast<int>(options.oscilloscope.rotation);
-  root["oscilloscope"]["window"] = options.oscilloscope.window;
-  root["oscilloscope"]["centered"] = options.oscilloscope.centered;
-
-  // Oscilloscope Edge Comp
-  root["oscilloscope"]["edge_compression"]["enabled"] = options.oscilloscope.edge_compression.enabled;
-  root["oscilloscope"]["edge_compression"]["range"] = options.oscilloscope.edge_compression.range;
-
-  // Oscilloscope Pitch
-  root["oscilloscope"]["pitch"]["follow"] = options.oscilloscope.pitch.follow;
-  root["oscilloscope"]["pitch"]["type"] = options.oscilloscope.pitch.type;
-  root["oscilloscope"]["pitch"]["alignment"] = options.oscilloscope.pitch.alignment;
-  root["oscilloscope"]["pitch"]["cycles"] = options.oscilloscope.pitch.cycles;
-  root["oscilloscope"]["pitch"]["min_cycle_time"] = options.oscilloscope.pitch.min_cycle_time;
-
-  // Oscilloscope Lowpass
-  root["oscilloscope"]["lowpass"]["enabled"] = options.oscilloscope.lowpass.enabled;
-  root["oscilloscope"]["lowpass"]["cutoff"] = options.oscilloscope.lowpass.cutoff;
-  root["oscilloscope"]["lowpass"]["order"] = options.oscilloscope.lowpass.order;
-
-  // Oscilloscope Bandpass
-  root["oscilloscope"]["bandpass"]["bandwidth"] = options.oscilloscope.bandpass.bandwidth;
-  root["oscilloscope"]["bandpass"]["sidelobe"] = options.oscilloscope.bandpass.sidelobe;
-
-  // Phosphor
-  root["phosphor"]["enabled"] = options.phosphor.enabled;
-
-  // Phosphor Beam
-  root["phosphor"]["beam"]["energy"] = options.phosphor.beam.energy;
-  root["phosphor"]["beam"]["rainbow"] = options.phosphor.beam.rainbow;
-  root["phosphor"]["beam"]["width"] = options.phosphor.beam.width;
-
-  // Phosphor Blur
-  root["phosphor"]["blur"]["spread"] = options.phosphor.blur.spread;
-  root["phosphor"]["blur"]["near_intensity"] = options.phosphor.blur.near_intensity;
-  root["phosphor"]["blur"]["far_intensity"] = options.phosphor.blur.far_intensity;
-
-  // Phosphor Decay
-  root["phosphor"]["decay"] = options.phosphor.decay;
-
-  // Phosphor Screen
-  root["phosphor"]["screen"]["curvature"] = options.phosphor.screen.curvature;
-  root["phosphor"]["screen"]["gap"] = options.phosphor.screen.gap;
-  root["phosphor"]["screen"]["vignette"] = options.phosphor.screen.vignette;
-  root["phosphor"]["screen"]["chromatic_aberration"] = options.phosphor.screen.chromatic_aberration;
-  root["phosphor"]["screen"]["grain"] = options.phosphor.screen.grain;
-
-  // Phosphor Reflections
-  root["phosphor"]["reflections"]["strength"] = options.phosphor.reflections.strength;
-
-  // Spectrogram
-  root["spectrogram"]["frequency_scale"] = options.spectrogram.frequency_scale;
-  root["spectrogram"]["iterative_reassignment"] = options.spectrogram.iterative_reassignment;
-  root["spectrogram"]["window"] = options.spectrogram.window;
-  root["spectrogram"]["limits"]["max_db"] = options.spectrogram.limits.max_db;
-  root["spectrogram"]["limits"]["min_db"] = options.spectrogram.limits.min_db;
+  ConfigSchema::forEachFieldByType(
+      [&](const auto& field) { setNodeByPath(root, field.path, field.getConst(options)); },
+      [&](const auto& field) { setNodeByPath(root, field.path, field.getConst(options)); },
+      [&](const auto& field) { setNodeByPath(root, field.path, field.getConst(options)); },
+      [&](const auto& field) { setNodeByPath(root, field.path, field.getConst(options)); },
+      [&](const auto& field) { setNodeByPath(root, field.path, static_cast<int>(field.getConst(options))); });
 
   // Visualizers
   {
@@ -592,25 +374,6 @@ bool save() {
     }
     root["visualizers"] = vis;
   }
-
-  // VU
-  root["vu"]["calibration_db"] = options.vu.calibration_db;
-  root["vu"]["scale"] = options.vu.scale;
-  root["vu"]["style"] = options.vu.style;
-  root["vu"]["window"] = options.vu.window;
-  root["vu"]["momentum"]["enabled"] = options.vu.momentum.enabled;
-  root["vu"]["momentum"]["damping_ratio"] = options.vu.momentum.damping_ratio;
-  root["vu"]["momentum"]["spring_constant"] = options.vu.momentum.spring_constant;
-  root["vu"]["needle_width"] = options.vu.needle_width;
-
-  // Window
-  root["window"]["always_on_top"] = options.window.always_on_top;
-  root["window"]["decorations"] = options.window.decorations;
-  root["window"]["default_height"] = options.window.default_height;
-  root["window"]["default_width"] = options.window.default_width;
-  root["window"]["fps_limit"] = options.window.fps_limit;
-  root["window"]["theme"] = options.window.theme;
-  root["window"]["wayland"] = options.window.wayland;
 
   YAML::Emitter out;
   for (auto it = root.begin(); it != root.end(); ++it) {
@@ -694,8 +457,8 @@ void cleanup() {
 #endif
 }
 
-template void get<int>(const YAML::Node&, const std::string&, int&);
-template void get<float>(const YAML::Node&, const std::string&, float&);
-template void get<std::string>(const YAML::Node&, const std::string&, std::string&);
+template void get<int>(const YAML::Node&, std::string_view, int&);
+template void get<float>(const YAML::Node&, std::string_view, float&);
+template void get<std::string>(const YAML::Node&, std::string_view, std::string&);
 
 } // namespace Config

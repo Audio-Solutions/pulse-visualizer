@@ -291,20 +291,11 @@ phosphor:
     
     # Enable rainbow color effect for the beam
     rainbow: true
-    
-    # Width of the phosphor lines
-    width: 0.5
-    
-    # Tension of Catmull-Rom splines (0.0-1.0, affects curve smoothness)
-    tension: 0.5
   
   # Blur effect settings
   blur:
     # Spread of the blur effect (higher=more spread, more GPU intensive)
     spread: 128
-    
-    # Range factor for blur calculations (higher=more blur, more GPU intensive)
-    range: 2.0
     
     # Intensity of blur for nearby pixels (0.0-1.0, higher=more blur)
     near_intensity: 0.6
@@ -312,11 +303,11 @@ phosphor:
     # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
     far_intensity: 0.8
   
-  # Decay rate of phosphor persistence (higher=shorter persistence)
-  decay: 30
-  
   # Screen effect settings
   screen:
+    # Decay rate of phosphor persistence (higher=shorter persistence)
+    decay: 30
+
     # Curvature intensity for curved screen effect (0.0-1.0)
     curvature: 0.1
     

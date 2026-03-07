@@ -29,7 +29,6 @@ layout(binding = 4, r32ui) uniform uimage2D outputTexG;
 layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
 uniform float line_blur_spread;
-uniform float line_width;
 uniform vec2 texSize;
 uniform int blur_direction; // 0: horizontal, 1: vertical
 uniform int kernel_type;    // 0: F kernel, 1: G kernel

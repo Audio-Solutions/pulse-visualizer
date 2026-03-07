@@ -23,6 +23,9 @@
 #include <vector>
 
 namespace Config {
+/**
+ * @brief Display rotation enum used by visualizer components.
+ */
 enum Rotation { ROTATION_0 = 0, ROTATION_90 = 1, ROTATION_180 = 2, ROTATION_270 = 3 };
 
 /**
@@ -149,7 +152,6 @@ struct Options {
     struct Beam {
       float energy = 90.0f;
       bool rainbow = false;
-      float width = 0.5f;
     } beam;
 
     struct Blur {
@@ -158,9 +160,8 @@ struct Options {
       float far_intensity = 0.8f;
     } blur;
 
-    float decay;
-
     struct Screen {
+      float decay = 30.0f;
       float curvature = 0.1f;
       float gap = 0.03f;
       float vignette = 0.3f;

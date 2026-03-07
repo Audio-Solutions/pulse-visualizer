@@ -22,6 +22,9 @@
 #include "plugin_api.hpp"
 
 namespace Plugin {
+/**
+ * @brief Resolved plugin entry points for a dynamically loaded plugin.
+ */
 struct PluginInstance {
   void* handle;
   pvPluginInitFn init;
@@ -31,32 +34,39 @@ struct PluginInstance {
   pvPluginHandleEventFn handleEvent;
 };
 
+/**
+ * @brief API table exposed to plugins.
+ */
 extern PvAPI api;
+
+/**
+ * @brief Loaded plugin instances.
+ */
 extern std::vector<PluginInstance> plugins;
 
 /**
- * @brief loads all plugins in the plugin folder
+ * @brief Load all plugins in the plugin folder.
  */
 void loadAll();
 
 /**
- * @brief starts all loaded plugins
+ * @brief Start all loaded plugins.
  */
 void startAll();
 
 /**
- * @brief unloads all loaded plugins
+ * @brief Unload all loaded plugins.
  */
 void unloadAll();
 
 /**
- * @brief draws all plugins
+ * @brief Draw all loaded plugins.
  */
 void drawAll();
 
 /**
- * @brief passes sdl event to all plugins
- * @param event the event to pass
+ * @brief Pass an SDL event to all loaded plugins.
+ * @param event The event to pass
  */
 void handleEvent(SDL_Event& event);
 } // namespace Plugin

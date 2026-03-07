@@ -680,7 +680,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 
   glUseProgram(shader);
 
-  float decay = exp(-WindowManager::dt * Config::options.phosphor.decay);
+  float decay = exp(-WindowManager::dt * Config::options.phosphor.screen.decay);
 
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
@@ -721,7 +721,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;
   static GLint loc_line_blur_spread = -1;
-  static GLint loc_line_width = -1;
   static GLint loc_blur_direction = -1;
   static GLint loc_kernel_type = -1;
   static GLint loc_f_intensity = -1;
@@ -730,7 +729,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   static GLint loc_colorBeam = -1;
   if (cachedProgram != shader) {
     loc_line_blur_spread = glGetUniformLocation(shader, "line_blur_spread");
-    loc_line_width = glGetUniformLocation(shader, "line_width");
     loc_blur_direction = glGetUniformLocation(shader, "blur_direction");
     loc_kernel_type = glGetUniformLocation(shader, "kernel_type");
     loc_f_intensity = glGetUniformLocation(shader, "f_intensity");
@@ -741,7 +739,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   }
 
   glUniform1f(loc_line_blur_spread, Config::options.phosphor.blur.spread);
-  glUniform1f(loc_line_width, Config::options.phosphor.beam.width);
   glUniform1i(loc_blur_direction, dir);
   glUniform1i(loc_kernel_type, kernel);
   glUniform1f(loc_f_intensity, Config::options.phosphor.blur.near_intensity);

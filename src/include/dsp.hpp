@@ -56,19 +56,41 @@ std::tuple<std::string, int, int> toNote(float freq, std::string* noteNames);
  */
 namespace FIR {
 
+/**
+ * @brief FIR filter state and processing helpers.
+ */
 struct Filter {
   std::vector<float> coeffs;
   std::vector<float> delay;
   size_t idx;
   size_t order;
 
+  /**
+   * @brief Process one sample through the FIR filter.
+   * @param x Input sample
+   * @return Filtered output sample
+   */
   float process(float x);
+
+  /**
+   * @brief Set filter coefficients and reset internal state as needed.
+   * @param coeffs FIR coefficient array
+   */
   void set_coefficients(const std::vector<float>& coeffs);
 };
 
 extern Filter bandpass_filter;
 
+/**
+ * @brief Design/update the band-pass FIR filter for a center frequency.
+ * @param center Center frequency in Hz
+ */
 void design(float center);
+
+/**
+ * @brief Process samples with the band-pass FIR filter.
+ * @param center Center frequency in Hz
+ */
 void process(float center);
 
 } // namespace FIR
@@ -139,6 +161,7 @@ bool regenerate();
  * @brief Compute Constant Q Transform
  * @param in Input signal
  * @param out Output spectrum
+ * @param phase Output phase values per frequency bin
  */
 template <typename Alloc>
 void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::vector<float>& phase);
@@ -251,7 +274,7 @@ namespace RMS {
 extern float rms;
 
 /**
- * @brief process RMS calculation
+ * @brief Process RMS calculation.
  */
 void process();
 } // namespace RMS

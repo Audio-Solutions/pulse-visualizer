@@ -102,7 +102,7 @@ struct VisualizerWindow {
   /**
    * @brief Direction to arrowX and arrowY
    * @param dir Direction of the arrow
-   * @returns pair of ints for arrowX and arrowY
+   * @return Pair of coordinates for the arrow position
    */
   std::pair<int, int> getArrowPos(int dir);
 
@@ -117,6 +117,7 @@ struct VisualizerWindow {
    * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    * @param mouseX X position of the mouse
    * @param mouseY Y position of the mouse
+   * @return true if the button is pressed
    */
   bool buttonPressed(int dir, int mouseX, int mouseY);
 
@@ -125,6 +126,7 @@ struct VisualizerWindow {
    * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
    * @param mouseX X position of the mouse
    * @param mouseY Y position of the mouse
+   * @return true if the cursor is over the button
    */
   bool buttonHovering(int dir, int mouseX, int mouseY);
 
@@ -191,6 +193,7 @@ void resizeWindows();
 
 /**
  * @brief Move a splitter to a new position
+ * @param key Window-group key for the splitter list
  * @param index Splitter index
  * @param targetX Target X position (-1 for current position)
  * @return New X position
@@ -223,7 +226,7 @@ template <Direction direction> void swapVisualizer(size_t index, std::string key
  * @brief Popout visualizer at index from its window group
  * @param index Index of visualizer to popout
  * @param key Key of the window group
- * @param bool popout Whether to popout the window
+ * @param popout Whether to pop out into a dedicated window group
  */
 void popWindow(size_t index, std::string key, bool popout = false);
 

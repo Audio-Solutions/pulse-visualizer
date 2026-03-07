@@ -42,7 +42,7 @@ void copyFiles();
  * @param path Dot-separated path to the desired node
  * @return Optional YAML node if found
  */
-std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& path);
+std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path);
 
 /**
  * @brief Read a value from the configuration into an output reference.
@@ -51,7 +51,7 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, const std::string& pat
  * @param path Dot-separated path to the desired value
  * @param out Output reference to receive the parsed value
  */
-template <typename T> void get(const YAML::Node& root, const std::string& path, T& out);
+template <typename T> void get(const YAML::Node& root, std::string_view path, T& out);
 
 /**
  * @brief Load configuration from file

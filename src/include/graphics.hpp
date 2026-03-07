@@ -77,7 +77,9 @@ struct GlyphTexture {
   int advance;
 };
 
-// Hash function for std::pair<char, float>
+/**
+ * @brief Hash function for glyph cache key pairs.
+ */
 struct PairHash {
   template <class T1, class T2> std::size_t operator()(const std::pair<T1, T2>& p) const {
     auto h1 = std::hash<T1> {}(p.first);
@@ -190,7 +192,7 @@ GLuint load(const char* path, GLenum type);
 void ensureShaders();
 
 /**
- * @brief cleanup shaders
+ * @brief Cleanup shader programs and GPU resources.
  */
 void cleanup();
 
@@ -203,7 +205,6 @@ void cleanup();
  * @param energyTexR Energy texture R
  * @param energyTexG Energy texture G
  * @param energyTexB Energy texture B
- * @param out Output texture
  */
 void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vertexCount, const GLuint& vertexBuffer,
                      const GLuint& vertexColorBuffer, const GLuint& energyTexR, const GLuint& energyTexG,
@@ -226,10 +227,14 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 /**
  * @brief Dispatch blur shader
  * @param win Visualizer window
- * @param dir Blur direction
- * @param kernel Blur kernel size
- * @param in Input texture
- * @param out Output texture
+ * @param dir Blur direction (0 = horizontal, 1 = vertical)
+ * @param kernel Kernel selector used by the shader
+ * @param inR Input red-channel texture
+ * @param inG Input green-channel texture
+ * @param inB Input blue-channel texture
+ * @param outR Output red-channel texture
+ * @param outG Output green-channel texture
+ * @param outB Output blue-channel texture
  */
 void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
                   const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB);
@@ -237,9 +242,11 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 /**
  * @brief Dispatch colormap shader
  * @param win Visualizer window
- * @param colorMap Color map texture
- * @param in Input texture
- * @param out Output texture
+ * @param beamColor Beam color used for monochrome mode
+ * @param inR Input red-channel texture
+ * @param inG Input green-channel texture
+ * @param inB Input blue-channel texture
+ * @param out RGBA output texture
  */
 void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
                       const GLuint& inG, const GLuint& inB, const GLuint& out);
@@ -255,9 +262,8 @@ namespace Phosphor {
  * @brief Render phosphor effect for visualizer
  * @param win Visualizer window
  * @param points Vector of (x, y) points
- * @param energies Energy values for each point
- * @param lineColor Line color
- * @param renderPoints Whether to render individual points
+ * @param renderPoints Whether to render the beam or not
+ * @param beamColor Beam base color (ignored when rainbow beam is enabled)
  */
 void render(const WindowManager::VisualizerWindow* win, const std::vector<std::pair<float, float>> points,
             bool renderPoints = true, const float* beamColor = Theme::colors.color);

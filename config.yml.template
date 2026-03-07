@@ -108,7 +108,7 @@ lissajous:
   # Spline tension for curve smoothness (0.0-1.0)
   spline_tension: 1.00000012
   # Spline density for curve detail
-  spline_density: 10
+  spline_segments: 10
   # Options: "normal", "circle", "pulsar", "rotate", "black_hole"
   # rotate is a 45 degree rotation of the curve
   # circle is the rotated curve stretched to a circle
@@ -186,8 +186,6 @@ phosphor:
     energy: 59.9627686
     # Enable rainbow color effect for the beam
     rainbow: false
-    # Width of the phosphor lines
-    width: 0.5
   
   # Blur effect settings
   blur:
@@ -198,11 +196,10 @@ phosphor:
     # Intensity of blur for distant pixels (0.0-1.0, higher=more blur)
     far_intensity: 0.8
   
-  # Decay rate of phosphor persistence (higher=shorter persistence)
-  decay: 30
-  
   # Screen effect settings
   screen:
+    # Decay rate of phosphor persistence (higher=shorter persistence)
+    decay: 30
     # Curvature intensity for curved screen effect (0.0-1.0)
     curvature: 0.0900000036
     # Gap scalar for curved screen effect (0.0-1.0)

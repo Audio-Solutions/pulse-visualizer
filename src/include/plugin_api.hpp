@@ -32,6 +32,9 @@
 #define PV_API extern "C"
 #endif
 
+/**
+ * @brief API function table exposed to external plugins.
+ */
 struct PvAPI {
   uint32_t apiVersion;
 
@@ -162,7 +165,7 @@ struct PvAPI {
   void (*mix)(float* a, float* b, float* out, float t);
 
   /**
-   * @brief create a new window
+   * @brief Create a new SDL window.
    * @param group The group of the window
    * @param title The title of the window
    * @param width The width of the window
@@ -172,7 +175,7 @@ struct PvAPI {
   void (*createWindow)(const std::string& group, const std::string& title, int width, int height, uint32_t flags);
 
   /**
-   * @brief destroy a window
+   * @brief Destroy a window.
    * @param group The group of the window
    * @return true if the window was destroyed, false otherwise
    * @note if the window is the current window, the current window will be set to "main"
@@ -180,23 +183,23 @@ struct PvAPI {
   bool (*destroyWindow)(const std::string& group);
 
   /**
-   * @brief select a window for rendering
+   * @brief Select a window for rendering.
    * @param group The group of the window
    * @return true if the window was selected, false otherwise
    */
   bool (*selectWindow)(const std::string& group);
 
   /**
-   * @brief get a window's dimensions
-   * @param group the group of the window
-   * @return a pair of integers: width and height in pixels.
+   * @brief Get a window's dimensions.
+   * @param group The group of the window
+   * @return A pair of integers: width and height in pixels
    */
   std::optional<std::pair<int, int>> (*getWindowSize)(const std::string& group);
 
   /**
-   * @brief get a window's cursor position
-   * @param group the group of the window
-   * @return a pair of integers: x and y in pixels
+   * @brief Get a window's cursor position.
+   * @param group The group of the window
+   * @return A pair of integers: x and y in pixels
    */
   std::optional<std::pair<int, int>> (*getCursorPos)(const std::string& group);
 
@@ -208,24 +211,57 @@ struct PvAPI {
    */
   void (*setViewport)(int x, int width, int height);
 
-  // Pointer to config
+  /**
+   * @brief Pointer to live configuration state.
+   */
   Config::Options* config;
 
-  // Pointer to theme
+  /**
+   * @brief Pointer to live theme color state.
+   */
   Theme::Colors* theme;
 
-  // Pointer to debug flag
+  /**
+   * @brief Pointer to global debug flag.
+   */
   bool* debug;
 };
 
+/** @brief Plugin entry point type for initialization. */
 using pvPluginInitFn = int (*)(const PvAPI* api);
+/** @brief Plugin entry point type for startup. */
 using pvPluginStartFn = void (*)(void);
+/** @brief Plugin entry point type for shutdown. */
 using pvPluginStopFn = void (*)(void);
+/** @brief Plugin entry point type for rendering. */
 using pvPluginDrawFn = void (*)(void);
+/** @brief Plugin entry point type for SDL event handling. */
 using pvPluginHandleEventFn = void (*)(SDL_Event& event);
 
+/**
+ * @brief Initialize plugin with host API.
+ * @param api Host-provided API table
+ * @return 0 on success, non-zero on failure
+ */
 PV_API int pvPluginInit(const PvAPI* api);
+
+/**
+ * @brief Start plugin runtime logic.
+ */
 PV_API void pvPluginStart();
+
+/**
+ * @brief Stop plugin runtime logic and release resources.
+ */
 PV_API void pvPluginStop();
+
+/**
+ * @brief Render plugin content for the current frame.
+ */
 PV_API void draw();
+
+/**
+ * @brief Handle an SDL input/window event.
+ * @param event Event from the host event loop
+ */
 PV_API void handleEvent(SDL_Event& event);

@@ -185,7 +185,7 @@ void render() {
 
     float dt_sample = 1.f / Config::options.audio.sample_rate;
 
-    float decay = Config::options.phosphor.decay;
+    float decay = Config::options.phosphor.screen.decay;
 
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
