@@ -23,9 +23,8 @@ install(DIRECTORY shaders/
 )
 
 # Install config template
-install(FILES config.yml.template.windows
+install(FILES "${PV_WINDOWS_CONFIG_TEMPLATE}"
   DESTINATION .
-  RENAME config.yml.template
 )
 
 # Install font
