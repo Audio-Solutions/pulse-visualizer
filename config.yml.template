@@ -324,3 +324,9 @@ window:
   always_on_top: false
   # Try to use Wayland instead of X11
   wayland: false
+
+# Plugin Configuration Passthrough
+# Values in this section are managed by plugins through the plugin config API.
+# The key under `plugins` is provided by each plugin's pvPluginGetInfo() key.
+# This will be generated on startup.
+plugins:

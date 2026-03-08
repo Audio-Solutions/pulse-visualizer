@@ -23,8 +23,10 @@
 #include "include/config.hpp"
 #include "include/config_schema.hpp"
 #include "include/graphics.hpp"
+#include "include/plugin.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
+#include "include/visualizer_registry.hpp"
 #include "include/window_manager.hpp"
 
 namespace ConfigWindow {
@@ -49,26 +51,23 @@ static struct DragState {
 } dragState;
 
 // Friendly names for visualizers
-static std::map<std::string, std::string> vizLabels = {
-    {"spectrum_analyzer", "Spectrum Analyzer"},
-    {"lissajous",         "Lissajous"        },
-    {"oscilloscope",      "Oscilloscope"     },
-    {"spectrogram",       "Spectrogram"      },
-    {"waveform",          "Waveform"         },
-    {"lufs",              "LUFS"             },
-    {"vu",                "VU"               }
-};
+static std::map<std::string, std::string> vizLabels;
+static std::unordered_map<std::string, bool> pluginBoolValues;
+static std::unordered_map<std::string, int> pluginIntValues;
+static std::unordered_map<std::string, float> pluginFloatValues;
+static std::unordered_map<std::string, std::string> pluginStringValues;
 
 static int newWindowCounter = 1;
 
-inline constexpr std::array<PageType, 12> pageOrder = {
-    PageType::Oscilloscope, PageType::Lissajous, PageType::FFT,         PageType::Spectrogram,
-    PageType::Waveform,     PageType::Audio,     PageType::Visualizers, PageType::Window,
-    PageType::Debug,        PageType::Phosphor,  PageType::LUFS,        PageType::VU,
+inline constexpr std::array<PageType, 13> pageOrder = {
+    PageType::Oscilloscope, PageType::Lissajous,   PageType::FFT,     PageType::Spectrogram, PageType::Waveform,
+    PageType::Audio,        PageType::Visualizers, PageType::Plugins, PageType::Window,      PageType::Debug,
+    PageType::Phosphor,     PageType::LUFS,        PageType::VU,
 };
 
 inline void ensurePageInitialized(PageType pageType);
 inline void buildVisualizersPage();
+inline void buildPluginsPage();
 
 PageType pageAtOffset(PageType current, int offset) {
   auto it = std::find(pageOrder.begin(), pageOrder.end(), current);
@@ -106,6 +105,7 @@ constexpr ConfigSchema::SchemaPage schemaPageFromWindowPage(PageType pageType) {
   case PageType::VU:
     return ConfigSchema::SchemaPage::VU;
   case PageType::Visualizers:
+  case PageType::Plugins:
     return ConfigSchema::SchemaPage::Unknown;
   }
 
@@ -548,6 +548,7 @@ inline void initTop() {
 inline void initPages() {
   ensurePageInitialized(currentPage);
   ensurePageInitialized(PageType::Visualizers);
+  ensurePageInitialized(PageType::Plugins);
 }
 
 inline void ensurePageInitialized(PageType pageType) {
@@ -556,6 +557,11 @@ inline void ensurePageInitialized(PageType pageType) {
 
   if (pageType == PageType::Visualizers) {
     buildVisualizersPage();
+    return;
+  }
+
+  if (pageType == PageType::Plugins) {
+    buildPluginsPage();
     return;
   }
 
@@ -579,19 +585,40 @@ inline void buildVisualizersPage() {
     Config::options.visualizers["hidden"] = {};
   }
 
-  std::vector<std::string> missingVisualizers;
-  for (const auto& [vizKey, vizLabel] : vizLabels) {
+  VisualizerRegistry::ensureBuiltinsRegistered();
+  vizLabels.clear();
+  for (const auto& visualizer : VisualizerRegistry::list()) {
+    if (!visualizer || visualizer->id.empty())
+      continue;
+    const std::string& displayName = visualizer->displayName.empty() ? visualizer->id : visualizer->displayName;
+    vizLabels.emplace(visualizer->id, displayName);
+  }
+
+  bool saveConfig = false;
+  auto& hiddenGroup = Config::options.visualizers["hidden"];
+  const size_t removedHiddenCount = std::erase_if(
+      hiddenGroup, [](const std::string& hiddenKey) { return vizLabels.find(hiddenKey) == vizLabels.end(); });
+  if (removedHiddenCount > 0) {
+    saveConfig = true;
+  }
+
+  std::vector<std::string> ungroupedVisualizers;
+  for (const auto& [vizKey, _] : vizLabels) {
     if (!std::any_of(Config::options.visualizers.begin(), Config::options.visualizers.end(), [&](const auto& group) {
           return std::find(group.second.begin(), group.second.end(), vizKey) != group.second.end();
         })) {
-      missingVisualizers.push_back(vizKey);
+      ungroupedVisualizers.push_back(vizKey);
     }
   }
 
-  if (!missingVisualizers.empty()) {
-    for (const auto& visualizer : missingVisualizers) {
-      Config::options.visualizers["hidden"].push_back(visualizer);
+  if (!ungroupedVisualizers.empty()) {
+    for (const auto& visualizerId : ungroupedVisualizers) {
+      Config::options.visualizers["hidden"].push_back(visualizerId);
     }
+    saveConfig = true;
+  }
+
+  if (saveConfig) {
     Config::save();
   }
 
@@ -599,6 +626,199 @@ inline void buildVisualizersPage() {
 
   page.height = cyInit - cy;
   pages.insert({PageType::Visualizers, std::move(page)});
+}
+
+inline void buildPluginsPage() {
+  if (pages.find(PageType::Plugins) != pages.end())
+    return;
+
+  const float cyInit = h - scrollingDisplayMargin;
+  Page page;
+  float cy = cyInit;
+
+  const auto& pluginRules = Config::pluginConfigSpecs;
+
+  if (pluginRules.empty()) {
+    createHeaderElement(page, cy, "plugins_none", "No Plugin Options Registered");
+    page.height = cyInit - cy;
+    pages.insert({PageType::Plugins, std::move(page)});
+    return;
+  }
+
+  for (const auto& [pluginKey, pluginRuleGroup] : pluginRules) {
+    auto pluginIt = std::find_if(Plugin::plugins.begin(), Plugin::plugins.end(),
+                                 [&](const Plugin::PluginInstance& plugin) { return plugin.key == pluginKey; });
+    void* pluginContext = pluginIt != Plugin::plugins.end() ? static_cast<void*>(&(*pluginIt)) : nullptr;
+
+    auto it = Config::pluginDisplayNames.find(std::string(pluginKey));
+    const std::string pluginHeader = it != Config::pluginDisplayNames.end() ? it->second : pluginKey;
+    createHeaderElement(page, cy, "plugin_header_" + pluginKey, pluginHeader);
+
+    std::vector<std::pair<std::string, const Config::PluginConfigSpec*>> fields;
+    fields.reserve(pluginRuleGroup.size());
+    for (const auto& [path, rule] : pluginRuleGroup)
+      fields.emplace_back(path, &rule);
+
+    std::sort(fields.begin(), fields.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    auto bindPersist = [&](const std::string& key, std::function<void()> persist) {
+      static const std::array<const char*, 7> suffixes = {"#label",     "#check",    "#slider",   "#dropdown",
+                                                          "#tickLabel", "#tickLeft", "#tickRight"};
+
+      auto attachPersist = [&](Element& element) {
+        auto oldClicked = element.clicked;
+        element.clicked = [oldClicked, persist](Element* self) {
+          if (oldClicked)
+            oldClicked(self);
+          persist();
+        };
+
+        auto oldUnclicked = element.unclicked;
+        element.unclicked = [oldUnclicked, persist](Element* self) {
+          if (oldUnclicked)
+            oldUnclicked(self);
+          persist();
+        };
+
+        auto oldScrolled = element.scrolled;
+        element.scrolled = [oldScrolled, persist](Element* self, int amount) {
+          if (oldScrolled)
+            oldScrolled(self, amount);
+          persist();
+        };
+      };
+
+      bool attached = false;
+      for (const char* suffix : suffixes) {
+        const std::string elementId = key + suffix;
+        auto it = page.elements.find(elementId);
+        if (it == page.elements.end())
+          continue;
+
+        attachPersist(it->second);
+        attached = true;
+      }
+
+      if (!attached)
+        persist();
+    };
+
+    for (const auto& [path, rule] : fields) {
+      std::string elementKey = "plugin_" + pluginKey + "_" + path;
+      std::replace(elementKey.begin(), elementKey.end(), '.', '_');
+      const std::string label = rule->label.empty() ? path : rule->label;
+
+      switch (rule->type) {
+      case Config::PluginConfigType::Bool: {
+        bool& value = pluginBoolValues[elementKey];
+        Config::PluginConfigValue storedValue;
+        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
+          if (const bool* typed = std::get_if<bool>(&storedValue))
+            value = *typed;
+        }
+        createCheckElement(page, cy, elementKey, &value, label, rule->description);
+        bindPersist(elementKey, [pluginContext, path, &value]() {
+          if (!pluginContext)
+            return;
+          const Config::PluginConfigValue pluginValue(value);
+          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
+        });
+        break;
+      }
+      case Config::PluginConfigType::Int: {
+        int& value = pluginIntValues[elementKey];
+        Config::PluginConfigValue storedValue;
+        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
+          if (const int* typed = std::get_if<int>(&storedValue))
+            value = *typed;
+        }
+
+        if (!rule->detentsInt.empty()) {
+          createDetentSliderElement<int>(page, cy, elementKey, &value, std::span<const int>(rule->detentsInt), label,
+                                         rule->description, rule->precision);
+        } else {
+          const bool hasRange = std::abs(rule->max - rule->min) > FLT_EPSILON;
+          int minValue = hasRange ? static_cast<int>(std::round(rule->min)) : (value - 100);
+          int maxValue = hasRange ? static_cast<int>(std::round(rule->max)) : (value + 100);
+          if (maxValue <= minValue)
+            maxValue = minValue + 1;
+
+          createSliderElement<int>(page, cy, elementKey, &value, minValue, maxValue, label, rule->description,
+                                   rule->precision, rule->zeroOff);
+        }
+
+        bindPersist(elementKey, [pluginContext, path, &value]() {
+          if (!pluginContext)
+            return;
+          const Config::PluginConfigValue pluginValue(value);
+          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
+        });
+        break;
+      }
+      case Config::PluginConfigType::Float: {
+        float& value = pluginFloatValues[elementKey];
+        Config::PluginConfigValue storedValue;
+        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
+          if (const float* typed = std::get_if<float>(&storedValue))
+            value = *typed;
+        }
+
+        if (!rule->detentsFloat.empty()) {
+          createDetentSliderElement<float>(page, cy, elementKey, &value, std::span<const float>(rule->detentsFloat),
+                                           label, rule->description, rule->precision);
+        } else {
+          const bool hasRange = std::abs(rule->max - rule->min) > FLT_EPSILON;
+          float minValue = hasRange ? rule->min : (value - 1.0f);
+          float maxValue = hasRange ? rule->max : (value + 1.0f);
+          if (maxValue <= minValue)
+            maxValue = minValue + 1.0f;
+
+          createSliderElement<float>(page, cy, elementKey, &value, minValue, maxValue, label, rule->description,
+                                     rule->precision, rule->zeroOff);
+        }
+
+        bindPersist(elementKey, [pluginContext, path, &value]() {
+          if (!pluginContext)
+            return;
+          const Config::PluginConfigValue pluginValue(value);
+          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
+        });
+        break;
+      }
+      case Config::PluginConfigType::String: {
+        std::string& value = pluginStringValues[elementKey];
+        Config::PluginConfigValue storedValue;
+        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
+          if (const std::string* typed = std::get_if<std::string>(&storedValue))
+            value = *typed;
+        }
+
+        std::map<std::string, std::string> values;
+        for (const auto& choice : rule->choices)
+          values.emplace(choice, choice);
+
+        if (values.empty() && !value.empty())
+          values.emplace(value, value);
+
+        if (rule->useTick)
+          createEnumTickElement<std::string>(page, cy, elementKey, &value, std::move(values), label, rule->description);
+        else
+          createEnumDropElement<std::string>(page, cy, elementKey, &value, std::move(values), label, rule->description);
+
+        bindPersist(elementKey, [pluginContext, path, &value]() {
+          if (!pluginContext)
+            return;
+          const Config::PluginConfigValue pluginValue(value);
+          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
+        });
+        break;
+      }
+      }
+    }
+  }
+
+  page.height = cyInit - cy;
+  pages.insert({PageType::Plugins, std::move(page)});
 }
 
 void createLabelElement(Page& page, float& cy, const std::string key, const std::string label,
@@ -1080,6 +1300,8 @@ std::string pageToString(PageType page) {
     return "Audio";
   case PageType::Visualizers:
     return "Visualizers";
+  case PageType::Plugins:
+    return "Plugins";
   case PageType::Window:
     return "Window";
   case PageType::Debug:

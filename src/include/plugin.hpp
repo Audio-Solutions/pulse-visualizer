@@ -27,11 +27,15 @@ namespace Plugin {
  */
 struct PluginInstance {
   void* handle;
+  std::string key;
+  std::string displayName;
+  PvAPI api;
   pvPluginInitFn init;
   pvPluginStartFn start;
   pvPluginStopFn stop;
   pvPluginDrawFn draw;
   pvPluginHandleEventFn handleEvent;
+  pvPluginConfigReloadFn onConfigReload;
 };
 
 /**
@@ -42,7 +46,7 @@ extern PvAPI api;
 /**
  * @brief Loaded plugin instances.
  */
-extern std::vector<PluginInstance> plugins;
+extern std::deque<PluginInstance> plugins;
 
 /**
  * @brief Load all plugins in the plugin folder.
@@ -69,4 +73,9 @@ void drawAll();
  * @param event The event to pass
  */
 void handleEvent(SDL_Event& event);
+
+/**
+ * @brief Notify plugins that main config has been reloaded.
+ */
+void notifyConfigReload();
 } // namespace Plugin

@@ -22,21 +22,36 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace SpectrumAnalyzer {
 
-// Spectrum analyzer data and window
-std::vector<std::pair<float, float>> pointsMain;
-std::vector<std::pair<float, float>> pointsAlt;
-WindowManager::VisualizerWindow* window;
+class SpectrumAnalyzerVisualizer : public WindowManager::VisualizerWindow {
+public:
+  std::vector<std::pair<float, float>> pointsMain;
+  std::vector<std::pair<float, float>> pointsAlt;
 
-void render() {
-  if (!window)
-    return;
+  SpectrumAnalyzerVisualizer() {
+    id = "spectrum_analyzer";
+    displayName = "Spectrum Analyzer";
+  }
 
-  auto& state = SDLWindow::states[window->group];
+  void configure() override {
+    if (Config::options.fft.sphere.enabled)
+      aspectRatio = 1.0f;
+  }
+
+  void render(SDLWindow::State* state) override;
+};
+
+std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
+  return std::make_shared<SpectrumAnalyzerVisualizer>();
+}
+
+void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
+  auto& pointsMain = this->pointsMain;
+  auto& pointsAlt = this->pointsAlt;
+  auto* window = this;
 
   // Select the window for rendering
   SDLWindow::selectWindow(window->group);
@@ -46,7 +61,7 @@ void render() {
   float logMax = log(Config::options.fft.limits.max_freq);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
+  WindowManager::setViewport(window->x, window->width, state->windowSizes.second);
 
   // Draw frequency markers if enabled
   if (!Config::options.phosphor.enabled && Config::options.fft.markers) {
@@ -56,12 +71,12 @@ void render() {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                        Config::options.fft.rotation == Config::ROTATION_270
-                                   ? static_cast<float>(state.windowSizes.second)
+                                   ? static_cast<float>(state->windowSizes.second)
                                    : static_cast<float>(window->width)));
       float height =
           Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
               ? window->width
-              : state.windowSizes.second;
+              : state->windowSizes.second;
 
       // Apply rotation transformation to marker coordinates
       float x1, y1, x2, y2;
@@ -82,7 +97,7 @@ void render() {
         break;
       case Config::ROTATION_270:
         x1 = x2 = height;
-        y1 = y2 = state.windowSizes.second - x;
+        y1 = y2 = state->windowSizes.second - x;
         break;
       }
       Graphics::drawLine(x1, y1, x2, y2, Theme::colors.accent, 1.f);
@@ -115,8 +130,8 @@ void render() {
   // Generate main spectrum points
   if (Config::options.fft.sphere.enabled && Config::options.phosphor.enabled) {
     float cx = window->width / 2.0f;
-    float cy = state.windowSizes.second / 2.0f;
-    float minSize = static_cast<float>(std::min(window->width, state.windowSizes.second));
+    float cy = state->windowSizes.second / 2.0f;
+    float minSize = static_cast<float>(std::min(window->width, state->windowSizes.second));
 
     // Place points on a circle and rotate along Y using per-bin phase; project with mild perspective.
     const float cameraDistance = 4.0f * minSize;
@@ -246,7 +261,7 @@ void render() {
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
-            : state.windowSizes.second;
+            : state->windowSizes.second;
 
     for (size_t bin = 0; bin < inMain.size(); bin++) {
       // Calculate frequency for this bin
@@ -260,7 +275,7 @@ void render() {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                 Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(state.windowSizes.second)
+                            ? static_cast<float>(state->windowSizes.second)
                             : static_cast<float>(window->width));
       float mag = inMain[bin];
 
@@ -286,10 +301,10 @@ void render() {
         pointsMain[bin] = {window->width - y, x};
         break;
       case Config::ROTATION_180:
-        pointsMain[bin] = {window->width - x, state.windowSizes.second - y};
+        pointsMain[bin] = {window->width - x, state->windowSizes.second - y};
         break;
       case Config::ROTATION_270:
-        pointsMain[bin] = {y, state.windowSizes.second - x};
+        pointsMain[bin] = {y, state->windowSizes.second - x};
         break;
       }
     }
@@ -310,7 +325,7 @@ void render() {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                 Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(state.windowSizes.second)
+                            ? static_cast<float>(state->windowSizes.second)
                             : static_cast<float>(window->width));
       float mag = inAlt[bin];
 
@@ -336,10 +351,10 @@ void render() {
         pointsAlt[bin] = {window->width - y, x};
         break;
       case Config::ROTATION_180:
-        pointsAlt[bin] = {window->width - x, state.windowSizes.second - y};
+        pointsAlt[bin] = {window->width - x, state->windowSizes.second - y};
         break;
       case Config::ROTATION_270:
-        pointsAlt[bin] = {y, state.windowSizes.second - x};
+        pointsAlt[bin] = {y, state->windowSizes.second - x};
         break;
       }
     }
@@ -364,7 +379,7 @@ void render() {
 
     constexpr float REF_AREA = 400.f * 300.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA *
-                   (Config::options.fft.cqt.enabled ? window->width * state.windowSizes.second : 400.f * 50.f);
+                   (Config::options.fft.cqt.enabled ? window->width * state->windowSizes.second : 400.f * 50.f);
 
     energy *= Config::options.fft.beam_multiplier * WindowManager::dt / 0.016f;
 
@@ -478,7 +493,7 @@ void render() {
 
   char overlay[128];
   float x = 10.0f;
-  float y = state.windowSizes.second - 20.0f;
+  float y = state->windowSizes.second - 20.0f;
 
   auto drawNoteInfo = [&](float freq, float dB) {
     auto [note, octave, cents] = DSP::toNote(freq, noteNames);
@@ -488,8 +503,8 @@ void render() {
   };
 
   // Convert mouse coordinates to window-relative coordinates
-  float mouseXRel = state.mousePos.first - window->x;
-  float mouseYRel = state.mousePos.second;
+  float mouseXRel = state->mousePos.first - window->x;
+  float mouseYRel = state->mousePos.second;
 
   bool showCursor = window->hovering && !Config::options.fft.sphere.enabled && Config::options.fft.cursor &&
                     !Config::options.phosphor.enabled;
@@ -502,8 +517,8 @@ void render() {
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
-    float vertices[] = {0, mouseYRel, (float)window->width,           mouseYRel, mouseXRel,
-                        0, mouseXRel, (float)state.windowSizes.second};
+    float vertices[] = {
+        0, mouseYRel, (float)window->width, mouseYRel, mouseXRel, 0, mouseXRel, (float)state->windowSizes.second};
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -526,10 +541,10 @@ void render() {
       break;
     case Config::ROTATION_180:
       originalX = window->width - mouseXRel;
-      originalY = state.windowSizes.second - mouseYRel;
+      originalY = state->windowSizes.second - mouseYRel;
       break;
     case Config::ROTATION_270:
-      originalX = state.windowSizes.second - mouseYRel;
+      originalX = state->windowSizes.second - mouseYRel;
       originalY = mouseXRel;
       break;
     }
@@ -539,12 +554,12 @@ void render() {
     float logMax = log(Config::options.fft.limits.max_freq);
     float effectiveWidth =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? state.windowSizes.second
+            ? state->windowSizes.second
             : window->width;
     float effectiveHeight =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? window->width
-            : state.windowSizes.second;
+            : state->windowSizes.second;
     float logX = originalX / effectiveWidth;
     float logFreq = logMin + logX * (logMax - logMin);
     float freq = exp(logFreq);

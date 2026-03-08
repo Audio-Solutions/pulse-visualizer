@@ -19,6 +19,7 @@
 
 #pragma once
 #include "common.hpp"
+#include "types.hpp"
 
 namespace WindowManager {
 
@@ -63,108 +64,25 @@ struct Splitter {
   void draw();
 };
 
-/**
- * @brief Visualizer window with phosphor effect support
- */
-struct VisualizerWindow {
-  std::string group;
-  int x, width;
-  float aspectRatio = 0;
-  size_t forceWidth = 0;
-  size_t pointCount;
-  bool hovering = false;
-  constexpr static size_t buttonSize = 20;
-  constexpr static size_t buttonPadding = 10;
-
-  /**
-   * @brief Phosphor effect rendering components
-   */
-  struct Phosphor {
-    GLuint energyTextureR = 0;
-    GLuint energyTextureG = 0;
-    GLuint energyTextureB = 0;
-    GLuint tempTextureR = 0;
-    GLuint tempTextureG = 0;
-    GLuint tempTextureB = 0;
-    GLuint tempTexture2R = 0;
-    GLuint tempTexture2G = 0;
-    GLuint tempTexture2B = 0;
-    GLuint tempTexture3R = 0;
-    GLuint tempTexture3G = 0;
-    GLuint tempTexture3B = 0;
-    GLuint outputTexture = 0;
-    int textureWidth = 0;
-    int textureHeight = 0;
-  } phosphor;
-
-  void (*render)();
-
-  /**
-   * @brief Direction to arrowX and arrowY
-   * @param dir Direction of the arrow
-   * @return Pair of coordinates for the arrow position
-   */
-  std::pair<int, int> getArrowPos(int dir);
-
-  /**
-   * @brief Draw an arrow for the swap button
-   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
-   */
-  void drawArrow(int dir);
-
-  /**
-   * @brief Check if the swap button is pressed
-   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
-   * @param mouseX X position of the mouse
-   * @param mouseY Y position of the mouse
-   * @return true if the button is pressed
-   */
-  bool buttonPressed(int dir, int mouseX, int mouseY);
-
-  /**
-   * @brief Check if the swap button is hovering
-   * @param dir Direction of the arrow (-1 for left, 1 for right, 2 for up, -2 for down)
-   * @param mouseX X position of the mouse
-   * @param mouseY Y position of the mouse
-   * @return true if the cursor is over the button
-   */
-  bool buttonHovering(int dir, int mouseX, int mouseY);
-
-  /**
-   * @brief Handle SDL events for the window
-   * @param event SDL event to process
-   */
-  void handleEvent(const SDL_Event& event);
-
-  /**
-   * @brief Transfer texture data between OpenGL textures
-   * @param oldTex Source texture
-   * @param newTex Destination texture
-   * @param format Texture format
-   * @param type Texture data type
-   */
-  void transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type);
-
-  /**
-   * @brief Resize phosphor effect textures
-   */
-  void resizeTextures();
-
-  /**
-   * @brief Draw the visualizer window
-   */
-  void draw();
-
-  /**
-   * @brief Cleanup OpenGL resources
-   */
-  void cleanup();
-};
-
 // Global window management
-extern std::map<std::string, std::vector<VisualizerWindow>> windows;
+extern std::map<std::string, std::vector<std::shared_ptr<VisualizerWindow>>> windows;
 extern std::map<std::string, std::vector<Splitter>> splitters;
 extern std::vector<std::string> markedForDeletion;
+
+/**
+ * @brief Find an instantiated visualizer window by visualizer id.
+ * @param id Visualizer id
+ * @return Pointer to matching window instance, or nullptr if not found.
+ */
+VisualizerWindow* findWindowById(const std::string& id);
+
+/**
+ * @brief Find a window index by pointer within a window group.
+ * @param group Window group key
+ * @param window Target window pointer
+ * @return Index if found, std::nullopt otherwise.
+ */
+std::optional<size_t> findWindowIndex(const std::string& group, const VisualizerWindow* window);
 
 /**
  * @brief Delete windows marked for deletion

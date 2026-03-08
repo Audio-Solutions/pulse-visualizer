@@ -28,7 +28,6 @@
 #include "include/spline.hpp"
 #include "include/theme.hpp"
 #include "include/update_window.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 #include <SDL3/SDL_main.h>
@@ -178,14 +177,14 @@ int main(int argc, char** argv) {
   DSP::bandpassed.resize(DSP::bufferSize);
   DSP::lowpassed.resize(DSP::bufferSize);
 
-  // Load plugins
-  LOG_DEBUG("Loading Plugins");
-  Plugin::loadAll();
-
   // Setup configuration
   LOG_DEBUG("Copying files");
   Config::copyFiles();
   Config::load();
+
+  // Load plugins
+  LOG_DEBUG("Loading Plugins");
+  Plugin::loadAll();
 
   // Setup theme
   LOG_DEBUG("Loading theme");
@@ -252,6 +251,7 @@ int main(int argc, char** argv) {
     if (Config::reload()) {
       LOG_DEBUG("Config reloaded");
       reconfigure();
+      Plugin::notifyConfigReload();
     }
 
     // Handle theme reloading
@@ -277,7 +277,7 @@ int main(int argc, char** argv) {
           splitter.handleEvent(event);
       for (auto& [key, vec] : WindowManager::windows)
         for (auto& window : vec)
-          window.handleEvent(event);
+          window->handleEvent(event);
       Plugin::handleEvent(event);
     }
 

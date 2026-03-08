@@ -22,7 +22,6 @@
 #include "include/audio_engine.hpp"
 #include "include/config.hpp"
 #include "include/sdl_window.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace DSP {
@@ -719,9 +718,9 @@ int FFTMain() {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;
-      bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
-                      !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled &&
-                      Config::options.fft.cursor;
+      WindowManager::VisualizerWindow* spectrumWindow = WindowManager::findWindowById("spectrum_analyzer");
+      bool hovering = spectrumWindow && spectrumWindow->hovering && !Config::options.fft.sphere.enabled &&
+                      !Config::options.phosphor.enabled && Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
@@ -837,9 +836,9 @@ int FFTAlt() {
       fftSide.resize(fftSideRaw.size());
       size_t bins = fftSide.size();
       size_t i = 0;
-      bool hovering = SpectrumAnalyzer::window && SpectrumAnalyzer::window->hovering &&
-                      !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled &&
-                      Config::options.fft.cursor;
+      WindowManager::VisualizerWindow* spectrumWindow = WindowManager::findWindowById("spectrum_analyzer");
+      bool hovering = spectrumWindow && spectrumWindow->hovering && !Config::options.fft.sphere.enabled &&
+                      !Config::options.phosphor.enabled && Config::options.fft.cursor;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *

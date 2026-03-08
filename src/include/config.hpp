@@ -24,6 +24,13 @@
 namespace Config {
 extern bool broken;
 
+using PluginConfigSpecRegistry = std::map<std::string, std::map<std::string, PluginConfigSpec>>;
+
+extern PluginConfigSpecRegistry pluginConfigSpecs;
+extern std::map<std::string, std::string> pluginDisplayNames;
+extern std::unordered_set<std::string> registeredPluginPaths;
+extern YAML::Node pluginValuesNode;
+
 extern Options options;
 
 #ifdef __linux__
@@ -43,6 +50,11 @@ void copyFiles();
  * @return Optional YAML node if found
  */
 std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path);
+
+bool registerPluginConfigOption(void* pluginContext, const char* path, const Config::PluginConfigValue* defaultValue,
+                                const Config::PluginConfigSpec* descriptor);
+bool getPluginConfigOption(void* pluginContext, const char* path, Config::PluginConfigValue* outValue);
+bool setPluginConfigOption(void* pluginContext, const char* path, const PluginConfigValue* value);
 
 /**
  * @brief Read a value from the configuration into an output reference.

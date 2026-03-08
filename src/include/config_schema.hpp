@@ -19,11 +19,8 @@
 
 #pragma once
 
+#include "common.hpp"
 #include "types.hpp"
-
-#include <array>
-#include <span>
-#include <string_view>
 
 namespace ConfigSchema {
 

@@ -20,6 +20,7 @@
 #include "include/config.hpp"
 
 #include "include/config_schema.hpp"
+#include "include/plugin.hpp"
 
 namespace Config {
 
@@ -28,10 +29,36 @@ bool broken = false;
 // Global configuration options
 Options options;
 
+PluginConfigSpecRegistry pluginConfigSpecs;
+std::map<std::string, std::string> pluginDisplayNames;
+std::unordered_set<std::string> registeredPluginPaths;
+YAML::Node pluginValuesNode;
+
 #ifdef __linux__
 int inotifyFd = -1;
 int inotifyWatch = -1;
 #endif
+
+std::string makePluginPathKey(std::string_view pluginKey, std::string_view path) {
+  std::string key;
+  key.reserve(pluginKey.size() + path.size() + 2);
+  key.append(pluginKey);
+  key.push_back('.');
+  key.append(path);
+  return key;
+}
+
+const PluginConfigSpec* findPluginSpec(std::string pluginKey, std::string path) {
+  auto groupIt = pluginConfigSpecs.find(pluginKey);
+  if (groupIt == pluginConfigSpecs.end())
+    return nullptr;
+
+  auto ruleIt = groupIt->second.find(path);
+  if (ruleIt == groupIt->second.end())
+    return nullptr;
+
+  return &ruleIt->second;
+}
 
 std::string getInstallDir() {
 #ifdef _WIN32
@@ -302,6 +329,129 @@ template <typename T> void setNodeByPath(YAML::Node& node, std::string_view path
   setNodeByPath<T>(child, path.substr(dot + 1), value);
 }
 
+bool registerPluginConfigOption(void* pluginContext, const char* path, const Config::PluginConfigValue* defaultValue,
+                                const Config::PluginConfigSpec* descriptor) {
+  const auto plugin = static_cast<Plugin::PluginInstance*>(pluginContext);
+  if (!plugin)
+    return false;
+
+  const std::string pluginKey = plugin->key;
+  const std::string keyPath = std::string(path);
+
+  if (pluginKey.empty() || keyPath.empty())
+    return false;
+
+  const std::string yamlPath = "plugins." + pluginKey + "." + keyPath;
+  const std::string uniquePluginKey = makePluginPathKey(pluginKey, path);
+  if (registeredPluginPaths.contains(uniquePluginKey)) {
+    LOG_ERROR("Duplicate plugin config option registration for '" << yamlPath << "'");
+    return false;
+  }
+  registeredPluginPaths.insert(uniquePluginKey);
+
+  if (!plugin->displayName.empty())
+    pluginDisplayNames[pluginKey] = plugin->displayName;
+  else if (!pluginDisplayNames.contains(pluginKey))
+    pluginDisplayNames[pluginKey] = pluginKey;
+
+  PluginConfigSpec& rule = pluginConfigSpecs[pluginKey][std::string(path)];
+  PluginConfigSpec empty;
+  rule = descriptor ? *descriptor : empty;
+  rule.type = static_cast<PluginConfigType>(defaultValue->index());
+  if (rule.label.empty())
+    rule.label = std::string(path);
+
+  if (rule.type == PluginConfigType::Int) {
+    rule.detentsFloat.clear();
+    rule.choices.clear();
+  } else if (rule.type == PluginConfigType::Float) {
+    rule.detentsInt.clear();
+    rule.choices.clear();
+  } else if (rule.type == PluginConfigType::String) {
+    rule.detentsInt.clear();
+    rule.detentsFloat.clear();
+  } else {
+    rule.detentsInt.clear();
+    rule.detentsFloat.clear();
+    rule.choices.clear();
+  }
+
+  PluginConfigValue value = *defaultValue;
+  const bool oldBroken = broken;
+  auto node = getNode(pluginValuesNode, uniquePluginKey);
+  broken = oldBroken;
+  if (node.has_value()) {
+    try {
+      switch (rule.type) {
+      case PluginConfigType::Bool:
+        value = node.value().as<bool>();
+        break;
+      case PluginConfigType::Int:
+        value = node.value().as<int>();
+        break;
+      case PluginConfigType::Float:
+        value = node.value().as<float>();
+        break;
+      case PluginConfigType::String:
+        value = node.value().as<std::string>();
+        break;
+      }
+    } catch (const std::exception& e) {
+      LOG_ERROR("Failed to parse plugin config value for '" << yamlPath << "': " << e.what());
+    }
+  } else {
+    LOG_DEBUG("No plugin option found for '" << yamlPath << "', using default");
+  }
+
+  return setPluginConfigOption(pluginContext, path, &value);
+}
+
+bool getPluginConfigOption(void* pluginContext, const char* path, Config::PluginConfigValue* outValue) {
+  const std::string pluginKey = static_cast<Plugin::PluginInstance*>(pluginContext)->key;
+  const PluginConfigSpec* rule = findPluginSpec(pluginKey, path);
+  if (!rule)
+    return false;
+
+  const std::string pluginPath = std::string(pluginKey) + "." + std::string(path);
+  const bool oldBroken = broken;
+  auto node = getNode(pluginValuesNode, pluginPath);
+  broken = oldBroken;
+  if (!node.has_value())
+    return false;
+
+  try {
+    switch (rule->type) {
+    case PluginConfigType::Bool:
+      *outValue = std::move(node.value().as<bool>());
+      return true;
+    case PluginConfigType::Int:
+      *outValue = std::move(node.value().as<int>());
+      return true;
+    case PluginConfigType::Float:
+      *outValue = std::move(node.value().as<float>());
+      return true;
+    case PluginConfigType::String:
+      *outValue = std::move(node.value().as<std::string>());
+      return true;
+    }
+  } catch (const std::exception&) {
+    return false;
+  }
+
+  return false;
+}
+
+bool setPluginConfigOption(void* pluginContext, const char* path, const PluginConfigValue* value) {
+  const std::string pluginKey = static_cast<Plugin::PluginInstance*>(pluginContext)->key;
+  const PluginConfigSpec* rule = findPluginSpec(pluginKey, path);
+  if (!rule || rule->type != static_cast<PluginConfigType>(value->index()))
+    return false;
+
+  YAML::Node pluginNodeOut = pluginValuesNode[pluginKey];
+  std::visit([&](const auto& v) { setNodeByPath(pluginNodeOut, path, v); }, *value);
+  return true;
+}
+
 void load(bool recovering) {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
@@ -330,8 +480,14 @@ void load(bool recovering) {
 #endif
 
   // If the config fails to load we still want the watch to be created
-  if (configData.IsNull())
+  if (configData.IsNull()) {
+    pluginValuesNode = YAML::Node(YAML::NodeType::Map);
     return;
+  }
+
+  pluginValuesNode = configData["plugins"];
+  if (!pluginValuesNode.IsMap())
+    pluginValuesNode = YAML::Node(YAML::NodeType::Map);
 
   // Load visualizer window layouts
   get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers", options.visualizers);
@@ -374,6 +530,9 @@ bool save() {
     }
     root["visualizers"] = vis;
   }
+
+  if (pluginValuesNode.IsDefined())
+    root["plugins"] = pluginValuesNode;
 
   YAML::Emitter out;
   for (auto it = root.begin(); it != root.end(); ++it) {

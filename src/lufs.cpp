@@ -22,12 +22,31 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace LUFS {
 
-WindowManager::VisualizerWindow* window;
+class LUFSVisualizer : public WindowManager::VisualizerWindow {
+public:
+  LUFSVisualizer() {
+    id = "lufs";
+    displayName = "LUFS";
+  }
+
+  void configure() override {
+    if (Config::options.lufs.label == "on")
+      forceWidth = 150;
+    else if (Config::options.lufs.label == "compact")
+      forceWidth = 100;
+    else
+      forceWidth = 70;
+  }
+
+  float scaleDB(float db);
+  void render(SDLWindow::State* state) override;
+};
+
+std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<LUFSVisualizer>(); }
 
 // Layout configuration constants
 constexpr size_t LABEL_WIDTH = 25;
@@ -43,7 +62,7 @@ constexpr size_t TOP_HEIGHT_PERCENT = 10;
 constexpr size_t FONT_SIZE_LABELS = 10;
 constexpr size_t FONT_SIZE_LUFS = 14;
 
-float scaleDB(float db) {
+float LUFSVisualizer::scaleDB(float db) {
   if (Config::options.lufs.scale == "log") {
     // Map dB range from -70 to 0
     float logMax = 4.262679f; // logf(71.0f)
@@ -57,13 +76,10 @@ float scaleDB(float db) {
   }
 }
 
-void render() {
-  if (!window)
-    return;
+void LUFSVisualizer::render(SDLWindow::State* state) {
+  auto* window = this;
 
-  auto& state = SDLWindow::states[window->group];
-
-  WindowManager::setViewport(window->x, window->width, state.windowSizes.second);
+  WindowManager::setViewport(window->x, window->width, state->windowSizes.second);
 
   const float& lufs = DSP::LUFS::lufs;
 
@@ -73,8 +89,8 @@ void render() {
 
   // Calculate layout positions
   const size_t topHeight =
-      state.windowSizes.second * (TOP_HEIGHT_PERCENT / 100.0f) + (Config::options.lufs.label == "compact" ? 30 : 0);
-  const size_t barHeight = state.windowSizes.second - topHeight;
+      state->windowSizes.second * (TOP_HEIGHT_PERCENT / 100.0f) + (Config::options.lufs.label == "compact" ? 30 : 0);
+  const size_t barHeight = state->windowSizes.second - topHeight;
 
   // Peak bars positions
   const size_t leftPeakX = LABEL_WIDTH + LABEL_GAP;
@@ -85,15 +101,15 @@ void render() {
 
   // Draw background bar
   Graphics::drawFilledRect(lufsBarX, 0, LUFS_BAR_WIDTH,
-                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state->windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgAccent);
 
   // Draw peak background bars
   Graphics::drawFilledRect(leftPeakX, 0, PEAK_BAR_WIDTH,
-                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state->windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgAccent);
   Graphics::drawFilledRect(rightPeakX, 0, PEAK_BAR_WIDTH,
-                           state.windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
+                           state->windowSizes.second - (Config::options.lufs.label == "compact" ? 35 : 0),
                            Theme::colors.bgAccent);
 
   // Draw zero lines in each background rect at barHeight
@@ -108,7 +124,7 @@ void render() {
   for (const auto& label : labels) {
     // Calculate y position based on dB value (0dB at top, -70dB at bottom)
     float normalizedPos = scaleDB(label);
-    size_t y = state.windowSizes.second - (topHeight + (1.0f - normalizedPos) * barHeight);
+    size_t y = state->windowSizes.second - (topHeight + (1.0f - normalizedPos) * barHeight);
 
     // Draw label (right aligned)
     std::string labelText = std::to_string(static_cast<int>(label));
@@ -135,8 +151,8 @@ void render() {
 
     size_t leftBarHeight = leftPos * barHeight;
     size_t rightBarHeight = rightPos * barHeight;
-    size_t leftBarY = state.windowSizes.second - (topHeight + barHeight);
-    size_t rightBarY = state.windowSizes.second - (topHeight + barHeight);
+    size_t leftBarY = state->windowSizes.second - (topHeight + barHeight);
+    size_t rightBarY = state->windowSizes.second - (topHeight + barHeight);
 
     // Draw left peak bar
     Graphics::drawFilledRect(leftPeakX, leftBarY, PEAK_BAR_WIDTH, leftBarHeight, Theme::colors.color);
@@ -152,7 +168,7 @@ void render() {
   // Calculate bar height based on LUFS value
   float normalizedPos = scaleDB(lufs);
   size_t barFillHeight = normalizedPos * barHeight;
-  size_t barFillY = state.windowSizes.second - (topHeight + barHeight);
+  size_t barFillY = state->windowSizes.second - (topHeight + barHeight);
 
   // Draw the LUFS bar
   Graphics::drawFilledRect(lufsBarX, barFillY, LUFS_BAR_WIDTH, barFillHeight, color);
@@ -182,7 +198,7 @@ void render() {
     size_t boxY = textY - LUFS_TEXT_BOX_VERTICAL_PADDING;
 
     // Clamp box position to stay within window bounds
-    boxY = std::max(0, std::min(state.windowSizes.second - static_cast<int>(boxHeight), static_cast<int>(boxY)));
+    boxY = std::max(0, std::min(state->windowSizes.second - static_cast<int>(boxHeight), static_cast<int>(boxY)));
 
     // Update text position to match clamped box position
     textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;
@@ -198,7 +214,7 @@ void render() {
     size_t boxWidth = w + (LUFS_TEXT_BOX_PADDING * 2);
     size_t boxHeight = h + (LUFS_TEXT_BOX_VERTICAL_PADDING * 2);
     size_t boxX = boxWidth > window->width ? 0 : (window->width - boxWidth) / 2;
-    size_t boxY = state.windowSizes.second - (40 - boxHeight / 2);
+    size_t boxY = state->windowSizes.second - (40 - boxHeight / 2);
 
     // Calculate text position relative to box
     size_t textY = boxY + LUFS_TEXT_BOX_VERTICAL_PADDING;

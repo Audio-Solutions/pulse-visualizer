@@ -21,22 +21,28 @@
 #include "include/dsp.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace Waveform {
 
-// Waveform window
-WindowManager::VisualizerWindow* window;
+class WaveformVisualizer : public WindowManager::VisualizerWindow {
+public:
+  WaveformVisualizer() {
+    id = "waveform";
+    displayName = "Waveform";
+  }
 
-void render() {
-  if (!window)
-    return;
+  void render(SDLWindow::State* state) override;
+};
 
-  auto& state = SDLWindow::states[window->group];
+std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<WaveformVisualizer>(); }
+
+void WaveformVisualizer::render(SDLWindow::State* state) {
+  auto* window = this;
+
   SDLWindow::selectWindow(window->group);
 
-  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state.windowSizes.second);
+  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state->windowSizes.second);
 
   const size_t textureWidth = window->phosphor.textureWidth;
   const size_t textureHeight = window->phosphor.textureHeight;
@@ -226,9 +232,9 @@ void render() {
   if (part1 > 0.f) {
     float vertices[] = {0.0f,     0.0f,
                         currentU, 0.0f,
-                        0.0f,     static_cast<float>(state.windowSizes.second),
+                        0.0f,     static_cast<float>(state->windowSizes.second),
                         currentU, 1.0f,
-                        part1,    static_cast<float>(state.windowSizes.second),
+                        part1,    static_cast<float>(state->windowSizes.second),
                         1.0f,     1.0f,
                         part1,    0.0f,
                         1.0f,     0.0f};
@@ -241,11 +247,11 @@ void render() {
                         0.0f,
                         0.0f,
                         part1,
-                        static_cast<float>(state.windowSizes.second),
+                        static_cast<float>(state->windowSizes.second),
                         0.0f,
                         1.0f,
                         static_cast<float>(window->phosphor.textureWidth),
-                        static_cast<float>(state.windowSizes.second),
+                        static_cast<float>(state->windowSizes.second),
                         currentU,
                         1.0f,
                         static_cast<float>(window->phosphor.textureWidth),

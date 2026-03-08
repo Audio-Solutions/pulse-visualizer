@@ -19,17 +19,9 @@
 
 #pragma once
 #include "common.hpp"
+#include "types.hpp"
 
 namespace SDLWindow {
-
-struct State {
-  SDL_Window* win = nullptr;
-  SDL_WindowID winID = 0;
-  SDL_GLContext glContext = nullptr;
-  std::pair<int, int> windowSizes;
-  std::pair<int, int> mousePos;
-  bool focused;
-};
 
 // Global buffer handles
 extern GLuint vertexBuffer;

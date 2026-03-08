@@ -494,6 +494,22 @@ window:
   wayland: false
 ```
 
+### Plugin Settings
+
+Plugin-managed options are stored under the `plugins` top-level key.
+
+```yaml
+plugins:
+  my_plugin:
+    optionA: 5
+    subcategory:
+      optionB: selectableA
+```
+
+- `my_plugin` is defined by the plugin via `pvPluginGetInfo`.
+- Nested keys are created from plugin-registered option paths.
+- Options are read during config load/reload and written by normal config saves.
+
 ## Troubleshooting
 
 ### Common Issues

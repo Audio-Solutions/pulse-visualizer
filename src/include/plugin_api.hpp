@@ -20,11 +20,12 @@
 #pragma once
 #include "types.hpp"
 
-#include <SDL3/SDL.h>
+#include <memory>
 #include <optional>
 #include <stdint.h>
+#include <type_traits>
 
-#define PLUGIN_API_VERSION 1
+#define PLUGIN_API_VERSION 5
 
 #ifdef _WIN32
 #define PV_API extern "C" __declspec(dllexport)
@@ -37,6 +38,21 @@
  */
 struct PvAPI {
   uint32_t apiVersion;
+
+  /**
+   * @brief Plugin identity key used for YAML namespace under plugins.<key>.
+   */
+  const char* pluginKey;
+
+  /**
+   * @brief Human-readable plugin name used in UI headers.
+   */
+  const char* pluginDisplayName;
+
+  /**
+   * @brief Opaque host-owned plugin context pointer.
+   */
+  void* pluginContext;
 
   /**
    * @brief Save configuration to file
@@ -212,6 +228,43 @@ struct PvAPI {
   void (*setViewport)(int x, int width, int height);
 
   /**
+   * @brief Register a visualizer implementation.
+   * @param visualizer Shared visualizer instance to add to registry
+   * @return true on success, false on invalid input
+   */
+  bool (*registerVisualizer)(std::shared_ptr<WindowManager::VisualizerWindow> visualizer);
+
+  /**
+   * @brief Register a plugin configuration option.
+   * @param pluginContext Opaque plugin context provided by the host
+   * @param path Dot-separated option path under plugins.<key>
+   * @param defaultValue Default value used when no override exists
+   * @param descriptor Optional UI metadata and type-specific constraints
+   * @return true on success, false on invalid input or duplicate registration
+   */
+  bool (*registerConfigOptionValue)(void* pluginContext, const char* path,
+                                    const Config::PluginConfigValue* defaultValue,
+                                    const Config::PluginConfigSpec* descriptor);
+
+  /**
+   * @brief Read a plugin configuration value.
+   * @param pluginContext Opaque plugin context provided by the host
+   * @param path Dot-separated option path under plugins.<key>
+   * @param outValue Output pointer receiving the resolved value
+   * @return true if value exists and type matches, false otherwise
+   */
+  bool (*getConfigOptionValue)(void* pluginContext, const char* path, Config::PluginConfigValue* outValue);
+
+  /**
+   * @brief Write a plugin configuration value.
+   * @param pluginContext Opaque plugin context provided by the host
+   * @param path Dot-separated option path under plugins.<key>
+   * @param value New value to write
+   * @return true on success, false on invalid path/type or constraint mismatch
+   */
+  bool (*setConfigOptionValue)(void* pluginContext, const char* path, const Config::PluginConfigValue* value);
+
+  /**
    * @brief Pointer to live configuration state.
    */
   Config::Options* config;
@@ -222,9 +275,87 @@ struct PvAPI {
   Theme::Colors* theme;
 
   /**
+   * @brief Read-only pointer to main audio buffer.
+   */
+  const std::vector<float, AlignedAllocator<float, 32>>* bufferMid;
+
+  /**
+   * @brief Read-only pointer to side audio buffer.
+   */
+  const std::vector<float, AlignedAllocator<float, 32>>* bufferSide;
+
+  /**
+   * @brief Read-only pointer to raw main FFT buffer.
+   */
+  const std::vector<float>* fftMidRaw;
+
+  /**
+   * @brief Read-only pointer to smoothed main FFT buffer.
+   */
+  const std::vector<float>* fftMid;
+
+  /**
+   * @brief Read-only pointer to main FFT phase data.
+   */
+  const std::vector<float>* fftMidPhase;
+
+  /**
+   * @brief Read-only pointer to raw side FFT buffer.
+   */
+  const std::vector<float>* fftSideRaw;
+
+  /**
+   * @brief Read-only pointer to smoothed side FFT buffer.
+   */
+  const std::vector<float>* fftSide;
+
+  /**
+   * @brief Read-only pointer to side FFT phase data.
+   */
+  const std::vector<float>* fftSidePhase;
+
+  /**
+   * @brief Read-only pointer to current ring-buffer write position.
+   */
+  const size_t* writePos;
+
+  /**
+   * @brief Pointer to SDL window state map.
+   */
+  std::unordered_map<std::string, SDLWindow::State>* states;
+
+  /**
    * @brief Pointer to global debug flag.
    */
   bool* debug;
+
+  /**
+   * @brief Type-safe convenience wrapper for registering a plugin config option.
+   * @tparam T Option value type (`bool`, `int`, `float`, `std::string`)
+   * @param path Dot-separated option path relative to this plugin namespace
+   * @param defaultValue Default value used when no value exists in config
+   * @param descriptor Optional metadata and detents/choices for UI behavior
+   * @return true on success, false on invalid input or duplicate registration
+   */
+  template <typename T>
+  bool registerConfigOption(std::string path, T defaultValue, const Config::PluginConfigSpec& descriptor = {}) const;
+
+  /**
+   * @brief Type-safe convenience wrapper for reading a plugin config option.
+   * @tparam T Option value type (`bool`, `int`, `float`, `std::string`)
+   * @param path Dot-separated option path relative to this plugin namespace
+   * @return Resolved value on success, `std::nullopt` if missing or type mismatch
+   */
+  template <typename T> std::optional<T> getConfigOption(std::string path) const;
+
+  /**
+   * @brief Type-safe convenience wrapper for writing a plugin config option.
+   * @tparam T Option value type (`bool`, `int`, `float`, `std::string`)
+   * @param path Dot-separated option path relative to this plugin namespace
+   * @param value New value to write
+   * @return true on success, false on invalid path/type or constraint mismatch
+   */
+  template <typename T> bool setConfigOption(std::string path, T value) const;
 };
 
 /** @brief Plugin entry point type for initialization. */
@@ -237,6 +368,10 @@ using pvPluginStopFn = void (*)(void);
 using pvPluginDrawFn = void (*)(void);
 /** @brief Plugin entry point type for SDL event handling. */
 using pvPluginHandleEventFn = void (*)(SDL_Event& event);
+/** @brief Plugin metadata provider entry point type. */
+using pvPluginGetInfoFn = void (*)(const char** key, const char** displayName);
+/** @brief Plugin config reload notification type. */
+using pvPluginConfigReloadFn = void (*)(void);
 
 /**
  * @brief Initialize plugin with host API.
@@ -265,3 +400,58 @@ PV_API void draw();
  * @param event Event from the host event loop
  */
 PV_API void handleEvent(SDL_Event& event);
+
+/**
+ * @brief Provide plugin key and display name metadata.
+ * @param key Stable plugin key used in config YAML
+ * @param displayName Human-readable plugin name for UI
+ */
+PV_API void pvPluginGetInfo(const char** key, const char** displayName);
+
+/**
+ * @brief Notify plugin that host config was reloaded.
+ */
+PV_API void pvPluginOnConfigReload();
+
+template <typename T>
+inline bool PvAPI::registerConfigOption(std::string path, T defaultValue,
+                                        const Config::PluginConfigSpec& descriptor) const {
+  static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, float> ||
+                std::is_same_v<T, std::string>);
+  if (!registerConfigOptionValue)
+    return false;
+
+  return std::visit(
+      [&](const Config::PluginConfigValue& value) {
+        return registerConfigOptionValue(pluginContext, path.c_str(), &value, &descriptor);
+      },
+      std::variant<Config::PluginConfigValue> {Config::PluginConfigValue {std::move(defaultValue)}});
+}
+
+template <typename T> inline std::optional<T> PvAPI::getConfigOption(std::string path) const {
+  static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, float> ||
+                std::is_same_v<T, std::string>);
+  if (!getConfigOptionValue)
+    return std::nullopt;
+
+  Config::PluginConfigValue value;
+  if (!getConfigOptionValue(pluginContext, path.c_str(), &value))
+    return std::nullopt;
+
+  if (const T* typed = std::get_if<T>(&value))
+    return *typed;
+  return std::nullopt;
+}
+
+template <typename T> inline bool PvAPI::setConfigOption(std::string path, T value) const {
+  static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, float> ||
+                std::is_same_v<T, std::string>);
+  if (!setConfigOptionValue)
+    return false;
+
+  return std::visit(
+      [&](const Config::PluginConfigValue& resolvedValue) {
+        return setConfigOptionValue(pluginContext, path.c_str(), &resolvedValue);
+      },
+      std::variant<Config::PluginConfigValue> {Config::PluginConfigValue {std::move(value)}});
+}

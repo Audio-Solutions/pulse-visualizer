@@ -22,7 +22,6 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 #include <algorithm>
@@ -30,15 +29,29 @@
 
 namespace Spectrogram {
 
-// Spectrogram window
-WindowManager::VisualizerWindow* window;
+class SpectrogramVisualizer : public WindowManager::VisualizerWindow {
+public:
+  SpectrogramVisualizer() {
+    id = "spectrogram";
+    displayName = "Spectrogram";
+  }
+
+  std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase, float frameDt);
+  void render(SDLWindow::State* state) override;
+};
+
+std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
+  return std::make_shared<SpectrogramVisualizer>();
+}
 
 /**
  * @brief Map spectrum data to visualization format
  * @param in Input spectrum data
  * @return Mapped spectrum data
  */
-std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase, float frameDt) {
+std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase,
+                                                       float frameDt) {
+  auto* window = this;
   static std::vector<float> spectrum;
   spectrum.assign(window->phosphor.textureHeight, 0.0f);
 
@@ -205,17 +218,14 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
   return spectrum;
 }
 
-void render() {
-  if (!window)
-    return;
-
-  auto& state = SDLWindow::states[window->group];
+void SpectrogramVisualizer::render(SDLWindow::State* state) {
+  auto* window = this;
 
   // Select the window for rendering
   SDLWindow::selectWindow(window->group);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state.windowSizes.second);
+  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state->windowSizes.second);
 
   static size_t current = 0;
 
@@ -326,9 +336,9 @@ void render() {
   if (part1 > 0.f) {
     float vertices[] = {0.0f,     0.0f,
                         currentU, 0.0f,
-                        0.0f,     (float)state.windowSizes.second,
+                        0.0f,     (float)state->windowSizes.second,
                         currentU, 1.0f,
-                        part1,    (float)state.windowSizes.second,
+                        part1,    (float)state->windowSizes.second,
                         1.0f,     1.0f,
                         part1,    0.0f,
                         1.0f,     0.0f};
@@ -341,11 +351,11 @@ void render() {
                         0.0f,
                         0.0f,
                         part1,
-                        (float)state.windowSizes.second,
+                        (float)state->windowSizes.second,
                         0.0f,
                         1.0f,
                         (float)window->phosphor.textureWidth,
-                        (float)state.windowSizes.second,
+                        (float)state->windowSizes.second,
                         currentU,
                         1.0f,
                         (float)window->phosphor.textureWidth,

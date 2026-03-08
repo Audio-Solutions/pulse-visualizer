@@ -22,20 +22,29 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
 #include "include/window_manager.hpp"
 
 namespace Oscilloscope {
 
-// Oscilloscope data and window
-std::vector<std::pair<float, float>> points;
-WindowManager::VisualizerWindow* window;
+class OscilloscopeVisualizer : public WindowManager::VisualizerWindow {
+public:
+  std::vector<std::pair<float, float>> points;
 
-void render() {
-  if (!window)
-    return;
+  OscilloscopeVisualizer() {
+    id = "oscilloscope";
+    displayName = "Oscilloscope";
+  }
 
-  auto& state = SDLWindow::states[window->group];
+  void render(SDLWindow::State* state) override;
+};
+
+std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
+  return std::make_shared<OscilloscopeVisualizer>();
+}
+
+void OscilloscopeVisualizer::render(SDLWindow::State* state) {
+  auto& points = this->points;
+  auto* window = this;
 
   // Calculate number of samples to display
   size_t samples = Config::options.oscilloscope.window * Config::options.audio.sample_rate / 1000;
@@ -79,14 +88,14 @@ void render() {
   points.resize(samples);
   const float scale = (Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                                Config::options.oscilloscope.rotation == Config::ROTATION_270
-                           ? static_cast<float>(state.windowSizes.second)
+                           ? static_cast<float>(state->windowSizes.second)
                            : static_cast<float>(window->width)) /
                       samples;
 
   float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                          Config::options.oscilloscope.rotation == Config::ROTATION_270
                      ? window->width
-                     : state.windowSizes.second;
+                     : state->windowSizes.second;
 
   for (size_t i = 0; i < samples; i++) {
     size_t pos = (target + i - fir_delay) % DSP::bufferSize;
@@ -124,10 +133,10 @@ void render() {
       points[i] = {window->width - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {window->width - x, state.windowSizes.second - y};
+      points[i] = {window->width - x, state->windowSizes.second - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, state.windowSizes.second - x};
+      points[i] = {y, state->windowSizes.second - x};
       break;
     }
   }
@@ -148,7 +157,7 @@ void render() {
 
     // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state.windowSizes.second);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state->windowSizes.second);
     energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
 
     // Calculate energy for each line segment
@@ -246,5 +255,4 @@ void render() {
       Graphics::drawLines(window, points, color);
   }
 }
-
 } // namespace Oscilloscope

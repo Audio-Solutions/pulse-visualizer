@@ -23,7 +23,7 @@
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
-#include "include/visualizers.hpp"
+#include "include/visualizer_registry.hpp"
 
 namespace WindowManager {
 
@@ -31,9 +31,32 @@ namespace WindowManager {
 float dt;
 
 // Global window and splitter containers
-std::map<std::string, std::vector<VisualizerWindow>> windows;
+std::map<std::string, std::vector<std::shared_ptr<VisualizerWindow>>> windows;
 std::map<std::string, std::vector<Splitter>> splitters;
 std::vector<std::string> markedForDeletion;
+
+VisualizerWindow* findWindowById(const std::string& id) {
+  for (auto& [group, vec] : windows) {
+    for (auto& window : vec) {
+      if (window && window->id == id)
+        return window.get();
+    }
+  }
+  return nullptr;
+}
+
+std::optional<size_t> findWindowIndex(const std::string& group, const VisualizerWindow* window) {
+  auto itGroup = windows.find(group);
+  if (itGroup == windows.end() || !window)
+    return std::nullopt;
+
+  auto& groupWindows = itGroup->second;
+  auto it = std::find_if(groupWindows.begin(), groupWindows.end(), [&](const auto& w) { return w.get() == window; });
+  if (it == groupWindows.end())
+    return std::nullopt;
+
+  return static_cast<size_t>(std::distance(groupWindows.begin(), it));
+}
 
 void setViewport(int x, int width, int height) {
   // Set OpenGL viewport and projection matrix for rendering
@@ -124,7 +147,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
   bool isThisGroup = SDLWindow::states[group].winID == event.window.windowID;
-  size_t index;
+  size_t index = 0;
   switch (event.type) {
   case SDL_EVENT_MOUSE_MOTION:
     if (!isThisGroup)
@@ -137,17 +160,22 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     if (!isThisGroup)
       break;
     if (event.button.button == SDL_BUTTON_LEFT) {
-      index = this - windows[group].data();
+      {
+        auto maybeIndex = findWindowIndex(group, this);
+        if (!maybeIndex)
+          break;
+        index = *maybeIndex;
 
-      if (event.button.x >= x && event.button.x < x + width) {
-        if (buttonPressed(-1, event.button.x, event.button.y))
-          swapVisualizer<Direction::Left>(index, group);
-        else if (buttonPressed(1, event.button.x, event.button.y))
-          swapVisualizer<Direction::Right>(index, group);
-        else if (buttonPressed(2, event.button.x, event.button.y)) {
-          popWindow(index, group, true);
-        } else if (buttonPressed(-2, event.button.x, event.button.y)) {
-          popWindow(index, group, false);
+        if (event.button.x >= x && event.button.x < x + width) {
+          if (buttonPressed(-1, event.button.x, event.button.y))
+            swapVisualizer<Direction::Left>(index, group);
+          else if (buttonPressed(1, event.button.x, event.button.y))
+            swapVisualizer<Direction::Right>(index, group);
+          else if (buttonPressed(2, event.button.x, event.button.y)) {
+            popWindow(index, group, true);
+          } else if (buttonPressed(-2, event.button.x, event.button.y)) {
+            popWindow(index, group, false);
+          }
         }
       }
       break;
@@ -156,7 +184,7 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
       hovering = false;
       for (auto& [k, vec] : windows)
         for (auto& w : vec)
-          w.hovering = false;
+          w->hovering = false;
       for (auto& [k, vec] : splitters)
         for (auto& s : vec)
           s.hovering = false;
@@ -445,21 +473,24 @@ void renderAll() {
   // Render all visualizer windows
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.group);
-      if (window.render)
-        window.render();
+      auto it = SDLWindow::states.find(window->group);
+      if (it == SDLWindow::states.end())
+        continue;
+
+      SDLWindow::selectWindow(window->group);
+      window->render(&it->second);
     }
   }
 
   // Draw arrows for each window
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.group);
-      if (SDLWindow::states[window.group].focused && window.hovering) {
-        window.drawArrow(-1);
-        window.drawArrow(1);
-        window.drawArrow(2);
-        window.drawArrow(-2);
+      SDLWindow::selectWindow(window->group);
+      if (SDLWindow::states[window->group].focused && window->hovering) {
+        window->drawArrow(-1);
+        window->drawArrow(1);
+        window->drawArrow(2);
+        window->drawArrow(-2);
       }
     }
   }
@@ -469,8 +500,8 @@ void resizeTextures() {
   // Resize phosphor textures for all windows
   for (auto& [key, vec] : windows) {
     for (auto& window : vec) {
-      SDLWindow::selectWindow(window.group);
-      window.resizeTextures();
+      SDLWindow::selectWindow(window->group);
+      window->resizeTextures();
     }
   }
 }
@@ -480,28 +511,28 @@ void resizeWindows() {
   for (auto& [key, vec] : windows) {
     if (splitters[key].size() == 0) {
       // Single window case
-      vec[0].x = 0;
-      vec[0].width = std::max(SDLWindow::states[vec[0].group].windowSizes.first, MIN_WINDOW_SIZE);
+      vec[0]->x = 0;
+      vec[0]->width = std::max(SDLWindow::states[vec[0]->group].windowSizes.first, MIN_WINDOW_SIZE);
     } else {
       // Multiple windows with splitters
-      vec[0].x = 0;
-      vec[0].width = std::max(splitters[key][0].x - 1, MIN_WINDOW_SIZE);
+      vec[0]->x = 0;
+      vec[0]->width = std::max(splitters[key][0].x - 1, MIN_WINDOW_SIZE);
       for (int i = 1; i < static_cast<int>(vec.size()) - 1; i++) {
-        vec[i].x = splitters[key][i - 1].x + 1;
-        vec[i].width = std::max(splitters[key][i].x - splitters[key][i - 1].x - 2, MIN_WINDOW_SIZE);
+        vec[i]->x = splitters[key][i - 1].x + 1;
+        vec[i]->width = std::max(splitters[key][i].x - splitters[key][i - 1].x - 2, MIN_WINDOW_SIZE);
       }
 
-      vec.back().x = splitters[key].back().x + 1;
-      vec.back().width =
-          std::max(SDLWindow::states[vec.back().group].windowSizes.first - vec.back().x - 1, MIN_WINDOW_SIZE);
+      vec.back()->x = splitters[key].back().x + 1;
+      vec.back()->width =
+          std::max(SDLWindow::states[vec.back()->group].windowSizes.first - vec.back()->x - 1, MIN_WINDOW_SIZE);
     }
   }
 }
 
 int moveSplitter(std::string key, int index, int targetX) {
   // Get references to adjacent windows and splitters
-  VisualizerWindow* left = &windows[key][index];
-  VisualizerWindow* right = &windows[key][index + 1];
+  VisualizerWindow* left = windows[key][index].get();
+  VisualizerWindow* right = windows[key][index + 1].get();
   Splitter* splitter = &splitters[key][index];
   Splitter* splitterLeft = (index != 0 ? &splitters[key][index - 1] : nullptr);
   Splitter* splitterRight =
@@ -612,15 +643,21 @@ void updateSplitters() {
 
   // Special handling for centered oscilloscope
   if (Config::options.oscilloscope.centered) {
-    for (auto& [key, windowVec] : windows) {
-      for (size_t i = 0; i < windowVec.size(); ++i) {
-        if (windowVec[i].render == Oscilloscope::render) {
-          int mainWindowWidth = SDLWindow::states[key].windowSizes.first;
-          // Mirror right splitter if left splitter is in left half of screen
-          if (i > 0 && i < splitters[key].size() && splitters[key][i - 1].x < mainWindowWidth / 2 - MIN_WIDTH / 2) {
+    auto* oscilloscopeWindow = findWindowById("oscilloscope");
+    if (oscilloscopeWindow) {
+      const std::string& key = oscilloscopeWindow->group;
+      auto maybeIndex = findWindowIndex(key, oscilloscopeWindow);
+      if (maybeIndex) {
+        size_t i = *maybeIndex;
+        int mainWindowWidth = SDLWindow::states[key].windowSizes.first;
+        // Mirror right splitter if left splitter is in left half of screen
+        if (i > 0 && i < splitters[key].size()) {
+          if (splitters[key][i - 1].x < mainWindowWidth / 2 - MIN_WIDTH / 2) {
             splitters[key][i].x = mainWindowWidth - splitters[key][i - 1].x;
+            splitters[key][i].draggable = false;
+          } else {
+            splitters[key][i].draggable = true;
           }
-          break;
         }
       }
     }
@@ -645,28 +682,6 @@ void VisualizerWindow::cleanup() {
 }
 
 void reorder() {
-  // Define visualizer render functions and their window pointers
-  std::vector<std::pair<void (*)(), WindowManager::VisualizerWindow*&>> visualizers = {
-      {SpectrumAnalyzer::render, SpectrumAnalyzer::window},
-      {Lissajous::render,        Lissajous::window       },
-      {Oscilloscope::render,     Oscilloscope::window    },
-      {Spectrogram::render,      Spectrogram::window     },
-      {Waveform::render,         Waveform::window        },
-      {LUFS::render,             LUFS::window            },
-      {VU::render,               VU::window              }
-  };
-
-  // Map visualizer names to their indices
-  std::map<std::string, size_t> visualizerMap = {
-      {"spectrum_analyzer", 0},
-      {"lissajous",         1},
-      {"oscilloscope",      2},
-      {"spectrogram",       3},
-      {"waveform",          4},
-      {"lufs",              5},
-      {"vu",                6}
-  };
-
   // loop over the keys in the map
   for (auto& [key, value] : Config::options.visualizers) {
 
@@ -682,7 +697,7 @@ void reorder() {
     // Cleanup existing windows in this group before clearing
     if (windows.find(key) != windows.end()) {
       for (auto& window : windows[key]) {
-        window.cleanup();
+        window->cleanup();
       }
     }
 
@@ -699,48 +714,21 @@ void reorder() {
     // Create windows in the order specified in configuration
     for (size_t i = 0; i < value.size(); ++i) {
       const std::string& visName = value[i];
-      auto it = visualizerMap.find(visName);
-      if (it == visualizerMap.end()) {
+      auto instance = VisualizerRegistry::find(visName);
+      if (!instance) {
         LOG_ERROR(std::string("Warning: Unknown visualizer '") + visName + "' in configuration");
         continue;
       }
 
-      size_t idx = it->second;
-      VisualizerWindow vw {};
-
-      vw.group = key;
-
-      // Set aspect ratio for Lissajous (square) visualizer
-      vw.aspectRatio = (visName == "lissajous") ? 1.0f : 0.0f;
-      vw.forceWidth = 0;
-      if (visName == "lufs") {
-        if (Config::options.lufs.label == "on")
-          vw.forceWidth = 150;
-        else if (Config::options.lufs.label == "compact")
-          vw.forceWidth = 100;
-        else
-          vw.forceWidth = 70;
-      }
-      if (visName == "vu") {
-        if (Config::options.vu.style == "digital")
-          vw.forceWidth = 60;
-        else
-          vw.aspectRatio = 2.0f;
-      }
-
-      if (visName == "spectrum_analyzer" && Config::options.fft.sphere.enabled) {
-        vw.aspectRatio = 1.0f;
-      }
-
-      vw.render = visualizers[idx].first;
-      windows[key].push_back(vw);
-      visualizers[idx].second = &windows[key].back();
+      instance->group = key;
+      instance->configure();
+      windows[key].push_back(instance);
 
       // Create splitter between windows
       if (i + 1 < value.size()) {
         Splitter s;
-        // Disable dragging for first splitter if Lissajous or LUFS is first
-        if (i == 0 && (vw.aspectRatio != 0.0f || vw.forceWidth != 0))
+        // Disable dragging for first splitter if fixed-width visualizer is first
+        if (i == 0 && (instance->aspectRatio != 0.0f || instance->forceWidth != 0))
           s.draggable = false;
         s.group = key;
         splitters[key].push_back(s);
@@ -748,16 +736,16 @@ void reorder() {
     }
 
     // Unset forceWidth or aspectRatio for last window if all windows have enforcers
-    if (!windows[key].empty() && std::all_of(windows[key].begin(), windows[key].end(), [](const VisualizerWindow& vw) {
-          return vw.forceWidth != 0 || vw.aspectRatio != 0.0f;
+    if (!windows[key].empty() && std::all_of(windows[key].begin(), windows[key].end(), [](const auto& vw) {
+          return vw->forceWidth != 0 || vw->aspectRatio != 0.0f;
         })) {
-      windows[key].back().forceWidth = 0;
-      windows[key].back().aspectRatio = 0.0f;
+      windows[key].back()->forceWidth = 0;
+      windows[key].back()->aspectRatio = 0.0f;
     }
 
-    // Disable dragging for last splitter if Lissajous or LUFS is last
+    // Disable dragging for last splitter if if fixed-width visualizer is last
     if (!windows[key].empty() && !splitters[key].empty() &&
-        (windows[key].back().aspectRatio != 0.0f || windows[key].back().forceWidth != 0))
+        (windows[key].back()->aspectRatio != 0.0f || windows[key].back()->forceWidth != 0))
       splitters[key].back().draggable = false;
 
     // Propagate fixed splitters from outside inwards
@@ -765,7 +753,7 @@ void reorder() {
       // Propagate from left to right
       for (size_t i = 1; i < splitters[key].size(); ++i) {
         if (!splitters[key][i - 1].draggable &&
-            (windows[key][i].aspectRatio != 0.0f || windows[key][i].forceWidth != 0)) {
+            (windows[key][i]->aspectRatio != 0.0f || windows[key][i]->forceWidth != 0)) {
           splitters[key][i].draggable = false;
         }
       }
@@ -773,7 +761,7 @@ void reorder() {
       // Propagate from right to left
       for (int i = static_cast<int>(splitters[key].size()) - 2; i >= 0; --i) {
         if (!splitters[key][i + 1].draggable &&
-            (windows[key][i + 1].aspectRatio != 0.0f || windows[key][i + 1].forceWidth != 0)) {
+            (windows[key][i + 1]->aspectRatio != 0.0f || windows[key][i + 1]->forceWidth != 0)) {
           splitters[key][i].draggable = false;
         }
       }
@@ -823,9 +811,9 @@ void deleteMarkedWindows() {
   // Delete stale keys
   for (auto& key : markedForDeletion) {
     for (auto& window : windows[key]) {
-      window.cleanup();
+      window->cleanup();
     }
-    SDLWindow::destroyWindow(windows[key][0].group);
+    SDLWindow::destroyWindow(windows[key][0]->group);
     windows[key].clear();
     splitters[key].clear();
     windows.erase(key);
@@ -836,7 +824,10 @@ void deleteMarkedWindows() {
 
 std::pair<int, int> VisualizerWindow::getArrowPos(int dir) {
   // hide arrows if first or last window in windows array
-  size_t winIdx = this - windows[group].data();
+  auto maybeIndex = findWindowIndex(group, this);
+  if (!maybeIndex)
+    return {-1, -1};
+  size_t winIdx = *maybeIndex;
   bool isLast = winIdx == windows[group].size() - 1;
   bool isFirst = winIdx == 0;
   if ((isLast && dir == 1) || (isFirst && dir == -1))

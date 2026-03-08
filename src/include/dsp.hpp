@@ -19,25 +19,9 @@
 
 #pragma once
 #include "common.hpp"
+#include "types.hpp"
 
 namespace DSP {
-
-// Audio buffer data
-extern std::vector<float, AlignedAllocator<float, 32>> bufferMid;
-extern std::vector<float, AlignedAllocator<float, 32>> bufferSide;
-extern std::vector<float, AlignedAllocator<float, 32>> bandpassed;
-extern std::vector<float, AlignedAllocator<float, 32>> lowpassed;
-
-// FFT data
-extern std::vector<float> fftMidRaw;
-extern std::vector<float> fftMid;
-extern std::vector<float> fftMidPhase;
-extern std::vector<float> fftSideRaw;
-extern std::vector<float> fftSide;
-extern std::vector<float> fftSidePhase;
-
-extern const size_t bufferSize;
-extern size_t writePos;
 
 // Pitch detection
 extern float pitch;

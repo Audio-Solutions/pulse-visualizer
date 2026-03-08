@@ -18,15 +18,94 @@
  */
 
 #pragma once
+
+#include <glad/gl.h>
+// ^ glad needs to be included first
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_opengl.h>
 #include <map>
+#include <span>
 #include <string>
+#include <unordered_map>
+#include <variant>
 #include <vector>
+
+/**
+ * @brief Aligned memory allocator for SIMD operations
+ * @tparam T Element type
+ * @tparam Alignment Memory alignment in bytes
+ */
+template <typename T, std::size_t Alignment> struct AlignedAllocator {
+  using value_type = T;
+
+  AlignedAllocator() noexcept = default;
+
+  template <class U> AlignedAllocator(const AlignedAllocator<U, Alignment>&) noexcept {}
+
+  template <class U> struct rebind {
+    using other = AlignedAllocator<U, Alignment>;
+  };
+
+  T* allocate(std::size_t n) {
+    void* ptr = nullptr;
+#ifdef __linux
+    if (posix_memalign(&ptr, Alignment, n * sizeof(T)) != 0)
+      throw std::bad_alloc();
+#elif defined(_MSC_VER)
+    ptr = _aligned_malloc(n * sizeof(T), Alignment);
+    if (!ptr)
+      throw std::bad_alloc();
+#else
+    ptr = std::aligned_alloc(Alignment, n * sizeof(T));
+    if (!ptr)
+      throw std::bad_alloc();
+#endif
+    return static_cast<T*>(ptr);
+  }
+
+  void deallocate(T* p, std::size_t) noexcept {
+#ifdef _MSC_VER
+    _aligned_free(p);
+#else
+    free(p);
+#endif
+  }
+};
 
 namespace Config {
 /**
  * @brief Display rotation enum used by visualizer components.
  */
 enum Rotation { ROTATION_0 = 0, ROTATION_90 = 1, ROTATION_180 = 2, ROTATION_270 = 3 };
+
+/**
+ * @brief Supported dynamic plugin config scalar types.
+ */
+enum class PluginConfigType { Bool, Int, Float, String };
+
+/**
+ * @brief UI and validation metadata for a plugin config option.
+ */
+struct PluginConfigSpec {
+  PluginConfigType type = PluginConfigType::String;
+  std::string groupKey = "misc";
+  std::string groupLabel = "Misc";
+  std::string label;
+  std::string description;
+  float min = 0.0f;
+  float max = 0.0f;
+  int precision = 1;
+  bool zeroOff = false;
+  bool useTick = false;
+  std::vector<int> detentsInt;
+  std::vector<float> detentsFloat;
+  std::vector<std::string> choices;
+};
+
+/**
+ * @brief Runtime value type for plugin config scalars.
+ */
+using PluginConfigValue = std::variant<bool, int, float, std::string>;
 
 /**
  * @brief Application configuration options structure
@@ -206,6 +285,36 @@ struct Options {
 };
 } // namespace Config
 
+namespace DSP {
+// Audio buffer data
+extern std::vector<float, AlignedAllocator<float, 32>> bufferMid;
+extern std::vector<float, AlignedAllocator<float, 32>> bufferSide;
+extern std::vector<float, AlignedAllocator<float, 32>> bandpassed;
+extern std::vector<float, AlignedAllocator<float, 32>> lowpassed;
+
+// FFT data
+extern std::vector<float> fftMidRaw;
+extern std::vector<float> fftMid;
+extern std::vector<float> fftMidPhase;
+extern std::vector<float> fftSideRaw;
+extern std::vector<float> fftSide;
+extern std::vector<float> fftSidePhase;
+
+extern const size_t bufferSize;
+extern size_t writePos;
+} // namespace DSP
+
+namespace SDLWindow {
+struct State {
+  SDL_Window* win = nullptr;
+  SDL_WindowID winID = 0;
+  SDL_GLContext glContext = nullptr;
+  std::pair<int, int> windowSizes;
+  std::pair<int, int> mousePos;
+  bool focused;
+};
+} // namespace SDLWindow
+
 namespace Theme {
 /**
  * @brief Color scheme structure containing all theme colors
@@ -263,3 +372,61 @@ struct Colors {
   float phosphor_border[4] = {0};
 };
 } // namespace Theme
+
+namespace WindowManager {
+class VisualizerWindow {
+public:
+  std::string id;
+  std::string displayName;
+  std::string group;
+  int x = 0;
+  int width = 0;
+  float aspectRatio = 0;
+  size_t forceWidth = 0;
+  size_t pointCount = 0;
+  bool hovering = false;
+  constexpr static size_t buttonSize = 20;
+  constexpr static size_t buttonPadding = 10;
+
+  virtual ~VisualizerWindow() = default;
+
+  /**
+   * @brief Configure visualizer-specific layout/state on reload.
+   */
+  virtual void configure() {}
+
+  /**
+   * @brief Render this visualizer into the active SDL window context.
+   * @param state Current SDL window state for the target window.
+   */
+  virtual void render(SDLWindow::State*) {}
+
+  struct Phosphor {
+    GLuint energyTextureR = 0;
+    GLuint energyTextureG = 0;
+    GLuint energyTextureB = 0;
+    GLuint tempTextureR = 0;
+    GLuint tempTextureG = 0;
+    GLuint tempTextureB = 0;
+    GLuint tempTexture2R = 0;
+    GLuint tempTexture2G = 0;
+    GLuint tempTexture2B = 0;
+    GLuint tempTexture3R = 0;
+    GLuint tempTexture3G = 0;
+    GLuint tempTexture3B = 0;
+    GLuint outputTexture = 0;
+    int textureWidth = 0;
+    int textureHeight = 0;
+  } phosphor;
+
+  virtual std::pair<int, int> getArrowPos(int dir) final;
+  virtual void drawArrow(int dir) final;
+  virtual bool buttonPressed(int dir, int mouseX, int mouseY) final;
+  virtual bool buttonHovering(int dir, int mouseX, int mouseY) final;
+  virtual void handleEvent(const SDL_Event& event) final;
+  virtual void transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) final;
+  virtual void resizeTextures() final;
+  virtual void draw() final;
+  virtual void cleanup() final;
+};
+} // namespace WindowManager

@@ -140,6 +140,7 @@ enum class PageType {
   Waveform,
   Audio,
   Visualizers,
+  Plugins,
   Window,
   Debug,
   Phosphor,

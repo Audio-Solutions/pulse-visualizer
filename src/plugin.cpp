@@ -20,8 +20,10 @@
 #include "include/plugin.hpp"
 
 #include "include/config.hpp"
+#include "include/dsp.hpp"
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
+#include "include/visualizer_registry.hpp"
 #include "include/window_manager.hpp"
 
 #ifndef _WIN32
@@ -31,10 +33,13 @@
 #endif
 
 namespace Plugin {
-std::vector<PluginInstance> plugins;
+std::deque<PluginInstance> plugins;
 
 PvAPI api {
     .apiVersion = PLUGIN_API_VERSION,
+    .pluginKey = nullptr,
+    .pluginDisplayName = nullptr,
+    .pluginContext = nullptr,
     .saveConfig = Config::save,
     .expandUserPath = expandUserPath,
     .drawLine = Graphics::drawLine,
@@ -55,8 +60,22 @@ PvAPI api {
     .getWindowSize = SDLWindow::getWindowSize,
     .getCursorPos = SDLWindow::getCursorPos,
     .setViewport = WindowManager::setViewport,
+    .registerVisualizer = VisualizerRegistry::registerVisualizer,
+    .registerConfigOptionValue = Config::registerPluginConfigOption,
+    .getConfigOptionValue = Config::getPluginConfigOption,
+    .setConfigOptionValue = Config::setPluginConfigOption,
     .config = &Config::options,
     .theme = &Theme::colors,
+    .bufferMid = &DSP::bufferMid,
+    .bufferSide = &DSP::bufferSide,
+    .fftMidRaw = &DSP::fftMidRaw,
+    .fftMid = &DSP::fftMid,
+    .fftMidPhase = &DSP::fftMidPhase,
+    .fftSideRaw = &DSP::fftSideRaw,
+    .fftSide = &DSP::fftSide,
+    .fftSidePhase = &DSP::fftSidePhase,
+    .writePos = &DSP::writePos,
+    .states = &SDLWindow::states,
     .debug = &CmdlineArgs::debug,
 };
 
@@ -115,31 +134,56 @@ void loadAll() {
       return true;
     };
 
-    PluginInstance pl {};
+    plugins.emplace_back();
+    PluginInstance& pl = plugins.back();
+    pl = PluginInstance {};
     pl.handle = handle;
 
-    if (!loadSymbol(pl.init, "pvPluginInit") || !loadSymbol(pl.start, "pvPluginStart") ||
-        !loadSymbol(pl.stop, "pvPluginStop") || !loadSymbol(pl.draw, "draw") ||
-        !loadSymbol(pl.handleEvent, "handleEvent")) {
+    auto unloadCurrent = [&]() {
 #ifdef _WIN32
-      FreeLibrary(handle);
+      FreeLibrary(static_cast<HMODULE>(handle));
 #else
       dlclose(handle);
 #endif
+      plugins.pop_back();
+    };
+
+    pvPluginGetInfoFn infoFn = nullptr;
+
+    if (!loadSymbol(infoFn, "pvPluginGetInfo") || !loadSymbol(pl.init, "pvPluginInit") ||
+        !loadSymbol(pl.start, "pvPluginStart") || !loadSymbol(pl.stop, "pvPluginStop") ||
+        !loadSymbol(pl.draw, "draw") || !loadSymbol(pl.handleEvent, "handleEvent") ||
+        !loadSymbol(pl.onConfigReload, "pvPluginOnConfigReload")) {
+      unloadCurrent();
       continue;
     }
 
-    if (pl.init(&api) != 0) {
+    {
+      const char* key = nullptr;
+      const char* displayName = nullptr;
+      infoFn(&key, &displayName);
+
+      if (key && key[0] != '\0')
+        pl.key = key;
+      else
+        pl.key = entry.path().stem().string();
+
+      if (displayName && displayName[0] != '\0')
+        pl.displayName = displayName;
+      else
+        pl.displayName = pl.key;
+    }
+
+    pl.api = api;
+    pl.api.pluginKey = pl.key.c_str();
+    pl.api.pluginDisplayName = pl.displayName.c_str();
+    pl.api.pluginContext = &pl;
+
+    if (pl.init(&pl.api) != 0) {
       LOG_ERROR("init returned non-zero");
-#ifdef _WIN32
-      FreeLibrary(handle);
-#else
-      dlclose(handle);
-#endif
+      unloadCurrent();
       continue;
     }
-
-    plugins.push_back(pl);
   }
 }
 
@@ -177,6 +221,13 @@ void handleEvent(SDL_Event& event) {
   for (auto& pl : plugins) {
     if (pl.handleEvent)
       pl.handleEvent(event);
+  }
+}
+
+void notifyConfigReload() {
+  for (auto& pl : plugins) {
+    if (pl.onConfigReload)
+      pl.onConfigReload();
   }
 }
 } // namespace Plugin
