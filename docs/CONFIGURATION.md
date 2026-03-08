@@ -418,7 +418,7 @@ Controls the order and visibility of visualizers in window groups
 Each group (like "main") creates a window with visualizers arranged left-to-right
 Visualizers can be moved between windows by clicking arrow buttons
 Windows can be split by right-clicking to pop out visualizers into new windows
-Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
+Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, waveform, lufs, vu
 Note: you cannot have the same visualizer multiple times either
 in the same window or in different windows.
 Only one instance of a visualizer can exist at a time.
@@ -433,6 +433,34 @@ visualizers:
     - spectrum_analyzer
   additional_window:
     - spectrogram
+    - waveform
+```
+
+### Waveform Settings
+
+Scrolling time-domain envelope display. The renderer groups samples by pixel-width buckets and draws a min→max line
+for each emitted history column.
+
+```yaml
+waveform:
+  # History length in seconds across the full waveform width
+  window: 2.0
+
+  # Frequency split between low and mid bands for color analysis
+  low_mid_split_hz: 250.0
+
+  # Frequency split between mid and high bands for color analysis
+  mid_high_split_hz: 4000.0
+
+  # Display-only tilt for color analysis (dB/oct)
+  # Positive values emphasize highs, negative values emphasize lows
+  slope: 3.0
+
+  # Channel mode: "mono" or "stereo"
+  # In stereo mode waveform follows fft.mode:
+  # - midside => Mid/Side
+  # - leftright => Left/Right
+  mode: stereo
 ```
 
 ### Window Settings

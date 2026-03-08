@@ -121,6 +121,14 @@ struct Options {
     } limits;
   } spectrogram;
 
+  struct Waveform {
+    float window = 2.0f;
+    std::string mode = "stereo";
+    float low_mid_split_hz = 250.0f;
+    float mid_high_split_hz = 4000.0f;
+    float slope = 3.0f;
+  } waveform;
+
   struct Audio {
     float silence_threshold = -100.0f;
     float sample_rate = 44100.0f;

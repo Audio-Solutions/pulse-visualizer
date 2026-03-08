@@ -54,16 +54,17 @@ static std::map<std::string, std::string> vizLabels = {
     {"lissajous",         "Lissajous"        },
     {"oscilloscope",      "Oscilloscope"     },
     {"spectrogram",       "Spectrogram"      },
+    {"waveform",          "Waveform"         },
     {"lufs",              "LUFS"             },
     {"vu",                "VU"               }
 };
 
 static int newWindowCounter = 1;
 
-inline constexpr std::array<PageType, 11> pageOrder = {
-    PageType::Oscilloscope, PageType::Lissajous,   PageType::FFT,    PageType::Spectrogram,
-    PageType::Audio,        PageType::Visualizers, PageType::Window, PageType::Debug,
-    PageType::Phosphor,     PageType::LUFS,        PageType::VU,
+inline constexpr std::array<PageType, 12> pageOrder = {
+    PageType::Oscilloscope, PageType::Lissajous, PageType::FFT,         PageType::Spectrogram,
+    PageType::Waveform,     PageType::Audio,     PageType::Visualizers, PageType::Window,
+    PageType::Debug,        PageType::Phosphor,  PageType::LUFS,        PageType::VU,
 };
 
 inline void ensurePageInitialized(PageType pageType);
@@ -90,6 +91,8 @@ constexpr ConfigSchema::SchemaPage schemaPageFromWindowPage(PageType pageType) {
     return ConfigSchema::SchemaPage::FFT;
   case PageType::Spectrogram:
     return ConfigSchema::SchemaPage::Spectrogram;
+  case PageType::Waveform:
+    return ConfigSchema::SchemaPage::Waveform;
   case PageType::Audio:
     return ConfigSchema::SchemaPage::Audio;
   case PageType::Window:
@@ -1071,6 +1074,8 @@ std::string pageToString(PageType page) {
     return "Spectrum Analyzer";
   case PageType::Spectrogram:
     return "Spectrogram";
+  case PageType::Waveform:
+    return "Waveform";
   case PageType::Audio:
     return "Audio";
   case PageType::Visualizers:

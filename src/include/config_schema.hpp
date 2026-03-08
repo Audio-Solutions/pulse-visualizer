@@ -35,6 +35,7 @@ enum class SchemaPage {
   Lissajous,
   FFT,
   Spectrogram,
+  Waveform,
   Audio,
   Window,
   Debug,
@@ -81,6 +82,8 @@ constexpr SchemaPage pageFromRoot(std::string_view root) {
     return SchemaPage::FFT;
   if (root == "spectrogram")
     return SchemaPage::Spectrogram;
+  if (root == "waveform")
+    return SchemaPage::Waveform;
   if (root == "audio")
     return SchemaPage::Audio;
   if (root == "window" || root == "font")
@@ -278,6 +281,11 @@ inline constexpr std::array fftStereoChoices = {
 inline constexpr std::array spectrogramScaleChoices = {
   Choice<std::string_view>{"log",    "Logarithmic"},
   Choice<std::string_view>{"linear", "Linear"},
+};
+
+inline constexpr std::array waveformModeChoices = {
+  Choice<std::string_view>{"mono",   "Mono"},
+  Choice<std::string_view>{"stereo", "Stereo"},
 };
 
 inline constexpr std::array audioEngineChoices = {
@@ -574,6 +582,27 @@ inline constexpr std::array floatFields = {
     FieldUi<float>::slider(-120.f, 12.f, 1)),
 
   PV_SCHEMA_FIELD(
+    float, waveform.window,
+    "History Length (s)",
+    "Amount of time shown in waveform history.",
+    FieldUi<float>::slider(0.1f, 10.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, waveform.low_mid_split_hz,
+    "Low/Mid Split (Hz)",
+    "Frequency where low band transitions into mid band for waveform color mapping.",
+    FieldUi<float>::slider(40.f, 2000.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, waveform.mid_high_split_hz,
+    "Mid/High Split (Hz)",
+    "Frequency where mid band transitions into high band for waveform color mapping.",
+    FieldUi<float>::slider(500.f, 12000.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, waveform.slope,
+    "Slope Compensation (dB/oct)",
+    "Display-only tilt before waveform color analysis. Positive values emphasize highs.",
+    FieldUi<float>::slider(-12.f, 12.f, 1)),
+
+  PV_SCHEMA_FIELD(
     float, audio.silence_threshold,
     "Silence Threshold (dB)",
     "Signal level below which input is treated as silence.",
@@ -709,6 +738,15 @@ inline constexpr std::array stringFields = {
     "Frequency Scale",
     "Choose logarithmic or linear spacing on the frequency axis.",
     FieldUi<std::string>::enumDrop(std::span<const Choice<std::string_view>>(spectrogramScaleChoices))),
+
+  PV_SCHEMA_FIELD(
+    std::string, waveform.mode,
+    "Channel Mode",
+    "Mono: draw Mid channel only.\n"
+    "Stereo: use FFT channel mapping and split vertically.\n"
+    "When fft.mode is midside, waveform uses Mid/Side.\n"
+    "When fft.mode is leftright, waveform uses Left/Right.",
+    FieldUi<std::string>::enumTick(std::span<const Choice<std::string_view>>(waveformModeChoices))),
 
   PV_SCHEMA_FIELD(
     std::string, audio.engine,

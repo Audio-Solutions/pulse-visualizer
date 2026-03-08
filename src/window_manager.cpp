@@ -651,6 +651,7 @@ void reorder() {
       {Lissajous::render,        Lissajous::window       },
       {Oscilloscope::render,     Oscilloscope::window    },
       {Spectrogram::render,      Spectrogram::window     },
+      {Waveform::render,         Waveform::window        },
       {LUFS::render,             LUFS::window            },
       {VU::render,               VU::window              }
   };
@@ -661,8 +662,9 @@ void reorder() {
       {"lissajous",         1},
       {"oscilloscope",      2},
       {"spectrogram",       3},
-      {"lufs",              4},
-      {"vu",                5}
+      {"waveform",          4},
+      {"lufs",              5},
+      {"vu",                6}
   };
 
   // loop over the keys in the map

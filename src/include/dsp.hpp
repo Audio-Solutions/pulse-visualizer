@@ -159,12 +159,16 @@ bool regenerate();
 
 /**
  * @brief Compute Constant Q Transform
- * @param in Input signal
+ * @param inA Primary input signal buffer
+ * @param inB Secondary input signal buffer
+ * @param gainA Gain applied to @p inA
+ * @param gainB Gain applied to @p inB (ignored when |gainB| <= FLT_EPSILON)
  * @param out Output spectrum
  * @param phase Output phase values per frequency bin
  */
 template <typename Alloc>
-void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::vector<float>& phase);
+void compute(const std::vector<float, Alloc>& inA, const std::vector<float, Alloc>& inB, float gainA, float gainB,
+             std::vector<float>& out, std::vector<float>& phase);
 
 } // namespace ConstantQ
 

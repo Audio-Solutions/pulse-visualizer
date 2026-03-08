@@ -235,6 +235,23 @@ spectrogram:
     # Minimum dB level for spectrogram display
     min_db: -60.0
 
+# Waveform Settings
+# Controls scrolling waveform envelope visualization
+waveform:
+  # History length in seconds across the full width
+  window: 2.0
+  # Frequency split between low and mid bands for color analysis
+  low_mid_split_hz: 250.0
+  # Frequency split between mid and high bands for color analysis
+  mid_high_split_hz: 4000.0
+  # Display-only tilt for color analysis (dB/oct); positive emphasizes highs
+  slope: 3.0
+  # Channel mode: "mono" or "stereo"
+  # In stereo mode waveform follows fft.mode:
+  # - midside => Mid/Side
+  # - leftright => Left/Right
+  mode: stereo
+
 # LUFS Settings
 lufs:
   # Mode: "shortterm", "momentary", "integrated"
@@ -273,12 +290,13 @@ vu:
 # Visualizer Layout Settings
 # Controls the order and visibility of visualizers in window groups
 # Each group (like "main") creates a window with visualizers arranged left-to-right
-# Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, lufs, vu
+# Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, waveform, lufs, vu
 # Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
 # Only one instance of a visualizer can exist at a time.
 visualizers:
   hidden:
     - spectrogram
+    - waveform
   main:
     - vu
     - lufs

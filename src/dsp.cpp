@@ -428,23 +428,39 @@ bool regenerate() {
 }
 
 template <typename Alloc>
-void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::vector<float>& phase) {
+void compute(const std::vector<float, Alloc>& inA, const std::vector<float, Alloc>& inB, float gainA, float gainB,
+             std::vector<float>& out, std::vector<float>& phase) {
+  if (inA.empty())
+    return;
+
+  if (inB.size() != inA.size())
+    return;
+
+  const bool useSecond = std::abs(gainB) > FLT_EPSILON;
+
   out.resize(bins);
   phase.resize(bins);
 
+  const size_t ringSize = inA.size();
+
 #ifdef HAVE_AVX2
   // SIMD-optimized processing function
-  auto process_segment = [](const float* buf, const float* real, const float* imag,
-                            size_t length) -> std::pair<float, float> {
+  auto process_segment = [useSecond, gainA, gainB](const float* bufA, const float* bufB, const float* real,
+                                                   const float* imag, size_t length) -> std::pair<float, float> {
     size_t n = 0;
     __m256 realSumVec = _mm256_setzero_ps();
     __m256 imagSumVec = _mm256_setzero_ps();
+    __m256 gainAVec = _mm256_set1_ps(gainA);
+    __m256 gainBVec = _mm256_set1_ps(gainB);
 
-    bool aligned = (((uintptr_t)buf % 32) == 0) && (((uintptr_t)real % 32) == 0) && (((uintptr_t)imag % 32) == 0);
+    bool aligned = (((uintptr_t)bufA % 32) == 0) && (((uintptr_t)real % 32) == 0) && (((uintptr_t)imag % 32) == 0) &&
+                   (!useSecond || ((uintptr_t)bufB % 32) == 0);
 
     if (aligned) {
       for (; n + 7 < length; n += 8) {
-        __m256 sampleVec = _mm256_load_ps(buf + n);
+        __m256 sampleVec = _mm256_mul_ps(_mm256_load_ps(bufA + n), gainAVec);
+        if (useSecond)
+          sampleVec = _mm256_fmadd_ps(_mm256_load_ps(bufB + n), gainBVec, sampleVec);
         __m256 realVec = _mm256_load_ps(real + n);
         __m256 imagVec = _mm256_load_ps(imag + n);
         realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
@@ -452,7 +468,9 @@ void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::
       }
     } else {
       for (; n + 7 < length; n += 8) {
-        __m256 sampleVec = _mm256_loadu_ps(buf + n);
+        __m256 sampleVec = _mm256_mul_ps(_mm256_loadu_ps(bufA + n), gainAVec);
+        if (useSecond)
+          sampleVec = _mm256_fmadd_ps(_mm256_loadu_ps(bufB + n), gainBVec, sampleVec);
         __m256 realVec = _mm256_loadu_ps(real + n);
         __m256 imagVec = _mm256_loadu_ps(imag + n);
         realSumVec = _mm256_fmadd_ps(sampleVec, realVec, realSumVec);
@@ -464,7 +482,7 @@ void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::
     float imagSum = avx2_reduce_add_ps(imagSumVec);
 
     for (; n < length; ++n) {
-      float sample = buf[n];
+      float sample = bufA[n] * gainA + (useSecond ? bufB[n] * gainB : 0.0f);
       realSum += sample * real[n];
       imagSum -= sample * imag[n];
     }
@@ -478,34 +496,34 @@ void compute(const std::vector<float, Alloc>& in, std::vector<float>& out, std::
     const auto& kReals = reals[k];
     const auto& kImags = imags[k];
     size_t length = lengths[k];
-    size_t start = (writePos + bufferSize - length) % bufferSize;
+    size_t start = (writePos + ringSize - length) % ringSize;
 
     float realSum = 0.f;
     float imagSum = 0.f;
 
 #ifdef HAVE_AVX2
     // Handle buffer wrapping with SIMD optimization
-    if (start + length <= bufferSize) {
-      auto result = process_segment(&in[start], kReals.data(), kImags.data(), length);
+    if (start + length <= ringSize) {
+      auto result = process_segment(&inA[start], &inB[start], kReals.data(), kImags.data(), length);
       realSum = result.first;
       imagSum = result.second;
     } else {
-      size_t firstLen = bufferSize - start;
+      size_t firstLen = ringSize - start;
       size_t secondLen = length - firstLen;
 
-      auto result1 = process_segment(&in[start], kReals.data(), kImags.data(), firstLen);
+      auto result1 = process_segment(&inA[start], &inB[start], kReals.data(), kImags.data(), firstLen);
       realSum += result1.first;
       imagSum += result1.second;
 
-      auto result2 = process_segment(&in[0], kReals.data() + firstLen, kImags.data() + firstLen, secondLen);
+      auto result2 = process_segment(&inA[0], &inB[0], kReals.data() + firstLen, kImags.data() + firstLen, secondLen);
       realSum += result2.first;
       imagSum += result2.second;
     }
 #else
     // Standard processing without SIMD
     for (size_t n = 0; n < length; n++) {
-      size_t bufferIdx = (start + n) % bufferSize;
-      float sample = in[bufferIdx];
+      size_t bufferIdx = (start + n) % ringSize;
+      float sample = inA[bufferIdx] * gainA + (useSecond ? inB[bufferIdx] * gainB : 0.0f);
       realSum += sample * kReals[n];
       imagSum -= sample * kImags[n];
     }
@@ -615,7 +633,11 @@ int FFTMain() {
 
     // Process main channel FFT
     if (Config::options.fft.cqt.enabled) {
-      ConstantQ::compute(bufferMid, fftMidRaw, fftMidPhase);
+      if (Config::options.fft.mode == "leftright") {
+        ConstantQ::compute(bufferMid, bufferSide, -0.5f, 0.5f, fftMidRaw, fftMidPhase);
+      } else {
+        ConstantQ::compute(bufferMid, bufferSide, 1.0f, 0.0f, fftMidRaw, fftMidPhase);
+      }
     } else {
       fftMidRaw.resize(Config::options.fft.size);
       fftMidPhase.resize(Config::options.fft.size);
@@ -764,12 +786,16 @@ int FFTAlt() {
       break;
     dataReadyFFTAlt = false;
 
-    if (Config::options.phosphor.enabled)
+    if (Config::options.phosphor.enabled && Config::options.waveform.mode == "mono")
       continue;
 
     // Process alternative channel FFT (for stereo visualization)
     if (Config::options.fft.cqt.enabled) {
-      ConstantQ::compute(bufferSide, fftSideRaw, fftSidePhase);
+      if (Config::options.fft.mode == "leftright") {
+        ConstantQ::compute(bufferMid, bufferSide, 0.5f, 0.5f, fftSideRaw, fftSidePhase);
+      } else {
+        ConstantQ::compute(bufferSide, bufferMid, 1.0f, 0.0f, fftSideRaw, fftSidePhase);
+      }
     } else {
       fftSideRaw.resize(Config::options.fft.size);
       fftSidePhase.resize(Config::options.fft.size);
@@ -1130,7 +1156,9 @@ void process() {
 } // namespace RMS
 
 // Template instantiations
-template void ConstantQ::compute<AlignedAllocator<float, 32>>(const std::vector<float, AlignedAllocator<float, 32>>& in,
-                                                              std::vector<float>& out, std::vector<float>& phase);
+template void
+ConstantQ::compute<AlignedAllocator<float, 32>>(const std::vector<float, AlignedAllocator<float, 32>>& inA,
+                                                const std::vector<float, AlignedAllocator<float, 32>>& inB, float gainA,
+                                                float gainB, std::vector<float>& out, std::vector<float>& phase);
 
 } // namespace DSP

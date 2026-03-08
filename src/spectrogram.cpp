@@ -30,29 +30,8 @@
 
 namespace Spectrogram {
 
-constexpr float kTwoPi = static_cast<float>(2.0 * M_PI);
-
 // Spectrogram window
 WindowManager::VisualizerWindow* window;
-
-/**
- * @brief Normalize decibel value to 0-1 range for spectrogram
- * @param db Decibel value to normalize
- * @return Normalized value between 0 and 1
- */
-float normalize(float db) {
-  float norm = (db - Config::options.spectrogram.limits.min_db) /
-               (Config::options.spectrogram.limits.max_db - Config::options.spectrogram.limits.min_db);
-  return std::clamp(norm, 0.f, 1.f);
-}
-
-float principalArg(float phase) {
-  while (phase > static_cast<float>(M_PI))
-    phase -= kTwoPi;
-  while (phase < static_cast<float>(-M_PI))
-    phase += kTwoPi;
-  return phase;
-}
 
 /**
  * @brief Map spectrum data to visualization format
@@ -122,7 +101,6 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
 
   const size_t sourceBins = std::min(in.size(), phase.size());
   const float safeDt = std::max(frameDt, 1e-4f);
-  constexpr int iterations = 1;
   const float ampThreshold = powf(10.0f, Config::options.spectrogram.limits.min_db / 20.0f);
 
   auto clampFreq = [&](float f) {
@@ -130,12 +108,11 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
   };
 
   auto toRow = [&](float freq) {
-    float clamped = clampFreq(freq);
     float normalized = 0.0f;
     if (useLogScale) {
-      normalized = (log10f(clamped) - logMin) / std::max(logRange, FLT_EPSILON);
+      normalized = (log10f(clampFreq(freq)) - logMin) / std::max(logRange, FLT_EPSILON);
     } else {
-      normalized = (clamped - Config::options.fft.limits.min_freq) / std::max(freqRange, FLT_EPSILON);
+      normalized = (clampFreq(freq) - Config::options.fft.limits.min_freq) / std::max(freqRange, FLT_EPSILON);
     }
     float pos = normalized * static_cast<float>(spectrum.size() - 1);
     return static_cast<size_t>(std::clamp(std::lround(pos), 0l, static_cast<long>(spectrum.size() - 1)));
@@ -163,10 +140,14 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
 
     float reassignedFreq = nominalFreq;
     if (haveLastPhase) {
-      float expected = kTwoPi * nominalFreq * safeDt;
-      float delta = principalArg(phase[k] - lastPhase[k] - expected);
+      float expected = static_cast<float>(2.0 * M_PI) * nominalFreq * safeDt;
+      float delta = phase[k] - lastPhase[k] - expected;
+      while (delta > static_cast<float>(M_PI))
+        delta -= static_cast<float>(2.0 * M_PI);
+      while (delta < static_cast<float>(-M_PI))
+        delta += static_cast<float>(2.0 * M_PI);
 
-      float correctionHz = delta / (kTwoPi * safeDt);
+      float correctionHz = delta / (static_cast<float>(2.0 * M_PI) * safeDt);
       float bandwidthHz;
       if (useCqt && k > 0 && k + 1 < DSP::ConstantQ::frequencies.size()) {
         bandwidthHz = 0.5f * ((DSP::ConstantQ::frequencies[k] - DSP::ConstantQ::frequencies[k - 1]) +
@@ -181,28 +162,24 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
       reassignedFreq = clampFreq(reassignedFreq);
     }
 
-    for (int iter = 0; iter < iterations; ++iter) {
-      size_t center;
-      if (useCqt) {
-        auto [b1, b2] = DSP::ConstantQ::find(reassignedFreq);
-        center = std::min(b1, sourceBins - 1);
-        if (b2 < sourceBins && in[b2] > in[center])
-          center = b2;
-      } else {
-        float bin = reassignedFreq / fullBinHz;
-        center =
-            static_cast<size_t>(std::clamp(static_cast<int>(std::lround(bin)), 0, static_cast<int>(sourceBins - 1)));
-      }
+    size_t center;
+    if (useCqt) {
+      auto [b1, b2] = DSP::ConstantQ::find(reassignedFreq);
+      center = std::min(b1, sourceBins - 1);
+      if (b2 < sourceBins && in[b2] > in[center])
+        center = b2;
+    } else {
+      float bin = reassignedFreq / fullBinHz;
+      center = static_cast<size_t>(std::clamp(static_cast<int>(std::lround(bin)), 0, static_cast<int>(sourceBins - 1)));
+    }
 
-      size_t l = center > 0 ? center - 1 : center;
-      size_t r = std::min(center + 1, sourceBins - 1);
-      float wl = in[l];
-      float wc = in[center];
-      float wr = in[r];
-      float sum = wl + wc + wr;
-      if (sum <= FLT_EPSILON)
-        break;
-
+    size_t l = center > 0 ? center - 1 : center;
+    size_t r = std::min(center + 1, sourceBins - 1);
+    float wl = in[l];
+    float wc = in[center];
+    float wr = in[r];
+    float sum = wl + wc + wr;
+    if (sum > FLT_EPSILON) {
       auto binToFreq = [&](size_t idx) {
         if (useCqt)
           return DSP::ConstantQ::frequencies[idx];
@@ -210,8 +187,7 @@ std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<
       };
 
       float centroidFreq = (binToFreq(l) * wl + binToFreq(center) * wc + binToFreq(r) * wr) / sum;
-      reassignedFreq = 0.5f * reassignedFreq + 0.5f * centroidFreq;
-      reassignedFreq = clampFreq(reassignedFreq);
+      reassignedFreq = clampFreq(0.5f * reassignedFreq + 0.5f * centroidFreq);
     }
 
     size_t row = toRow(reassignedFreq);
@@ -252,14 +228,13 @@ void render() {
 
   // Pace column emission so full texture width represents spectrogram.window seconds.
   const size_t textureWidth = window->phosphor.textureWidth;
-  const float safeWindowSeconds = std::max(Config::options.spectrogram.window, 1e-3f);
-  const float interval = textureWidth > 0 ? safeWindowSeconds / static_cast<float>(textureWidth) : 0.0f;
+  const float interval =
+      textureWidth > 0 ? std::max(Config::options.spectrogram.window, 1e-3f) / static_cast<float>(textureWidth) : 0.0f;
 
   static float columnAccumulator = 0.0f;
   static float phaseDtAccumulator = 0.0f;
-  const float dt = std::max(WindowManager::dt, 0.0f);
-  columnAccumulator += dt;
-  phaseDtAccumulator += dt;
+  columnAccumulator += WindowManager::dt;
+  phaseDtAccumulator += WindowManager::dt;
 
   size_t columnsToWrite = 0;
   if (interval > FLT_EPSILON) {
@@ -270,10 +245,8 @@ void render() {
 
   if (textureWidth > 0 && columnsToWrite > 0) {
     columnsToWrite = std::min(columnsToWrite, textureWidth);
-    float frameDt = std::max(phaseDtAccumulator, 1e-4f);
+    std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw, DSP::fftMidPhase, std::max(phaseDtAccumulator, 1e-4f));
     phaseDtAccumulator = 0.0f;
-
-    std::vector<float>& spectrum = mapSpectrum(DSP::fftMidRaw, DSP::fftMidPhase, frameDt);
 
     // Prepare column data for rendering
     static std::vector<float> columnData;
@@ -300,7 +273,10 @@ void render() {
 
       if (mag > FLT_EPSILON) {
         float dB = 20.f * log10f(mag);
-        float intens = normalize(dB);
+        float intens =
+            std::clamp((dB - Config::options.spectrogram.limits.min_db) /
+                           (Config::options.spectrogram.limits.max_db - Config::options.spectrogram.limits.min_db),
+                       0.f, 1.f);
 
         if (intens > FLT_EPSILON) {
           float intensColor[4];
@@ -340,8 +316,7 @@ void render() {
 
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-  float colWidth = 1.f / window->phosphor.textureWidth;
-  float currentU = static_cast<float>(current) * colWidth;
+  float currentU = static_cast<float>(current) / window->phosphor.textureWidth;
   float part1 = (1.f - currentU) * window->phosphor.textureWidth;
   float part2 = currentU * window->phosphor.textureWidth;
 

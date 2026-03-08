@@ -94,6 +94,18 @@ void render();
 
 } // namespace Spectrogram
 
+namespace Waveform {
+
+// Waveform window
+extern WindowManager::VisualizerWindow* window;
+
+/**
+ * @brief Render the waveform visualization
+ */
+void render();
+
+} // namespace Waveform
+
 namespace LUFS {
 
 // LUFS window

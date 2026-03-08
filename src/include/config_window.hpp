@@ -137,6 +137,7 @@ enum class PageType {
   Lissajous,
   FFT,
   Spectrogram,
+  Waveform,
   Audio,
   Visualizers,
   Window,
