@@ -214,6 +214,7 @@ void handleEvent(SDL_Event& event) {
   case SDL_EVENT_WINDOW_RESIZED:
     states[group].windowSizes.first = event.window.data1;
     states[group].windowSizes.second = event.window.data2;
+    WindowManager::boundsDirty.store(true);
     break;
 
   default:

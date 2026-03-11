@@ -25,6 +25,7 @@ namespace WindowManager {
 
 // Delta time for frame timing
 extern float dt;
+extern std::atomic<bool> boundsDirty;
 
 constexpr int MIN_SIDELENGTH = 80;
 constexpr int MAX_SIDELENGTH = 8192;
