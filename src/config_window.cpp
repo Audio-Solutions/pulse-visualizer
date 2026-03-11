@@ -119,6 +119,62 @@ template <typename T> std::map<T, std::string> makeChoiceMap(std::span<const Con
   return values;
 }
 
+/**
+ * @brief flatten a Config::Node tree into an ordered vector of visualizer ids
+ */
+static void flattenConfigNode(const std::unique_ptr<Config::Node>& node, std::vector<std::string>& out) {
+  std::function<void(const std::unique_ptr<Config::Node>&)> recurse = [&](const std::unique_ptr<Config::Node>& n) {
+    if (auto s = std::get_if<std::string>(n.get())) {
+      if (!s->empty())
+        out.push_back(*s);
+      return;
+    }
+    if (auto lf = std::get_if<Config::Branch>(n.get())) {
+      if (lf->primary)
+        recurse(lf->primary);
+      if (lf->secondary)
+        recurse(lf->secondary);
+    }
+  };
+  recurse(node);
+}
+
+/**
+ * @brief build display groups from map of Config::Node
+ */
+static std::vector<std::pair<std::string, std::vector<std::string>>>
+buildDisplayGroups(const std::unordered_map<std::string, std::unique_ptr<Config::Node>>* value) {
+  using Group = std::pair<std::string, std::vector<std::string>>;
+  std::vector<Group> groups;
+
+  // Build groups from config
+  for (const auto& kv : *value) {
+    if (kv.first == "hidden")
+      continue;
+    std::vector<std::string> items;
+    flattenConfigNode(kv.second, items);
+    groups.push_back({kv.first, std::move(items)});
+  }
+
+  // Build hidden group
+  std::unordered_set<std::string> loaded;
+  for (const auto& g : groups) {
+    for (const auto& id : g.second)
+      loaded.insert(id);
+  }
+  std::vector<std::string> hidden;
+  for (const auto& vptr : VisualizerRegistry::list()) {
+    if (!vptr)
+      continue;
+    if (loaded.find(vptr->id) == loaded.end())
+      hidden.push_back(vptr->id);
+  }
+
+  // Append hidden group
+  groups.push_back({"hidden", std::move(hidden)});
+  return groups;
+}
+
 std::map<std::string, std::string> makeChoiceMap(std::span<const ConfigSchema::Choice<std::string_view>> choices) {
   std::map<std::string, std::string> values;
   for (const auto& choice : choices)
@@ -581,46 +637,7 @@ inline void buildVisualizersPage() {
   Page page;
   float cy = cyInit;
 
-  if (Config::options.visualizers.find("hidden") == Config::options.visualizers.end()) {
-    Config::options.visualizers["hidden"] = {};
-  }
-
   VisualizerRegistry::ensureBuiltinsRegistered();
-  vizLabels.clear();
-  for (const auto& visualizer : VisualizerRegistry::list()) {
-    if (!visualizer || visualizer->id.empty())
-      continue;
-    const std::string& displayName = visualizer->displayName.empty() ? visualizer->id : visualizer->displayName;
-    vizLabels.emplace(visualizer->id, displayName);
-  }
-
-  bool saveConfig = false;
-  auto& hiddenGroup = Config::options.visualizers["hidden"];
-  const size_t removedHiddenCount = std::erase_if(
-      hiddenGroup, [](const std::string& hiddenKey) { return vizLabels.find(hiddenKey) == vizLabels.end(); });
-  if (removedHiddenCount > 0) {
-    saveConfig = true;
-  }
-
-  std::vector<std::string> ungroupedVisualizers;
-  for (const auto& [vizKey, _] : vizLabels) {
-    if (!std::any_of(Config::options.visualizers.begin(), Config::options.visualizers.end(), [&](const auto& group) {
-          return std::find(group.second.begin(), group.second.end(), vizKey) != group.second.end();
-        })) {
-      ungroupedVisualizers.push_back(vizKey);
-    }
-  }
-
-  if (!ungroupedVisualizers.empty()) {
-    for (const auto& visualizerId : ungroupedVisualizers) {
-      Config::options.visualizers["hidden"].push_back(visualizerId);
-    }
-    saveConfig = true;
-  }
-
-  if (saveConfig) {
-    Config::save();
-  }
 
   createVisualizerListElement(page, cy, "visualizers", &Config::options.visualizers, "Visualizers", "Visualizers");
 
@@ -1739,8 +1756,8 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
 }
 
 void createVisualizerListElement(Page& page, float& cy, const std::string key,
-                                 std::map<std::string, std::vector<std::string>>* value, const std::string label,
-                                 const std::string description) {
+                                 std::unordered_map<std::string, std::unique_ptr<Config::Node>>* value,
+                                 const std::string label, const std::string description) {
 
   Element visualizerListElement = {0};
 
@@ -1752,7 +1769,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float groupHeaderH = stdSize;
     const float itemH = stdSize;
     const float groupBottomMargin = margin;
-    for (const auto& kv : *value) {
+    auto groups = buildDisplayGroups(value);
+    for (const auto& kv : groups) {
       const auto& items = kv.second;
       used += groupHeaderH;
       used += spacing;
@@ -1784,7 +1802,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     const float groupBottomMargin = margin;
     const float itemPad = padding;
 
-    for (const auto& kv : *value) {
+    auto groups = buildDisplayGroups(value);
+    for (const auto& kv : groups) {
       const std::string& group = kv.first;
       const auto& items = kv.second;
 
@@ -1896,7 +1915,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
 
     float yTop = self->y + self->h;
 
-    for (const auto& kv : *value) {
+    auto groups = buildDisplayGroups(value);
+    for (const auto& kv : groups) {
       const std::string& group = kv.first;
       const auto& items = kv.second;
 
@@ -1941,7 +1961,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     bool foundTarget = false;
     size_t dropIndex = 0;
 
-    for (const auto& kv : *value) {
+    auto groups = buildDisplayGroups(value);
+    for (const auto& kv : groups) {
       const std::string& group = kv.first;
       const auto& items = kv.second;
 
@@ -1994,43 +2015,41 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
     float createY = yTop - createZoneH;
     bool overCreate = mouseOverRectTranslated(self->x, createY, self->w, createZoneH);
 
-    // cancel move if target is not main
-    if (dragState.fromGroup == "main" && Config::options.visualizers[dragState.fromGroup].size() == 1) {
-      if (!foundTarget || targetGroup != "main" || overCreate) {
-        dragState.active = false;
-        return;
+    // cancel move if target is not main (determine source size from flattened tree)
+    if (dragState.fromGroup == "main") {
+      auto itSrc = value->find("main");
+      size_t srcCount = 0;
+      if (itSrc != value->end()) {
+        std::vector<std::string> tmp;
+        flattenConfigNode(itSrc->second, tmp);
+        srcCount = tmp.size();
+      }
+      if (srcCount == 1) {
+        if (!foundTarget || targetGroup != "main" || overCreate) {
+          dragState.active = false;
+          return;
+        }
       }
     }
 
     if (foundTarget || overCreate) {
-      // Remove from source by index
-      auto& src = Config::options.visualizers[dragState.fromGroup];
-      if (dragState.index < src.size())
-        src.erase(src.begin() + dragState.index);
-
-      // Target destination
+      // Add to destination, then remove from source.
       if (overCreate) {
+        // Create new window
         std::string newKey;
         do {
           newKey = std::string("win_") + std::to_string(newWindowCounter++);
-        } while (Config::options.visualizers.find(newKey) != Config::options.visualizers.end());
-        Config::options.visualizers[newKey].push_back(dragState.viz);
+        } while (value->find(newKey) != value->end());
+        WindowManager::addVisualizerToGroup(newKey, dragState.viz);
       } else {
-        auto& dst = Config::options.visualizers[targetGroup];
-        // If moving within the same group and removing an earlier index, adjust dropIndex
-        if (targetGroup == dragState.fromGroup && dropIndex > dragState.index)
-          dropIndex--;
-        if (dropIndex > dst.size())
-          dropIndex = dst.size();
-        dst.insert(dst.begin() + static_cast<long>(dropIndex), dragState.viz);
+        // Add to existing target group
+        WindowManager::addVisualizerToGroup(targetGroup, dragState.viz);
       }
 
-      // Delete empty non-special windows (preserve 'main' and 'hidden')
-      if (Config::options.visualizers[dragState.fromGroup].empty() && dragState.fromGroup != "main" &&
-          dragState.fromGroup != "hidden") {
-        Config::options.visualizers.erase(dragState.fromGroup);
-      }
+      // Now remove from source group
+      WindowManager::removeVisualizerFromGroup(dragState.fromGroup, dragState.viz);
 
+      // Persist changes
       Config::save();
     }
 

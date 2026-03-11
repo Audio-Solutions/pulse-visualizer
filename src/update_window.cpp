@@ -202,7 +202,8 @@ void draw() {
     return;
 
   SDLWindow::selectWindow("update");
-  WindowManager::setViewport(0, 300, 100);
+  WindowManager::Bounds bounds = WindowManager::Bounds(0, 0, 300, 100);
+  WindowManager::setViewport(bounds);
 
   Graphics::Font::drawText("An update is available!", 10, 100 - 30, 20, Theme::colors.text);
 

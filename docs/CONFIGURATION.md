@@ -2,7 +2,7 @@
 
 This guide provides comprehensive documentation for configuring Pulse Audio Visualizer.
 The configuration file is located at `~/.config/pulse-visualizer/config.yml` for
-linux and `C:\Users\<username>\.config\pulse-visualizer\config.yml` for windows
+Linux and `C:\Users\<username>\.config\pulse-visualizer\config.yml` for Windows
 and uses YAML format.
 
 ## Quick Start
@@ -414,27 +414,51 @@ vu:
 
 ### Visualizer Layout Settings
 
-Controls the order and visibility of visualizers in window groups
-Each group (like "main") creates a window with visualizers arranged left-to-right
-Visualizers can be moved between windows by clicking arrow buttons
-Windows can be split by right-clicking to pop out visualizers into new windows
-Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, waveform, lufs, vu
-Note: you cannot have the same visualizer multiple times either
-in the same window or in different windows.
-Only one instance of a visualizer can exist at a time.
+Controls arrangement of visualizers using a nested hierarchy tree.
+
+The layout is a YAML tree where each node is either:
+
+- a split branch with `type: hsplit` or `type: vsplit`, a `ratio` (0.0–1.0), and `children` (sequence).
+  Split branch nodes must have exactly two children (primary and secondary).
+- a leaf with `id: <visualizer_id>`, referencing a single visualizer
+
+This enables flexible nested splits and resizing. Rearrangement is sway-like: drag a visualizer and
+drop it to replace another (center) or create a split (top/bottom/left/right); the tree will be
+adjusted (promote/merge nodes) accordingly. Only one instance of each visualizer ID may exist.
+
+Example (tree form):
 
 ```yaml
 visualizers:
   main:
-    - vu
-    - lufs
-    - lissajous
-    - oscilloscope
-    - spectrum_analyzer
-  additional_window:
-    - spectrogram
-    - waveform
+    type: vsplit
+    ratio: 0.5
+    children:
+      - type: hsplit
+        ratio: 0.333
+        children:
+          - type: hsplit
+            ratio: 0.445682466
+            children:
+              - type: hsplit
+                ratio: 0.375
+                children:
+                  - id: vu
+                  - id: lufs
+              - id: lissajous
+          - type: hsplit
+            ratio: 0.5
+            children:
+              - id: oscilloscope
+              - id: spectrum_analyzer
+      - type: hsplit
+        ratio: 0.5
+        children:
+          - id: waveform
+          - id: spectrogram
 ```
+
+Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, waveform, lufs, vu
 
 ### Waveform Settings
 
@@ -461,6 +485,10 @@ waveform:
   # - midside => Mid/Side
   # - leftright => Left/Right
   mode: stereo
+  # Show a center midline when the signal is effectively silent.
+  # true = draw a single center pixel when min and max are nearly equal.
+  # false = never draw the silent midpoint.
+  midline: true
 ```
 
 ### Window Settings

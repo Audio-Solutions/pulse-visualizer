@@ -505,7 +505,7 @@ void drawLines(const WindowManager::VisualizerWindow* window, const std::vector<
     return;
 
   // Setup viewport and rendering state
-  WindowManager::setViewport(window->x, window->width, SDLWindow::states[window->group].windowSizes.second);
+  WindowManager::setViewport(window->bounds);
 
   glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
   // Use GL_DYNAMIC_DRAW for better performance with frequently updated data
@@ -702,8 +702,8 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   glBindImageTexture(4, outputTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(5, outputTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
-  GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
+  GLuint gX = (win->bounds.w + 7) / 8;
+  GLuint gY = (win->bounds.h + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -743,8 +743,7 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glUniform1i(loc_kernel_type, kernel);
   glUniform1f(loc_f_intensity, Config::options.phosphor.blur.near_intensity);
   glUniform1f(loc_g_intensity, Config::options.phosphor.blur.far_intensity);
-  glUniform2f(loc_texSize, static_cast<float>(win->width),
-              static_cast<float>(SDLWindow::states[win->group].windowSizes.second));
+  glUniform2f(loc_texSize, static_cast<float>(win->bounds.w), static_cast<float>(win->bounds.h));
   glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -754,8 +753,8 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
   glBindImageTexture(4, outG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(5, outB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
-  GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
+  GLuint gX = (win->bounds.w + 7) / 8;
+  GLuint gY = (win->bounds.h + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -812,7 +811,7 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glUniform1f(loc_screenCurvature, Config::options.phosphor.screen.curvature);
   glUniform1f(loc_screenGapFactor, Config::options.phosphor.screen.gap);
   glUniform1f(loc_grainStrength, Config::options.phosphor.screen.grain);
-  glUniform2i(loc_texSize, win->width, SDLWindow::states[win->group].windowSizes.second);
+  glUniform2i(loc_texSize, win->bounds.w, win->bounds.h);
   glUniform1f(loc_vignetteStrength, Config::options.phosphor.screen.vignette);
   glUniform1f(loc_chromaticAberrationStrength, Config::options.phosphor.screen.chromatic_aberration);
   glUniform1i(loc_colorBeam, Config::options.phosphor.beam.rainbow);
@@ -823,8 +822,8 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
   glBindImageTexture(2, inB, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(3, out, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 
-  GLuint gX = (win->width + 7) / 8;
-  GLuint gY = (SDLWindow::states[win->group].windowSizes.second + 7) / 8;
+  GLuint gX = (win->bounds.w + 7) / 8;
+  GLuint gY = (win->bounds.h + 7) / 8;
   glDispatchCompute(gX, gY, 1);
 
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
@@ -860,13 +859,13 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   // Copy tempTexture{R,G,B} to tempTexture3{R,G,B}
   glCopyImageSubData(win->phosphor.tempTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3R, GL_TEXTURE_2D,
-                     0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+                     0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
 
   if (Config::options.phosphor.beam.rainbow) {
     glCopyImageSubData(win->phosphor.tempTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3G,
-                       GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+                       GL_TEXTURE_2D, 0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
     glCopyImageSubData(win->phosphor.tempTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3B,
-                       GL_TEXTURE_2D, 0, 0, 0, 0, win->width, win->phosphor.textureHeight, 1);
+                       GL_TEXTURE_2D, 0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
   }
 
   // Apply multiple additive blur passes

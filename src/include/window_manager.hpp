@@ -26,126 +26,62 @@ namespace WindowManager {
 // Delta time for frame timing
 extern float dt;
 
-constexpr int MIN_WIDTH = 80;
+constexpr int MIN_SIDELENGTH = 80;
+constexpr int MAX_SIDELENGTH = 8192;
+constexpr int SPLITTER_WIDTH = 2;
 
 /**
  * @brief Set OpenGL viewport for rendering
- * @param x X position of viewport
- * @param width Width of viewport
- * @param height Height of viewport
+ * @param bounds The bounds of the viewport
  */
-void setViewport(int x, int width, int height);
+void setViewport(Bounds bounds);
 
 /**
- * @brief Handle SDL events for the window manager
- * @param event SDL event to process
+ * @brief update bounds for all branches and visualizers
+ */
+void updateBounds();
+
+/**
+ * @brief render all branches and visualizers
+ */
+void render();
+
+/**
+ * @brief pass SDL_Event to all branches and visualizers
  */
 void handleEvent(const SDL_Event& event);
 
 /**
- * @brief Window splitter for resizing visualizer windows
+ * @brief (Re-)Initialize all windows.
  */
-struct Splitter {
-  std::string group;
-  int x, dx;
-  bool draggable = true;
-  bool dragging = false;
-  bool hovering = false;
-
-  /**
-   * @brief Handle SDL events for the splitter
-   * @param event SDL event to process
-   */
-  void handleEvent(const SDL_Event& event);
-
-  /**
-   * @brief Draw the splitter visual element
-   */
-  void draw();
-};
-
-// Global window management
-extern std::map<std::string, std::vector<std::shared_ptr<VisualizerWindow>>> windows;
-extern std::map<std::string, std::vector<Splitter>> splitters;
-extern std::vector<std::string> markedForDeletion;
+void initialize();
 
 /**
- * @brief Find an instantiated visualizer window by visualizer id.
- * @param id Visualizer id
- * @return Pointer to matching window instance, or nullptr if not found.
+ * @brief Cleanup all visualizer windows.
  */
-VisualizerWindow* findWindowById(const std::string& id);
+void cleanup();
 
 /**
- * @brief Find a window index by pointer within a window group.
- * @param group Window group key
- * @param window Target window pointer
- * @return Index if found, std::nullopt otherwise.
+ * @brief Add a visualizer to a group.
+ * @param group The group to add to
+ * @param id The ID of the visualizer to add
+ *
+ * @returns `true` if successful, `false` otherwise.
  */
-std::optional<size_t> findWindowIndex(const std::string& group, const VisualizerWindow* window);
+bool addVisualizerToGroup(const std::string& group, const std::string& id);
 
 /**
- * @brief Delete windows marked for deletion
+ * @brief Remove a visualizer from a group.
+ * @param group The group to remove from
+ * @param id The ID of the visualizer to remove
+ *
+ * @returns `true` if successful, `false` otherwise.
  */
-void deleteMarkedWindows();
+bool removeVisualizerFromGroup(const std::string& group, const std::string& id);
 
 /**
- * @brief Draw all window splitters
+ * @brief Hover region enum for sway-like rearrangement.
  */
-void drawSplitters();
-
-/**
- * @brief Render all visualizer windows
- */
-void renderAll();
-
-/**
- * @brief Resize textures for all windows
- */
-void resizeTextures();
-
-/**
- * @brief Resize all visualizer windows
- */
-void resizeWindows();
-
-/**
- * @brief Move a splitter to a new position
- * @param key Window-group key for the splitter list
- * @param index Splitter index
- * @param targetX Target X position (-1 for current position)
- * @return New X position
- */
-int moveSplitter(std::string key, int index, int targetX = -1);
-
-/**
- * @brief Update splitter states and positions
- */
-void updateSplitters();
-
-/**
- * @brief Reorder visualizer windows based on configuration
- */
-void reorder();
-
-/**
- * @brief Direction for swapping visualizers
- */
-enum Direction { Left = -1, Right = 1, Up = 2, Down = -2 };
-
-/**
- * @brief Swap visualizer at index with its neighbor in the given direction
- * @param index Index of visualizer to swap
- * @param key Key of the window group
- */
-template <Direction direction> void swapVisualizer(size_t index, std::string key);
-
-/**
- * @brief Popout visualizer at index from its window group
- * @param index Index of visualizer to popout
- * @param key Key of the window group
- * @param popout Whether to pop out into a dedicated window group
- */
-void popWindow(size_t index, std::string key, bool popout = false);
+enum class HoverRegion { None, Center, Top, Bottom, Left, Right };
 
 } // namespace WindowManager

@@ -89,7 +89,7 @@ void reconfigure() {
   Graphics::Font::cleanup();
 
   LOG_DEBUG("Reordering windows");
-  WindowManager::reorder();
+  WindowManager::initialize();
 
   // Load fonts for each SDL window
   LOG_DEBUG("Loading fonts for each SDL window");
@@ -114,17 +114,6 @@ std::condition_variable mainCv;
 std::atomic<bool> dataReady {false};
 
 int main(int argc, char** argv) {
-#ifndef _WIN32
-  // Block Signals so they can be polled
-  sigset_t sigset;
-  sigemptyset(&sigset);
-  sigaddset(&sigset, SIGWINCH);
-  sigaddset(&sigset, SIGINT);
-  sigaddset(&sigset, SIGTERM);
-  sigaddset(&sigset, SIGQUIT);
-  sigprocmask(SIG_BLOCK, &sigset, nullptr);
-#endif
-
   for (int i = 0; i < argc; i++) {
     if (argv[i][0] == '-') {
       switch (argv[i][1]) {
@@ -164,6 +153,19 @@ int main(int argc, char** argv) {
   if (debuggerPresent()) {
     std::cout << "Debugger detected, activating debug mode" << std::endl;
     CmdlineArgs::debug = true;
+  }
+
+  sigset_t sigset;
+  if (!CmdlineArgs::debug) {
+#ifndef _WIN32
+    // Block Signals so they can be polled
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGWINCH);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+    sigaddset(&sigset, SIGQUIT);
+    sigprocmask(SIG_BLOCK, &sigset, nullptr);
+#endif
   }
 
 #ifdef _WIN32
@@ -221,7 +223,7 @@ int main(int argc, char** argv) {
 
   // Setup window management
   LOG_DEBUG("Setting up window management");
-  WindowManager::reorder();
+  WindowManager::initialize();
 
   // Start DSP processing thread
   LOG_DEBUG("Starting DSP processing thread");
@@ -243,6 +245,12 @@ int main(int argc, char** argv) {
   // Start plugins
   LOG_DEBUG("Starting plugins");
   Plugin::startAll();
+
+  // Depth Buffer stuff
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
 
   // Main application loop
   LOG_DEBUG("Starting main application loop");
@@ -272,12 +280,6 @@ int main(int argc, char** argv) {
       ConfigWindow::handleEvent(event);
       UpdaterWindow::handleEvent(event);
       WindowManager::handleEvent(event);
-      for (auto& [key, vec] : WindowManager::splitters)
-        for (auto& splitter : vec)
-          splitter.handleEvent(event);
-      for (auto& [key, vec] : WindowManager::windows)
-        for (auto& window : vec)
-          window->handleEvent(event);
       Plugin::handleEvent(event);
     }
 
@@ -303,11 +305,7 @@ int main(int argc, char** argv) {
         Config::broken)
       continue;
 
-    // Update window management
-    WindowManager::deleteMarkedWindows();
-    WindowManager::updateSplitters();
-    WindowManager::resizeWindows();
-    WindowManager::resizeTextures();
+    WindowManager::updateBounds();
 
     // Wait for DSP data to be ready
     std::unique_lock<std::mutex> lock(mainThread);
@@ -316,8 +314,7 @@ int main(int argc, char** argv) {
 
     // Render frame
     SDLWindow::clear();
-    WindowManager::renderAll();
-    WindowManager::drawSplitters();
+    WindowManager::render();
     ConfigWindow::draw();
     UpdaterWindow::draw();
     Plugin::drawAll();
@@ -339,6 +336,7 @@ int main(int argc, char** argv) {
   // Cleanup
   LOG_DEBUG("Cleaning up...");
   SDLWindow::running.store(false);
+  WindowManager::cleanup();
   Plugin::unloadAll();
   Graphics::Font::cleanup();
   DSPThread.join();

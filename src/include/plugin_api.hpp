@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <type_traits>
 
-#define PLUGIN_API_VERSION 5
+#define PLUGIN_API_VERSION 6
 
 #ifdef _WIN32
 #define PV_API extern "C" __declspec(dllexport)
@@ -221,11 +221,9 @@ struct PvAPI {
 
   /**
    * @brief Set OpenGL viewport for rendering
-   * @param x X position of viewport
-   * @param width Width of viewport
-   * @param height Height of viewport
+   * @param bounds the bounds of the viewport
    */
-  void (*setViewport)(int x, int width, int height);
+  void (*setViewport)(WindowManager::Bounds bounds);
 
   /**
    * @brief Register a visualizer implementation.
@@ -320,14 +318,14 @@ struct PvAPI {
   const size_t* writePos;
 
   /**
-   * @brief Pointer to SDL window state map.
+   * @brief Read-only pointer to SDL window state map.
    */
-  std::unordered_map<std::string, SDLWindow::State>* states;
+  const std::unordered_map<std::string, SDLWindow::State>* states;
 
   /**
-   * @brief Pointer to global debug flag.
+   * @brief Read-only pointer to global debug flag.
    */
-  bool* debug;
+  const bool* debug;
 
   /**
    * @brief Type-safe convenience wrapper for registering a plugin config option.

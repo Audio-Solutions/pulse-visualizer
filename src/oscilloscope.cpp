@@ -35,17 +35,14 @@ public:
     displayName = "Oscilloscope";
   }
 
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
   return std::make_shared<OscilloscopeVisualizer>();
 }
 
-void OscilloscopeVisualizer::render(SDLWindow::State* state) {
-  auto& points = this->points;
-  auto* window = this;
-
+void OscilloscopeVisualizer::render() {
   // Calculate number of samples to display
   size_t samples = Config::options.oscilloscope.window * Config::options.audio.sample_rate / 1000;
   if (Config::options.oscilloscope.pitch.cycles > 0 && DSP::pitch > FLT_EPSILON) {
@@ -88,14 +85,14 @@ void OscilloscopeVisualizer::render(SDLWindow::State* state) {
   points.resize(samples);
   const float scale = (Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                                Config::options.oscilloscope.rotation == Config::ROTATION_270
-                           ? static_cast<float>(state->windowSizes.second)
-                           : static_cast<float>(window->width)) /
+                           ? static_cast<float>(bounds.h)
+                           : static_cast<float>(bounds.w)) /
                       samples;
 
   float height = Config::options.oscilloscope.rotation == Config::ROTATION_90 ||
                          Config::options.oscilloscope.rotation == Config::ROTATION_270
-                     ? window->width
-                     : state->windowSizes.second;
+                     ? bounds.w
+                     : bounds.h;
 
   for (size_t i = 0; i < samples; i++) {
     size_t pos = (target + i - fir_delay) % DSP::bufferSize;
@@ -105,7 +102,7 @@ void OscilloscopeVisualizer::render(SDLWindow::State* state) {
     float mul = 1.0f;
     if (Config::options.oscilloscope.edge_compression.enabled) {
       float r = Config::options.oscilloscope.edge_compression.range;
-      float t = x / (float)window->width;
+      float t = x / (float)bounds.w;
       float d = fminf(t, 1.0f - t);
       float xNorm = fminf(fmaxf(d / r, 0.0f), 1.0f);
 
@@ -130,13 +127,13 @@ void OscilloscopeVisualizer::render(SDLWindow::State* state) {
       points[i] = {x, y};
       break;
     case Config::ROTATION_90:
-      points[i] = {window->width - y, x};
+      points[i] = {bounds.w - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {window->width - x, state->windowSizes.second - y};
+      points[i] = {bounds.w - x, bounds.h - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, state->windowSizes.second - x};
+      points[i] = {y, bounds.h - x};
       break;
     }
   }
@@ -157,7 +154,7 @@ void OscilloscopeVisualizer::render(SDLWindow::State* state) {
 
     // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state->windowSizes.second);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
     energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
 
     // Calculate energy for each line segment
@@ -244,15 +241,12 @@ void OscilloscopeVisualizer::render(SDLWindow::State* state) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Render phosphor effect
-    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold, color);
-    window->draw();
+    Graphics::Phosphor::render(this, points, DSP::pitchDB > Config::options.audio.silence_threshold, color);
+    draw();
   } else {
-    // Select the window for rendering
-    SDLWindow::selectWindow(window->group);
-
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)
-      Graphics::drawLines(window, points, color);
+      Graphics::drawLines(this, points, color);
   }
 }
 } // namespace Oscilloscope

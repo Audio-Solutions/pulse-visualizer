@@ -1,7 +1,7 @@
 # Pulse Visualizer Plugin Guide
 
 This guide explains how to write and use plugins for Pulse Visualizer.  
-Plugins are shared libraries that can draw into Pulse’s window, react to SDL events, and read configuration and theme data.
+Plugins are shared libraries that can render into Pulse’s window, react to SDL events, and read configuration and theme data.
 
 Current limitations:
 
@@ -212,16 +212,14 @@ and passing an instance to `api->registerVisualizer(...)`.
 ```cpp
 static const PvAPI* api = nullptr;
 
-class ColorfollowHelloVisualizer : public WindowManager::VisualizerWindow {
+class HelloVisualizer : public WindowManager::VisualizerWindow {
 public:
-  ColorfollowHelloVisualizer() { id = "colorfollow_hello"; }
+  HelloVisualizer() { id = "hello"; }
 
-  void render(SDLWindow::State* state) override {
+  void render() override {
     if (!api || !api->drawText)
       return;
 
-    auto& windowState = *state;
-    api->setViewport(this->x, this->width, windowState.windowSizes.second);
     api->drawText("hello world", 10.0f, 10.0f, 16.0f, api->theme->text);
   }
 };
@@ -230,14 +228,16 @@ PV_API void pvPluginStart() {
   if (!api)
     return;
 
-  api->registerVisualizer(std::make_shared<ColorfollowHelloVisualizer>());
+  api->registerVisualizer(std::make_shared<HelloVisualizer>());
 }
 ```
 
-In `render`, use the passed `SDLWindow::State*` for sdl window dimensions.
-`windowState.windowSizes.second` is the current window height.
-The call `api->setViewport(this->x, this->width, windowState.windowSizes.second)` is required for using
-absolute coordinates in following drawing code, so draw helper positions map correctly to the visualizer window.
+In `render`, the SDL window state is no longer passed directly to visualizers.  
+The renderer now calls `api->setViewport()` automatically for each visualizer, so all coordinates passed to the API are relative to that visualizer’s local origin.  
+
+To access a visualizer’s absolute position and size within the main SDL window, use `this->bounds`:  
+`this->bounds.x` and `this->bounds.y` give the bottom-left coordinates, and  
+`this->bounds.w` and `this->bounds.h` give the width and height.  
 
 ## What Plugins Can Access
 

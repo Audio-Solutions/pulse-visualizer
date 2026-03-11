@@ -1,6 +1,6 @@
 # pulse-visualizer - Audio Visualizer
 
-<video autoplay loop muted src="https://github.com/user-attachments/assets/3f2e2ba1-3832-4127-b34b-d59f4c67c148"></video>
+<video autoplay loop muted src="https://github.com/Audio-Solutions/pulse-visualizer/raw/refs/heads/main/media/viz.mp4"></video>
 <a href="https://repology.org/project/pulse-visualizer/versions">
     <img src="https://repology.org/badge/vertical-allrepos/pulse-visualizer.svg?allow_ignored=1"
          alt="Packaging status" align="right">
@@ -19,25 +19,25 @@ sounds. Unless your system sucks, then, well, good luck.
 - Experimental colorful beam
 - Real-time, low-latency audio visualization
 - CRT phosphor emulation with GPU compute shaders (glow, persistence, etc)
-  - Curved screen, vignette, grain, chromatic aberration (toggle as you like)
-  - Blur, light spread, and overdrive are all configurable
-  - Reflections on curved screen
+  - Curved screen, vignette, grain, chromatic aberration
+  - Blur, light spread, and overdrive are configurable
+  - Screen reflections
 - Multiple visualizer styles:
-  - Lissajous curve (with fancy spline interpolation and stretch modes)
+  - Lissajous curve (spline interpolation, stretch modes)
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
   - FFT/Constant-Q (mid/side, right/left, sharp/flat note key)
   - Spectrogram (log/linear scale, iterative reassignment)
-  - Peak and LUFS (shortterm, momentary, integrated)
+  - Peak and LUFS meters (short-term, momentary, integrated)
   - VU meter (digital and analog)
-- Configurable order at runtime
+- Configurable tiled layout at runtime
 - Settings menu (press `m` to open)
-- Separate FFT/CQT threads for mid/side channels
-- Extensive SIMD (AVX2) acceleration
-- Live config and theme hot-reloading (no restart needed, mostly)
+- Separate FFT and CQT threads for mid/side channels
+- SIMD acceleration (AVX2) where supported
+- Live config and theme hot-reloading
 - Draggable splitters for custom layout
-- Cross-platform: PulseAudio and PipeWire
-- Hardware-accelerated graphics (OpenGL)
-- A pile of ready-made themes (see `themes/`)
+- Cross-platform audio backends: PulseAudio and PipeWire
+- Hardware-accelerated rendering (OpenGL)
+- A collection of ready-made themes (see `themes/`)
 - Plugin support
 
 ## Installation
@@ -105,6 +105,18 @@ Theme files support a bunch of color and property keys
 (see `_TEMPLATE.txt` for all options). All the main colors are required.
 You can fine-tune visualizer-specific stuff too.
 Theme and config changes reload live.
+
+### Moving Visualizers
+
+Visualizers can be rearranged directly in the main window using a sway-like
+drag-and-drop interaction. Drag a visualizer and drop it on another visualizer's
+center to replace it, or drop on the top/left/right/bottom edges of a
+visualizer to create a split. The layout tree is adjusted automatically.
+Only one instance of each visualizer ID may exist in the layout.
+
+Note: resizing a visualizer does not automatically save the ratios to the
+configuration file. To persist dimensional changes, open the configuration
+menu and press the save button or press the `s` key.
 
 ## Plugin Support
 
@@ -186,10 +198,9 @@ environment.systemPackages = [ pkgs.pulse-visualizer ];
 
 #### Note
 
-Do not build with `sudo ninja install`.
-This will cause ownership and permission issues.
-Please run the build as a regular user (`ninja`)
-and only use `sudo ninja install` for the install step.
+Do not run the build as root. Use a regular user to build (`ninja`) and only
+use `sudo ninja install` for the install step to avoid ownership and permission
+issues.
 
 ## Contributing & Support
 

@@ -37,7 +37,7 @@ public:
   }
 
   std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase, float frameDt);
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
@@ -51,9 +51,8 @@ std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
  */
 std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase,
                                                        float frameDt) {
-  auto* window = this;
   static std::vector<float> spectrum;
-  spectrum.assign(window->phosphor.textureHeight, 0.0f);
+  spectrum.assign(bounds.h, 0.0f);
 
   const bool useLogScale = Config::options.spectrogram.frequency_scale == "log";
   const bool useCqt = Config::options.fft.cqt.enabled;
@@ -218,26 +217,22 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
   return spectrum;
 }
 
-void SpectrogramVisualizer::render(SDLWindow::State* state) {
+void SpectrogramVisualizer::render() {
   auto* window = this;
-
-  // Select the window for rendering
-  SDLWindow::selectWindow(window->group);
-
-  // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state->windowSizes.second);
 
   static size_t current = 0;
 
   // Ensure current is within bounds when texture dimensions change
-  if (current >= window->phosphor.textureWidth)
+  if (current >= bounds.w)
     current = 0;
 
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
+  glColor4f(1.f, 1.f, 1.f, 1.f);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
   // Pace column emission so full texture width represents spectrogram.window seconds.
-  const size_t textureWidth = window->phosphor.textureWidth;
+  const size_t textureWidth = bounds.w;
   const float interval =
       textureWidth > 0 ? std::max(Config::options.spectrogram.window, 1e-3f) / static_cast<float>(textureWidth) : 0.0f;
 
@@ -260,13 +255,14 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
 
     // Prepare column data for rendering
     static std::vector<float> columnData;
-    columnData.resize(window->phosphor.textureHeight * 3);
+    columnData.resize(bounds.h * 4);
 
-    // Initialize column with background color
-    for (size_t i = 0; i < window->phosphor.textureHeight; ++i) {
-      columnData[i * 3 + 0] = Theme::colors.background[0];
-      columnData[i * 3 + 1] = Theme::colors.background[1];
-      columnData[i * 3 + 2] = Theme::colors.background[2];
+    // Initialize column with background color (transparent)
+    for (size_t i = 0; i < bounds.h; ++i) {
+      columnData[i * 4 + 0] = Theme::colors.background[0];
+      columnData[i * 4 + 1] = Theme::colors.background[1];
+      columnData[i * 4 + 2] = Theme::colors.background[2];
+      columnData[i * 4 + 3] = 0.0f;
     }
 
     // Choose rendering color
@@ -290,9 +286,9 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
 
         if (intens > FLT_EPSILON) {
           float intensColor[4];
-          if (monochrome)
+          if (monochrome) {
             Theme::mix(Theme::colors.background, color, intensColor, intens);
-          else {
+          } else {
             float hsva[4] = {0.f, 1.f, 1.f, 1.f};
             if (intens < 0.5f) {
               hsva[0] = Theme::colors.spectrogram_low;
@@ -307,9 +303,10 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
             }
           }
 
-          columnData[i * 3 + 0] = intensColor[0];
-          columnData[i * 3 + 1] = intensColor[1];
-          columnData[i * 3 + 2] = intensColor[2];
+          columnData[i * 4 + 0] = intensColor[0];
+          columnData[i * 4 + 1] = intensColor[1];
+          columnData[i * 4 + 2] = intensColor[2];
+          columnData[i * 4 + 3] = 1.0f;
         }
       }
     }
@@ -318,30 +315,22 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
       current = textureWidth - 1;
 
     for (size_t col = 0; col < columnsToWrite; ++col) {
-      glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, window->phosphor.textureHeight, GL_RGB, GL_FLOAT,
-                      columnData.data());
+      glTexSubImage2D(GL_TEXTURE_2D, 0, current, 0, 1, bounds.h, GL_RGBA, GL_FLOAT, columnData.data());
       current = (current + 1) % textureWidth;
     }
   }
 
-  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-  float currentU = static_cast<float>(current) / window->phosphor.textureWidth;
-  float part1 = (1.f - currentU) * window->phosphor.textureWidth;
-  float part2 = currentU * window->phosphor.textureWidth;
+  float currentU = static_cast<float>(current) / bounds.w;
+  float part1 = (1.f - currentU) * bounds.w;
+  float part2 = currentU * bounds.w;
 
   std::vector<float> vertexData;
   vertexData.reserve(32);
 
   if (part1 > 0.f) {
-    float vertices[] = {0.0f,     0.0f,
-                        currentU, 0.0f,
-                        0.0f,     (float)state->windowSizes.second,
-                        currentU, 1.0f,
-                        part1,    (float)state->windowSizes.second,
-                        1.0f,     1.0f,
-                        part1,    0.0f,
-                        1.0f,     0.0f};
+    float vertices[] = {0.0f, 0.0f,  currentU,        0.0f, 0.0f, (float)bounds.h, currentU,
+                        1.0f, part1, (float)bounds.h, 1.0f, 1.0f, part1,           0.0f,
+                        1.0f, 0.0f};
     vertexData.insert(vertexData.end(), vertices, vertices + 16);
   }
 
@@ -351,14 +340,14 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
                         0.0f,
                         0.0f,
                         part1,
-                        (float)state->windowSizes.second,
+                        (float)bounds.h,
                         0.0f,
                         1.0f,
-                        (float)window->phosphor.textureWidth,
-                        (float)state->windowSizes.second,
+                        (float)bounds.w,
+                        (float)bounds.h,
                         currentU,
                         1.0f,
-                        (float)window->phosphor.textureWidth,
+                        (float)bounds.w,
                         0.0f,
                         currentU,
                         0.0f};
@@ -372,7 +361,10 @@ void SpectrogramVisualizer::render(SDLWindow::State* state) {
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(0));
     glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDrawArrays(GL_QUADS, 0, static_cast<GLsizei>(vertexData.size() / 4));
+    glDisable(GL_BLEND);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);

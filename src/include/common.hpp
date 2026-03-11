@@ -202,3 +202,14 @@ std::string expandUserPath(const std::string& path);
  * @brief Reconfigures the program with new config data
  */
 void reconfigure();
+
+/**
+ * @brief Helper struct for creating a visitor for std::visit with multiple lambdas.
+ *
+ * @tparam Ts Lambda types to inherit from.
+ */
+template <class... Ts> struct Visitor : Ts... {
+  using Ts::operator()...;
+};
+
+template <class... Ts> Visitor(Ts...) -> Visitor<Ts...>;

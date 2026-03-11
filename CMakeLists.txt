@@ -4,6 +4,7 @@ project(Pulse VERSION 1.3.7)
 option(CI_SPECIFIC "Enable CI specific configuration" OFF)
 option(SKIP_CPACK "Skip packaging configuration" ON)
 option(USE_UPDATER "Enable the new version window" ON)
+option(USE_ASAN "Enable AddressSanitizer build" OFF)
 
 # Get git version info
 execute_process(
@@ -181,6 +182,41 @@ add_library(glad OBJECT
 target_include_directories(glad PUBLIC
   external/glad/include
 )
+
+# Asan
+if(USE_ASAN)
+  message(STATUS "AddressSanitizer: enabling instrumentation")
+
+  # Verify compiler support
+  if(NOT (CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "GNU"))
+    message(WARNING "ASan is only supported with GCC or Clang; disabling USE_ASAN")
+    set(USE_ASAN OFF CACHE BOOL "" FORCE)
+  endif()
+endif()
+
+if(USE_ASAN)
+  # Common sanitizer flags
+  set(ASAN_FLAGS -fsanitize=address -fno-omit-frame-pointer -g -g3)
+
+  set(ENV{ASAN_OPTIONS} "detect_leaks=1:strict_init_order=1:check_initialization_order=1")
+
+  add_compile_options(${ASAN_FLAGS})
+  add_link_options(${ASAN_FLAGS})
+
+  if(TARGET pulse-visualizer)
+    target_compile_options(pulse-visualizer PRIVATE ${ASAN_FLAGS})
+    target_link_libraries(pulse-visualizer PRIVATE ${ASAN_FLAGS})
+  endif()
+
+  if(TARGET glad)
+    target_compile_options(glad PRIVATE ${ASAN_FLAGS})
+  endif()
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "ASan active in Release mode; adding -O1 for better debug info")
+    add_compile_options(-O1)
+  endif()
+endif()
 
 # Link libraries
 target_link_libraries(pulse-visualizer PRIVATE

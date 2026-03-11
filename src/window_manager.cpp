@@ -27,50 +27,129 @@
 
 namespace WindowManager {
 
-// Delta time for frame timing
 float dt;
 
-// Global window and splitter containers
-std::map<std::string, std::vector<std::shared_ptr<VisualizerWindow>>> windows;
-std::map<std::string, std::vector<Splitter>> splitters;
-std::vector<std::string> markedForDeletion;
+std::atomic<bool> boundsDirty = true;
 
-VisualizerWindow* findWindowById(const std::string& id) {
-  for (auto& [group, vec] : windows) {
-    for (auto& window : vec) {
-      if (window && window->id == id)
-        return window.get();
-    }
-  }
-  return nullptr;
-}
-
-std::optional<size_t> findWindowIndex(const std::string& group, const VisualizerWindow* window) {
-  auto itGroup = windows.find(group);
-  if (itGroup == windows.end() || !window)
-    return std::nullopt;
-
-  auto& groupWindows = itGroup->second;
-  auto it = std::find_if(groupWindows.begin(), groupWindows.end(), [&](const auto& w) { return w.get() == window; });
-  if (it == groupWindows.end())
-    return std::nullopt;
-
-  return static_cast<size_t>(std::distance(groupWindows.begin(), it));
-}
-
-void setViewport(int x, int width, int height) {
+void setViewport(Bounds bounds) {
   // Set OpenGL viewport and projection matrix for rendering
-  glViewport(x, 0, width, height);
+  glViewport(bounds.x, bounds.y, bounds.w, bounds.h);
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(0, width, 0, height, -1, 1);
+  glOrtho(0, bounds.w, 0, bounds.h, -10.0, 10.0);
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
 }
 
-void handleEvent(const SDL_Event& event) {
+/**
+ * @brief Walk down all hierarchy tree paths and apply callback on them.
+ * @param node The node to start from
+ * @param callback The callback to pass each node to
+ */
+template <typename Fn> void walkTree(std::unique_ptr<Node>& node, Fn&& callback) {
+  if (!node)
+    return;
+
+  std::visit(
+      [&](auto&& n) -> void {
+        if constexpr (std::is_same_v<std::decay_t<decltype(n)>, std::shared_ptr<VisualizerWindow>>) {
+          callback(n);
+        } else if constexpr (std::is_same_v<std::decay_t<decltype(n)>, Splitter>) {
+          walkTree(n.primary, callback);
+          walkTree(n.secondary, callback);
+          callback(n);
+        }
+      },
+      *node);
+}
+
+/**
+ * @brief Recursively search the tree for a window node that satisfies the given predicate.
+ * @param root The root node to start searching from.
+ * @param visitor A callable that takes a window node and returns true if it matches the desired condition.
+ * @return A pointer to the first VisualizerWindow that satisfies the predicate, or nullptr if none is found.
+ */
+template <typename NodeVisitor> VisualizerWindow* getWindowIf(std::unique_ptr<Node>& root, NodeVisitor&& visitor) {
+  if (!root)
+    return nullptr;
+
+  return std::visit(
+      [&](auto& node) -> VisualizerWindow* {
+        if constexpr (std::is_same_v<std::decay_t<decltype(node)>, std::shared_ptr<VisualizerWindow>>) {
+          return visitor(node) ? node.get() : nullptr;
+        } else {
+          if (VisualizerWindow* res = getWindowIf(node.primary, visitor))
+            return res;
+          return getWindowIf(node.secondary, visitor);
+        }
+      },
+      *root);
+}
+
+void Splitter::render() {
+  if (orientation == Config::Orientation::Horizontal) {
+    float r = ratio ? *(ratio) : 0.5f;
+    int relX = static_cast<int>((bounds.w - SPLITTER_WIDTH) * r + SPLITTER_WIDTH / 2);
+    Graphics::drawLine(relX, 0, relX, bounds.h, Theme::colors.bgAccent, 2.0f);
+    if (hovering)
+      Graphics::drawFilledRect(relX - 5, 0, 10, bounds.h, Theme::alpha(Theme::colors.accent, 0.3f));
+  } else {
+    float r = ratio ? *(ratio) : 0.5f;
+    int relY = static_cast<int>((bounds.h - SPLITTER_WIDTH) * r + SPLITTER_WIDTH / 2);
+    Graphics::drawLine(0, relY, bounds.w, relY, Theme::colors.bgAccent, 2.0f);
+    if (hovering)
+      Graphics::drawFilledRect(0, relY - 5, bounds.w, 10, Theme::alpha(Theme::colors.accent, 0.3f));
+  }
+}
+
+/**
+ * @brief Update cursor for a window group based on the state of its tree.
+ * @param group The group to update
+ */
+void updateCursorForGroup(const std::string& group) {
+  if (group.empty())
+    return;
+  auto it = SDLWindow::states.find(group);
+  if (it == SDLWindow::states.end())
+    return;
+
+  auto& state = it->second;
+
+  // If any visualizer is dragging, show Move cursor and return.
+  if (getWindowIf(state.root, [](std::shared_ptr<VisualizerWindow>& w) { return w->dragging; }) != nullptr) {
+    SDLWindow::setCursor(SDLWindow::CursorType::Move);
+    return;
+  }
+
+  bool anyHorizontal = false;
+  bool anyVertical = false;
+
+  walkTree(state.root, [&](auto&& node) {
+    using T = std::decay_t<decltype(node)>;
+    if constexpr (std::is_same_v<T, Splitter>) {
+      if (node.hovering) {
+        if (node.orientation == Config::Orientation::Horizontal)
+          anyHorizontal = true;
+        else
+          anyVertical = true;
+      }
+    }
+  });
+
+  SDLWindow::CursorType ct = SDLWindow::CursorType::Default;
+  if (anyHorizontal && anyVertical)
+    ct = SDLWindow::CursorType::Move;
+  else if (anyHorizontal)
+    ct = SDLWindow::CursorType::Horizontal;
+  else if (anyVertical)
+    ct = SDLWindow::CursorType::Vertical;
+
+  SDLWindow::setCursor(ct);
+}
+
+void Splitter::handleEvent(const SDL_Event& event) {
   std::string group = "";
   for (auto& [_group, state] : SDLWindow::states) {
     if (event.window.windowID == state.winID) {
@@ -79,64 +158,77 @@ void handleEvent(const SDL_Event& event) {
     }
   }
 
-  // Lambda to delete this window and relocate visualizers to main
-  auto deleteThyself = [&]() {
-    for (auto& viz : Config::options.visualizers[group])
-      Config::options.visualizers["main"].push_back(viz);
-    Config::options.visualizers.erase(group);
-    reorder();
+  if (group.empty() || !movable)
+    return;
+
+  float mouseX, mouseY;
+  auto isNearLine = [&](int x, int y) {
+    int dist;
+    if (orientation == Config::Orientation::Horizontal) {
+      if (y < bounds.y - 6 || y > bounds.y + bounds.h + 6)
+        return false;
+      dist = std::abs(x - (bounds.x + (*ratio) * bounds.w));
+    } else {
+      if (x < bounds.x - 6 || x > bounds.x + bounds.w + 6)
+        return false;
+      dist = std::abs(y - (bounds.y + (*ratio) * bounds.h));
+    }
+    return dist < 6;
   };
 
-  switch (event.type) {
-  case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-    deleteThyself();
-    break;
+  const float MIN_RATIO = MIN_SIDELENGTH / (orientation == Config::Orientation::Horizontal ? bounds.w : bounds.h);
 
-  case SDL_EVENT_KEY_DOWN:
-    switch (event.key.key) {
-    case SDLK_Q:
-    case SDLK_ESCAPE:
-      deleteThyself();
-      break;
-    }
-
-  default:
-    break;
-  }
-}
-
-void Splitter::handleEvent(const SDL_Event& event) {
-  if (!draggable)
-    return;
-  int mouseX;
+  bool hoverChanged;
   switch (event.type) {
   case SDL_EVENT_MOUSE_MOTION:
     mouseX = event.motion.x;
-    // Check if mouse is hovering over splitter
+    mouseY = SDLWindow::states[group].windowSizes.second - event.motion.y;
+    hovering = isNearLine(mouseX, mouseY);
+
+    hoverChanged = (hovering != prevHovering);
+    prevHovering = hovering;
+    if (hoverChanged && !group.empty())
+      updateCursorForGroup(group);
+
     if (!dragging)
-      hovering = abs(mouseX - x) < 5;
-    // Handle dragging movement
-    if (dragging) {
-      dx = mouseX - x;
-      x = mouseX;
-    }
+      break;
+
+    if (orientation == Config::Orientation::Horizontal)
+      *(ratio) = (mouseX - bounds.x) / bounds.w;
+    else
+      *(ratio) = (mouseY - bounds.y) / bounds.h;
+
+    *(ratio) = std::max(MIN_RATIO, std::min(1.0f - MIN_RATIO, *(ratio)));
+
+    boundsDirty.store(true);
     break;
 
   case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    if (event.button.button == SDL_BUTTON_LEFT) {
-      mouseX = event.button.x;
-      // Start dragging if mouse is over splitter
-      if (abs(mouseX - x) < 5) {
+    mouseX = event.button.x;
+    mouseY = SDLWindow::states[group].windowSizes.second - event.button.y;
+    if (event.button.button == SDL_BUTTON_LEFT)
+      if (isNearLine(mouseX, mouseY)) {
         dragging = true;
       }
-    }
     break;
 
   case SDL_EVENT_MOUSE_BUTTON_UP:
     if (event.button.button == SDL_BUTTON_LEFT) {
-      mouseX = event.button.x;
+      if (dragging) {
+        dragging = false;
+      } else {
+        dragging = false;
+      }
+    }
+    break;
+
+  case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+    hovering = false;
+    if (dragging) {
       dragging = false;
-      hovering = abs(mouseX - x) < 5;
+      SDLWindow::setCursor(SDLWindow::CursorType::Default);
+    } else if (!group.empty()) {
+      updateCursorForGroup(group);
     }
     break;
 
@@ -145,104 +237,499 @@ void Splitter::handleEvent(const SDL_Event& event) {
   }
 }
 
-void VisualizerWindow::handleEvent(const SDL_Event& event) {
-  bool isThisGroup = SDLWindow::states[group].winID == event.window.windowID;
-  size_t index = 0;
-  switch (event.type) {
-  case SDL_EVENT_MOUSE_MOTION:
-    if (!isThisGroup)
-      break;
-    // Check if mouse is hovering over this window
-    hovering = (event.motion.x >= x && event.motion.x < x + width);
-    break;
+// I don't know why but clang-format indents these to hell
+// clang-format off
+void updateBounds(std::unique_ptr<Node>& node, Bounds bounds) {
+  if (!node)
+    return;
 
-  case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    if (!isThisGroup)
-      break;
-    if (event.button.button == SDL_BUTTON_LEFT) {
-      {
-        auto maybeIndex = findWindowIndex(group, this);
-        if (!maybeIndex)
-          break;
-        index = *maybeIndex;
+  bounds.w = std::clamp(bounds.w, MIN_SIDELENGTH / 2, MAX_SIDELENGTH);
+  bounds.h = std::clamp(bounds.h, MIN_SIDELENGTH / 2, MAX_SIDELENGTH);
 
-        if (event.button.x >= x && event.button.x < x + width) {
-          if (buttonPressed(-1, event.button.x, event.button.y))
-            swapVisualizer<Direction::Left>(index, group);
-          else if (buttonPressed(1, event.button.x, event.button.y))
-            swapVisualizer<Direction::Right>(index, group);
-          else if (buttonPressed(2, event.button.x, event.button.y)) {
-            popWindow(index, group, true);
-          } else if (buttonPressed(-2, event.button.x, event.button.y)) {
-            popWindow(index, group, false);
+  std::function<std::pair<Size, Constraint>(std::unique_ptr<Node>&, Bounds, Config::Orientation)> getConstraints;
+  getConstraints = [&](std::unique_ptr<Node>& node, Bounds bounds,
+                       Config::Orientation orientation) -> std::pair<Size, Constraint> {
+    return std::visit(
+      Visitor {
+        [&](std::shared_ptr<VisualizerWindow>& w) {
+          Size constraintSize = Size(MIN_SIDELENGTH, MIN_SIDELENGTH);
+          Constraint constraint {};
+          if (w->forceWidth > FLT_EPSILON) {
+            constraintSize.w = w->forceWidth;
+            constraint.w = ConstraintType::Forced;
+          } else if (w->aspectRatio > FLT_EPSILON) {
+            if (orientation == Config::Orientation::Horizontal) {
+              constraintSize.w = bounds.h * w->aspectRatio;
+              constraint.w = ConstraintType::Forced;
+            } else {
+              constraintSize.h = bounds.w / w->aspectRatio;
+              constraint.h = ConstraintType::Forced;
+            }
           }
+
+          return std::make_pair(constraintSize, constraint);
+        },
+        [&](Splitter& s) {
+          int totalSize =
+              (s.orientation == Config::Orientation::Horizontal ? bounds.w : bounds.h) - SPLITTER_WIDTH;
+          int primarySize = static_cast<int>(totalSize * (*s.ratio));
+          int secondarySize = totalSize - primarySize;
+
+          Bounds primaryBounds = s.orientation == Config::Orientation::Horizontal
+                                    ? Bounds(bounds.x, bounds.y, primarySize, bounds.h)
+                                    : Bounds(bounds.x, bounds.y, bounds.w, primarySize);
+          Bounds secondaryBounds =
+              s.orientation == Config::Orientation::Horizontal
+                  ? Bounds(bounds.x + primarySize + SPLITTER_WIDTH, bounds.y, secondarySize, bounds.h)
+                  : Bounds(bounds.x, bounds.y + primarySize + SPLITTER_WIDTH, bounds.w, secondarySize);
+
+          std::tie(s.primaryConstraintSize, s.primaryConstraint) =
+              getConstraints(s.primary, primaryBounds, s.orientation);
+          std::tie(s.secondaryConstraintSize, s.secondaryConstraint) =
+              getConstraints(s.secondary, secondaryBounds, s.orientation);
+
+          Size constraintSize;
+          Constraint constraint;
+          if (s.orientation == Config::Orientation::Horizontal) {
+            int totalW = s.primaryConstraintSize.w + s.secondaryConstraintSize.w;
+            int maxH = std::max(s.primaryConstraintSize.h, s.secondaryConstraintSize.h);
+            constraintSize = Size(totalW, maxH);
+            ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced &&
+                                    s.secondaryConstraint.w == ConstraintType::Forced)
+                                      ? ConstraintType::Forced
+                                      : ConstraintType::Minimum;
+            ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced ||
+                                    s.secondaryConstraint.h == ConstraintType::Forced)
+                                      ? ConstraintType::Forced
+                                      : ConstraintType::Minimum;
+            constraint = Constraint(wType, hType);
+          } else {
+            int totalH = s.primaryConstraintSize.h + s.secondaryConstraintSize.h;
+            int maxW = std::max(s.primaryConstraintSize.w, s.secondaryConstraintSize.w);
+            constraintSize = Size(maxW, totalH);
+            ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced &&
+                                    s.secondaryConstraint.h == ConstraintType::Forced)
+                                      ? ConstraintType::Forced
+                                      : ConstraintType::Minimum;
+            ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced ||
+                                    s.secondaryConstraint.w == ConstraintType::Forced)
+                                      ? ConstraintType::Forced
+                                      : ConstraintType::Minimum;
+            constraint = Constraint(wType, hType);
+          }
+
+          return std::make_pair(constraintSize, constraint);
+        }
+      }, *node);
+  };
+
+  std::visit(
+  Visitor {
+    [&](std::shared_ptr<VisualizerWindow>& w) {
+      w->bounds = bounds;
+      w->resizeTextures();
+    },
+    [&](Splitter& s) {
+      int& boundAxis = s.orientation == Config::Orientation::Horizontal ? bounds.w : bounds.h;
+      int totalSize = boundAxis - SPLITTER_WIDTH;
+      int primarySize = static_cast<int>(totalSize * (*s.ratio));
+      int secondarySize = totalSize - primarySize;
+
+      Bounds primaryBounds = s.orientation == Config::Orientation::Horizontal
+                                ? Bounds(bounds.x, bounds.y, primarySize, bounds.h)
+                                : Bounds(bounds.x, bounds.y, bounds.w, primarySize);
+      Bounds secondaryBounds =
+          s.orientation == Config::Orientation::Horizontal
+              ? Bounds(bounds.x + primarySize + SPLITTER_WIDTH, bounds.y, secondarySize, bounds.h)
+              : Bounds(bounds.x, bounds.y + primarySize + SPLITTER_WIDTH, bounds.w, secondarySize);
+
+      auto [primaryConstraintSize, primaryConstraint] =
+          getConstraints(s.primary, primaryBounds, s.orientation);
+      auto [secondaryConstraintSize, secondaryConstraint] =
+          getConstraints(s.secondary, secondaryBounds, s.orientation);
+
+      ConstraintType primaryAxis =
+          s.orientation == Config::Orientation::Horizontal ? primaryConstraint.w : primaryConstraint.h;
+      ConstraintType secondaryAxis =
+          s.orientation == Config::Orientation::Horizontal ? secondaryConstraint.w : secondaryConstraint.h;
+      int primaryAxisSize = s.orientation == Config::Orientation::Horizontal ? primaryConstraintSize.w
+                                                                            : primaryConstraintSize.h;
+      int secondaryAxisSize = s.orientation == Config::Orientation::Horizontal ? secondaryConstraintSize.w
+                                                                              : secondaryConstraintSize.h;
+
+      if (primaryAxis == ConstraintType::Minimum && secondaryAxis == ConstraintType::Minimum) {
+        boundAxis = std::max(boundAxis, primaryAxisSize + secondaryAxisSize + SPLITTER_WIDTH);
+        float minRatio = static_cast<float>(primaryAxisSize) / (boundAxis - SPLITTER_WIDTH);
+        float maxRatio = 1.0f - static_cast<float>(secondaryAxisSize) / (boundAxis - SPLITTER_WIDTH);
+        if (minRatio > maxRatio)
+          *(s.ratio) = minRatio;
+        else
+          *(s.ratio) = std::clamp(*(s.ratio), minRatio, maxRatio);
+        s.movable = true;
+      } else if (primaryAxis == ConstraintType::Forced && secondaryAxis == ConstraintType::Minimum ||
+                primaryAxis == ConstraintType::Minimum && secondaryAxis == ConstraintType::Forced) {
+        boundAxis = std::max(boundAxis, primaryAxisSize + secondaryAxisSize + SPLITTER_WIDTH);
+        *(s.ratio) = primaryAxis == ConstraintType::Forced
+                        ? static_cast<float>(primaryAxisSize) / (boundAxis - SPLITTER_WIDTH)
+                        : 1.0f - static_cast<float>(secondaryAxisSize) / (boundAxis - SPLITTER_WIDTH);
+        s.movable = false;
+      } else {
+        boundAxis = primaryAxisSize + secondaryAxisSize + SPLITTER_WIDTH;
+        *(s.ratio) = static_cast<float>(primaryAxisSize) / (boundAxis - SPLITTER_WIDTH);
+        s.movable = false;
+      }
+
+      totalSize = boundAxis - SPLITTER_WIDTH;
+      primarySize = static_cast<int>(totalSize * (*s.ratio));
+      secondarySize = totalSize - primarySize;
+
+      primaryBounds = s.orientation == Config::Orientation::Horizontal
+                          ? Bounds(bounds.x, bounds.y, primarySize, bounds.h)
+                          : Bounds(bounds.x, bounds.y, bounds.w, primarySize);
+      secondaryBounds =
+          s.orientation == Config::Orientation::Horizontal
+              ? Bounds(bounds.x + primarySize + SPLITTER_WIDTH, bounds.y, secondarySize, bounds.h)
+              : Bounds(bounds.x, bounds.y + primarySize + SPLITTER_WIDTH, bounds.w, secondarySize);
+
+      updateBounds(s.primary, primaryBounds);
+      updateBounds(s.secondary, secondaryBounds);
+
+      s.bounds = bounds;
+    }
+  }, *node);
+}
+// clang-format on
+
+std::tuple<VisualizerWindow*, VisualizerWindow*, HoverRegion> getHoverState(SDLWindow::State& state) {
+  if (auto* draggingWindow =
+          getWindowIf(state.root, [](std::shared_ptr<VisualizerWindow>& w) { return w->dragging; })) {
+    if (auto* hoveringWindow =
+            getWindowIf(state.root, [](std::shared_ptr<VisualizerWindow>& w) { return w->hovering; })) {
+      if (draggingWindow != hoveringWindow) {
+        auto hoveringBounds = hoveringWindow->bounds;
+        int halfW = hoveringBounds.w / 2;
+        int halfH = hoveringBounds.h / 2;
+        int centerX = (hoveringBounds.w - halfW) / 2;
+        int centerY = (hoveringBounds.h - halfH) / 2;
+
+        int mx = state.mousePos.first - hoveringBounds.x;
+        int my = state.mousePos.second - hoveringBounds.y;
+
+        if (mx >= centerX && mx < centerX + halfW && my >= centerY && my < centerY + halfH) {
+          return {draggingWindow, hoveringWindow, HoverRegion::Center};
+        }
+
+        // Normalize mouse to [-1,1] relative to bounds center
+        float normX = (mx / (hoveringBounds.w / 2.0f)) - 1.0f;
+        float normY = (my / (hoveringBounds.h / 2.0f)) - 1.0f;
+
+        // Edge center normalized positions
+        float topDist = std::abs(normY + 1.0f);
+        float bottomDist = std::abs(normY - 1.0f);
+        float leftDist = std::abs(normX + 1.0f);
+        float rightDist = std::abs(normX - 1.0f);
+
+        float minDist = std::min({topDist, bottomDist, leftDist, rightDist});
+        if (minDist == topDist && my < centerY) {
+          return {draggingWindow, hoveringWindow, HoverRegion::Top};
+        }
+        if (minDist == bottomDist && my >= centerY + halfH) {
+          return {draggingWindow, hoveringWindow, HoverRegion::Bottom};
+        }
+        if (minDist == leftDist && mx < centerX) {
+          return {draggingWindow, hoveringWindow, HoverRegion::Left};
+        }
+        if (minDist == rightDist && mx >= centerX + halfW) {
+          return {draggingWindow, hoveringWindow, HoverRegion::Right};
         }
       }
-      break;
-
-    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-      hovering = false;
-      for (auto& [k, vec] : windows)
-        for (auto& w : vec)
-          w->hovering = false;
-      for (auto& [k, vec] : splitters)
-        for (auto& s : vec)
-          s.hovering = false;
-      break;
-
-    default:
-      break;
     }
+  }
+  return {nullptr, nullptr, HoverRegion::None};
+}
+
+std::unique_ptr<Config::Node>* findConfigNodeParentPtr(std::unique_ptr<Config::Node>& root, std::string_view id) {
+  if (!root)
+    return nullptr;
+
+  std::function<std::unique_ptr<Config::Node>*(std::unique_ptr<Config::Node>&, std::unique_ptr<Config::Node>*)>
+      recurseTree = [&](std::unique_ptr<Config::Node>& node,
+                        std::unique_ptr<Config::Node>* parent) -> std::unique_ptr<Config::Node>* {
+    if (!node)
+      return nullptr;
+
+    if (auto idPtr = std::get_if<std::string>(node.get())) {
+      if (*idPtr == id)
+        return parent ? parent : &root;
+      return nullptr;
+    }
+
+    if (auto branchPtr = std::get_if<Config::Branch>(node.get())) {
+      if (auto ptr = recurseTree(branchPtr->primary, &node))
+        return ptr;
+      if (auto ptr = recurseTree(branchPtr->secondary, &node))
+        return ptr;
+    }
+    return nullptr;
+  };
+
+  return recurseTree(root, nullptr);
+}
+
+std::unique_ptr<Config::Node>* findConfigNodePtrById(std::unique_ptr<Config::Node>& root, std::string_view id) {
+  if (!root)
+    return nullptr;
+
+  std::function<std::unique_ptr<Config::Node>*(std::unique_ptr<Config::Node>&)> recurseTree =
+      [&](std::unique_ptr<Config::Node>& node) -> std::unique_ptr<Config::Node>* {
+    if (!node)
+      return nullptr;
+
+    if (auto idPtr = std::get_if<std::string>(node.get()))
+      return (*idPtr) == id ? &node : nullptr;
+    if (auto branchPtr = std::get_if<Config::Branch>(node.get())) {
+      if (auto ptr = recurseTree(branchPtr->primary))
+        return ptr;
+      return recurseTree(branchPtr->secondary);
+    }
+    return nullptr;
+  };
+
+  return recurseTree(root);
+}
+
+void swapVisualizer(std::unique_ptr<Config::Node>& root, std::string_view draggingId, std::string_view hoveringId) {
+  if (!root)
+    return;
+
+  auto aPtr = findConfigNodePtrById(root, draggingId);
+  auto bPtr = findConfigNodePtrById(root, hoveringId);
+  if (!aPtr || !bPtr || aPtr == bPtr)
+    return;
+
+  auto idA = std::get_if<std::string>((*aPtr).get());
+  auto idB = std::get_if<std::string>((*bPtr).get());
+  if (!idA || !idB)
+    return;
+
+  std::swap(*idA, *idB);
+
+  // Trigger reload
+  Config::save();
+}
+
+/**
+ * @brief Helper to remove a visualizer by id. Promotes sibling when a child is removed.
+ */
+static bool removeVisualizerById(std::unique_ptr<Config::Node>& n, const std::string& id) {
+  if (!n)
+    return false;
+  if (auto vis = std::get_if<std::string>(n.get())) {
+    if (*vis == id) {
+      n.reset();
+      return true;
+    }
+    return false;
+  }
+  if (auto branch = std::get_if<Config::Branch>(n.get())) {
+    if (removeVisualizerById(branch->primary, id)) {
+      if (!branch->primary)
+        n = std::move(branch->secondary);
+      return true;
+    }
+    if (removeVisualizerById(branch->secondary, id)) {
+      if (!branch->secondary)
+        n = std::move(branch->primary);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @brief Insert a Splitter at the hovered location and move 'dragging' into it.
+ */
+void insertVisualizer(std::unique_ptr<Config::Node>& root, std::string draggingId, std::string hoveringId,
+                      HoverRegion region) {
+  if (!root)
+    return;
+
+  auto aParentPtr = findConfigNodeParentPtr(root, draggingId);
+  auto bParentPtr = findConfigNodeParentPtr(root, hoveringId);
+  if (!aParentPtr || !bParentPtr)
+    return;
+
+  Config::Branch branch;
+  branch.orientation = (region == HoverRegion::Top || region == HoverRegion::Bottom) ? Config::Orientation::Vertical
+                                                                                     : Config::Orientation::Horizontal;
+
+  switch (region) {
+  case HoverRegion::Top:
+  case HoverRegion::Left:
+    branch.primary = std::make_unique<Config::Node>(draggingId);
+    branch.secondary = std::make_unique<Config::Node>(hoveringId);
+    break;
+  case HoverRegion::Bottom:
+  case HoverRegion::Right:
+    branch.primary = std::make_unique<Config::Node>(hoveringId);
+    branch.secondary = std::make_unique<Config::Node>(draggingId);
+  default:
+    break;
+  };
+  branch.ratio = 0.5f;
+
+  if (aParentPtr == bParentPtr) {
+    // Parents are equal, update in-place
+    *aParentPtr = std::make_unique<Config::Node>(std::move(branch));
+    Config::save();
+    return;
+  }
+
+  // Remove dragging node first
+  removeVisualizerById(root, draggingId);
+
+  // Replace hovering with branch
+  if (auto hovering = findConfigNodePtrById(root, hoveringId))
+    *hovering = std::make_unique<Config::Node>(std::in_place_type<Config::Branch>, std::move(branch));
+
+  // Trigger reload
+  Config::save();
+}
+
+bool addVisualizerToGroup(const std::string& group, const std::string& id) {
+  auto vis = VisualizerRegistry::find(id);
+  if (!vis)
+    return false;
+
+  auto [it, inserted] = Config::options.visualizers.try_emplace(group);
+  auto& root = it->second;
+  if (!root) {
+    root = std::make_unique<Config::Node>(id);
+  } else {
+    // Create a new branch that contains the existing root and the new id
+    Config::Branch branch;
+    branch.orientation = Config::Orientation::Horizontal;
+    branch.ratio = 0.5f;
+    branch.primary = std::move(root);
+    branch.secondary = std::make_unique<Config::Node>(id);
+    root = std::make_unique<Config::Node>(std::in_place_type<Config::Branch>, std::move(branch));
+  }
+
+  boundsDirty.store(true);
+  return true;
+}
+
+bool removeVisualizerFromGroup(const std::string& group, const std::string& id) {
+  auto it = Config::options.visualizers.find(group);
+  if (it == Config::options.visualizers.end())
+    return false;
+  bool removed = removeVisualizerById(it->second, id);
+  if (removed && (!it->second)) {
+    Config::options.visualizers.erase(group);
+    SDLWindow::destroyWindow(group);
+  }
+
+  boundsDirty.store(true);
+  return removed;
+}
+
+void drawHoverHandles(std::string key, SDLWindow::State& state) {
+  auto [draggingWindow, hoveringWindow, region] = getHoverState(state);
+  if (region == HoverRegion::None || !hoveringWindow)
+    return;
+
+  auto hoveringBounds = hoveringWindow->bounds;
+  setViewport(hoveringBounds);
+
+  int halfW = hoveringBounds.w / 2;
+  int halfH = hoveringBounds.h / 2;
+  int centerX = (hoveringBounds.w - halfW) / 2;
+  int centerY = (hoveringBounds.h - halfH) / 2;
+
+  switch (region) {
+  case HoverRegion::Center:
+    Graphics::drawFilledRect(centerX, centerY, halfW, halfH, Theme::alpha(Theme::colors.color, 0.5f));
+    break;
+  case HoverRegion::Top:
+    Graphics::drawFilledRect(0, 0, hoveringBounds.w, centerY, Theme::alpha(Theme::colors.color, 0.5f));
+    break;
+  case HoverRegion::Bottom:
+    Graphics::drawFilledRect(0, centerY + halfH, hoveringBounds.w, hoveringBounds.h - (centerY + halfH),
+                             Theme::alpha(Theme::colors.color, 0.5f));
+    break;
+  case HoverRegion::Left:
+    Graphics::drawFilledRect(0, 0, centerX, hoveringBounds.h, Theme::alpha(Theme::colors.color, 0.5f));
+    break;
+  case HoverRegion::Right:
+    Graphics::drawFilledRect(centerX + halfW, 0, hoveringBounds.w - (centerX + halfW), hoveringBounds.h,
+                             Theme::alpha(Theme::colors.color, 0.5f));
+    break;
+  default:
+    break;
   }
 }
 
-void Splitter::draw() {
-  if (SDLWindow::states[group].windowSizes.second == 0) [[unlikely]]
+void updateBounds() {
+  if (boundsDirty.load() == false)
     return;
+  boundsDirty.store(false);
 
-  // Select the window for rendering
-  SDLWindow::selectWindow(group);
+  for (auto& [key, state] : SDLWindow::states) {
+    SDL_GL_MakeCurrent(state.win, state.glContext);
+    updateBounds(state.root, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
+  }
+}
 
-  // Set viewport for splitter rendering
-  setViewport(x - 5, 10, SDLWindow::states[group].windowSizes.second);
+void render() {
+  for (auto& [key, state] : SDLWindow::states) {
+    SDL_GL_MakeCurrent(state.win, state.glContext);
 
-  // Draw splitter line
-  Graphics::drawLine(5, 0, 5, SDLWindow::states[group].windowSizes.second, Theme::colors.bgAccent, 2.0f);
+    walkTree(state.root, [&](auto&& n) {
+      using T = std::decay_t<decltype(n)>;
+      if constexpr (std::is_same_v<T, std::shared_ptr<VisualizerWindow>>) {
+        setViewport(n->bounds);
+        n->render();
+      } else if constexpr (std::is_same_v<T, Splitter>) {
+        setViewport(n.bounds);
+        n.render();
+      }
+    });
 
-  // Draw hover highlight if mouse is over splitter
-  if (hovering) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4fv(Theme::alpha(Theme::colors.accent, 0.3f));
+    drawHoverHandles(key, state);
+  }
+}
 
-    float vertices[] = {0.0f,  0.0f,
-                        0.f,   0.f, // Bottom left
-                        10.0f, 0.0f,
-                        1.f,   0.f, // Bottom right
-                        10.0f, (float)SDLWindow::states[group].windowSizes.second,
-                        1.f,   1.f, // Top right
-                        0.0f,  (float)SDLWindow::states[group].windowSizes.second,
-                        0.f,   1.f}; // Top left
+void cleanup() {
+  for (auto& [key, state] : SDLWindow::states) {
+    SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
-    glDrawArrays(GL_QUADS, 0, 4);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glDisable(GL_BLEND);
+    walkTree(state.root, [&](auto&& n) {
+      using T = std::decay_t<decltype(n)>;
+      if constexpr (std::is_same_v<T, std::shared_ptr<VisualizerWindow>>) {
+        n->cleanup();
+      }
+    });
+  }
+}
+
+void handleEvent(const SDL_Event& event) {
+  for (auto& [key, state] : SDLWindow::states) {
+    walkTree(state.root, [&](auto&& n) {
+      using T = std::decay_t<decltype(n)>;
+      if constexpr (std::is_same_v<T, std::shared_ptr<VisualizerWindow>>) {
+        n->handleEvent(event);
+      } else if constexpr (std::is_same_v<T, Splitter>) {
+        n.handleEvent(event);
+      }
+    });
   }
 }
 
 void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) {
   // Calculate minimum dimensions for texture transfer
-  int minWidth = std::min(width, phosphor.textureWidth);
-  int minHeight = std::min(SDLWindow::states[group].windowSizes.second, phosphor.textureHeight);
-  std::vector<uint8_t> newData(width * SDLWindow::states[group].windowSizes.second * 4, 0);
+  int minWidth = std::min(bounds.w, phosphor.textureWidth);
+  int minHeight = std::min(bounds.h, phosphor.textureHeight);
+  std::vector<uint8_t> newData(bounds.w * bounds.h * 4, 0);
 
   if (glIsTexture(oldTex)) [[likely]] {
     // Read pixel data from old texture
@@ -251,14 +738,14 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
     glGetTexImage(GL_TEXTURE_2D, 0, format, type, oldData.data());
 
     // Calculate offsets for centering texture in both directions
-    int srcOffsetX = std::max(0, (phosphor.textureWidth - width) / 2);
-    int srcOffsetY = std::max(0, (phosphor.textureHeight - SDLWindow::states[group].windowSizes.second) / 2);
-    int dstOffsetX = std::max(0, (width - phosphor.textureWidth) / 2);
-    int dstOffsetY = std::max(0, (SDLWindow::states[group].windowSizes.second - phosphor.textureHeight) / 2);
+    int srcOffsetX = std::max(0, (phosphor.textureWidth - bounds.w) / 2);
+    int srcOffsetY = std::max(0, (phosphor.textureHeight - bounds.h) / 2);
+    int dstOffsetX = std::max(0, (bounds.w - phosphor.textureWidth) / 2);
+    int dstOffsetY = std::max(0, (bounds.h - phosphor.textureHeight) / 2);
 
     for (int y = 0; y < minHeight; ++y) {
       int oldRowBase = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
-      int newRowBase = (y + dstOffsetY) * width * 4 + dstOffsetX * 4;
+      int newRowBase = (y + dstOffsetY) * bounds.w * 4 + dstOffsetX * 4;
       int x = 0;
 
 #ifdef HAVE_AVX2
@@ -283,8 +770,8 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
   }
   // Create new texture with transferred data
   glBindTexture(GL_TEXTURE_2D, newTex);
-  glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, width,
-               SDLWindow::states[group].windowSizes.second, 0, format, type, newData.data());
+  glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, bounds.w, bounds.h, 0, format, type,
+               newData.data());
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -293,8 +780,7 @@ void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum form
 }
 
 void VisualizerWindow::resizeTextures() {
-  bool sizeChanged =
-      (phosphor.textureWidth != width || phosphor.textureHeight != SDLWindow::states[group].windowSizes.second);
+  bool sizeChanged = (phosphor.textureWidth != bounds.w || phosphor.textureHeight != bounds.h);
 
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
                         &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
@@ -310,17 +796,14 @@ void VisualizerWindow::resizeTextures() {
     return false;
   }();
 
-  if (!sizeChanged && !textureUninitialized) [[likely]] {
+  if (!sizeChanged && !textureUninitialized) [[likely]]
     return;
-  }
 
   glFinish();
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
   glBindTexture(GL_TEXTURE_2D, 0);
   glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-
-  SDLWindow::selectWindow(group);
 
   std::vector<GLuint> oldTextures;
   oldTextures.reserve(size_t(sizeof(textures) / sizeof(textures[0])));
@@ -344,324 +827,10 @@ void VisualizerWindow::resizeTextures() {
     *textures[i] = newTexture;
   }
 
-  phosphor.textureHeight = SDLWindow::states[group].windowSizes.second;
-  phosphor.textureWidth = width;
+  phosphor.textureHeight = bounds.h;
+  phosphor.textureWidth = bounds.w;
 
   glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void VisualizerWindow::draw() {
-  // Validate phosphor output texture
-  if (!glIsTexture(phosphor.outputTexture)) [[unlikely]] {
-    throw std::runtime_error("WindowManager::VisualizerWindow::draw(): outputTexture is not a Texture");
-  }
-
-  // Select the window for rendering
-  SDLWindow::selectWindow(group);
-
-  // Set viewport for this window
-  setViewport(x, width, SDLWindow::states[group].windowSizes.second);
-
-  if (Config::options.phosphor.enabled) {
-    // Render phosphor effect using output texture
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
-    glColor4f(1.f, 1.f, 1.f, 1.f);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    float w = static_cast<float>(width);
-    float h = static_cast<float>(SDLWindow::states[group].windowSizes.second);
-    float y = 0.0f;
-
-    float vertices[] = {0.0f, y,     0.f, 0.f,  // Bottom left
-                        w,    y,     1.f, 0.f,  // Bottom right
-                        w,    y + h, 1.f, 1.f,  // Top right
-                        0.0f, y + h, 0.f, 1.f}; // Top left
-
-    // Draw textured quad
-    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
-    glDrawArrays(GL_QUADS, 0, 4);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glDisable(GL_TEXTURE_2D);
-  }
-
-  // Check for OpenGL errors
-  GLenum err = glGetError();
-  if (err != GL_NO_ERROR) [[unlikely]]
-    LOG_DEBUG(std::string("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: ") + std::to_string(err));
-}
-
-void VisualizerWindow::drawArrow(int dir) {
-  if (SDLWindow::states[group].windowSizes.second == 0) [[unlikely]]
-    return;
-
-  // Don't draw dock arrow in main window
-  if (group == "main" && dir == -2)
-    return;
-
-  auto [arrowX, arrowY] = getArrowPos(dir);
-  if (arrowX == -1 && arrowY == -1)
-    return;
-
-  float* bgcolor = Theme::colors.bgAccent;
-  if (buttonHovering(dir, SDLWindow::states[group].mousePos.first,
-                     SDLWindow::states[group].windowSizes.second - SDLWindow::states[group].mousePos.second))
-    bgcolor = Theme::colors.accent;
-
-  // Draw background
-  Graphics::drawFilledRect(arrowX, arrowY, buttonSize, buttonSize, bgcolor);
-
-  // Draw arrow
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_POLYGON_SMOOTH);
-  glColor4fv(Theme::colors.text);
-  const float v = static_cast<float>(std::abs(dir) == 2);
-  const float h = 1.0f - v;
-  const float alpha = 0.2f * static_cast<float>(dir);
-
-  // Branchless coordinate calc because yes
-  float x1 = arrowX + buttonSize * (v * 0.3f + h * (0.5f - alpha));
-  float y1 = arrowY + buttonSize * (v * (0.5f - alpha / 2.0f) + h * 0.3f);
-  float x2 = arrowX + buttonSize * (v * 0.5f + h * (0.5f + alpha));
-  float y2 = arrowY + buttonSize * (v * (0.5f + alpha / 2.0f) + h * 0.5f);
-  float x3 = arrowX + buttonSize * (v * 0.7f + h * (0.5f - alpha));
-  float y3 = arrowY + buttonSize * (v * (0.5f - alpha / 2.0f) + h * 0.7f);
-  float vertices[] = {x1, y1, x2, y2, x3, y3};
-  glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glVertexPointer(2, GL_FLOAT, 0, reinterpret_cast<void*>(0));
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-  glDisableClientState(GL_VERTEX_ARRAY);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-  glDisable(GL_POLYGON_SMOOTH);
-  glDisable(GL_BLEND);
-}
-
-bool VisualizerWindow::buttonPressed(int dir, int mouseX, int mouseY) {
-  auto [arrowX, arrowY] = getArrowPos(dir);
-  if (arrowX == -1 && arrowY == -1)
-    return false;
-
-  return (mouseX >= x + arrowX && mouseX < x + arrowX + buttonSize &&
-          SDLWindow::states[group].windowSizes.second - mouseY >= arrowY &&
-          SDLWindow::states[group].windowSizes.second - mouseY < arrowY + buttonSize);
-}
-
-bool VisualizerWindow::buttonHovering(int dir, int mouseX, int mouseY) { return buttonPressed(dir, mouseX, mouseY); }
-
-void drawSplitters() {
-  // Draw all window splitters
-  for (auto& [key, vec] : splitters) {
-    for (auto& splitter : vec) {
-      SDLWindow::selectWindow(splitter.group);
-      splitter.draw();
-    }
-  }
-}
-
-void renderAll() {
-  // Render all visualizer windows
-  for (auto& [key, vec] : windows) {
-    for (auto& window : vec) {
-      auto it = SDLWindow::states.find(window->group);
-      if (it == SDLWindow::states.end())
-        continue;
-
-      SDLWindow::selectWindow(window->group);
-      window->render(&it->second);
-    }
-  }
-
-  // Draw arrows for each window
-  for (auto& [key, vec] : windows) {
-    for (auto& window : vec) {
-      SDLWindow::selectWindow(window->group);
-      if (SDLWindow::states[window->group].focused && window->hovering) {
-        window->drawArrow(-1);
-        window->drawArrow(1);
-        window->drawArrow(2);
-        window->drawArrow(-2);
-      }
-    }
-  }
-}
-
-void resizeTextures() {
-  // Resize phosphor textures for all windows
-  for (auto& [key, vec] : windows) {
-    for (auto& window : vec) {
-      SDLWindow::selectWindow(window->group);
-      window->resizeTextures();
-    }
-  }
-}
-
-void resizeWindows() {
-  constexpr int MIN_WINDOW_SIZE = 1;
-  for (auto& [key, vec] : windows) {
-    if (splitters[key].size() == 0) {
-      // Single window case
-      vec[0]->x = 0;
-      vec[0]->width = std::max(SDLWindow::states[vec[0]->group].windowSizes.first, MIN_WINDOW_SIZE);
-    } else {
-      // Multiple windows with splitters
-      vec[0]->x = 0;
-      vec[0]->width = std::max(splitters[key][0].x - 1, MIN_WINDOW_SIZE);
-      for (int i = 1; i < static_cast<int>(vec.size()) - 1; i++) {
-        vec[i]->x = splitters[key][i - 1].x + 1;
-        vec[i]->width = std::max(splitters[key][i].x - splitters[key][i - 1].x - 2, MIN_WINDOW_SIZE);
-      }
-
-      vec.back()->x = splitters[key].back().x + 1;
-      vec.back()->width =
-          std::max(SDLWindow::states[vec.back()->group].windowSizes.first - vec.back()->x - 1, MIN_WINDOW_SIZE);
-    }
-  }
-}
-
-int moveSplitter(std::string key, int index, int targetX) {
-  // Get references to adjacent windows and splitters
-  VisualizerWindow* left = windows[key][index].get();
-  VisualizerWindow* right = windows[key][index + 1].get();
-  Splitter* splitter = &splitters[key][index];
-  Splitter* splitterLeft = (index != 0 ? &splitters[key][index - 1] : nullptr);
-  Splitter* splitterRight =
-      (index != static_cast<int>(splitters[key].size()) - 1 ? &splitters[key][index + 1] : nullptr);
-
-  std::string& group = left->group;
-
-  static int iter = 0;
-
-  // Set target position if provided
-  if (targetX != -1)
-    splitter->x = targetX;
-  else
-    iter = 0;
-
-  // Prevent infinite loops
-  if (++iter > 20) {
-    return -1;
-  }
-
-  // Lambda function to handle splitter movement constraints
-  auto move = [&](int direction) -> bool {
-    constexpr int SPLITTER_WIDTH = 2;
-    Splitter* neighborSplitter = direction == 1 ? splitterRight : splitterLeft;
-    VisualizerWindow* neighborWindow = direction == 1 ? right : left;
-    int boundary = direction == 1 ? SDLWindow::states[group].windowSizes.first : 0;
-    if (!neighborWindow) {
-      // Handle minimum width constraints for null window case
-      if (neighborSplitter) {
-        int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
-        if (dist < MIN_WIDTH) {
-          moveSplitter(key, index + direction, splitter->x + direction * (MIN_WIDTH + SPLITTER_WIDTH));
-          return false;
-        }
-      } else {
-        int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
-        if (dist < MIN_WIDTH) {
-          splitter->x = boundary - direction * (MIN_WIDTH + SPLITTER_WIDTH);
-          return false;
-        }
-      }
-      return true;
-    }
-
-    int forceWidth = neighborWindow->forceWidth;
-    if (!forceWidth && neighborWindow->aspectRatio != 0.0f) {
-      forceWidth = std::min(static_cast<int>(neighborWindow->aspectRatio * SDLWindow::states[group].windowSizes.second),
-                            static_cast<int>(SDLWindow::states[group].windowSizes.first -
-                                             (windows[key].size() - 1) * (MIN_WIDTH + SPLITTER_WIDTH)));
-    }
-
-    if (forceWidth > 0) {
-      if (neighborSplitter) {
-        int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
-        if (dist != forceWidth) {
-          moveSplitter(key, index + direction, splitter->x + direction * (forceWidth + SPLITTER_WIDTH));
-          return false;
-        }
-      } else {
-        int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
-        if (dist != forceWidth) {
-          splitter->x = boundary - direction * (forceWidth + SPLITTER_WIDTH);
-          return false;
-        }
-      }
-    } else if (neighborSplitter) {
-      int dist = direction * (neighborSplitter->x - splitter->x - direction * SPLITTER_WIDTH);
-      if (dist < MIN_WIDTH) {
-        moveSplitter(key, index + direction, splitter->x + direction * (MIN_WIDTH + SPLITTER_WIDTH));
-        return false;
-      }
-    } else {
-      int dist = direction * (boundary - splitter->x - direction * SPLITTER_WIDTH);
-      if (dist < MIN_WIDTH) {
-        splitter->x = boundary - direction * (MIN_WIDTH + SPLITTER_WIDTH);
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  // Iteratively solve splitter constraints
-  int i = 0;
-  while (!(move(1) && move(-1)) && i < 20)
-    i++;
-  return i;
-}
-
-void updateSplitters() {
-  // Find currently dragging splitter
-  for (auto& [key, vec] : splitters) {
-    int draggingIndex = -1;
-    for (int i = 0; i < static_cast<int>(vec.size()); ++i) {
-      if (vec[i].dragging) {
-        draggingIndex = i;
-        break;
-      }
-    }
-    if (draggingIndex == -1) {
-      for (int i = 0; i < static_cast<int>(vec.size()); i++) {
-        moveSplitter(key, i);
-      }
-    } else {
-      moveSplitter(key, draggingIndex);
-    }
-  }
-
-  // Special handling for centered oscilloscope
-  if (Config::options.oscilloscope.centered) {
-    auto* oscilloscopeWindow = findWindowById("oscilloscope");
-    if (oscilloscopeWindow) {
-      const std::string& key = oscilloscopeWindow->group;
-      auto maybeIndex = findWindowIndex(key, oscilloscopeWindow);
-      if (maybeIndex) {
-        size_t i = *maybeIndex;
-        int mainWindowWidth = SDLWindow::states[key].windowSizes.first;
-        // Mirror right splitter if left splitter is in left half of screen
-        if (i > 0 && i < splitters[key].size()) {
-          if (splitters[key][i - 1].x < mainWindowWidth / 2 - MIN_WIDTH / 2) {
-            splitters[key][i].x = mainWindowWidth - splitters[key][i - 1].x;
-            splitters[key][i].draggable = false;
-          } else {
-            splitters[key][i].draggable = true;
-          }
-        }
-      }
-    }
-  }
 }
 
 void VisualizerWindow::cleanup() {
@@ -681,177 +850,168 @@ void VisualizerWindow::cleanup() {
   }
 }
 
-void reorder() {
-  // loop over the keys in the map
-  for (auto& [key, value] : Config::options.visualizers) {
+void VisualizerWindow::draw() {
+  // Validate phosphor output texture
+  if (!glIsTexture(phosphor.outputTexture)) [[unlikely]] {
+    throw std::runtime_error("WindowManager::VisualizerWindow::draw(): outputTexture is not a Texture");
+  }
 
-    if (value.empty() && key == "main") {
-      LOG_ERROR("Warning: Main window has no visualizers.");
-      exit(1);
+  if (Config::options.phosphor.enabled) {
+    // Render phosphor effect using output texture
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
+    glColor4f(1.f, 1.f, 1.f, 1.f);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    float w = static_cast<float>(bounds.w);
+    float h = static_cast<float>(bounds.h);
+    float y = 0.0f;
+
+    float vertices[] = {0.0f, y,     0.f, 0.f,  // Bottom left
+                        w,    y,     1.f, 0.f,  // Bottom right
+                        w,    y + h, 1.f, 1.f,  // Top right
+                        0.0f, y + h, 0.f, 1.f}; // Top left
+
+    // Draw textured quad
+    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glDrawArrays(GL_QUADS, 0, 4);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glDisable(GL_TEXTURE_2D);
+  }
+
+  // Check for OpenGL errors
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) [[unlikely]]
+    LOG_DEBUG(std::string("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: ") + std::to_string(err));
+}
+
+void VisualizerWindow::handleEvent(const SDL_Event& event) {
+  std::string group = "";
+  for (auto& [_group, state] : SDLWindow::states) {
+    if (event.window.windowID == state.winID) {
+      group = _group;
+      break;
+    }
+  }
+
+  if (group.empty())
+    return;
+
+  auto isHovering = [&](int x, int y, int off) -> bool {
+    return x >= bounds.x + off && x < bounds.x + bounds.w - off && y >= bounds.y + off && y < bounds.y + bounds.h - off;
+  };
+
+  float mouseX, mouseY;
+  switch (event.type) {
+  case SDL_EVENT_MOUSE_MOTION:
+    mouseX = event.motion.x;
+    mouseY = SDLWindow::states[group].windowSizes.second - event.motion.y;
+    hovering = isHovering(mouseX, mouseY, 0);
+
+    if (!dragging)
+      break;
+
+    break;
+
+  case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    mouseX = event.button.x;
+    mouseY = SDLWindow::states[group].windowSizes.second - event.button.y;
+    dragging = isHovering(mouseX, mouseY, 10);
+    if (dragging)
+      updateCursorForGroup(group);
+    break;
+
+  case SDL_EVENT_MOUSE_BUTTON_UP: {
+    // If we were dragging, handle drop actions before clearing dragging state
+    if (dragging) {
+      auto& state = SDLWindow::states[group];
+      auto [draggingWindow, hoveringWindow, region] = getHoverState(state);
+      if (draggingWindow && hoveringWindow && draggingWindow != hoveringWindow) {
+        // Operate on the config tree instead of the live SDL tree
+        auto it = Config::options.visualizers.find(group);
+        if (it != Config::options.visualizers.end()) {
+          if (region == HoverRegion::Center) {
+            swapVisualizer(it->second, draggingWindow->id, hoveringWindow->id);
+          } else if (region != HoverRegion::None)
+            insertVisualizer(it->second, draggingWindow->id, hoveringWindow->id, region);
+        }
+      }
     }
 
-    // Skip "hidden" window
-    if (key == "hidden")
+    dragging = false;
+    updateCursorForGroup(group);
+    break;
+  }
+
+  default:
+    break;
+  }
+}
+
+void initialize() {
+  // Helper to build WindowManager::Node tree from Config::Node tree
+  std::function<std::unique_ptr<Node>(std::unique_ptr<Config::Node>&)> buildNode;
+  buildNode = [&](std::unique_ptr<Config::Node>& cfg) -> std::unique_ptr<Node> {
+    if (const std::string* id = std::get_if<std::string>(cfg.get())) {
+      if (id->empty())
+        return nullptr;
+      auto vis = VisualizerRegistry::find(*id);
+      if (!vis) {
+        LOG_ERROR("Visualizer not found: " << *id);
+        return nullptr;
+      }
+      vis->configure();
+      return std::make_unique<Node>(std::move(vis));
+    }
+
+    Config::Branch* branch = std::get_if<Config::Branch>(cfg.get());
+    if (!branch)
+      return nullptr;
+
+    Splitter s;
+    s.orientation = branch->orientation;
+    s.ratio = &branch->ratio;
+    // build children
+    if (branch->primary) {
+      s.primary = buildNode(branch->primary);
+    }
+    if (branch->secondary) {
+      s.secondary = buildNode(branch->secondary);
+    }
+
+    return std::make_unique<Node>(std::move(s));
+  };
+
+  for (auto& [key, cfgNode] : Config::options.visualizers) {
+    if (key != "main") {
+      if (SDLWindow::states.find(key) == SDLWindow::states.end())
+        SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
+    }
+
+    LOG_DEBUG(key);
+
+    auto it = SDLWindow::states.find(key);
+    if (it == SDLWindow::states.end()) {
+      LOG_DEBUG("Failed to find window state for group: " << key);
       continue;
-
-    // Cleanup existing windows in this group before clearing
-    if (windows.find(key) != windows.end()) {
-      for (auto& window : windows[key]) {
-        window->cleanup();
-      }
     }
 
-    // Create window if not main and doesn't already exist
-    if (key != "main" && windows.find(key) == windows.end()) {
-      SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
-    }
-
-    // Clear existing windows and splitters for this group
-    windows[key].clear();
-    splitters[key].clear();
-    windows[key].reserve(value.size());
-
-    // Create windows in the order specified in configuration
-    for (size_t i = 0; i < value.size(); ++i) {
-      const std::string& visName = value[i];
-      auto instance = VisualizerRegistry::find(visName);
-      if (!instance) {
-        LOG_ERROR(std::string("Warning: Unknown visualizer '") + visName + "' in configuration");
-        continue;
-      }
-
-      instance->group = key;
-      instance->configure();
-      windows[key].push_back(instance);
-
-      // Create splitter between windows
-      if (i + 1 < value.size()) {
-        Splitter s;
-        // Disable dragging for first splitter if fixed-width visualizer is first
-        if (i == 0 && (instance->aspectRatio != 0.0f || instance->forceWidth != 0))
-          s.draggable = false;
-        s.group = key;
-        splitters[key].push_back(s);
-      }
-    }
-
-    // Unset forceWidth or aspectRatio for last window if all windows have enforcers
-    if (!windows[key].empty() && std::all_of(windows[key].begin(), windows[key].end(), [](const auto& vw) {
-          return vw->forceWidth != 0 || vw->aspectRatio != 0.0f;
-        })) {
-      windows[key].back()->forceWidth = 0;
-      windows[key].back()->aspectRatio = 0.0f;
-    }
-
-    // Disable dragging for last splitter if if fixed-width visualizer is last
-    if (!windows[key].empty() && !splitters[key].empty() &&
-        (windows[key].back()->aspectRatio != 0.0f || windows[key].back()->forceWidth != 0))
-      splitters[key].back().draggable = false;
-
-    // Propagate fixed splitters from outside inwards
-    if (splitters[key].size() > 1) {
-      // Propagate from left to right
-      for (size_t i = 1; i < splitters[key].size(); ++i) {
-        if (!splitters[key][i - 1].draggable &&
-            (windows[key][i]->aspectRatio != 0.0f || windows[key][i]->forceWidth != 0)) {
-          splitters[key][i].draggable = false;
-        }
-      }
-
-      // Propagate from right to left
-      for (int i = static_cast<int>(splitters[key].size()) - 2; i >= 0; --i) {
-        if (!splitters[key][i + 1].draggable &&
-            (windows[key][i + 1]->aspectRatio != 0.0f || windows[key][i + 1]->forceWidth != 0)) {
-          splitters[key][i].draggable = false;
-        }
-      }
-    }
-
-    // Spread splitters evenly across the window width
-    size_t n = windows[key].size();
-    if (n > 1) {
-      for (size_t i = 0; i < splitters[key].size(); ++i) {
-        splitters[key][i].x = static_cast<int>((i + 1) * SDLWindow::states[key].windowSizes.first / n);
-      }
-    }
+    std::unique_ptr<Node> root = buildNode(cfgNode);
+    if (root)
+      it->second.root = std::move(root);
+    else
+      it->second.root.reset();
   }
 
-  // Mark keys not in config for deletion
-  for (auto& [key, value] : windows) {
-    if (Config::options.visualizers.find(key) == Config::options.visualizers.end()) {
-      markedForDeletion.push_back(key);
-    }
-  }
+  boundsDirty.store(true);
+  updateBounds();
 }
-
-template <Direction direction> void swapVisualizer(size_t index, std::string key) {
-  if (index < 0 || index >= windows[key].size() || index + direction < 0 || index + direction >= windows[key].size())
-    return;
-
-  std::swap(Config::options.visualizers[key][index], Config::options.visualizers[key][index + direction]);
-  Config::save();
-}
-
-void popWindow(size_t index, std::string key, bool popout) {
-  if (index < 0 || index >= windows[key].size() || (!popout && key == "main"))
-    return;
-
-  std::string newKey = popout ? key + "_" + std::to_string(rand() % 1000000) : "main";
-  std::string viz = Config::options.visualizers[key][index];
-  Config::options.visualizers[key].erase(Config::options.visualizers[key].begin() + index);
-  if (Config::options.visualizers[key].empty()) {
-    Config::options.visualizers.erase(key);
-  }
-  Config::options.visualizers[newKey].push_back(viz);
-
-  reorder();
-}
-
-void deleteMarkedWindows() {
-  // Delete stale keys
-  for (auto& key : markedForDeletion) {
-    for (auto& window : windows[key]) {
-      window->cleanup();
-    }
-    SDLWindow::destroyWindow(windows[key][0]->group);
-    windows[key].clear();
-    splitters[key].clear();
-    windows.erase(key);
-    splitters.erase(key);
-  }
-  markedForDeletion.clear();
-}
-
-std::pair<int, int> VisualizerWindow::getArrowPos(int dir) {
-  // hide arrows if first or last window in windows array
-  auto maybeIndex = findWindowIndex(group, this);
-  if (!maybeIndex)
-    return {-1, -1};
-  size_t winIdx = *maybeIndex;
-  bool isLast = winIdx == windows[group].size() - 1;
-  bool isFirst = winIdx == 0;
-  if ((isLast && dir == 1) || (isFirst && dir == -1))
-    return {-1, -1};
-
-  SDLWindow::selectWindow(group);
-  setViewport(x, width, SDLWindow::states[group].windowSizes.second);
-
-  bool wideEnough = width > buttonPadding * 2 + buttonSize * 4;
-
-  int arrowX = (dir == -1 || (dir == -2 && !wideEnough)) ? buttonPadding
-               : (dir == 2 && wideEnough)                ? width - buttonPadding - buttonSize * 2
-               : (dir == -2)                             ? buttonPadding + buttonSize
-                                                         : width - buttonPadding - buttonSize;
-  int arrowY = !wideEnough && abs(dir) == 2 ? SDLWindow::states[group].windowSizes.second - buttonPadding - buttonSize
-                                            : buttonPadding;
-
-  if (isLast && dir == 2 && wideEnough)
-    arrowX += buttonSize;
-
-  if (isFirst && dir == -2 && wideEnough)
-    arrowX -= buttonSize;
-
-  return {arrowX, arrowY};
-}
-
 } // namespace WindowManager

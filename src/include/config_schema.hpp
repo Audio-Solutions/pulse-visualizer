@@ -332,6 +332,10 @@ inline constexpr std::array boolFields = {
     "Follow Detected Pitch",
     "Phase-align the waveform to the detected pitch for a steadier trace."),
   PV_SCHEMA_FIELD(
+    bool, waveform.midline,
+    "Show Midline",
+    "Draw a center pixel when the signal is effectively silent (min and max nearly equal)."),
+  PV_SCHEMA_FIELD(
     bool, oscilloscope.lowpass.enabled,
     "Enable Low-Pass Filter",
     "Apply a low-pass filter before rendering the oscilloscope waveform."),

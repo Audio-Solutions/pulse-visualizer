@@ -40,6 +40,9 @@ std::atomic<bool> running {false};
 SDL_Surface* icon = nullptr;
 
 void deinit() {
+  // Free any created system cursors before quitting SDL
+  freeCursors();
+
   for (auto& [group, state] : states) {
     SDL_DestroyWindow(state.win);
     SDL_GL_DestroyContext(state.glContext);
@@ -72,6 +75,8 @@ void init() {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
@@ -128,7 +133,34 @@ void init() {
   // Initialise window size
   SDL_GetWindowSize(states["main"].win, &states["main"].windowSizes.first, &states["main"].windowSizes.second);
 
+  // Create system cursors
+  initCursors();
+
   running.store(true);
+}
+
+// Cursors
+
+void initCursors() {
+  for (size_t i = 0; i < g_cursors.size(); ++i) {
+    if (!g_cursors[i])
+      g_cursors[i] = SDL_CreateSystemCursor(cursor_map[i]);
+  }
+}
+
+void freeCursors() {
+  for (auto& c : g_cursors) {
+    if (c) {
+      SDL_DestroyCursor(c);
+      c = nullptr;
+    }
+  }
+}
+
+void setCursor(CursorType type) {
+  auto idx = static_cast<size_t>(type);
+  if (idx < g_cursors.size() && g_cursors[idx])
+    SDL_SetCursor(g_cursors[idx]);
 }
 
 void handleEvent(SDL_Event& event) {
@@ -159,6 +191,8 @@ void handleEvent(SDL_Event& event) {
     case SDLK_M:
       ConfigWindow::toggle();
       break;
+    case SDLK_S:
+      Config::save();
     default:
       break;
     }
@@ -269,6 +303,18 @@ std::optional<std::pair<int, int>> getCursorPos(const std::string& group) {
     return std::nullopt;
   }
   return it->second.mousePos;
+}
+
+void layer(float z) {
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glTranslatef(0.0f, 0.0f, z);
+}
+
+void layer() {
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
 }
 
 } // namespace SDLWindow

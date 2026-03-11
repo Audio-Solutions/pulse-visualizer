@@ -41,7 +41,7 @@ public:
   }
 
   float scaleDB(float db);
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<VUVisualizer>(); }
@@ -70,26 +70,24 @@ float VUVisualizer::scaleDB(float db) {
   }
 }
 
-void VUVisualizer::render(SDLWindow::State* state) {
-  auto* window = this;
-
-  WindowManager::setViewport(window->x, window->width, state->windowSizes.second);
+void VUVisualizer::render() {
+  WindowManager::setViewport(bounds);
 
   float dB = 20.0f * log10(DSP::RMS::rms) + Config::options.vu.calibration_db;
 
   if (Config::options.vu.style == "digital") {
     // Calculate layout positions
-    const size_t topHeight = state->windowSizes.second * (TOP_HEIGHT_PERCENT / 100.0f);
-    const size_t barHeight = state->windowSizes.second - topHeight;
+    const size_t topHeight = bounds.h * (TOP_HEIGHT_PERCENT / 100.0f);
+    const size_t barHeight = bounds.h - topHeight;
 
     // VU bar position
     const size_t vuBarX = LABEL_WIDTH + LABEL_GAP;
 
     // Draw background bar
-    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, state->windowSizes.second - topHeight, Theme::colors.bgAccent);
+    Graphics::drawFilledRect(vuBarX, 0, VU_BAR_WIDTH, bounds.h - topHeight, Theme::colors.bgAccent);
 
     // Draw zero line in background rect at 0dB
-    float zeroLineY = state->windowSizes.second - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
+    float zeroLineY = bounds.h - (topHeight + (1.0f - scaleDB(0.0f)) * barHeight);
     Graphics::drawLine(vuBarX, zeroLineY, vuBarX + VU_BAR_WIDTH, zeroLineY, Theme::colors.accent, 1);
 
     // Draw dB labels on the left
@@ -100,7 +98,7 @@ void VUVisualizer::render(SDLWindow::State* state) {
     for (const auto& label : labels) {
       // Calculate y position based on dB value
       float normalizedPos = scaleDB(label);
-      size_t y = state->windowSizes.second - (topHeight + (1.0f - normalizedPos) * barHeight);
+      size_t y = bounds.h - (topHeight + (1.0f - normalizedPos) * barHeight);
 
       // Draw label (right aligned)
       std::string labelText = std::to_string(static_cast<int>(label));
@@ -118,7 +116,7 @@ void VUVisualizer::render(SDLWindow::State* state) {
     // Calculate bar height based on dB value
     float normalizedPos = scaleDB(dB);
     size_t barFillHeight = normalizedPos * barHeight;
-    size_t barFillY = state->windowSizes.second - (topHeight + barHeight);
+    size_t barFillY = bounds.h - (topHeight + barHeight);
 
     // Draw the VU bar with colored segments
     const float* mainColor = Theme::colors.vu_main[3] > FLT_EPSILON ? Theme::colors.vu_main : Theme::colors.color;
@@ -150,8 +148,8 @@ void VUVisualizer::render(SDLWindow::State* state) {
       }
     }
   } else {
-    float x0 = window->width / 2;
-    float y0 = -state->windowSizes.second / 3;
+    float x0 = bounds.w / 2;
+    float y0 = -bounds.h / 3;
 
     // clamp dB to minmax range
     dB = std::clamp(dB, -20.0f, 3.0f);
@@ -199,8 +197,8 @@ void VUVisualizer::render(SDLWindow::State* state) {
       arcClip = Theme::colors.vu_clip;
 
     // draw arcs
-    Graphics::drawArc(x0, y0, state->windowSizes.second, toAngle(-20.0f), toAngle(0.0), Theme::colors.accent, 5, 100);
-    Graphics::drawArc(x0, y0, state->windowSizes.second, toAngle(0.0f), toAngle(3.0f), arcClip, 5, 100);
+    Graphics::drawArc(x0, y0, bounds.h, toAngle(-20.0f), toAngle(0.0), Theme::colors.accent, 5, 100);
+    Graphics::drawArc(x0, y0, bounds.h, toAngle(0.0f), toAngle(3.0f), arcClip, 5, 100);
 
     // draw label lines perpendicular to the arc
     const std::vector<float> linLabels {3, 0, -3, -6, -12, -20};
@@ -209,12 +207,12 @@ void VUVisualizer::render(SDLWindow::State* state) {
     for (const auto& label : labels) {
       float angle = toAngle(label);
 
-      float xArc = x0 + (state->windowSizes.second - 2.5f) * cos(angle * M_PI / 180.0f);
-      float yArc = y0 + (state->windowSizes.second - 2.5f) * sin(angle * M_PI / 180.0f);
+      float xArc = x0 + (bounds.h - 2.5f) * cos(angle * M_PI / 180.0f);
+      float yArc = y0 + (bounds.h - 2.5f) * sin(angle * M_PI / 180.0f);
 
       // point outside the arc
-      float x1 = x0 + (state->windowSizes.second * 1.1f) * cos(angle * M_PI / 180.0f);
-      float y1 = y0 + (state->windowSizes.second * 1.1f) * sin(angle * M_PI / 180.0f);
+      float x1 = x0 + (bounds.h * 1.1f) * cos(angle * M_PI / 180.0f);
+      float y1 = y0 + (bounds.h * 1.1f) * sin(angle * M_PI / 180.0f);
 
       // point 12px further
       float x2 = x1 + 12 * cos(angle * M_PI / 180.0f);
@@ -232,7 +230,7 @@ void VUVisualizer::render(SDLWindow::State* state) {
                                label > 0.0f && Theme::colors.vu_clip[3] > FLT_EPSILON ? color : Theme::colors.text);
     }
 
-    float length = state->windowSizes.second * 1.1f;
+    float length = bounds.h * 1.1f;
 
     // map x1 and y1
     float x1 = x0 + length * cos(currentAngle * M_PI / 180.0f);

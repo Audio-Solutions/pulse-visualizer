@@ -251,6 +251,10 @@ waveform:
   # - midside => Mid/Side
   # - leftright => Left/Right
   mode: stereo
+  # Show a center midline when the signal is effectively silent.
+  # true = draw a single center pixel when min and max are nearly equal.
+  # false = never draw the silent midpoint.
+  midline: true
 
 # LUFS Settings
 lufs:
@@ -288,21 +292,46 @@ vu:
     damping_ratio: 10.0
 
 # Visualizer Layout Settings
-# Controls the order and visibility of visualizers in window groups
-# Each group (like "main") creates a window with visualizers arranged left-to-right
+# Controls arrangement of visualizers using a nested hierarchy tree.
+# The layout is a YAML tree where each node is one of:
+# - a split branch: a map with `type: hsplit|vsplit`, a `ratio` (0.0–1.0), and `children` (sequence).
+#   Split branch nodes must have exactly 2 children (primary and secondary).
+# - a leaf: a map with `id: <visualizer_id>` referring to a single visualizer
+#
+# This supports arbitrarily nested vertical/horizontal splits so windows can be composed
+# and resized flexibly. Rearrangement is "swaywm-like": drag a visualizer and drop it
+# onto another to replace it (center) or create a split (top/bottom/left/right), which
+# will promote or merge nodes as needed. Only one instance of each visualizer ID may exist.
 # Available visualizers: spectrum_analyzer, lissajous, oscilloscope, spectrogram, waveform, lufs, vu
 # Note: you cannot have the same visualizer multiple times either in the same window or in different windows.
 # Only one instance of a visualizer can exist at a time.
 visualizers:
-  hidden:
-    - spectrogram
-    - waveform
   main:
-    - vu
-    - lufs
-    - lissajous
-    - oscilloscope
-    - spectrum_analyzer
+    type: vsplit
+    ratio: 0.5
+    children:
+      - type: hsplit
+        ratio: 0.333
+        children:
+          - type: hsplit
+            ratio: 0.445682466
+            children:
+              - type: hsplit
+                ratio: 0.375
+                children:
+                  - id: vu
+                  - id: lufs
+              - id: lissajous
+          - type: hsplit
+            ratio: 0.5
+            children:
+              - id: oscilloscope
+              - id: spectrum_analyzer
+      - type: hsplit
+        ratio: 0.5
+        children:
+          - id: waveform
+          - id: spectrogram
 
 # Window Settings
 # Controls the main application window

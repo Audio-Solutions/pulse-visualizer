@@ -22,6 +22,7 @@
 #include "include/audio_engine.hpp"
 #include "include/config.hpp"
 #include "include/sdl_window.hpp"
+#include "include/visualizer_registry.hpp"
 #include "include/window_manager.hpp"
 
 namespace DSP {
@@ -718,9 +719,11 @@ int FFTMain() {
       fftMid.resize(fftMidRaw.size());
       size_t bins = fftMid.size();
       size_t i = 0;
-      WindowManager::VisualizerWindow* spectrumWindow = WindowManager::findWindowById("spectrum_analyzer");
-      bool hovering = spectrumWindow && spectrumWindow->hovering && !Config::options.fft.sphere.enabled &&
-                      !Config::options.phosphor.enabled && Config::options.fft.cursor;
+      bool hovering =
+          !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled && Config::options.fft.cursor;
+      std::weak_ptr<WindowManager::VisualizerWindow> spectrumWindow = VisualizerRegistry::find("spectrum_analyzer");
+      if (auto window = spectrumWindow.lock())
+        hovering = hovering && window->hovering;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
@@ -836,9 +839,11 @@ int FFTAlt() {
       fftSide.resize(fftSideRaw.size());
       size_t bins = fftSide.size();
       size_t i = 0;
-      WindowManager::VisualizerWindow* spectrumWindow = WindowManager::findWindowById("spectrum_analyzer");
-      bool hovering = spectrumWindow && spectrumWindow->hovering && !Config::options.fft.sphere.enabled &&
-                      !Config::options.phosphor.enabled && Config::options.fft.cursor;
+      bool hovering =
+          !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled && Config::options.fft.cursor;
+      std::weak_ptr<WindowManager::VisualizerWindow> spectrumWindow = VisualizerRegistry::find("spectrum_analyzer");
+      if (auto window = spectrumWindow.lock())
+        hovering = hovering && window->hovering;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *

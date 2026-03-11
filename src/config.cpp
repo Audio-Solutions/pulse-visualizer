@@ -254,58 +254,6 @@ template <> void get<bool>(const YAML::Node& root, std::string_view path, bool& 
 }
 
 /**
- * @brief Read a vector of strings from the configuration.
- * @param root Root YAML node
- * @param path Dot-separated path to the desired value
- * @param out Output reference to receive the parsed sequence
- */
-template <>
-void get<std::vector<std::string>>(const YAML::Node& root, std::string_view path, std::vector<std::string>& out) {
-  auto node = getNode(root, path);
-  if (!node.has_value() || !node.value().IsSequence()) {
-    broken = true;
-    return;
-  }
-
-  std::vector<std::string> result;
-  for (const auto& item : node.value()) {
-    result.push_back(item.as<std::string>());
-  }
-  out = std::move(result);
-}
-
-/**
- * @brief Read a map<string, vector<string>> from the configuration.
- * @param root Root YAML node
- * @param path Dot-separated path to the desired value
- * @param out Output reference to receive the parsed mapping
- */
-template <>
-void get<std::map<std::string, std::vector<std::string>>>(const YAML::Node& root, std::string_view path,
-                                                          std::map<std::string, std::vector<std::string>>& out) {
-  auto node = getNode(root, path);
-  if (!node.has_value() || !node.value().IsMap()) {
-    broken = true;
-    return;
-  }
-
-  std::map<std::string, std::vector<std::string>> result;
-  for (const auto& item : node.value()) {
-    const std::string itemKey = item.first.as<std::string>();
-    std::string nestedPath;
-    nestedPath.reserve(path.size() + 1 + itemKey.size());
-    nestedPath.append(path);
-    nestedPath.push_back('.');
-    nestedPath.append(itemKey);
-
-    std::vector<std::string> arr;
-    get<std::vector<std::string>>(root, nestedPath, arr);
-    result[itemKey] = std::move(arr);
-  }
-  out = std::move(result);
-}
-
-/**
  * @brief Read a Rotation (backed by int) from the configuration.
  * @param root Root YAML node
  * @param path Dot-separated path to the desired value
@@ -315,6 +263,101 @@ template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Ro
   int tmp = static_cast<int>(out);
   get<int>(root, path, tmp);
   out = static_cast<Rotation>(tmp);
+}
+
+/**
+ * @brief Read a map of Node hierarchy trees from the configuration.
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @param out Output reference to receive the parsed hierarchy tree map
+ */
+template <>
+void get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(
+    const YAML::Node& root, std::string_view path,
+    std::unordered_map<std::string, std::unique_ptr<Config::Node>>& out) {
+  auto node = getNode(root, path);
+
+  if (!node.has_value() || !node.value().IsMap()) {
+    broken = true;
+    return;
+  }
+
+  const YAML::Node& value = node.value();
+
+  std::function<std::unique_ptr<Node>(const YAML::Node&)> parseHierarchyTree;
+  parseHierarchyTree = [&](const YAML::Node& n) -> std::unique_ptr<Node> {
+    if (!n || n.IsNull())
+      return std::make_unique<Node>(std::string());
+
+    if (n.IsScalar()) {
+      try {
+        // treat bare scalar as an id
+        return std::make_unique<Node>(n.as<std::string>());
+      } catch (...) {
+        broken = true;
+        return std::make_unique<Node>(std::string());
+      }
+    }
+
+    if (n.IsMap()) {
+      // Branch by explicit id
+      if (n["id"] && n["id"].IsScalar()) {
+        try {
+          return std::make_unique<Node>(n["id"].as<std::string>());
+        } catch (...) {
+          broken = true;
+          return std::make_unique<Node>(std::string());
+        }
+      }
+
+      // Split node: require 'type' and 'children'
+      if (!n["type"] || !n["children"] || !n["children"].IsSequence()) {
+        broken = true;
+        return std::make_unique<Node>(std::string());
+      }
+
+      Config::Branch branch {};
+      try {
+        const std::string t = n["type"].as<std::string>();
+        if (t == "vsplit")
+          branch.orientation = Config::Orientation::Vertical;
+        else if (t == "hsplit")
+          branch.orientation = Config::Orientation::Horizontal;
+        else {
+          broken = true;
+        }
+
+        if (n["ratio"] && n["ratio"].IsScalar())
+          branch.ratio = n["ratio"].as<float>();
+        else
+          branch.ratio = 0.5f;
+
+        const YAML::Node children = n["children"];
+        if (!children.IsSequence() || children.size() != 2) {
+          broken = true;
+          return std::make_unique<Node>(std::string());
+        }
+
+        // parse two children
+        branch.primary = parseHierarchyTree(children[0]);
+        branch.secondary = parseHierarchyTree(children[1]);
+      } catch (...) {
+        broken = true;
+        return std::make_unique<Node>(std::string());
+      }
+
+      return std::make_unique<Node>(std::move(branch));
+    }
+
+    broken = true;
+    return std::make_unique<Node>(std::string());
+  };
+
+  out.clear();
+  for (const auto& item : value) {
+    const std::string itemKey = item.first.as<std::string>();
+    out[itemKey] = parseHierarchyTree(item.second);
+  }
 }
 
 template <typename T> void setNodeByPath(YAML::Node& node, std::string_view path, const T& value) {
@@ -489,8 +532,7 @@ void load(bool recovering) {
   if (!pluginValuesNode.IsMap())
     pluginValuesNode = YAML::Node(YAML::NodeType::Map);
 
-  // Load visualizer window layouts
-  get<std::map<std::string, std::vector<std::string>>>(configData, "visualizers", options.visualizers);
+  get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(configData, "visualizers", options.visualizers);
 
   ConfigSchema::forEachFieldByType(
       [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
@@ -520,13 +562,50 @@ bool save() {
       [&](const auto& field) { setNodeByPath(root, field.path, static_cast<int>(field.getConst(options))); });
 
   // Visualizers
-  {
-    YAML::Node vis;
-    for (const auto& [groupName, visualizerList] : options.visualizers) {
-      YAML::Node arr(YAML::NodeType::Sequence);
-      for (const auto& item : visualizerList)
-        arr.push_back(item);
-      vis[groupName] = arr;
+  // If the config was detected as broken, write a safe default layout
+  // instead of persisting the (possibly invalid) current layout.
+  if (broken) {
+    YAML::Node defVis(YAML::NodeType::Map);
+    YAML::Node mainNode(YAML::NodeType::Map);
+    mainNode["type"] = "vsplit";
+    mainNode["ratio"] = 0.5;
+    YAML::Node children(YAML::NodeType::Sequence);
+    YAML::Node c0(YAML::NodeType::Map);
+    c0["id"] = "oscilloscope";
+    children.push_back(c0);
+    YAML::Node c1(YAML::NodeType::Map);
+    c1["id"] = "spectrum_analyzer";
+    children.push_back(c1);
+    mainNode["children"] = children;
+    defVis["main"] = mainNode;
+    root["visualizers"] = defVis;
+  } else {
+    YAML::Node vis(YAML::NodeType::Map);
+    std::function<YAML::Node(const std::unique_ptr<Config::Node>&)> nodeToYaml;
+    nodeToYaml = [&](const std::unique_ptr<Config::Node>& nodePtr) -> YAML::Node {
+      if (!nodePtr)
+        return YAML::Node();
+      const Config::Node& node = *nodePtr;
+      if (const std::string* s = std::get_if<std::string>(&node)) {
+        YAML::Node m(YAML::NodeType::Map);
+        m["id"] = *s;
+        return m;
+      }
+      const Config::Branch& branch = std::get<Config::Branch>(node);
+      YAML::Node m(YAML::NodeType::Map);
+      m["type"] = (branch.orientation == Config::Orientation::Vertical) ? "vsplit" : "hsplit";
+      m["ratio"] = branch.ratio;
+      YAML::Node children(YAML::NodeType::Sequence);
+      if (branch.primary)
+        children.push_back(nodeToYaml(branch.primary));
+      if (branch.secondary)
+        children.push_back(nodeToYaml(branch.secondary));
+      m["children"] = children;
+      return m;
+    };
+
+    for (const auto& [groupName, nodePtr] : options.visualizers) {
+      vis[groupName] = nodeToYaml(nodePtr);
     }
     root["visualizers"] = vis;
   }

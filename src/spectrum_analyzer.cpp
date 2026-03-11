@@ -41,27 +41,21 @@ public:
       aspectRatio = 1.0f;
   }
 
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
   return std::make_shared<SpectrumAnalyzerVisualizer>();
 }
 
-void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
-  auto& pointsMain = this->pointsMain;
-  auto& pointsAlt = this->pointsAlt;
-  auto* window = this;
-
-  // Select the window for rendering
-  SDLWindow::selectWindow(window->group);
+void SpectrumAnalyzerVisualizer::render() {
 
   // Calculate logarithmic frequency scale
   float logMin = log(Config::options.fft.limits.min_freq);
   float logMax = log(Config::options.fft.limits.max_freq);
 
   // Set viewport for rendering
-  WindowManager::setViewport(window->x, window->width, state->windowSizes.second);
+  WindowManager::setViewport(bounds);
 
   // Draw frequency markers if enabled
   if (!Config::options.phosphor.enabled && Config::options.fft.markers) {
@@ -71,12 +65,12 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                        Config::options.fft.rotation == Config::ROTATION_270
-                                   ? static_cast<float>(state->windowSizes.second)
-                                   : static_cast<float>(window->width)));
+                                   ? static_cast<float>(bounds.h)
+                                   : static_cast<float>(bounds.w)));
       float height =
           Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-              ? window->width
-              : state->windowSizes.second;
+              ? bounds.w
+              : bounds.h;
 
       // Apply rotation transformation to marker coordinates
       float x1, y1, x2, y2;
@@ -87,17 +81,17 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
         y2 = height;
         break;
       case Config::ROTATION_90:
-        x1 = x2 = window->width - height;
+        x1 = x2 = bounds.w - height;
         y1 = y2 = x;
         break;
       case Config::ROTATION_180:
-        x1 = x2 = window->width - x;
+        x1 = x2 = bounds.w - x;
         y1 = 0;
         y2 = height;
         break;
       case Config::ROTATION_270:
         x1 = x2 = height;
-        y1 = y2 = state->windowSizes.second - x;
+        y1 = y2 = bounds.h - x;
         break;
       }
       Graphics::drawLine(x1, y1, x2, y2, Theme::colors.accent, 1.f);
@@ -129,9 +123,9 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
 
   // Generate main spectrum points
   if (Config::options.fft.sphere.enabled && Config::options.phosphor.enabled) {
-    float cx = window->width / 2.0f;
-    float cy = state->windowSizes.second / 2.0f;
-    float minSize = static_cast<float>(std::min(window->width, state->windowSizes.second));
+    float cx = bounds.w / 2.0f;
+    float cy = bounds.h / 2.0f;
+    float minSize = static_cast<float>(std::min(bounds.w, bounds.h));
 
     // Place points on a circle and rotate along Y using per-bin phase; project with mild perspective.
     const float cameraDistance = 4.0f * minSize;
@@ -260,8 +254,8 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
 
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? window->width
-            : state->windowSizes.second;
+            ? bounds.w
+            : bounds.h;
 
     for (size_t bin = 0; bin < inMain.size(); bin++) {
       // Calculate frequency for this bin
@@ -275,8 +269,8 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                 Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(state->windowSizes.second)
-                            : static_cast<float>(window->width));
+                            ? static_cast<float>(bounds.h)
+                            : static_cast<float>(bounds.w));
       float mag = inMain[bin];
 
       // Apply slope correction
@@ -298,13 +292,13 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
         pointsMain[bin] = {x, y};
         break;
       case Config::ROTATION_90:
-        pointsMain[bin] = {window->width - y, x};
+        pointsMain[bin] = {bounds.w - y, x};
         break;
       case Config::ROTATION_180:
-        pointsMain[bin] = {window->width - x, state->windowSizes.second - y};
+        pointsMain[bin] = {bounds.w - x, bounds.h - y};
         break;
       case Config::ROTATION_270:
-        pointsMain[bin] = {y, state->windowSizes.second - x};
+        pointsMain[bin] = {y, bounds.h - x};
         break;
       }
     }
@@ -325,8 +319,8 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                 Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(state->windowSizes.second)
-                            : static_cast<float>(window->width));
+                            ? static_cast<float>(bounds.h)
+                            : static_cast<float>(bounds.w));
       float mag = inAlt[bin];
 
       // Apply slope correction
@@ -348,13 +342,13 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
         pointsAlt[bin] = {x, y};
         break;
       case Config::ROTATION_90:
-        pointsAlt[bin] = {window->width - y, x};
+        pointsAlt[bin] = {bounds.w - y, x};
         break;
       case Config::ROTATION_180:
-        pointsAlt[bin] = {window->width - x, state->windowSizes.second - y};
+        pointsAlt[bin] = {bounds.w - x, bounds.h - y};
         break;
       case Config::ROTATION_270:
-        pointsAlt[bin] = {y, state->windowSizes.second - x};
+        pointsAlt[bin] = {y, bounds.h - x};
         break;
       }
     }
@@ -379,7 +373,7 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
 
     constexpr float REF_AREA = 400.f * 300.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA *
-                   (Config::options.fft.cqt.enabled ? window->width * state->windowSizes.second : 400.f * 50.f);
+                   (Config::options.fft.cqt.enabled ? bounds.w * bounds.h : 400.f * 50.f);
 
     energy *= Config::options.fft.beam_multiplier * WindowManager::dt / 0.016f;
 
@@ -476,11 +470,11 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, vertexColors.size() * sizeof(float), vertexColors.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    Graphics::Phosphor::render(window, pointsMain, true, color);
-    window->draw();
+    Graphics::Phosphor::render(this, pointsMain, true, color);
+    draw();
   } else {
-    Graphics::drawLines(window, pointsAlt, colorAlt);
-    Graphics::drawLines(window, pointsMain, color);
+    Graphics::drawLines(this, pointsAlt, colorAlt);
+    Graphics::drawLines(this, pointsMain, color);
   }
 
   if (!Config::options.fft.readout_header)
@@ -493,7 +487,7 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
 
   char overlay[128];
   float x = 10.0f;
-  float y = state->windowSizes.second - 20.0f;
+  float y = bounds.h - 20.0f;
 
   auto drawNoteInfo = [&](float freq, float dB) {
     auto [note, octave, cents] = DSP::toNote(freq, noteNames);
@@ -503,10 +497,10 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
   };
 
   // Convert mouse coordinates to window-relative coordinates
-  float mouseXRel = state->mousePos.first - window->x;
-  float mouseYRel = state->mousePos.second;
+  float mouseXRel = 0.0; // state->mousePos.first - x;
+  float mouseYRel = 0.0; // state->mousePos.second;
 
-  bool showCursor = window->hovering && !Config::options.fft.sphere.enabled && Config::options.fft.cursor &&
+  bool showCursor = hovering && !Config::options.fft.sphere.enabled && Config::options.fft.cursor &&
                     !Config::options.phosphor.enabled;
 
   if (showCursor) {
@@ -517,8 +511,7 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
-    float vertices[] = {
-        0, mouseYRel, (float)window->width, mouseYRel, mouseXRel, 0, mouseXRel, (float)state->windowSizes.second};
+    float vertices[] = {0, mouseYRel, (float)bounds.w, mouseYRel, mouseXRel, 0, mouseXRel, (float)bounds.h};
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -537,14 +530,14 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
       break;
     case Config::ROTATION_90:
       originalX = mouseYRel;
-      originalY = window->width - mouseXRel;
+      originalY = bounds.w - mouseXRel;
       break;
     case Config::ROTATION_180:
-      originalX = window->width - mouseXRel;
-      originalY = state->windowSizes.second - mouseYRel;
+      originalX = bounds.w - mouseXRel;
+      originalY = bounds.h - mouseYRel;
       break;
     case Config::ROTATION_270:
-      originalX = state->windowSizes.second - mouseYRel;
+      originalX = bounds.h - mouseYRel;
       originalY = mouseXRel;
       break;
     }
@@ -554,12 +547,12 @@ void SpectrumAnalyzerVisualizer::render(SDLWindow::State* state) {
     float logMax = log(Config::options.fft.limits.max_freq);
     float effectiveWidth =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? state->windowSizes.second
-            : window->width;
+            ? bounds.h
+            : bounds.w;
     float effectiveHeight =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
-            ? window->width
-            : state->windowSizes.second;
+            ? bounds.w
+            : bounds.h;
     float logX = originalX / effectiveWidth;
     float logFreq = logMin + logX * (logMax - logMin);
     float freq = exp(logFreq);

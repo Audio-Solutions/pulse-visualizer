@@ -32,33 +32,24 @@ public:
     displayName = "Waveform";
   }
 
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<WaveformVisualizer>(); }
 
-void WaveformVisualizer::render(SDLWindow::State* state) {
-  auto* window = this;
-
-  SDLWindow::selectWindow(window->group);
-
-  WindowManager::setViewport(window->x, window->phosphor.textureWidth, state->windowSizes.second);
-
-  const size_t textureWidth = window->phosphor.textureWidth;
-  const size_t textureHeight = window->phosphor.textureHeight;
-  if (textureWidth == 0 || textureHeight == 0)
-    return;
+void WaveformVisualizer::render() {
 
   static size_t current = 0;
   static float columnAccumulator = 0.0f;
-  if (current >= textureWidth)
+  if (current >= bounds.w)
     current = 0;
 
   glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
+  glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
+  glColor4f(1.f, 1.f, 1.f, 1.f);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-  const float columnInterval =
-      std::max(Config::options.waveform.window, FLT_EPSILON) / static_cast<float>(textureWidth);
+  const float columnInterval = std::max(Config::options.waveform.window, FLT_EPSILON) / static_cast<float>(bounds.w);
 
   columnAccumulator += WindowManager::dt;
 
@@ -70,7 +61,7 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
   }
 
   if (columnsToWrite > 0) {
-    columnsToWrite = std::min(columnsToWrite, textureWidth);
+    columnsToWrite = std::min(columnsToWrite, static_cast<size_t>(bounds.w));
 
     const float* baseColor = Theme::colors.waveform[3] > FLT_EPSILON ? Theme::colors.waveform : Theme::colors.color;
     std::array<float, 3> columnColorA = {baseColor[0], baseColor[1], baseColor[2]};
@@ -144,7 +135,7 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
                                   std::max(columnInterval, 1.0f / Config::options.audio.sample_rate))));
 
     static std::vector<float> columnData;
-    columnData.resize(textureHeight * 3);
+    columnData.resize(bounds.h * 4);
 
     auto drawMinMaxEnvelopeColumn = [&](int rowMin, int rowMax, size_t startIndex, size_t sampleCount, bool secondary,
                                         const float* color) {
@@ -172,6 +163,9 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
       if (minValue > maxValue)
         return;
 
+      if (std::fabs(maxValue - minValue) <= FLT_EPSILON && !Config::options.waveform.midline)
+        return;
+
       float yMinMapped = static_cast<float>(rowMin) +
                          (std::clamp(minValue, -1.0f, 1.0f) + 1.0f) * 0.5f * static_cast<float>(rowMax - rowMin);
       float yMaxMapped = static_cast<float>(rowMin) +
@@ -185,18 +179,20 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
         std::swap(yMin, yMax);
 
       for (int y = yMin; y <= yMax; ++y) {
-        size_t offset = static_cast<size_t>(y) * 3;
+        size_t offset = static_cast<size_t>(y) * 4;
         columnData[offset + 0] = color[0];
         columnData[offset + 1] = color[1];
         columnData[offset + 2] = color[2];
+        columnData[offset + 3] = 1.0f;
       }
     };
 
     for (size_t col = 0; col < columnsToWrite; ++col) {
-      for (size_t i = 0; i < textureHeight; ++i) {
-        columnData[i * 3 + 0] = Theme::colors.background[0];
-        columnData[i * 3 + 1] = Theme::colors.background[1];
-        columnData[i * 3 + 2] = Theme::colors.background[2];
+      for (size_t i = 0; i < bounds.h; ++i) {
+        columnData[i * 4 + 0] = Theme::colors.background[0];
+        columnData[i * 4 + 1] = Theme::colors.background[1];
+        columnData[i * 4 + 2] = Theme::colors.background[2];
+        columnData[i * 4 + 3] = 1.0f;
       }
 
       size_t endIndex = (DSP::writePos + DSP::bufferSize -
@@ -205,26 +201,24 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
       size_t startIndex = (endIndex + DSP::bufferSize - sampleCountPerColumn) % DSP::bufferSize;
 
       if (Config::options.waveform.mode != "mono") {
-        drawMinMaxEnvelopeColumn(static_cast<int>(textureHeight / 2), static_cast<int>(textureHeight - 1), startIndex,
+        drawMinMaxEnvelopeColumn(static_cast<int>(bounds.h / 2), static_cast<int>(bounds.h - 1), startIndex,
                                  sampleCountPerColumn, false, columnColorA.data());
-        drawMinMaxEnvelopeColumn(0, static_cast<int>(std::max<size_t>(textureHeight / 2, 1) - 1), startIndex,
+        drawMinMaxEnvelopeColumn(0, static_cast<int>(std::max<size_t>(bounds.h / 2, 1) - 1), startIndex,
                                  sampleCountPerColumn, true, columnColorB.data());
       } else {
-        drawMinMaxEnvelopeColumn(0, static_cast<int>(textureHeight - 1), startIndex, sampleCountPerColumn, false,
+        drawMinMaxEnvelopeColumn(0, static_cast<int>(bounds.h - 1), startIndex, sampleCountPerColumn, false,
                                  columnColorA.data());
       }
 
-      glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(current), 0, 1, static_cast<GLsizei>(textureHeight), GL_RGB,
+      glTexSubImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(current), 0, 1, static_cast<GLsizei>(bounds.h), GL_RGBA,
                       GL_FLOAT, columnData.data());
-      current = (current + 1) % textureWidth;
+      current = (current + 1) % bounds.w;
     }
   }
 
-  glColor4f(1.f, 1.f, 1.f, 1.f);
-
-  float currentU = static_cast<float>(current) / static_cast<float>(textureWidth);
-  float part1 = (1.f - currentU) * static_cast<float>(textureWidth);
-  float part2 = currentU * static_cast<float>(textureWidth);
+  float currentU = static_cast<float>(current) / static_cast<float>(bounds.w);
+  float part1 = (1.f - currentU) * static_cast<float>(bounds.w);
+  float part2 = currentU * static_cast<float>(bounds.w);
 
   std::vector<float> vertexData;
   vertexData.reserve(32);
@@ -232,9 +226,9 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
   if (part1 > 0.f) {
     float vertices[] = {0.0f,     0.0f,
                         currentU, 0.0f,
-                        0.0f,     static_cast<float>(state->windowSizes.second),
+                        0.0f,     static_cast<float>(bounds.h),
                         currentU, 1.0f,
-                        part1,    static_cast<float>(state->windowSizes.second),
+                        part1,    static_cast<float>(bounds.h),
                         1.0f,     1.0f,
                         part1,    0.0f,
                         1.0f,     0.0f};
@@ -247,14 +241,14 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
                         0.0f,
                         0.0f,
                         part1,
-                        static_cast<float>(state->windowSizes.second),
+                        static_cast<float>(bounds.h),
                         0.0f,
                         1.0f,
-                        static_cast<float>(window->phosphor.textureWidth),
-                        static_cast<float>(state->windowSizes.second),
+                        static_cast<float>(bounds.w),
+                        static_cast<float>(bounds.h),
                         currentU,
                         1.0f,
-                        static_cast<float>(window->phosphor.textureWidth),
+                        static_cast<float>(bounds.w),
                         0.0f,
                         currentU,
                         0.0f};
@@ -268,7 +262,10 @@ void WaveformVisualizer::render(SDLWindow::State* state) {
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(0));
     glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDrawArrays(GL_QUADS, 0, static_cast<GLsizei>(vertexData.size() / 4));
+    glDisable(GL_BLEND);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, 0);

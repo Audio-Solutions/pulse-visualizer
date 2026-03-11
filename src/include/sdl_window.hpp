@@ -97,4 +97,45 @@ std::optional<std::pair<int, int>> getWindowSize(const std::string& group);
  * @return A pair of integers: x and y in pixels
  */
 std::optional<std::pair<int, int>> getCursorPos(const std::string& group);
+
+/**
+ * @brief Push a modelview layer and translate along Z.
+ *
+ * Pushes the current `GL_MODELVIEW` matrix and translates by `z`.
+ * Call the no-argument `layer()` to pop and restore the previous state.
+ * @param z Z offset for the new layer
+ */
+void layer(float z);
+
+/**
+ * @brief Pop the last modelview layer.
+ *
+ * Pops the matrix pushed by `layer(float)`. Must be called after
+ * `layer(float)` to restore the previous modelview state.
+ */
+void layer();
+
+/**
+ * @brief initialize cursors.
+ */
+void initCursors();
+
+/**
+ * @brief free cursors.
+ */
+void freeCursors();
+
+// Cursors
+enum class CursorType { Default = 0, Horizontal, Vertical, Move, Count };
+
+static std::array<SDL_Cursor*, static_cast<size_t>(CursorType::Count)> g_cursors {nullptr};
+
+constexpr std::array<SDL_SystemCursor, static_cast<size_t>(CursorType::Count)> cursor_map = {
+    SDL_SYSTEM_CURSOR_DEFAULT, SDL_SYSTEM_CURSOR_EW_RESIZE, SDL_SYSTEM_CURSOR_NS_RESIZE, SDL_SYSTEM_CURSOR_MOVE};
+
+/**
+ * @brief Set the cursor.
+ * @param type The cursor type
+ */
+void setCursor(CursorType type);
 } // namespace SDLWindow

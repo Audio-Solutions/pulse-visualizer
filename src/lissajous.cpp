@@ -36,15 +36,12 @@ public:
     aspectRatio = 1.0f;
   }
 
-  void render(SDLWindow::State* state) override;
+  void render() override;
 };
 
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<LissajousVisualizer>(); }
 
-void LissajousVisualizer::render(SDLWindow::State* state) {
-  auto& points = this->points;
-  auto* window = this;
-
+void LissajousVisualizer::render() {
   // Calculate how many samples to read based on buffer position
   static size_t prevWrite = 0;
 
@@ -74,27 +71,27 @@ void LissajousVisualizer::render(SDLWindow::State* state) {
     float right = DSP::bufferMid[idx] - DSP::bufferSide[idx];
 
     // Basic mapping to screen coordinates
-    float x = (1.f + left) * window->width / 2.f;
-    float y = (1.f + right) * state->windowSizes.second / 2.f;
+    float x = (1.f + left) * this->bounds.w / 2.f;
+    float y = (1.f + right) * this->bounds.h / 2.f;
     switch (Config::options.lissajous.rotation) {
     case Config::ROTATION_0:
       points[i] = {x, y};
       break;
     case Config::ROTATION_90:
-      points[i] = {window->width - y, x};
+      points[i] = {this->bounds.w - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {window->width - x, state->windowSizes.second - y};
+      points[i] = {this->bounds.w - x, this->bounds.h - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, state->windowSizes.second - x};
+      points[i] = {y, this->bounds.h - x};
       break;
     }
   }
 
   // Apply spline smoothing
   if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0)
-    points = Spline::generate(points, {1.f, 0.f}, {window->width - 1, state->windowSizes.second - 1},
+    points = Spline::generate(points, {1.f, 0.f}, {this->bounds.w - 1, this->bounds.h - 1},
                               Config::options.lissajous.spline_segments, Config::options.lissajous.spline_tension);
 
   // Apply stretch mode if enabled
@@ -104,7 +101,7 @@ void LissajousVisualizer::render(SDLWindow::State* state) {
   bool isPulsarMode = (mode == "pulsar" || mode == "black_hole");
 
   if (isStretchMode) {
-    float halfW = window->width / 2.0f;
+    float halfW = this->bounds.w / 2.0f;
 
     // Pre-compute pulsar mode constants
     // For pulsar, scales the input such that the point (1, 0) ends up at the origin (0, 0)
@@ -183,7 +180,7 @@ void LissajousVisualizer::render(SDLWindow::State* state) {
 
     // Calculate energy per segment for phosphor effect
     constexpr float REF_AREA = 200.f * 200.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (window->width * state->windowSizes.second);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (this->bounds.w * this->bounds.h);
 
     energy *= Config::options.lissajous.beam_multiplier /
               (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0
@@ -273,16 +270,16 @@ void LissajousVisualizer::render(SDLWindow::State* state) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Render phosphor effect
-    Graphics::Phosphor::render(window, points, DSP::pitchDB > Config::options.audio.silence_threshold,
+    Graphics::Phosphor::render(this, points, DSP::pitchDB > Config::options.audio.silence_threshold,
                                Theme::colors.color);
-    window->draw();
+    draw();
   } else {
     // Select the window for rendering
-    SDLWindow::selectWindow(window->group);
+    SDLWindow::selectWindow(group);
 
     // Render simple lines if phosphor is disabled
     if (DSP::pitchDB > Config::options.audio.silence_threshold)
-      Graphics::drawLines(window, points, Theme::colors.color);
+      Graphics::drawLines(this, points, Theme::colors.color);
   }
 }
 

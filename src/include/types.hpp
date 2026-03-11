@@ -24,6 +24,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -106,6 +107,21 @@ struct PluginConfigSpec {
  * @brief Runtime value type for plugin config scalars.
  */
 using PluginConfigValue = std::variant<bool, int, float, std::string>;
+
+/**
+ * @brief Splitter Orientation enum
+ */
+enum class Orientation { Horizontal, Vertical };
+
+struct Branch {
+  float ratio;
+  Orientation orientation;
+  std::unique_ptr<std::variant<std::string, Branch>> primary;
+  std::unique_ptr<std::variant<std::string, Branch>> secondary;
+};
+
+// Config Node for hierarchy tree
+using Node = std::variant<std::string, Branch>;
 
 /**
  * @brief Application configuration options structure
@@ -206,6 +222,7 @@ struct Options {
     float low_mid_split_hz = 250.0f;
     float mid_high_split_hz = 4000.0f;
     float slope = 3.0f;
+    bool midline = true;
   } waveform;
 
   struct Audio {
@@ -216,7 +233,7 @@ struct Options {
     std::string device = "auto";
   } audio;
 
-  std::map<std::string, std::vector<std::string>> visualizers;
+  std::unordered_map<std::string, std::unique_ptr<Node>> visualizers;
 
   struct Window {
     int default_width = 1080;
@@ -304,17 +321,6 @@ extern const size_t bufferSize;
 extern size_t writePos;
 } // namespace DSP
 
-namespace SDLWindow {
-struct State {
-  SDL_Window* win = nullptr;
-  SDL_WindowID winID = 0;
-  SDL_GLContext glContext = nullptr;
-  std::pair<int, int> windowSizes;
-  std::pair<int, int> mousePos;
-  bool focused;
-};
-} // namespace SDLWindow
-
 namespace Theme {
 /**
  * @brief Color scheme structure containing all theme colors
@@ -373,18 +379,31 @@ struct Colors {
 };
 } // namespace Theme
 
+namespace SDLWindow {
+struct State;
+} // namespace SDLWindow
+
 namespace WindowManager {
+
+struct Bounds {
+  int x, y, w, h;
+};
+
+struct Size {
+  int w, h;
+};
+
 class VisualizerWindow {
 public:
   std::string id;
   std::string displayName;
   std::string group;
-  int x = 0;
-  int width = 0;
+  Bounds bounds;
   float aspectRatio = 0;
   size_t forceWidth = 0;
   size_t pointCount = 0;
   bool hovering = false;
+  bool dragging = false;
   constexpr static size_t buttonSize = 20;
   constexpr static size_t buttonPadding = 10;
 
@@ -397,9 +416,8 @@ public:
 
   /**
    * @brief Render this visualizer into the active SDL window context.
-   * @param state Current SDL window state for the target window.
    */
-  virtual void render(SDLWindow::State*) {}
+  virtual void render() {}
 
   struct Phosphor {
     GLuint energyTextureR = 0;
@@ -419,14 +437,52 @@ public:
     int textureHeight = 0;
   } phosphor;
 
-  virtual std::pair<int, int> getArrowPos(int dir) final;
-  virtual void drawArrow(int dir) final;
-  virtual bool buttonPressed(int dir, int mouseX, int mouseY) final;
-  virtual bool buttonHovering(int dir, int mouseX, int mouseY) final;
   virtual void handleEvent(const SDL_Event& event) final;
   virtual void transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) final;
   virtual void resizeTextures() final;
   virtual void draw() final;
   virtual void cleanup() final;
 };
+
+enum class ConstraintType { Minimum = 0, Forced };
+struct Constraint {
+  ConstraintType w = ConstraintType::Minimum;
+  ConstraintType h = ConstraintType::Minimum;
+};
+
+struct Splitter {
+  Config::Orientation orientation;
+  float* ratio;
+  Bounds bounds;
+  std::unique_ptr<std::variant<std::shared_ptr<VisualizerWindow>, Splitter>> primary;
+  std::unique_ptr<std::variant<std::shared_ptr<VisualizerWindow>, Splitter>> secondary;
+
+  bool dragging = false;
+  bool hovering = false;
+  bool prevHovering = false;
+  bool movable = true;
+
+  Constraint primaryConstraint {};
+  Constraint secondaryConstraint {};
+  Size primaryConstraintSize = Size(0, 0);
+  Size secondaryConstraintSize = Size(0, 0);
+
+  void render();
+  void handleEvent(const SDL_Event& event);
+};
+
+// WindowManager node for hierarchy tree
+using Node = std::variant<std::shared_ptr<VisualizerWindow>, Splitter>;
 } // namespace WindowManager
+
+namespace SDLWindow {
+struct State {
+  SDL_Window* win = nullptr;
+  SDL_WindowID winID = 0;
+  SDL_GLContext glContext = nullptr;
+  std::pair<int, int> windowSizes;
+  std::pair<int, int> mousePos;
+  bool focused;
+  std::unique_ptr<WindowManager::Node> root;
+};
+} // namespace SDLWindow
