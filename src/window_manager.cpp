@@ -52,8 +52,6 @@ template <typename Variant, typename Fn> void walkTree(std::unique_ptr<Variant>*
   if (!nodePtr || !*nodePtr)
     return;
 
-  callback(nodePtr);
-
   // clang-format off
   std::visit(
     [&](auto&& n) {
@@ -65,6 +63,8 @@ template <typename Variant, typename Fn> void walkTree(std::unique_ptr<Variant>*
     },
     **nodePtr);
   // clang-format on
+
+  callback(nodePtr);
 }
 
 void Splitter::render() {
@@ -159,7 +159,7 @@ void Splitter::handleEvent(const SDL_Event& event) {
     }
   }
 
-  if (group.empty() || !movable)
+  if (group.empty() || group != this->group || !movable)
     return;
 
   float mouseX, mouseY;
@@ -251,7 +251,8 @@ void updateBounds(std::unique_ptr<Node>& node, Bounds bounds) {
     // clang-format off
     return std::visit(Visitor {
         [&](std::shared_ptr<VisualizerWindow>& w) {
-          Size constraintSize = Size(MIN_SIDELENGTH, MIN_SIDELENGTH);
+          Size constraintSize = 
+              Size(w->minSize.w > 0 ? w->minSize.w : MIN_SIDELENGTH, w->minSize.h > 0 ? w->minSize.h : MIN_SIDELENGTH);
           Constraint constraint {};
           if (w->forceWidth > FLT_EPSILON) {
             constraintSize.w = w->forceWidth;
@@ -927,7 +928,7 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     }
   }
 
-  if (group.empty())
+  if (group.empty() || group != this->group)
     return;
 
   auto isHovering = [&](int x, int y, int off) -> bool {
@@ -983,8 +984,8 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 
 void initialize() {
   // Helper to build WindowManager::Node tree from Config::Node tree
-  std::function<std::unique_ptr<Node>(std::unique_ptr<Config::Node>&)> buildNode;
-  buildNode = [&](std::unique_ptr<Config::Node>& cfg) -> std::unique_ptr<Node> {
+  std::function<std::unique_ptr<Node>(std::unique_ptr<Config::Node>&, std::string_view)> buildNode;
+  buildNode = [&](std::unique_ptr<Config::Node>& cfg, std::string_view key) -> std::unique_ptr<Node> {
     if (const std::string* id = std::get_if<std::string>(cfg.get())) {
       if (id->empty())
         return nullptr;
@@ -994,6 +995,7 @@ void initialize() {
         return nullptr;
       }
       vis->configure();
+      vis->group = key;
       return std::make_unique<Node>(std::move(vis));
     }
 
@@ -1004,12 +1006,13 @@ void initialize() {
     Splitter s;
     s.orientation = branch->orientation;
     s.ratio = &branch->ratio;
+    s.group = key;
     // build children
     if (branch->primary) {
-      s.primary = buildNode(branch->primary);
+      s.primary = buildNode(branch->primary, key);
     }
     if (branch->secondary) {
-      s.secondary = buildNode(branch->secondary);
+      s.secondary = buildNode(branch->secondary, key);
     }
 
     return std::make_unique<Node>(std::move(s));
@@ -1021,15 +1024,14 @@ void initialize() {
         SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
     }
 
-    LOG_DEBUG(key);
-
     auto it = SDLWindow::states.find(key);
     if (it == SDLWindow::states.end()) {
       LOG_DEBUG("Failed to find window state for group: " << key);
       continue;
     }
 
-    std::unique_ptr<Node> root = buildNode(cfgNode);
+    std::unique_ptr<Node> root = buildNode(cfgNode, key);
+
     if (root)
       it->second.root = std::move(root);
     else

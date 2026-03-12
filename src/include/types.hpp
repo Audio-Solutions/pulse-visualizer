@@ -402,6 +402,7 @@ public:
   float aspectRatio = 0;
   size_t forceWidth = 0;
   size_t pointCount = 0;
+  Size minSize = Size(0, 0);
   bool hovering = false;
   bool dragging = false;
   constexpr static size_t buttonSize = 20;
@@ -461,6 +462,7 @@ struct Splitter {
   bool hovering = false;
   bool prevHovering = false;
   bool movable = true;
+  std::string group;
 
   Constraint primaryConstraint {};
   Constraint secondaryConstraint {};

@@ -224,9 +224,13 @@ public:
   }
 };
 
-PV_API void pvPluginStart() {
-  if (!api)
-    return;
+PV_API int pvPluginInit(const PvAPI* a) {
+  if (!a || a->apiVersion < PLUGIN_API_VERSION)
+    return -1;
+
+  api = a;
+
+  // ...
 
   api->registerVisualizer(std::make_shared<HelloVisualizer>());
 }
