@@ -321,10 +321,6 @@ inline constexpr std::array boolFields = {
     "Invert Y Axis",
     "Mirror the oscilloscope vertically."),
   PV_SCHEMA_FIELD(
-    bool, oscilloscope.centered,
-    "Center Oscilloscope",
-    "Center the oscilloscope horizontally when possible."),
-  PV_SCHEMA_FIELD(
     bool, oscilloscope.edge_compression.enabled,
     "Enable Edge Compression",
     "Apply non-linear edge compression for a Wave Candy-like look."),
