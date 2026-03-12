@@ -52,10 +52,6 @@ static struct DragState {
 
 // Friendly names for visualizers
 static std::map<std::string, std::string> vizLabels;
-static std::unordered_map<std::string, bool> pluginBoolValues;
-static std::unordered_map<std::string, int> pluginIntValues;
-static std::unordered_map<std::string, float> pluginFloatValues;
-static std::unordered_map<std::string, std::string> pluginStringValues;
 
 static int newWindowCounter = 1;
 
@@ -653,28 +649,39 @@ inline void buildPluginsPage() {
   Page page;
   float cy = cyInit;
 
-  const auto& pluginRules = Config::pluginConfigSpecs;
+  // Build plugin groups snapshot
+  std::map<std::string, std::vector<std::pair<std::string, Config::PluginOptionRecord>>> pluginGroups;
+  {
+    std::lock_guard<std::mutex> lock(Config::pluginOptionsMutex);
+    for (auto& kv : Config::pluginOptions) {
+      const auto& key = kv.first;
+      pluginGroups[key.first].emplace_back(key.second, kv.second);
+    }
+  }
 
-  if (pluginRules.empty()) {
+  if (pluginGroups.empty()) {
     createHeaderElement(page, cy, "plugins_none", "No Plugin Options Registered");
     page.height = cyInit - cy;
     pages.insert({PageType::Plugins, std::move(page)});
     return;
   }
 
-  for (const auto& [pluginKey, pluginRuleGroup] : pluginRules) {
-    auto pluginIt = std::find_if(Plugin::plugins.begin(), Plugin::plugins.end(),
-                                 [&](const Plugin::PluginInstance& plugin) { return plugin.key == pluginKey; });
-    void* pluginContext = pluginIt != Plugin::plugins.end() ? static_cast<void*>(&(*pluginIt)) : nullptr;
+  for (auto& [pluginKey, pluginRuleGroup] : pluginGroups) {
 
-    auto it = Config::pluginDisplayNames.find(std::string(pluginKey));
-    const std::string pluginHeader = it != Config::pluginDisplayNames.end() ? it->second : pluginKey;
+    // Prefer stored display name from the plugin option records
+    std::string pluginHeader;
+    if (!pluginRuleGroup.empty() && !pluginRuleGroup.front().second.displayName.empty())
+      pluginHeader = pluginRuleGroup.front().second.displayName;
+    else
+      pluginHeader = pluginKey;
+
     createHeaderElement(page, cy, "plugin_header_" + pluginKey, pluginHeader);
 
-    std::vector<std::pair<std::string, const Config::PluginConfigSpec*>> fields;
+    // Build a sorted list of copies of the plugin option records
+    std::vector<std::pair<std::string, Config::PluginOptionRecord>> fields;
     fields.reserve(pluginRuleGroup.size());
-    for (const auto& [path, rule] : pluginRuleGroup)
-      fields.emplace_back(path, &rule);
+    for (auto& item : pluginRuleGroup)
+      fields.emplace_back(item.first, item.second);
 
     std::sort(fields.begin(), fields.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
@@ -720,114 +727,147 @@ inline void buildPluginsPage() {
         persist();
     };
 
-    for (const auto& [path, rule] : fields) {
+    for (const auto& [path, rec] : fields) {
+      const Config::PluginConfigSpec* rule = &rec.spec;
       std::string elementKey = "plugin_" + pluginKey + "_" + path;
       std::replace(elementKey.begin(), elementKey.end(), '.', '_');
       const std::string label = rule->label.empty() ? path : rule->label;
 
       switch (rule->type) {
       case Config::PluginConfigType::Bool: {
-        bool& value = pluginBoolValues[elementKey];
-        Config::PluginConfigValue storedValue;
-        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
-          if (const bool* typed = std::get_if<bool>(&storedValue))
-            value = *typed;
+        // Allocate heap storage for the UI value so it outlives this function.
+        bool* pvalue = (bool*)malloc(sizeof(bool));
+        *pvalue = false;
+        // Initialize from the copied plugin record value
+        if (const bool* v = std::get_if<bool>(&rec.value))
+          *pvalue = *v;
+
+        createCheckElement(page, cy, elementKey, pvalue, label, rule->description);
+
+        // Persist function that writes back via the public setter
+        auto persist = [pvalue, pluginKey, path]() {
+          Config::PluginConfigValue val(*pvalue);
+          Plugin::PluginInstance tmp {};
+          tmp.key = pluginKey;
+          Config::setPluginConfigOption(&tmp, path.c_str(), &val);
+        };
+
+        auto it = page.elements.find(elementKey + "#check");
+        if (it != page.elements.end()) {
+          it->second.data = pvalue;
         }
-        createCheckElement(page, cy, elementKey, &value, label, rule->description);
-        bindPersist(elementKey, [pluginContext, path, &value]() {
-          if (!pluginContext)
-            return;
-          const Config::PluginConfigValue pluginValue(value);
-          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
-        });
+        bindPersist(elementKey, persist);
+
         break;
       }
       case Config::PluginConfigType::Int: {
-        int& value = pluginIntValues[elementKey];
-        Config::PluginConfigValue storedValue;
-        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
-          if (const int* typed = std::get_if<int>(&storedValue))
-            value = *typed;
-        }
+        int* pvalue = (int*)malloc(sizeof(int));
+        *pvalue = 0;
+        if (const int* v = std::get_if<int>(&rec.value))
+          *pvalue = *v;
 
         if (!rule->detentsInt.empty()) {
-          createDetentSliderElement<int>(page, cy, elementKey, &value, std::span<const int>(rule->detentsInt), label,
+          createDetentSliderElement<int>(page, cy, elementKey, pvalue, std::span<const int>(rule->detentsInt), label,
                                          rule->description, rule->precision);
         } else {
           const bool hasRange = std::abs(rule->max - rule->min) > FLT_EPSILON;
-          int minValue = hasRange ? static_cast<int>(std::round(rule->min)) : (value - 100);
-          int maxValue = hasRange ? static_cast<int>(std::round(rule->max)) : (value + 100);
+          int minValue = hasRange ? static_cast<int>(std::round(rule->min)) : (*pvalue - 100);
+          int maxValue = hasRange ? static_cast<int>(std::round(rule->max)) : (*pvalue + 100);
           if (maxValue <= minValue)
             maxValue = minValue + 1;
 
-          createSliderElement<int>(page, cy, elementKey, &value, minValue, maxValue, label, rule->description,
+          createSliderElement<int>(page, cy, elementKey, pvalue, minValue, maxValue, label, rule->description,
                                    rule->precision, rule->zeroOff);
         }
 
-        bindPersist(elementKey, [pluginContext, path, &value]() {
-          if (!pluginContext)
-            return;
-          const Config::PluginConfigValue pluginValue(value);
-          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
-        });
+        // Persist wrapper
+        auto persist = [pvalue, pluginKey, path]() {
+          Config::PluginConfigValue val(*pvalue);
+          Plugin::PluginInstance tmp {};
+          tmp.key = pluginKey;
+          Config::setPluginConfigOption(&tmp, path.c_str(), &val);
+        };
+
+        auto it = page.elements.find(elementKey + "#slider");
+        if (it != page.elements.end()) {
+          it->second.data = pvalue;
+        }
+        bindPersist(elementKey, persist);
+
         break;
       }
       case Config::PluginConfigType::Float: {
-        float& value = pluginFloatValues[elementKey];
-        Config::PluginConfigValue storedValue;
-        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
-          if (const float* typed = std::get_if<float>(&storedValue))
-            value = *typed;
-        }
+        float* pvalue = (float*)malloc(sizeof(float));
+        *pvalue = 0.0f;
+        if (const float* v = std::get_if<float>(&rec.value))
+          *pvalue = *v;
 
         if (!rule->detentsFloat.empty()) {
-          createDetentSliderElement<float>(page, cy, elementKey, &value, std::span<const float>(rule->detentsFloat),
+          createDetentSliderElement<float>(page, cy, elementKey, pvalue, std::span<const float>(rule->detentsFloat),
                                            label, rule->description, rule->precision);
         } else {
           const bool hasRange = std::abs(rule->max - rule->min) > FLT_EPSILON;
-          float minValue = hasRange ? rule->min : (value - 1.0f);
-          float maxValue = hasRange ? rule->max : (value + 1.0f);
+          float minValue = hasRange ? rule->min : (*pvalue - 1.0f);
+          float maxValue = hasRange ? rule->max : (*pvalue + 1.0f);
           if (maxValue <= minValue)
             maxValue = minValue + 1.0f;
 
-          createSliderElement<float>(page, cy, elementKey, &value, minValue, maxValue, label, rule->description,
+          createSliderElement<float>(page, cy, elementKey, pvalue, minValue, maxValue, label, rule->description,
                                      rule->precision, rule->zeroOff);
         }
 
-        bindPersist(elementKey, [pluginContext, path, &value]() {
-          if (!pluginContext)
-            return;
-          const Config::PluginConfigValue pluginValue(value);
-          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
-        });
+        auto persist = [pvalue, pluginKey, path]() {
+          Config::PluginConfigValue val(*pvalue);
+          Plugin::PluginInstance tmp {};
+          tmp.key = pluginKey;
+          Config::setPluginConfigOption(&tmp, path.c_str(), &val);
+        };
+
+        auto it = page.elements.find(elementKey + "#slider");
+        if (it != page.elements.end()) {
+          it->second.data = pvalue;
+        }
+        bindPersist(elementKey, persist);
+
         break;
       }
       case Config::PluginConfigType::String: {
-        std::string& value = pluginStringValues[elementKey];
-        Config::PluginConfigValue storedValue;
-        if (pluginContext && Config::getPluginConfigOption(pluginContext, path.c_str(), &storedValue)) {
-          if (const std::string* typed = std::get_if<std::string>(&storedValue))
-            value = *typed;
-        }
+        std::string* pvalue = new std::string();
+        if (const std::string* v = std::get_if<std::string>(&rec.value))
+          *pvalue = *v;
 
         std::map<std::string, std::string> values;
         for (const auto& choice : rule->choices)
           values.emplace(choice, choice);
 
-        if (values.empty() && !value.empty())
-          values.emplace(value, value);
+        if (values.empty() && !pvalue->empty())
+          values.emplace(*pvalue, *pvalue);
 
         if (rule->useTick)
-          createEnumTickElement<std::string>(page, cy, elementKey, &value, std::move(values), label, rule->description);
+          createEnumTickElement<std::string>(page, cy, elementKey, pvalue, std::move(values), label, rule->description);
         else
-          createEnumDropElement<std::string>(page, cy, elementKey, &value, std::move(values), label, rule->description);
+          createEnumDropElement<std::string>(page, cy, elementKey, pvalue, std::move(values), label, rule->description);
 
-        bindPersist(elementKey, [pluginContext, path, &value]() {
-          if (!pluginContext)
-            return;
-          const Config::PluginConfigValue pluginValue(value);
-          Config::setPluginConfigOption(pluginContext, path.c_str(), &pluginValue);
-        });
+        // Persist wrapper
+        auto persist = [pvalue, pluginKey, path]() {
+          Config::PluginConfigValue val(*pvalue);
+          Plugin::PluginInstance tmp {};
+          tmp.key = pluginKey;
+          Config::setPluginConfigOption(&tmp, path.c_str(), &val);
+        };
+
+        auto it = page.elements.find(elementKey + "#dropdown");
+        if (it != page.elements.end()) {
+          it->second.data = pvalue;
+          it->second.cleanup = [](Element* self) {
+            if (self->data) {
+              delete static_cast<std::string*>(self->data);
+              self->data = nullptr;
+            }
+          };
+        }
+        bindPersist(elementKey, persist);
+
         break;
       }
       }
@@ -1562,7 +1602,7 @@ void createEnumDropElement(Page& page, float& cy, const std::string key, ValueTy
           std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
           std::transform(kvFirst.begin(), kvFirst.end(), kvFirst.begin(),
                          [](unsigned char c) { return std::tolower(c); });
-          if (kvFirst.find(str) != std::string::npos) {
+          if (kvFirst == str) {
             *value = kv.first;
 
             currentPair = kv;

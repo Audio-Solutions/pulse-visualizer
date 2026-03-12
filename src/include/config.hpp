@@ -24,12 +24,25 @@
 namespace Config {
 extern bool broken;
 
-using PluginConfigSpecRegistry = std::map<std::string, std::map<std::string, PluginConfigSpec>>;
+// Consolidated plugin option storage
+using PluginOptionKey = std::pair<std::string, std::string>;
 
-extern PluginConfigSpecRegistry pluginConfigSpecs;
-extern std::map<std::string, std::string> pluginDisplayNames;
-extern std::unordered_set<std::string> registeredPluginPaths;
-extern YAML::Node pluginValuesNode;
+struct PluginOptionRecord {
+  Config::PluginConfigValue value;
+  std::string displayName;
+  PluginConfigSpec spec;
+};
+
+struct PluginOptionKeyHasher {
+  std::size_t operator()(const PluginOptionKey& p) const {
+    auto h1 = std::hash<std::string> {}(p.first);
+    auto h2 = std::hash<std::string> {}(p.second);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+  }
+};
+
+extern std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher> pluginOptions;
+extern std::mutex pluginOptionsMutex;
 
 extern Options options;
 

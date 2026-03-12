@@ -185,7 +185,7 @@ Cache plugin options in local variables/structs and refresh them in `pvPluginOnC
 
 Why this matters:
 
-- Per-frame option reads will perform repeated nested config traversal/YAML-style path walking.
+- Per-frame option reads will perform repeated `std::unordered_map` lookups.
 - Doing that work in `draw()` can become unnecessarily expensive.
 - Refreshing cached values only on `pvPluginOnConfigReload` keeps the render path fast and predictable.
 

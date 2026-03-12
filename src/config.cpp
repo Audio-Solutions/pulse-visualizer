@@ -29,36 +29,14 @@ bool broken = false;
 // Global configuration options
 Options options;
 
-PluginConfigSpecRegistry pluginConfigSpecs;
-std::map<std::string, std::string> pluginDisplayNames;
-std::unordered_set<std::string> registeredPluginPaths;
-YAML::Node pluginValuesNode;
+// plugin option storage
+std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher> pluginOptions;
+std::mutex pluginOptionsMutex;
 
 #ifdef __linux__
 int inotifyFd = -1;
 int inotifyWatch = -1;
 #endif
-
-std::string makePluginPathKey(std::string_view pluginKey, std::string_view path) {
-  std::string key;
-  key.reserve(pluginKey.size() + path.size() + 2);
-  key.append(pluginKey);
-  key.push_back('.');
-  key.append(path);
-  return key;
-}
-
-const PluginConfigSpec* findPluginSpec(std::string pluginKey, std::string path) {
-  auto groupIt = pluginConfigSpecs.find(pluginKey);
-  if (groupIt == pluginConfigSpecs.end())
-    return nullptr;
-
-  auto ruleIt = groupIt->second.find(path);
-  if (ruleIt == groupIt->second.end())
-    return nullptr;
-
-  return &ruleIt->second;
-}
 
 std::string getInstallDir() {
 #ifdef _WIN32
@@ -360,6 +338,59 @@ void get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(
   }
 }
 
+/**
+ * @brief Read a map of plugin configuration options from the configuration.
+ * @param root Root YAML node
+ * @param path Dot-separated path to the desired value
+ * @param out Output reference to receive the parsed hierarchy tree map
+ */
+template <>
+void get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(
+    const YAML::Node& root, std::string_view path,
+    std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>& out) {
+  auto node = getNode(root, path);
+
+  if (!node.has_value() || !node.value().IsMap()) {
+    broken = true;
+    return;
+  }
+
+  const YAML::Node& value = node.value();
+
+  std::lock_guard<std::mutex> lock(pluginOptionsMutex);
+
+  for (auto& [key, rec] : out) {
+    std::string path = key.first + "." + key.second;
+
+    switch (rec.spec.type) {
+    case PluginConfigType::Bool: {
+      bool tmp = std::get<bool>(rec.value);
+      get<bool>(value, path, tmp);
+      rec.value = PluginConfigValue(tmp);
+      break;
+    }
+    case PluginConfigType::Int: {
+      int tmp = std::get<int>(rec.value);
+      get<int>(value, path, tmp);
+      rec.value = PluginConfigValue(tmp);
+      break;
+    }
+    case PluginConfigType::Float: {
+      float tmp = std::get<float>(rec.value);
+      get<float>(value, path, tmp);
+      rec.value = PluginConfigValue(tmp);
+      break;
+    }
+    case PluginConfigType::String: {
+      std::string tmp = std::get<std::string>(rec.value);
+      get<std::string>(value, path, tmp);
+      rec.value = PluginConfigValue(tmp);
+      break;
+    }
+    }
+  }
+}
+
 template <typename T> void setNodeByPath(YAML::Node& node, std::string_view path, const T& value) {
   const size_t dot = path.find('.');
   if (dot == std::string_view::npos) {
@@ -380,118 +411,70 @@ bool registerPluginConfigOption(void* pluginContext, const char* path, const Con
 
   const std::string pluginKey = plugin->key;
   const std::string keyPath = std::string(path);
-
   if (pluginKey.empty() || keyPath.empty())
     return false;
 
-  const std::string yamlPath = "plugins." + pluginKey + "." + keyPath;
-  const std::string uniquePluginKey = makePluginPathKey(pluginKey, path);
-  if (registeredPluginPaths.contains(uniquePluginKey)) {
-    LOG_ERROR("Duplicate plugin config option registration for '" << yamlPath << "'");
+  PluginOptionKey key {pluginKey, keyPath};
+  std::lock_guard<std::mutex> lock(pluginOptionsMutex);
+
+  auto it = pluginOptions.find(key);
+  if (it != pluginOptions.end() && !it->second.spec.label.empty()) {
+    LOG_ERROR("Duplicate plugin config option registration for 'plugins." << pluginKey << "." << keyPath << "'");
     return false;
   }
-  registeredPluginPaths.insert(uniquePluginKey);
+
+  PluginOptionRecord& rec = pluginOptions[key];
+  // merge descriptor
+  rec.spec = descriptor ? *descriptor : PluginConfigSpec {};
+  rec.spec.type = static_cast<PluginConfigType>(defaultValue->index());
+  if (rec.spec.label.empty())
+    rec.spec.label = keyPath;
 
   if (!plugin->displayName.empty())
-    pluginDisplayNames[pluginKey] = plugin->displayName;
-  else if (!pluginDisplayNames.contains(pluginKey))
-    pluginDisplayNames[pluginKey] = pluginKey;
+    rec.displayName = plugin->displayName;
+  else if (rec.displayName.empty())
+    rec.displayName = pluginKey;
 
-  PluginConfigSpec& rule = pluginConfigSpecs[pluginKey][std::string(path)];
-  PluginConfigSpec empty;
-  rule = descriptor ? *descriptor : empty;
-  rule.type = static_cast<PluginConfigType>(defaultValue->index());
-  if (rule.label.empty())
-    rule.label = std::string(path);
-
-  if (rule.type == PluginConfigType::Int) {
-    rule.detentsFloat.clear();
-    rule.choices.clear();
-  } else if (rule.type == PluginConfigType::Float) {
-    rule.detentsInt.clear();
-    rule.choices.clear();
-  } else if (rule.type == PluginConfigType::String) {
-    rule.detentsInt.clear();
-    rule.detentsFloat.clear();
+  if (it != pluginOptions.end()) {
+    const auto& existing = it->second.value;
+    if (existing.index() == static_cast<size_t>(rec.spec.type))
+      rec.value = existing;
+    else
+      rec.value = *defaultValue;
   } else {
-    rule.detentsInt.clear();
-    rule.detentsFloat.clear();
-    rule.choices.clear();
+    rec.value = *defaultValue;
   }
 
-  PluginConfigValue value = *defaultValue;
-  const bool oldBroken = broken;
-  auto node = getNode(pluginValuesNode, uniquePluginKey);
-  broken = oldBroken;
-  if (node.has_value()) {
-    try {
-      switch (rule.type) {
-      case PluginConfigType::Bool:
-        value = node.value().as<bool>();
-        break;
-      case PluginConfigType::Int:
-        value = node.value().as<int>();
-        break;
-      case PluginConfigType::Float:
-        value = node.value().as<float>();
-        break;
-      case PluginConfigType::String:
-        value = node.value().as<std::string>();
-        break;
-      }
-    } catch (const std::exception& e) {
-      LOG_ERROR("Failed to parse plugin config value for '" << yamlPath << "': " << e.what());
-    }
-  } else {
-    LOG_DEBUG("No plugin option found for '" << yamlPath << "', using default");
-  }
-
-  return setPluginConfigOption(pluginContext, path, &value);
+  return true;
 }
 
 bool getPluginConfigOption(void* pluginContext, const char* path, Config::PluginConfigValue* outValue) {
+  if (!pluginContext || !outValue)
+    return false;
   const std::string pluginKey = static_cast<Plugin::PluginInstance*>(pluginContext)->key;
-  const PluginConfigSpec* rule = findPluginSpec(pluginKey, path);
-  if (!rule)
+  PluginOptionKey key {pluginKey, std::string(path)};
+  std::lock_guard<std::mutex> lock(pluginOptionsMutex);
+  auto it = pluginOptions.find(key);
+  if (it == pluginOptions.end())
     return false;
 
-  const std::string pluginPath = std::string(pluginKey) + "." + std::string(path);
-  const bool oldBroken = broken;
-  auto node = getNode(pluginValuesNode, pluginPath);
-  broken = oldBroken;
-  if (!node.has_value())
-    return false;
-
-  try {
-    switch (rule->type) {
-    case PluginConfigType::Bool:
-      *outValue = std::move(node.value().as<bool>());
-      return true;
-    case PluginConfigType::Int:
-      *outValue = std::move(node.value().as<int>());
-      return true;
-    case PluginConfigType::Float:
-      *outValue = std::move(node.value().as<float>());
-      return true;
-    case PluginConfigType::String:
-      *outValue = std::move(node.value().as<std::string>());
-      return true;
-    }
-  } catch (const std::exception&) {
-    return false;
-  }
-
-  return false;
+  *outValue = it->second.value;
+  return true;
 }
 
 bool setPluginConfigOption(void* pluginContext, const char* path, const PluginConfigValue* value) {
+  if (!pluginContext || !value)
+    return false;
   const std::string pluginKey = static_cast<Plugin::PluginInstance*>(pluginContext)->key;
-  const PluginConfigSpec* rule = findPluginSpec(pluginKey, path);
-  if (!rule || rule->type != static_cast<PluginConfigType>(value->index()))
+  PluginOptionKey key {pluginKey, std::string(path)};
+  std::lock_guard<std::mutex> lock(pluginOptionsMutex);
+  auto it = pluginOptions.find(key);
+  if (it == pluginOptions.end())
+    return false;
+  if (static_cast<PluginConfigType>(value->index()) != it->second.spec.type)
     return false;
 
-  YAML::Node pluginNodeOut = pluginValuesNode[pluginKey];
-  std::visit([&](const auto& v) { setNodeByPath(pluginNodeOut, path, v); }, *value);
+  it->second.value = *value;
   return true;
 }
 
@@ -524,15 +507,13 @@ void load(bool recovering) {
 
   // If the config fails to load we still want the watch to be created
   if (configData.IsNull()) {
-    pluginValuesNode = YAML::Node(YAML::NodeType::Map);
     return;
   }
 
-  pluginValuesNode = configData["plugins"];
-  if (!pluginValuesNode.IsMap())
-    pluginValuesNode = YAML::Node(YAML::NodeType::Map);
-
   get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(configData, "visualizers", options.visualizers);
+
+  get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
+                                                                                      pluginOptions);
 
   ConfigSchema::forEachFieldByType(
       [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
@@ -610,8 +591,18 @@ bool save() {
     root["visualizers"] = vis;
   }
 
-  if (pluginValuesNode.IsDefined())
-    root["plugins"] = pluginValuesNode;
+  // Persist plugin options from the consolidated map
+  {
+    YAML::Node pluginsNode(YAML::NodeType::Map);
+    std::lock_guard<std::mutex> lock(pluginOptionsMutex);
+    for (const auto& [key, rec] : pluginOptions) {
+      YAML::Node pluginNode = pluginsNode[key.first];
+      std::visit([&](const auto& v) { setNodeByPath(pluginNode, key.second, v); }, rec.value);
+      pluginsNode[key.first] = pluginNode;
+    }
+    if (pluginsNode.IsDefined() && pluginsNode.size() > 0)
+      root["plugins"] = pluginsNode;
+  }
 
   YAML::Emitter out;
   for (auto it = root.begin(); it != root.end(); ++it) {

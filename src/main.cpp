@@ -182,11 +182,13 @@ int main(int argc, char** argv) {
   // Setup configuration
   LOG_DEBUG("Copying files");
   Config::copyFiles();
-  Config::load();
 
   // Load plugins
   LOG_DEBUG("Loading Plugins");
   Plugin::loadAll();
+
+  LOG_DEBUG("Loading Config");
+  Config::load();
 
   // Setup theme
   LOG_DEBUG("Loading theme");
