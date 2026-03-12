@@ -2083,7 +2083,8 @@ void createVisualizerListElement(Page& page, float& cy, const std::string key,
         WindowManager::addVisualizerToGroup(newKey, dragState.viz);
       } else {
         // Add to existing target group
-        WindowManager::addVisualizerToGroup(targetGroup, dragState.viz);
+        if (targetGroup != "hidden")
+          WindowManager::addVisualizerToGroup(targetGroup, dragState.viz);
       }
 
       // Now remove from source group

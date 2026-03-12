@@ -647,7 +647,7 @@ void removeVisualizerFromGroup(const std::string& group, const std::string& id) 
     SDLWindow::destroyWindow(group);
   }
 
-  boundsDirty.store(true);
+  initialize();
 }
 
 void drawHoverHandles(std::string key, SDLWindow::State& state) {
@@ -1019,6 +1019,9 @@ void initialize() {
   };
 
   for (auto& [key, cfgNode] : Config::options.visualizers) {
+    if (key == "hidden")
+      continue;
+
     if (key != "main") {
       if (SDLWindow::states.find(key) == SDLWindow::states.end())
         SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
