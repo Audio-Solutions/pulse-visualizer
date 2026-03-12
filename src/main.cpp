@@ -155,9 +155,9 @@ int main(int argc, char** argv) {
     CmdlineArgs::debug = true;
   }
 
+#ifndef _WIN32
   sigset_t sigset;
   if (!CmdlineArgs::debug) {
-#ifndef _WIN32
     // Block Signals so they can be polled
     sigemptyset(&sigset);
     sigaddset(&sigset, SIGWINCH);
@@ -165,8 +165,8 @@ int main(int argc, char** argv) {
     sigaddset(&sigset, SIGTERM);
     sigaddset(&sigset, SIGQUIT);
     sigprocmask(SIG_BLOCK, &sigset, nullptr);
-#endif
   }
+#endif
 
 #ifdef _WIN32
   if (!CmdlineArgs::console && !CmdlineArgs::debug)
