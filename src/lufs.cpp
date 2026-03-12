@@ -150,10 +150,10 @@ void LUFSVisualizer::render() {
     size_t rightBarY = bounds.h - (topHeight + barHeight);
 
     // Draw left peak bar
-    Graphics::drawFilledRect(leftPeakX, leftBarY, PEAK_BAR_WIDTH, leftBarHeight, Theme::colors.color);
+    Graphics::drawFilledRect(leftPeakX, leftBarY, PEAK_BAR_WIDTH, leftBarHeight, color);
 
     // Draw right peak bar
-    Graphics::drawFilledRect(rightPeakX, rightBarY, PEAK_BAR_WIDTH, rightBarHeight, Theme::colors.color);
+    Graphics::drawFilledRect(rightPeakX, rightBarY, PEAK_BAR_WIDTH, rightBarHeight, color);
   }
 
   // Draw LUFS bar if value is valid
