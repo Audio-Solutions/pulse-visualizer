@@ -213,6 +213,8 @@ struct Options {
     struct Limits {
       float max_db = -10.0f;
       float min_db = -60.0f;
+      float min_freq = 10.0f;
+      float max_freq = 22000.0f;
     } limits;
   } spectrogram;
 

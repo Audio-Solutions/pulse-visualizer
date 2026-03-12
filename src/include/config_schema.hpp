@@ -278,6 +278,7 @@ inline constexpr std::array fftStereoChoices = {
 inline constexpr std::array spectrogramScaleChoices = {
   Choice<std::string_view>{"log",    "Logarithmic"},
   Choice<std::string_view>{"linear", "Linear"},
+  Choice<std::string_view>{"mel",    "Mel"},
 };
 
 inline constexpr std::array waveformModeChoices = {
@@ -571,6 +572,16 @@ inline constexpr std::array floatFields = {
     "History Length (s)",
     "Amount of time shown in the spectrogram history.",
     FieldUi<float>::slider(0.1f, 10.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, spectrogram.limits.min_freq,
+    "Minimum Frequency (Hz)",
+    "Lower frequency bound for spectrogram display.",
+    FieldUi<float>::slider(10.f, 22000.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, spectrogram.limits.max_freq,
+    "Maximum Frequency (Hz)",
+    "Upper frequency bound for spectrogram display.",
+    FieldUi<float>::slider(10.f, 22000.f, 1)),
   PV_SCHEMA_FIELD(
     float, spectrogram.limits.max_db,
     "Maximum Level (dB)",

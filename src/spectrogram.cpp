@@ -25,6 +25,7 @@
 #include "include/window_manager.hpp"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 
 namespace Spectrogram {
@@ -55,6 +56,7 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
   spectrum.assign(bounds.h, 0.0f);
 
   const bool useLogScale = Config::options.spectrogram.frequency_scale == "log";
+  const bool useMel = Config::options.spectrogram.frequency_scale == "mel";
   const bool useCqt = Config::options.fft.cqt.enabled;
   const float sampleRate = Config::options.audio.sample_rate;
   const float safeInputSize = std::max(static_cast<float>(in.size()), 1.0f);
@@ -62,24 +64,39 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
   const float fullBinHz = sampleRate / safeInputSize;
 
   // Calculate frequency mapping parameters
-  float logMin = log10f(Config::options.fft.limits.min_freq);
-  float logMax = log10f(Config::options.fft.limits.max_freq);
+  float logMin = log10f(Config::options.spectrogram.limits.min_freq);
+  float logMax = log10f(Config::options.spectrogram.limits.max_freq);
   float logRange = logMax - logMin;
-  float freqRange = Config::options.fft.limits.max_freq - Config::options.fft.limits.min_freq;
+  float freqRange = Config::options.spectrogram.limits.max_freq - Config::options.spectrogram.limits.min_freq;
+
+  auto hzToMel = [&](float f) { return 2595.0f * log10f(1.0f + f / 700.0f); };
+  auto melToHz = [&](float m) { return 700.0f * (powf(10.0f, m / 2595.0f) - 1.0f); };
+
+  float melMin = hzToMel(Config::options.spectrogram.limits.min_freq);
+  float melMax = hzToMel(Config::options.spectrogram.limits.max_freq);
+  float melRange = melMax - melMin;
 
   if (!Config::options.spectrogram.iterative_reassignment) {
     // Standard spectrogram mapping with interpolation
     for (size_t i = 0; i < spectrum.size(); ++i) {
       float normalized = static_cast<float>(i) / static_cast<float>(spectrum.size() - 1);
-      float logFreq = logMin + normalized * logRange;
       float linFreq = Config::options.fft.limits.min_freq + normalized * freqRange;
-      float target = useLogScale ? powf(10.f, logFreq) : linFreq;
+      float target = 0.0f;
+      if (useLogScale) {
+        float logFreq = logMin + normalized * logRange;
+        target = powf(10.f, logFreq);
+      } else if (useMel) {
+        float mel = melMin + normalized * melRange;
+        target = melToHz(mel);
+      } else {
+        target = linFreq;
+      }
 
       size_t bin1, bin2;
       if (useCqt) {
         std::tie(bin1, bin2) = DSP::ConstantQ::find(target);
       } else {
-        bin1 = target / halfBinHz;
+        bin1 = static_cast<size_t>(target / fullBinHz);
         bin2 = bin1 + 1;
       }
 
@@ -91,7 +108,7 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
             float frac = (target - f1) / std::max(f2 - f1, FLT_EPSILON);
             spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
           } else {
-            float frac = target / halfBinHz - static_cast<float>(bin1);
+            float frac = target / fullBinHz - static_cast<float>(bin1);
             spectrum[i] = in[bin1] * (1.f - frac) + in[bin2] * frac;
           }
         } else {
@@ -116,13 +133,15 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
   const float ampThreshold = powf(10.0f, Config::options.spectrogram.limits.min_db / 20.0f);
 
   auto clampFreq = [&](float f) {
-    return std::clamp(f, Config::options.fft.limits.min_freq, Config::options.fft.limits.max_freq);
+    return std::clamp(f, Config::options.spectrogram.limits.min_freq, Config::options.spectrogram.limits.max_freq);
   };
 
   auto toRow = [&](float freq) {
     float normalized = 0.0f;
     if (useLogScale) {
       normalized = (log10f(clampFreq(freq)) - logMin) / std::max(logRange, FLT_EPSILON);
+    } else if (useMel) {
+      normalized = (hzToMel(clampFreq(freq)) - melMin) / std::max(melRange, FLT_EPSILON);
     } else {
       normalized = (clampFreq(freq) - Config::options.fft.limits.min_freq) / std::max(freqRange, FLT_EPSILON);
     }
@@ -147,7 +166,8 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
       nominalFreq = static_cast<float>(k) * fullBinHz;
     }
 
-    if (nominalFreq < Config::options.fft.limits.min_freq || nominalFreq > Config::options.fft.limits.max_freq)
+    if (nominalFreq < Config::options.spectrogram.limits.min_freq ||
+        nominalFreq > Config::options.spectrogram.limits.max_freq)
       continue;
 
     float reassignedFreq = nominalFreq;
