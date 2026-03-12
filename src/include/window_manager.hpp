@@ -66,19 +66,15 @@ void cleanup();
  * @brief Add a visualizer to a group.
  * @param group The group to add to
  * @param id The ID of the visualizer to add
- *
- * @returns `true` if successful, `false` otherwise.
  */
-bool addVisualizerToGroup(const std::string& group, const std::string& id);
+void addVisualizerToGroup(const std::string& group, const std::string& id);
 
 /**
  * @brief Remove a visualizer from a group.
  * @param group The group to remove from
  * @param id The ID of the visualizer to remove
- *
- * @returns `true` if successful, `false` otherwise.
  */
-bool removeVisualizerFromGroup(const std::string& group, const std::string& id);
+void removeVisualizerFromGroup(const std::string& group, const std::string& id);
 
 /**
  * @brief Hover region enum for sway-like rearrangement.
