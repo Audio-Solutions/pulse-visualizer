@@ -224,3 +224,7 @@ see the [LICENSE](LICENSE) file for details.
 project for the JetBrains Mono Nerd Font
 - SDL3, PulseAudio, PipeWire, FFTW, FreeType, libebur128, YAML-CPP, and everyone
 else who made this possible
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=Audio-Solutions/pulse-visualizer&type=date&legend=top-left)](https://www.star-history.com/?repos=Audio-Solutions%2Fpulse-visualizer&type=date&legend=top-left)
