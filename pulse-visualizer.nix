@@ -25,8 +25,8 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "Audio-Solutions";
     repo = "pulse-visualizer";
-    rev = "a9de4d164b9c13e68b6032faff2bc81b4623a695";
-    hash = "sha256-qUpBWmZSLeXVOKKH+hntzgEjftH6IntEOjzdqEBFUjc=";
+    rev = "764814a1ecc917296b6d3062b17d936faae9a0df";
+    hash = "sha256-XeZghG1iuYczWWu8bu03kJ/oLGSEocjJbw56c5YR+iQ=";
   };
 
   nativeBuildInputs = [
