@@ -27,7 +27,6 @@
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
-#include "include/update_window.hpp"
 #include "include/window_manager.hpp"
 
 #include <SDL3/SDL_main.h>
@@ -40,6 +39,8 @@
 #endif
 
 #ifdef USE_UPDATER
+#include "include/update_window.hpp"
+
 #include <curl/curl.h>
 #endif
 
@@ -280,7 +281,9 @@ int main(int argc, char** argv) {
     while (SDL_PollEvent(&event)) {
       SDLWindow::handleEvent(event);
       ConfigWindow::handleEvent(event);
+#ifdef USE_UPDATER
       UpdaterWindow::handleEvent(event);
+#endif
       WindowManager::handleEvent(event);
       Plugin::handleEvent(event);
     }
@@ -318,7 +321,9 @@ int main(int argc, char** argv) {
     SDLWindow::clear();
     WindowManager::render();
     ConfigWindow::draw();
+#ifdef USE_UPDATER
     UpdaterWindow::draw();
+#endif
     Plugin::drawAll();
     SDLWindow::display();
 
