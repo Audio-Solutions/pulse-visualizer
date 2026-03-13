@@ -9,3 +9,4 @@ Thanks to the following people who have contributed to this project:
 - [fndov](https://github.com/fndov)  
 - [Nikola](https://github.com/nikolchaa)
 - [Debarchito](https://github.com/debarchito)
+- [schnow265](https://github.com/schnow265)
