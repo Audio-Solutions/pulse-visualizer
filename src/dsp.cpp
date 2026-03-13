@@ -913,7 +913,8 @@ int mainThread() {
     size_t sampleCount = Config::options.audio.sample_rate / Config::options.window.fps_limit;
     readBuf.resize(sampleCount * 2);
 
-    // Read audio from engine
+    // Read audio from engine; capture writePos before writing samples
+    size_t oldWrite = writePos;
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       LOG_DEBUG("Failed to read from audio engine");
     }
@@ -963,8 +964,9 @@ int mainThread() {
     }
 #endif
 
-    // Signal FFT threads that new data is available
-    {
+    // Signal FFT threads that new data is available, but only if samples were written
+    size_t samplesWritten = (writePos + bufferSize - oldWrite) % bufferSize;
+    if (samplesWritten > 0) {
       std::lock_guard<std::mutex> lock(mutex);
       dataReadyFFTMain = true;
       dataReadyFFTAlt = true;
@@ -992,8 +994,8 @@ int mainThread() {
     // Process RMS calculation
     RMS::process();
 
-    // Signal main thread that DSP processing is complete
-    {
+    // Signal main thread that DSP processing is complete, only when new samples exist
+    if (samplesWritten > 0) {
       std::lock_guard<std::mutex> lock(::mainThread);
       dataReady = true;
       mainCv.notify_one();

@@ -187,10 +187,6 @@ void LissajousVisualizer::render() {
                    ? Config::options.lissajous.spline_segments
                    : 1.0f);
 
-    float dt_sample = 1.f / Config::options.audio.sample_rate;
-
-    float decay = Config::options.phosphor.screen.decay;
-
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
       const auto& p2 = points[i + 1];
@@ -199,11 +195,7 @@ void LissajousVisualizer::render() {
       float dy = p2.second - p1.second;
       float len = std::max(FLT_EPSILON, sqrtf(dx * dx + dy * dy));
 
-      // Age of this segment in seconds
-      size_t idx_from_end = points.size() - 1 - i;
-      float age = idx_from_end * dt_sample;
-
-      float totalE = energy * expf(-decay * age) * (dt_sample / len);
+      float totalE = energy * (1.f / (Config::options.audio.sample_rate * len));
       energies.push_back(totalE);
     }
 
