@@ -27,7 +27,6 @@
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
-#include "include/update_window.hpp"
 #include "include/window_manager.hpp"
 
 #include <SDL3/SDL_main.h>
@@ -40,6 +39,8 @@
 #endif
 
 #ifdef USE_UPDATER
+#include "include/update_window.hpp"
+
 #include <curl/curl.h>
 #endif
 
