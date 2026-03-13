@@ -74,6 +74,8 @@ void load() {
 
   currentThemePath = Config::options.window.theme;
 
+  colors.spectrogram_gradient.clear();
+
   // Color mapping for array-based colors (RGBA)
   static std::unordered_map<std::string, float*> colorMapArrays = {
       {"color",                             colors.color                            },
@@ -184,6 +186,42 @@ void load() {
     if (!parseAndStoreColor()) {
       LOG_ERROR(key + std::string(" is invalid or has invalid data: ") + value);
     }
+
+    std::string keyTrim = key;
+    // trim whitespace both ends
+    keyTrim.erase(0, keyTrim.find_first_not_of(" \t"));
+    keyTrim.erase(keyTrim.find_last_not_of(" \t") + 1);
+    if (keyTrim.size() > 2) {
+      std::string suffix = keyTrim.substr(keyTrim.size() - 2);
+      std::transform(suffix.begin(), suffix.end(), suffix.begin(), [](unsigned char c) { return std::tolower(c); });
+      if (suffix == "db") {
+        std::string dbStr = keyTrim.substr(0, keyTrim.size() - 2);
+        // trim dbStr
+        dbStr.erase(0, dbStr.find_first_not_of(" \t"));
+        dbStr.erase(dbStr.find_last_not_of(" \t") + 1);
+        try {
+          float db = std::stof(dbStr);
+          std::istringstream iss2(value);
+          std::string token2;
+          std::vector<int> comps;
+          while (std::getline(iss2, token2, ',')) {
+            try {
+              // trim
+              token2.erase(0, token2.find_first_not_of(" \t"));
+              token2.erase(token2.find_last_not_of(" \t") + 1);
+              comps.push_back(std::stoi(token2));
+            } catch (...) {
+            }
+          }
+          if (comps.size() >= 3) {
+            std::array<float, 4> col = {comps[0] / 255.f, comps[1] / 255.f, comps[2] / 255.f,
+                                        comps.size() >= 4 ? comps[3] / 255.f : 1.0f};
+            colors.spectrogram_gradient.emplace_back(db, col);
+          }
+        } catch (...) {
+        }
+      }
+    }
   }
 
   static std::vector<float*> mainColors = {colors.color,  colors.selection,  colors.text,
@@ -196,6 +234,10 @@ void load() {
       LOG_ERROR(std::string("Color ") + colorNames[i] + " is missing!");
     }
   }
+
+  // Ensure gradient entries are ordered by dB ascending for easier lookup
+  std::sort(colors.spectrogram_gradient.begin(), colors.spectrogram_gradient.end(),
+            [](auto& a, auto& b) { return a.first < b.first; });
 }
 
 bool reload() {

@@ -569,6 +569,11 @@ inline constexpr std::array floatFields = {
     "Amount of time shown in the spectrogram history.",
     FieldUi<float>::slider(0.1f, 10.f, 1)),
   PV_SCHEMA_FIELD(
+    float, spectrogram.slope,
+    "Slope Compensation (dB/oct)",
+    "Display-only slope compensation per octave.",
+    FieldUi<float>::slider(-12.f, 12.f, 1)),
+  PV_SCHEMA_FIELD(
     float, spectrogram.limits.min_freq,
     "Minimum Frequency (Hz)",
     "Lower frequency bound for spectrogram display.",

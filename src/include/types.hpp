@@ -23,6 +23,7 @@
 // ^ glad needs to be included first
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
+#include <array>
 #include <map>
 #include <memory>
 #include <span>
@@ -208,6 +209,7 @@ struct Options {
     float window = 2.0f;
     bool iterative_reassignment = true;
     std::string frequency_scale = "log";
+    float slope = 0.0f;
 
     struct Limits {
       float max_db = -10.0f;
@@ -377,6 +379,8 @@ struct Colors {
   float vu_clip[4] = {0};
 
   float phosphor_border[4] = {0};
+  // Custom spectrogram gradient mapping: pairs of dB value -> RGBA color (0..1)
+  std::vector<std::pair<float, std::array<float, 4>>> spectrogram_gradient;
 };
 } // namespace Theme
 
