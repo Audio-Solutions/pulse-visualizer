@@ -280,7 +280,9 @@ int main(int argc, char** argv) {
     while (SDL_PollEvent(&event)) {
       SDLWindow::handleEvent(event);
       ConfigWindow::handleEvent(event);
+#ifdef USE_UPDATER
       UpdaterWindow::handleEvent(event);
+#endif
       WindowManager::handleEvent(event);
       Plugin::handleEvent(event);
     }
@@ -318,7 +320,9 @@ int main(int argc, char** argv) {
     SDLWindow::clear();
     WindowManager::render();
     ConfigWindow::draw();
+#ifdef USE_UPDATER
     UpdaterWindow::draw();
+#endif
     Plugin::drawAll();
     SDLWindow::display();
 
