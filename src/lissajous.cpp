@@ -71,99 +71,82 @@ void LissajousVisualizer::render() {
     float right = DSP::bufferMid[idx] - DSP::bufferSide[idx];
 
     // Basic mapping to screen coordinates
-    float x = (1.f + left) * this->bounds.w / 2.f;
-    float y = (1.f + right) * this->bounds.h / 2.f;
+    float x = (1.f + left) * bounds.w / 2.f;
+    float y = (1.f + right) * bounds.h / 2.f;
     switch (Config::options.lissajous.rotation) {
     case Config::ROTATION_0:
       points[i] = {x, y};
       break;
     case Config::ROTATION_90:
-      points[i] = {this->bounds.w - y, x};
+      points[i] = {bounds.w - y, x};
       break;
     case Config::ROTATION_180:
-      points[i] = {this->bounds.w - x, this->bounds.h - y};
+      points[i] = {bounds.w - x, bounds.h - y};
       break;
     case Config::ROTATION_270:
-      points[i] = {y, this->bounds.h - x};
+      points[i] = {y, bounds.h - x};
       break;
     }
   }
 
   // Apply spline smoothing
   if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0)
-    points = Spline::generate(points, {1.f, 0.f}, {this->bounds.w - 1, this->bounds.h - 1},
+    points = Spline::generate(points, {0.f, 0.f}, {bounds.w - 1, bounds.h - 1},
                               Config::options.lissajous.spline_segments, Config::options.lissajous.spline_tension);
 
   // Apply stretch mode if enabled
   const std::string& mode = Config::options.lissajous.mode;
-  bool isStretchMode = (mode == "rotate" || mode == "pulsar" || mode == "circle" || mode == "black_hole");
-  bool isCircleMode = (mode == "circle" || mode == "pulsar" || mode == "black_hole");
-  bool isPulsarMode = (mode == "pulsar" || mode == "black_hole");
+  bool isRadialWarpMode = (mode == "pulsar" || mode == "black_hole");
+  bool isCircleMode = (isRadialWarpMode || mode == "circle");
 
-  if (isStretchMode) {
-    float halfW = this->bounds.w / 2.0f;
+  if (mode != "normal") {
+    float halfW = bounds.w * 0.5;
+    float invHalfW = 2.0f / bounds.w;
 
-    // Pre-compute pulsar mode constants
-    // For pulsar, scales the input such that the point (1, 0) ends up at the origin (0, 0)
-    // And scales the output such that the point near origin (1e-6, 0) ends up at (1, 0)
-    // For black hole, scales the input such that the point (1, 0) is unchanged
-    // And scales the output such that the point near origin (1e-6, 0) ends up at (0.5, 0)
-    // Singularity scales the logarithmic space to make the points distribute more to the outer edge
-    // Transformation is nullified at exactly 1/e, below makes it a pulsar, above it makes a black hole
-    float k = 0.0f, kPost = 0.0f, singularity = 1.0f / M_E + (mode == "pulsar" ? -1e-3f : 1e-3f);
-    if (isPulsarMode) {
+    float k = 0.0f;
+    float kPost = 0.0f;
+    float singularity = 1.0f / M_E + (mode == "pulsar" ? -1e-3f : 1e-3f);
 
-      // Scale k calculation
-      k = (std::exp(-1.0f) - singularity) / (mode == "black_hole" ? std::sqrt(2.0f) / 2.0f : std::sqrt(2.0f));
-
-      // Nonlinear pre-transform
-      float nxRef = (mode == "black_hole" ? 1.f : FLT_EPSILON) * std::sqrt(2.0f) * k;
-
-      // Calculate d and s for logarithmic scaling
+    if (isRadialWarpMode) {
+      k = (mode == "pulsar" ? -1e-3f : 2e-3f);
+      float nxRef = k;
+      if (mode == "pulsar")
+        nxRef *= FLT_EPSILON;
       float dRef = std::abs(nxRef);
       float sRef = -(std::log(dRef + singularity) + 1.0f) / dRef;
-
-      // Compute post-scale factor
       kPost = 1.0f / std::abs(nxRef * sRef);
     }
 
     for (auto& point : points) {
-      float nx = (point.first - halfW) / halfW;
-      float ny = (point.second - halfW) / halfW;
+      float nx = (point.first - halfW) * invHalfW;
+      float ny = (point.second - halfW) * invHalfW;
 
+      // Circle transform
       if (isCircleMode) {
-        // Circle transform with Density-constant linear mapping
-        float r, theta;
-        if (fabs(nx) > fabs(ny)) {
-          r = nx;
-          theta = M_PI_4 * (ny / nx);
-        } else {
-          r = ny;
-          theta = M_PI_2 - M_PI_4 * (nx / ny);
-        }
-
-        nx = r * cosf(theta) * M_SQRT2;
-        ny = r * sinf(theta) * M_SQRT2;
+        float cx = nx * std::sqrt(1.0 - 0.5 * ny * ny);
+        float cy = ny * std::sqrt(1.0 - 0.5 * nx * nx);
+        nx = cx;
+        ny = cy;
       }
-      if (isPulsarMode) {
-        // Apply normalized scaling to current point
+
+      // Pulsar/Black Hole transform
+      if (isRadialWarpMode) {
         nx *= k;
         ny *= k;
-
-        // Funny math
         float d = std::sqrt(nx * nx + ny * ny);
         float s = -(std::log(d + singularity) + 1.0f) / d;
-        nx = nx * s * kPost * M_SQRT2;
-        ny = ny * s * kPost * M_SQRT2;
+        nx = nx * s * kPost;
+        ny = ny * s * kPost;
       }
 
-      // Apply rotation
+      // 45° rotation
       float sx = halfW + nx * halfW;
       float sy = halfW + ny * halfW;
       float dx = sx - halfW;
       float dy = sy - halfW;
-      float rx = (dx * M_SQRT1_2 - dy * M_SQRT1_2) * M_SQRT1_2;
-      float ry = (dx * M_SQRT1_2 + dy * M_SQRT1_2) * M_SQRT1_2;
+      float scale = (mode == "rotate" ? 0.5f : M_SQRT1_2);
+      float rx = (dx - dy) * scale;
+      float ry = (dx + dy) * scale;
       point.first = halfW + rx;
       point.second = halfW + ry;
     }
@@ -180,7 +163,7 @@ void LissajousVisualizer::render() {
 
     // Calculate energy per segment for phosphor effect
     constexpr float REF_AREA = 200.f * 200.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (this->bounds.w * this->bounds.h);
+    float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
 
     energy *= Config::options.lissajous.beam_multiplier /
               (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0
