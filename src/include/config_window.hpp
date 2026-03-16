@@ -299,7 +299,7 @@ void createCheckElement(Page& page, float& cy, const std::string key, bool* valu
  * @param description Tooltip string
  */
 void createVisualizerListElement(Page& page, float& cy, const std::string key,
-                                 std::unordered_map<std::string, std::unique_ptr<Config::Node>>* value,
-                                 const std::string label, const std::string description);
+                                 std::unordered_map<std::string, WindowManager::Node>* value, const std::string label,
+                                 const std::string description);
 
 }; // namespace ConfigWindow

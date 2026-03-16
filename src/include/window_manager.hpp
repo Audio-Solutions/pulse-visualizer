@@ -38,17 +38,17 @@ constexpr int SPLITTER_WIDTH = 2;
 void setViewport(Bounds bounds);
 
 /**
- * @brief update bounds for all branches and visualizers
+ * @brief update bounds for all splitters and visualizers
  */
 void updateBounds();
 
 /**
- * @brief render all branches and visualizers
+ * @brief render all splitters and visualizers
  */
 void render();
 
 /**
- * @brief pass SDL_Event to all branches and visualizers
+ * @brief pass SDL_Event to all splitters and visualizers
  */
 void handleEvent(const SDL_Event& event);
 

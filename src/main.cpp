@@ -101,7 +101,7 @@ void reconfigure() {
   SDL_SetWindowBordered(SDLWindow::states["main"].win, Config::options.window.decorations);
   SDL_SetWindowAlwaysOnTop(SDLWindow::states["main"].win, Config::options.window.always_on_top);
 
-  LOG_DEBUG("Reconfiguring...");
+  LOG_DEBUG("Reconfiguring Audio...");
   AudioEngine::reconfigure();
   DSP::FFT::recreatePlans();
   DSP::ConstantQ::regenerate();

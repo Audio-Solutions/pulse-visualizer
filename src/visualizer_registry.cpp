@@ -51,9 +51,4 @@ bool registerVisualizer(std::shared_ptr<WindowManager::VisualizerWindow> visuali
   return true;
 }
 
-std::span<const std::shared_ptr<WindowManager::VisualizerWindow>> list() {
-  ensureBuiltinsRegistered();
-  return visualizers;
-}
-
 } // namespace VisualizerRegistry

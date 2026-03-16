@@ -21,10 +21,12 @@
 
 #include "include/config_schema.hpp"
 #include "include/plugin.hpp"
+#include "include/visualizer_registry.hpp"
 
 namespace Config {
 
 bool broken = false;
+bool visualizersBroken = false;
 
 // Global configuration options
 Options options;
@@ -250,30 +252,29 @@ template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Ro
  * @param out Output reference to receive the parsed hierarchy tree map
  */
 template <>
-void get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(
-    const YAML::Node& root, std::string_view path,
-    std::unordered_map<std::string, std::unique_ptr<Config::Node>>& out) {
+void get<std::unordered_map<std::string, WindowManager::Node>>(
+    const YAML::Node& root, std::string_view path, std::unordered_map<std::string, WindowManager::Node>& out) {
   auto node = getNode(root, path);
 
   if (!node.has_value() || !node.value().IsMap()) {
-    broken = true;
+    visualizersBroken = broken = true;
     return;
   }
 
   const YAML::Node& value = node.value();
 
-  std::function<std::unique_ptr<Node>(const YAML::Node&)> parseHierarchyTree;
-  parseHierarchyTree = [&](const YAML::Node& n) -> std::unique_ptr<Node> {
+  std::function<WindowManager::Node(const YAML::Node&, const std::string_view)> parseHierarchyTree;
+  parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp) -> WindowManager::Node {
     if (!n || n.IsNull())
-      return std::make_unique<Node>(std::string());
+      return nullptr;
 
     if (n.IsScalar()) {
       try {
         // treat bare scalar as an id
-        return std::make_unique<Node>(n.as<std::string>());
+        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()));
       } catch (...) {
-        broken = true;
-        return std::make_unique<Node>(std::string());
+        visualizersBroken = broken = true;
+        return nullptr;
       }
     }
 
@@ -281,60 +282,60 @@ void get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(
       // Branch by explicit id
       if (n["id"] && n["id"].IsScalar()) {
         try {
-          return std::make_unique<Node>(n["id"].as<std::string>());
+          return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()));
         } catch (...) {
-          broken = true;
-          return std::make_unique<Node>(std::string());
+          visualizersBroken = broken = true;
+          return nullptr;
         }
       }
 
       // Split node: require 'type' and 'children'
       if (!n["type"] || !n["children"] || !n["children"].IsSequence()) {
-        broken = true;
-        return std::make_unique<Node>(std::string());
+        visualizersBroken = broken = true;
+        return nullptr;
       }
 
-      Config::Branch branch {};
+      WindowManager::Splitter s {};
       try {
         const std::string t = n["type"].as<std::string>();
         if (t == "vsplit")
-          branch.orientation = Config::Orientation::Vertical;
+          s.orientation = WindowManager::Orientation::Vertical;
         else if (t == "hsplit")
-          branch.orientation = Config::Orientation::Horizontal;
+          s.orientation = WindowManager::Orientation::Horizontal;
         else {
-          broken = true;
+          visualizersBroken = broken = true;
         }
 
         if (n["ratio"] && n["ratio"].IsScalar())
-          branch.ratio = n["ratio"].as<float>();
+          s.ratio = n["ratio"].as<float>();
         else
-          branch.ratio = 0.5f;
+          s.ratio = 0.5f;
 
         const YAML::Node children = n["children"];
         if (!children.IsSequence() || children.size() != 2) {
-          broken = true;
-          return std::make_unique<Node>(std::string());
+          visualizersBroken = broken = true;
+          return nullptr;
         }
 
         // parse two children
-        branch.primary = parseHierarchyTree(children[0]);
-        branch.secondary = parseHierarchyTree(children[1]);
+        s.primary = parseHierarchyTree(children[0], grp);
+        s.secondary = parseHierarchyTree(children[1], grp);
       } catch (...) {
-        broken = true;
-        return std::make_unique<Node>(std::string());
+        visualizersBroken = broken = true;
+        return nullptr;
       }
 
-      return std::make_unique<Node>(std::move(branch));
+      return std::make_shared<WindowManager::Variant>(std::move(s));
     }
 
-    broken = true;
-    return std::make_unique<Node>(std::string());
+    visualizersBroken = broken = true;
+    return nullptr;
   };
 
   out.clear();
   for (const auto& item : value) {
     const std::string itemKey = item.first.as<std::string>();
-    out[itemKey] = parseHierarchyTree(item.second);
+    out[itemKey] = std::move(parseHierarchyTree(item.second, itemKey));
   }
 }
 
@@ -510,7 +511,7 @@ void load(bool recovering) {
     return;
   }
 
-  get<std::unordered_map<std::string, std::unique_ptr<Config::Node>>>(configData, "visualizers", options.visualizers);
+  get<std::unordered_map<std::string, WindowManager::Node>>(configData, "visualizers", options.visualizers);
 
   get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
                                                                                       pluginOptions);
@@ -544,11 +545,11 @@ bool save() {
 
   // Visualizers
   // If the config was detected as broken, write a safe default layout
-  // instead of persisting the (possibly invalid) current layout.
-  if (broken) {
+  // instead of persisting the invalid current layout.
+  if (visualizersBroken) {
     YAML::Node defVis(YAML::NodeType::Map);
     YAML::Node mainNode(YAML::NodeType::Map);
-    mainNode["type"] = "vsplit";
+    mainNode["type"] = "hsplit";
     mainNode["ratio"] = 0.5;
     YAML::Node children(YAML::NodeType::Sequence);
     YAML::Node c0(YAML::NodeType::Map);
@@ -562,27 +563,29 @@ bool save() {
     root["visualizers"] = defVis;
   } else {
     YAML::Node vis(YAML::NodeType::Map);
-    std::function<YAML::Node(const std::unique_ptr<Config::Node>&)> nodeToYaml;
-    nodeToYaml = [&](const std::unique_ptr<Config::Node>& nodePtr) -> YAML::Node {
-      if (!nodePtr)
+    std::function<YAML::Node(const WindowManager::Node&)> nodeToYaml;
+    nodeToYaml = [&](const WindowManager::Node& node) -> YAML::Node {
+      if (!node)
         return YAML::Node();
-      const Config::Node& node = *nodePtr;
-      if (const std::string* s = std::get_if<std::string>(&node)) {
-        YAML::Node m(YAML::NodeType::Map);
-        m["id"] = *s;
-        return m;
-      }
-      const Config::Branch& branch = std::get<Config::Branch>(node);
-      YAML::Node m(YAML::NodeType::Map);
-      m["type"] = (branch.orientation == Config::Orientation::Vertical) ? "vsplit" : "hsplit";
-      m["ratio"] = branch.ratio;
-      YAML::Node children(YAML::NodeType::Sequence);
-      if (branch.primary)
-        children.push_back(nodeToYaml(branch.primary));
-      if (branch.secondary)
-        children.push_back(nodeToYaml(branch.secondary));
-      m["children"] = children;
-      return m;
+      // clang-format off
+      return std::visit(Visitor {
+        [&](std::shared_ptr<WindowManager::VisualizerWindow>& w) {
+          YAML::Node m(YAML::NodeType::Map);
+          m["id"] = w->id;
+          return m;
+        },
+        [&](WindowManager::Splitter& s) {
+          YAML::Node m(YAML::NodeType::Map);
+          m["type"] = (s.orientation == WindowManager::Orientation::Vertical) ? "vsplit" : "hsplit";
+          m["ratio"] = s.ratio;
+          YAML::Node children(YAML::NodeType::Sequence);
+          children.push_back(nodeToYaml(s.primary));
+          children.push_back(nodeToYaml(s.secondary));
+          m["children"] = children;
+          return m;
+        }
+      }, *node);
+      // clang-format on
     };
 
     for (const auto& [groupName, nodePtr] : options.visualizers) {

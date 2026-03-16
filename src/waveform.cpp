@@ -30,6 +30,7 @@ public:
   WaveformVisualizer() {
     id = "waveform";
     displayName = "Waveform";
+    phosphor.unused = true;
   }
 
   void render() override;

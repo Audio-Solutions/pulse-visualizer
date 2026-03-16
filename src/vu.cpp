@@ -31,6 +31,7 @@ public:
   VUVisualizer() {
     id = "vu";
     displayName = "VU";
+    phosphor.unused = true;
   }
 
   void configure() override {

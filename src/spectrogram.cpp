@@ -35,6 +35,7 @@ public:
   SpectrogramVisualizer() {
     id = "spectrogram";
     displayName = "Spectrogram";
+    phosphor.unused = true;
   }
 
   std::vector<float>& mapSpectrum(const std::vector<float>& in, const std::vector<float>& phase, float frameDt);

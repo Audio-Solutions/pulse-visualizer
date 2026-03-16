@@ -31,6 +31,7 @@ public:
   LUFSVisualizer() {
     id = "lufs";
     displayName = "LUFS";
+    phosphor.unused = true;
   }
 
   void configure() override {

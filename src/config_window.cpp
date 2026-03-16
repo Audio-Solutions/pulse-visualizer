@@ -118,19 +118,20 @@ template <typename T> std::map<T, std::string> makeChoiceMap(std::span<const Con
 /**
  * @brief flatten a Config::Node tree into an ordered vector of visualizer ids
  */
-static void flattenConfigNode(const std::unique_ptr<Config::Node>& node, std::vector<std::string>& out) {
-  std::function<void(const std::unique_ptr<Config::Node>&)> recurse = [&](const std::unique_ptr<Config::Node>& n) {
-    if (auto s = std::get_if<std::string>(n.get())) {
-      if (!s->empty())
-        out.push_back(*s);
+static void flattenConfigNode(const WindowManager::Node& node, std::vector<std::string>& out) {
+  std::function<void(const WindowManager::Node&)> recurse = [&](const WindowManager::Node& n) {
+    if (!n)
+      return;
+
+    if (auto wPtr = std::get_if<std::shared_ptr<WindowManager::VisualizerWindow>>(n.get())) {
+      auto w = *wPtr;
+      if (!w->id.empty())
+        out.push_back(w->id);
       return;
     }
-    if (auto lf = std::get_if<Config::Branch>(n.get())) {
-      if (lf->primary)
-        recurse(lf->primary);
-      if (lf->secondary)
-        recurse(lf->secondary);
-    }
+    auto& s = std::get<WindowManager::Splitter>(*n);
+    recurse(s.primary);
+    recurse(s.secondary);
   };
   recurse(node);
 }
@@ -139,7 +140,7 @@ static void flattenConfigNode(const std::unique_ptr<Config::Node>& node, std::ve
  * @brief build display groups from map of Config::Node
  */
 static std::vector<std::pair<std::string, std::vector<std::string>>>
-buildDisplayGroups(const std::unordered_map<std::string, std::unique_ptr<Config::Node>>* value) {
+buildDisplayGroups(const std::unordered_map<std::string, WindowManager::Node>* value) {
   using Group = std::pair<std::string, std::vector<std::string>>;
   std::vector<Group> groups;
 
@@ -159,7 +160,7 @@ buildDisplayGroups(const std::unordered_map<std::string, std::unique_ptr<Config:
       loaded.insert(id);
   }
   std::vector<std::string> hidden;
-  for (const auto& vptr : VisualizerRegistry::list()) {
+  for (const auto& vptr : VisualizerRegistry::visualizers) {
     if (!vptr)
       continue;
     if (loaded.find(vptr->id) == loaded.end())
@@ -1796,8 +1797,8 @@ void createEnumTickElement(Page& page, float& cy, const std::string key, ValueTy
 }
 
 void createVisualizerListElement(Page& page, float& cy, const std::string key,
-                                 std::unordered_map<std::string, std::unique_ptr<Config::Node>>* value,
-                                 const std::string label, const std::string description) {
+                                 std::unordered_map<std::string, WindowManager::Node>* value, const std::string label,
+                                 const std::string description) {
 
   Element visualizerListElement = {0};
 
