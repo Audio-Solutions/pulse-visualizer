@@ -577,8 +577,7 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
   if (aParentPtr == bParentPtr) {
     // Parents are equal, update in-place
     *aParentPtr = std::make_shared<WindowManager::Variant>(std::move(s));
-    boundsDirty.store(true);
-    updateBounds();
+    initialize();
     Config::save();
     return;
   }
@@ -604,8 +603,7 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
     *hoveringNode = std::make_shared<WindowManager::Variant>(std::move(s));
 
   // Trigger reload
-  boundsDirty.store(true);
-  updateBounds();
+  initialize();
   Config::save();
 }
 
