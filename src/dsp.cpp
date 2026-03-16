@@ -918,14 +918,6 @@ int mainThread() {
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       LOG_DEBUG("Failed to read from audio engine");
     }
-    static auto lastTime = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
-    if (now < targetTime)
-      std::this_thread::sleep_until(targetTime);
-    now = std::chrono::steady_clock::now();
-    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
-    lastTime = now;
 
 #if HAVE_PULSEAUDIO
     float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
@@ -964,9 +956,22 @@ int mainThread() {
     }
 #endif
 
-    // Signal FFT threads that new data is available, but only if samples were written
+    // Skip if no samples have been written
     size_t samplesWritten = (writePos + bufferSize - oldWrite) % bufferSize;
-    if (samplesWritten > 0) {
+    if (samplesWritten == 0)
+      continue;
+
+    static auto lastTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
+    if (now < targetTime)
+      std::this_thread::sleep_until(targetTime);
+    now = std::chrono::steady_clock::now();
+    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
+    lastTime = now;
+
+    // Signal FFT threads that new data is available
+    {
       std::lock_guard<std::mutex> lock(mutex);
       dataReadyFFTMain = true;
       dataReadyFFTAlt = true;
@@ -994,8 +999,8 @@ int mainThread() {
     // Process RMS calculation
     RMS::process();
 
-    // Signal main thread that DSP processing is complete, only when new samples exist
-    if (samplesWritten > 0) {
+    // Signal main thread that DSP processing is complete
+    {
       std::lock_guard<std::mutex> lock(::mainThread);
       dataReady = true;
       mainCv.notify_one();

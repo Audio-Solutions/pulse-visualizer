@@ -502,12 +502,7 @@ bool init() {
   pw_thread_loop_lock(loop);
 
   // Calculate buffer size
-  size_t targetSamples = info.rate / Config::options.window.fps_limit;
-  size_t samples = 1;
-  while (samples < targetSamples)
-    samples *= 2;
-
-  samples = std::max(samples, static_cast<size_t>(128));
+  size_t samples = info.rate / Config::options.window.fps_limit;
 
   std::string nodeLatency = std::to_string(samples) + "/" + std::to_string(info.rate);
 
