@@ -50,7 +50,7 @@ set(CMAKE_EXE_LINKER_FLAGS_PROFILE "")
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel;Profile" CACHE STRING "" FORCE)
 
 if(WIN32)
-  include("PkgConfigWindows.cmake")
+  include("cmake/PkgConfigWindows.cmake")
 endif()
 
 # Find pkg-config
@@ -160,9 +160,9 @@ file(GLOB SRC_FILES src/*.cpp)
 
 if(WIN32)
   # Generate version.rc from template
-  configure_file(${CMAKE_SOURCE_DIR}/version.rc.in ${CMAKE_BINARY_DIR}/version.rc @ONLY)
+  configure_file(${CMAKE_SOURCE_DIR}/cmake/version.rc.in ${CMAKE_BINARY_DIR}/version.rc @ONLY)
 
-  set(RESOURCE_FILE "resources.rc" "${CMAKE_BINARY_DIR}/version.rc")
+  set(RESOURCE_FILE "resources/resources.rc" "${CMAKE_BINARY_DIR}/version.rc")
 else()
   set(RESOURCE_FILE "")
 endif()
@@ -260,10 +260,10 @@ endif()
 #include cpack if skip_cpack is not set
 if(WIN32 AND NOT SKIP_CPACK)
   message(STATUS "Packaging is NOT skipped, configuring for installer creation")
-  include("PackageWindows.cmake")
+  include("cmake/PackageWindows.cmake")
 elseif(UNIX AND NOT SKIP_CPACK)
   message(STATUS "Packaging is NOT skipped, configuring for installer creation")
-  include("PackageLinux.cmake")
+  include("cmake/PackageLinux.cmake")
 else()
   message(STATUS "Packaging is skipped, configuring for local installation")
 
@@ -312,11 +312,11 @@ else()
 
   # Install font
   if(WIN32)
-    install(FILES JetBrainsMonoNerdFont-Medium.ttf
+    install(FILES resources/JetBrainsMonoNerdFont-Medium.ttf
       DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
     )
   else()
-    install(FILES JetBrainsMonoNerdFont-Medium.ttf
+    install(FILES resources/JetBrainsMonoNerdFont-Medium.ttf
       DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/fonts
     )
   endif()
@@ -327,21 +327,21 @@ else()
     FILES_MATCHING PATTERN "*.txt"
   )
 
-  install(FILES media/icon/icon.ico
+  install(FILES resources/media/icon/icon.ico
     DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
   )
 
   if(NOT WIN32)
 
     # Install icon
-    install(FILES media/icon/main.png
+    install(FILES resources/media/icon/main.png
       DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer/icons
       RENAME "pulse-visualizer.png"
     )
 
     # Create a desktop entry
     configure_file(
-      "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pulse-visualizer.desktop.in"
       "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
       @ONLY
     )
@@ -351,7 +351,7 @@ else()
 
     # Create a man page
     configure_file(
-      "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pulse-visualizer.1.in"
       "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
       @ONLY
     )

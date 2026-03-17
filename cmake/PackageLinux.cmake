@@ -24,7 +24,7 @@ install(FILES config.yml.template
 )
 
 # Install font
-install(FILES JetBrainsMonoNerdFont-Medium.ttf
+install(FILES resources/JetBrainsMonoNerdFont-Medium.ttf
   DESTINATION .
 )
 
@@ -36,7 +36,7 @@ install(DIRECTORY themes/
 
 # Create a desktop entry
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.desktop.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pulse-visualizer.desktop.in"
   "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
   @ONLY
 )
@@ -46,7 +46,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.desktop"
 
 # Create a man page
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/pulse-visualizer.1.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pulse-visualizer.1.in"
   "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
   @ONLY
 )
@@ -55,20 +55,20 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pulse-visualizer.1"
   DESTINATION .
 )
 
-install(FILES media/icon/main.png
+install(FILES resources/media/icon/main.png
   DESTINATION .
   RENAME "pulse-visualizer.png"
 )
 
-install(FILES media/icon/icon.ico
+install(FILES resources/media/icon/icon.ico
   DESTINATION .
 )
 
-install(PROGRAMS install.sh
+install(PROGRAMS pkg/install.sh
   DESTINATION .
 )
 
-install(PROGRAMS uninstall.sh
+install(PROGRAMS pkg/uninstall.sh
   DESTINATION .
 )
 

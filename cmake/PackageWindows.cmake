@@ -28,7 +28,7 @@ install(FILES "${PV_WINDOWS_CONFIG_TEMPLATE}"
 )
 
 # Install font
-install(FILES JetBrainsMonoNerdFont-Medium.ttf
+install(FILES resources/JetBrainsMonoNerdFont-Medium.ttf
   DESTINATION .
 )
 
@@ -38,7 +38,7 @@ install(DIRECTORY themes/
   FILES_MATCHING PATTERN "*.txt"
 )
 
-install(FILES media/icon/icon.ico
+install(FILES resources/media/icon/icon.ico
   DESTINATION icons/
 )
 
@@ -48,9 +48,9 @@ set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${P
 set(CPACK_PACKAGE_VENDOR "Audio-Solutions")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "pulse-visualizer")
 set(CPACK_NSIS_MODIFY_PATH ON)
-set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/media/icon/icon.ico")
-set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/media/icon/icon-install.ico")
-set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/media/icon/icon-uninstall.ico")
+set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/resources/media/icon/icon.ico")
+set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/resources/media/icon/icon-install.ico")
+set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/resources/media/icon/icon-uninstall.ico")
 # set(CPACK_NSIS_HELP_LINK "https://github.com/help")
 set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/Audio-Solutions/pulse-visualizer")
 set(CPACK_NSIS_CONTACT "https://github.com/Audio-Solutions/pulse-visualizer/issues")

@@ -16,12 +16,12 @@ sounds. Unless your system sucks, then, well, good luck.
 
 ## Features
 
-- Experimental colorful beam
 - Real-time, low-latency audio visualization
 - CRT phosphor emulation with GPU compute shaders (glow, persistence, etc)
   - Curved screen, vignette, grain, chromatic aberration
   - Blur, light spread, and overdrive are configurable
   - Screen reflections
+  - Rainbow beam
 - Multiple visualizer styles:
   - Lissajous curve (spline interpolation, stretch modes)
   - Oscilloscope (gradient modes, pitch following, cycle limiting)
@@ -29,7 +29,7 @@ sounds. Unless your system sucks, then, well, good luck.
   - Spectrogram (log/linear scale, iterative reassignment)
   - Peak and LUFS meters (short-term, momentary, integrated)
   - VU meter (digital and analog)
-- Configurable tiled layout at runtime
+- Dynamic tiled layout
 - Settings menu (press `m` to open)
 - Separate FFT and CQT threads for mid/side channels
 - SIMD acceleration (AVX2) where supported
@@ -108,7 +108,7 @@ Theme and config changes reload live.
 
 ### Moving Visualizers
 
-Visualizers can be rearranged directly in the main window using a sway-like
+Visualizers can be rearranged directly in the main window using a swaywm-like
 drag-and-drop interaction. Drag a visualizer and drop it on another visualizer's
 center to replace it, or drop on the top/left/right/bottom edges of a
 visualizer to create a split. The layout tree is adjusted automatically.
@@ -170,11 +170,11 @@ NixOS:
 
 ```bash
 git clone https://github.com/Audio-Solutions/pulse-visualizer
-cd pulse-visualizer
+cd pulse-visualizer/nix
 nix-shell
 ```
 
-- To install download `pulse-visualizer.nix` and add this to your configuration.nix
+- To install download `nix/pulse-visualizer.nix` and add this to your configuration.nix
 
 ```nix
 nixpkgs.config.packageOverrides = pkgs: {
@@ -207,7 +207,7 @@ issues.
 Want to help? PRs welcome! Please clang-format your code before submitting
 (see the clang-format file). Sorry for the chaos.
 
-See [CONTRIBUTORS](CONTRIBUTORS.md) for a list of contributors to this project.
+See [CONTRIBUTORS](docs/CONTRIBUTORS.md) for a list of contributors to this project.
 
 If you like pulse-visualizer, you can buy me a coffee at [ko-fi.com/beacrox](https://ko-fi.com/beacrox).
 

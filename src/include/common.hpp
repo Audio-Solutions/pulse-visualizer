@@ -28,10 +28,14 @@
 #include <algorithm>
 #include <any>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <complex>
 #include <cstdlib>
+#include <deque>
+#include <ebur128.h>
 #include <fftw3.h>
 #include <filesystem>
 #include <fstream>
@@ -39,7 +43,10 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <numeric>
 #include <optional>
+#include <semaphore>
+#include <signal.h>
 #include <span>
 #include <sstream>
 #include <string_view>
@@ -51,16 +58,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include FT_FREETYPE_H
-#include <atomic>
-#include <cmath>
-#include <complex>
-#include <deque>
-#include <ebur128.h>
-#include <functional>
-#include <numeric>
-#include <signal.h>
 #include <yaml-cpp/yaml.h>
+#include FT_FREETYPE_H
 
 namespace CmdlineArgs {
 extern bool debug;
