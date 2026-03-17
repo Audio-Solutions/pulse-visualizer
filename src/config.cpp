@@ -21,6 +21,7 @@
 
 #include "include/config_schema.hpp"
 #include "include/plugin.hpp"
+#include "include/sdl_window.hpp"
 #include "include/visualizer_registry.hpp"
 
 namespace Config {
@@ -479,6 +480,63 @@ bool setPluginConfigOption(void* pluginContext, const char* path, const PluginCo
   return true;
 }
 
+void rollBackup() {
+  namespace fs = std::filesystem;
+  static std::string basePath = expandUserPath("~/.config/pulse-visualizer/config.yml");
+  fs::path configPath = fs::path(basePath);
+  fs::path dirPath = configPath.parent_path() / "backups";
+
+  fs::create_directory(dirPath);
+
+  // Shift backups
+  for (int i = 10; i > 1; i--) {
+    fs::path oldPath = dirPath / ("config.bak." + std::to_string(i));
+    fs::path newPath = dirPath / ("config.bak." + std::to_string(i + 1));
+
+    if (fs::exists(oldPath)) {
+      if (i == 10)
+        fs::remove(oldPath);
+      else
+        fs::rename(oldPath, newPath);
+    }
+  }
+
+  // Copy current
+  if (fs::exists(configPath)) {
+    fs::path newPath = dirPath / "config.bak.1";
+    fs::copy_file(configPath, newPath, fs::copy_options::overwrite_existing);
+  }
+}
+
+void restoreBackup() {
+  namespace fs = std::filesystem;
+  static std::string basePath = expandUserPath("~/.config/pulse-visualizer/config.yml");
+  fs::path configPath = fs::path(basePath);
+  fs::path srcPath = configPath.parent_path() / "backups/config.bak.1";
+
+  if (!fs::exists(srcPath))
+    return;
+
+  // Read backup to ram
+  std::ifstream src(srcPath, std::ios::binary);
+  if (!src)
+    return;
+
+  std::vector<char> buf((std::istreambuf_iterator<char>(src)), std::istreambuf_iterator<char>());
+  src.close();
+
+  // Backup current config
+  rollBackup();
+
+  // Write backup from ram
+  std::ofstream dst(basePath, std::ios::binary);
+  if (!dst)
+    return;
+
+  dst.write(buf.data(), buf.size());
+  dst.close();
+}
+
 void load(bool recovering) {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
@@ -526,8 +584,12 @@ void load(bool recovering) {
   // If the config is broken, attempt to recover by merging defaults
   if (broken && !recovering) {
     LOG_ERROR("Config is broken, attempting to recover...");
+    rollBackup();
     save();
     load(true);
+  } else if (broken && recovering) {
+    LOG_ERROR("Failed to recover config.");
+    SDLWindow::running.store(false);
   }
 }
 

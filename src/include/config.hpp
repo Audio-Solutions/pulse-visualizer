@@ -101,6 +101,16 @@ bool save();
 void cleanup();
 
 /**
+ * @brief create rolling backup of current config
+ */
+void rollBackup();
+
+/**
+ * @brief restore latest backup
+ */
+void restoreBackup();
+
+/**
  * @brief Get the installation directory
  * @return Installation directory
  */

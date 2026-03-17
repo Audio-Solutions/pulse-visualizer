@@ -492,8 +492,8 @@ inline void initTop() {
 
     defaultButton.clicked = [](Element* self) {
       LOG_DEBUG("Restoring config to default");
-      std::filesystem::rename(expandUserPath("~/.config/pulse-visualizer/config.yml"),
-                              expandUserPath("~/.config/pulse-visualizer/config-backup.yml"));
+      Config::rollBackup();
+      std::filesystem::remove(expandUserPath("~/.config/pulse-visualizer/config.yml"));
       Config::copyFiles();
       Config::load();
 
@@ -505,6 +505,42 @@ inline void initTop() {
     };
 
     topPage.elements.insert({"defaultButton", defaultButton});
+  }
+
+  // Restore latest backup button
+  {
+    Element restoreButton = {0};
+    restoreButton.update = [](Element* self) {
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Restore latest", fontSizeTop);
+      std::pair<float, float> textSizeDefaultBtn = Graphics::Font::getTextSize("Load default", fontSizeTop);
+      self->w = textSize.first + (padding * 2);
+      self->h = stdSize;
+      self->x = margin * 2 + textSizeDefaultBtn.first + (padding * 2);
+      self->y = margin;
+    };
+
+    restoreButton.render = [](Element* self) {
+      Graphics::drawFilledRect(self->x, self->y, self->w, self->h,
+                               self->hovered ? Theme::colors.accent : Theme::colors.bgAccent);
+
+      std::pair<float, float> textSize = Graphics::Font::getTextSize("Restore latest", fontSizeTop);
+      Graphics::Font::drawText("Restore latest", self->x + padding, (int)(self->y + self->h / 2 - textSize.second / 2),
+                               fontSizeTop, Theme::colors.text);
+    };
+
+    restoreButton.clicked = [](Element* self) {
+      LOG_DEBUG("Restoring config to default");
+      Config::restoreBackup();
+      Config::load();
+
+      SDLWindow::selectWindow("main");
+      reconfigure();
+      SDLWindow::selectWindow("menu");
+
+      popupMessages.push_back({0.f, "Restored backup"});
+    };
+
+    topPage.elements.insert({"restoreButton", restoreButton});
   }
 
   // save button
