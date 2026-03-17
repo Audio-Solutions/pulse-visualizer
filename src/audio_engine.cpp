@@ -272,6 +272,7 @@ struct pw_stream* stream;
 struct spa_hook streamListener;
 struct pw_registry* registry;
 struct spa_hook registryListener;
+std::binary_semaphore readSem {0};
 
 bool initialized = false;
 bool running = false;
@@ -375,6 +376,8 @@ void onProcess(void*) {
   }
 
   pw_stream_queue_buffer(stream, b);
+
+  readSem.release();
 }
 
 std::pair<std::string, uint32_t> find(std::string dev) {
@@ -550,7 +553,10 @@ bool init() {
   return true;
 }
 
-bool read(float*, const size_t& frames) { return true; }
+bool read(float*, const size_t&) {
+  // Wait for up to 100ms
+  return readSem.try_acquire_for(std::chrono::milliseconds(100));
+}
 
 bool reconfigure() {
   static std::string lastDevice = "";
@@ -600,6 +606,7 @@ UINT32 bufferFrameCount;
 
 bool initialized = false;
 bool running = false;
+std::binary_semaphore readSem {0};
 
 std::thread wasapiThread;
 
@@ -671,6 +678,8 @@ void threadFunc() {
       }
 
       captureClient->GetNextPacketSize(&packetSize);
+
+      readSem.release();
     }
   }
 }
@@ -943,7 +952,10 @@ bool init() {
   return true;
 }
 
-bool read(float*, const size_t& frames) { return true; }
+bool read(float*, const size_t&) {
+  // Wait for up to 100ms
+  return readSem.try_acquire_for(std::chrono::milliseconds(100));
+}
 
 bool reconfigure() {
   static std::string lastDevice = "";

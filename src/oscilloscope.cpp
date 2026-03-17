@@ -21,6 +21,7 @@
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
 #include "include/sdl_window.hpp"
+#include "include/spline.hpp"
 #include "include/theme.hpp"
 #include "include/window_manager.hpp"
 
@@ -138,6 +139,11 @@ void OscilloscopeVisualizer::render() {
     }
   }
 
+  if (Config::options.oscilloscope.spline.tension > FLT_EPSILON && Config::options.oscilloscope.spline.segments != 0)
+    points =
+        Spline::generate(points, {0.f, 0.f}, {bounds.w - 1, bounds.h - 1}, Config::options.oscilloscope.spline.segments,
+                         Config::options.oscilloscope.spline.tension);
+
   // Choose rendering color
   float* color = Theme::colors.color;
   if (Theme::colors.oscilloscope_main[3] > FLT_EPSILON)
@@ -155,7 +161,11 @@ void OscilloscopeVisualizer::render() {
     // Calculate energy for phosphor effect
     constexpr float REF_AREA = 300.f * 300.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
-    energy *= Config::options.oscilloscope.beam_multiplier / samples * 2048 * WindowManager::dt / 0.016f;
+    energy *= Config::options.oscilloscope.beam_multiplier / samples * 1024.f;
+    energy /=
+        (Config::options.oscilloscope.spline.tension > FLT_EPSILON && Config::options.oscilloscope.spline.segments != 0
+             ? Config::options.oscilloscope.spline.segments
+             : 1.0f);
 
     // Calculate energy for each line segment
     for (size_t i = 0; i < points.size() - 1; i++) {

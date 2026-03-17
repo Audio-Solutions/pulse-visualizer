@@ -242,14 +242,22 @@ struct Options {
       float bandwidth = 10.0f;
       float sidelobe = 60.0f;
     } bandpass;
+
+    struct Spline {
+      int segments = 4;
+      float tension = 1.0f;
+    } spline;
   } oscilloscope;
 
   struct Lissajous {
     float beam_multiplier = 1.0f;
-    int spline_segments = 10;
-    float spline_tension = 0.5f;
     std::string mode = "none";
     Rotation rotation = ROTATION_0;
+
+    struct Spline {
+      int segments = 10;
+      float tension = 1.0f;
+    } spline;
   } lissajous;
 
   struct FFT {

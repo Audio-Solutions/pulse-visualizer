@@ -55,7 +55,7 @@ void LissajousVisualizer::render() {
   // Compensate for gap created with the shader's line drawing algo and potentially the catmull-rom spline
   readCount++;
 
-  if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0) {
+  if (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0) {
     readCount += 3;
   }
 
@@ -90,9 +90,9 @@ void LissajousVisualizer::render() {
   }
 
   // Apply spline smoothing
-  if (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0)
+  if (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0)
     points = Spline::generate(points, {0.f, 0.f}, {bounds.w - 1, bounds.h - 1},
-                              Config::options.lissajous.spline_segments, Config::options.lissajous.spline_tension);
+                              Config::options.lissajous.spline.segments, Config::options.lissajous.spline.tension);
 
   // Apply stretch mode if enabled
   const std::string& mode = Config::options.lissajous.mode;
@@ -162,13 +162,14 @@ void LissajousVisualizer::render() {
     energies.reserve(points.size());
 
     // Calculate energy per segment for phosphor effect
-    constexpr float REF_AREA = 200.f * 200.f;
+    constexpr float REF_AREA = 300.f * 300.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
 
     energy *= Config::options.lissajous.beam_multiplier /
-              (Config::options.lissajous.spline_tension > FLT_EPSILON && Config::options.lissajous.spline_segments != 0
-                   ? Config::options.lissajous.spline_segments
-                   : 1.0f);
+              (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0
+                   ? Config::options.lissajous.spline.segments
+                   : 1.0f) /
+              points.size() / 4.f;
 
     for (size_t i = 0; i < points.size() - 1; i++) {
       const auto& p1 = points[i];
@@ -178,7 +179,7 @@ void LissajousVisualizer::render() {
       float dy = p2.second - p1.second;
       float len = std::max(FLT_EPSILON, sqrtf(dx * dx + dy * dy));
 
-      float totalE = energy * (1.f / (Config::options.audio.sample_rate * len));
+      float totalE = energy / len;
       energies.push_back(totalE);
     }
 

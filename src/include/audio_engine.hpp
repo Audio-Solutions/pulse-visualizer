@@ -128,10 +128,6 @@ extern struct spa_hook registryListener;
 extern bool initialized;
 extern bool running;
 
-extern std::atomic<uint32_t> writtenSamples;
-extern std::mutex mutex;
-extern std::condition_variable cv;
-
 /**
  * @brief Audio device information
  */
@@ -239,11 +235,6 @@ extern UINT32 bufferFrameCount;
 
 extern bool initialized;
 extern bool running;
-
-// Thread synchronization
-extern std::atomic<uint32_t> writtenSamples;
-extern std::mutex mutex;
-extern std::condition_variable cv;
 
 extern std::thread wasapiThread;
 

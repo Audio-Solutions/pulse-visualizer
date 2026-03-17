@@ -58,7 +58,7 @@ audio:
   
   # Audio device name (see system audio devices)
   # Find your device with: pactl list sources short (PulseAudio) or pw-cli ls Node (PipeWire)
-  device: alsa_output.pci-0000_0e_00.4.iec958-stereo
+  device: default
   
   # Audio gain adjustment in dB (positive=louder, negative=quieter)
   # Adjust if audio is too quiet, like when Spotify or YouTube normalizes the volume
@@ -119,55 +119,56 @@ fft:
   
   # Flip the FFT display along the frequency axis
   flip_x: false
-
   # Enable hover cursor for FFT display
-  cursor: true
-  
+  cursor: false
+  # Show readout header with peak/frequency/note info for strongest partial
+  readout_header: false
+
   # Frequency and amplitude limits
   limits:
     # dB level at the top of the display before slope correction
     max_db: 0.0
-    
+
     # dB level at the bottom of the display before slope correction
     min_db: -60.0
-    
+
     # Maximum frequency to display in Hz
     max_freq: 22000.0
-    
+
     # Minimum frequency to display in Hz
     min_freq: 10.0
-  
+
   # Smoothing settings for FFT values
   smoothing:
     # Enable velocity smoothing for FFT values
     enabled: true
-    
+
     # Fall speed of FFT bars (higher=faster fall, more responsive)
     fall_speed: 50.0
-    
+
     # Fall speed when window is hovered over (higher=faster fall)
     hover_fall_speed: 10.0
-    
+
     # Rise speed of FFT bars (higher=faster rise, more responsive)
     rise_speed: 500.0
-  
+
   # Constant-Q Transform settings (better frequency resolution in the low end)
   cqt:
     # Enable Constant-Q Transform
     enabled: true
-    
+
     # Number of frequency bins per octave for CQT (higher=better resolution)
     # Significant CPU usage increase with higher values
     bins_per_octave: 60
-  
+
   # 3D sphere visualization settings
   sphere:
     # Enable 3D sphere visualization
-    enabled: true
-    
+    enabled: false
+
     # Maximum frequency to display in sphere (lower frequencies look better)
     max_freq: 5000.0
-    
+
     # Base radius of the sphere
     base_radius: 0.1
 ```
@@ -190,18 +191,15 @@ Controls the Lissajous curve visualization (X-Y plot of left vs right channel).
 
 ```yaml
 lissajous:
-  # Enable Catmull-Rom spline interpolation for smoother curves
-  enable_splines: true
-  
   # Beam multiplier for phosphor effect
-  beam_multiplier: 1.5
-  
-  # Readback multiplier of the data
-  # Defines how much of the previous data is redrawn
-  # Higher value means more data is redrawn, which stabilizes the lissajous.
-  # Caveat is a minor increase in CPU usage.
-  readback_multiplier: 3.0
-  
+  beam_multiplier: 1.0
+  # Spline settings for curve interpolation
+  spline:
+    # Enable Catmull-Rom spline interpolation for smoother curves (tension controls strength)
+    tension: 1.0
+    # Number of interpolated points between each pair of samples
+    segments: 10
+
   # Options: "normal", "circle", "pulsar", "rotate", "black_hole"
   # rotate is a 45 degree rotation of the curve
   # circle is the rotated curve stretched to a circle
@@ -247,10 +245,17 @@ oscilloscope:
     alignment: center
     
     # Number of cycles to track
-    cycles: 3
+    cycles: 0
     
     # Minimum time window to display in oscilloscope in ms
     min_cycle_time: 16.0
+  
+  # Spline settings for curve interpolation
+  spline:
+    # Spline tension for curve smoothness (0.0-2.0)
+    tension: 1.0
+    # Spline density for curve detail
+    segments: 10
   
   # Lowpass filter settings for oscilloscope
   lowpass:
@@ -277,7 +282,7 @@ oscilloscope:
 
 Controls the CRT phosphor simulation effect (realistic glow and persistence).
 
-#### ⚠️ WARNING: These settings are computationally expensive and affect performance
+#### WARNING: These settings are computationally expensive and affect performance
 
 ```yaml
 phosphor:
@@ -328,8 +333,6 @@ phosphor:
     # Strength of reflections (0.0-1.0)
     strength: 0.5
 
-    # Box blur size for reflections
-    box_blur_size: 4
 ```
 
 ### Spectrogram Settings
@@ -349,11 +352,18 @@ spectrogram:
   
   # Frequency and amplitude limits
   limits:
-    # Maximum dB level for spectrogram display
+    # Maximum dB level
     max_db: -10.0
     
-    # Minimum dB level for spectrogram display
+    # Minimum dB level
     min_db: -60.0
+
+    # Minimum frequency
+    min_freq: 10
+
+    # Maximum frequency
+    max_freq: 4000
+
 ```
 
 ### LUFS Settings
@@ -422,9 +432,9 @@ The layout is a YAML tree where each node is either:
   Split branch nodes must have exactly two children (primary and secondary).
 - a leaf with `id: <visualizer_id>`, referencing a single visualizer
 
-This enables flexible nested splits and resizing. Rearrangement is sway-like: drag a visualizer and
+This enables flexible nested splits and resizing. Rearrangement is swaywm-like: drag a visualizer and
 drop it to replace another (center) or create a split (top/bottom/left/right); the tree will be
-adjusted (promote/merge nodes) accordingly. Only one instance of each visualizer ID may exist.
+adjusted accordingly. Only one instance of each visualizer ID may exist.
 
 Example (tree form):
 
@@ -560,17 +570,3 @@ plugins:
 
 - Adjust phosphor settings
 - Check your GPU drivers and OpenGL support
-
-### Finding Your Audio Device
-
-**PulseAudio:**
-
-```bash
-pactl list sources short
-```
-
-**PipeWire:**
-
-```bash
-pw-cli ls Node
-```

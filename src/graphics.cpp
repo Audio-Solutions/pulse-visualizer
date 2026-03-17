@@ -680,7 +680,7 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 
   glUseProgram(shader);
 
-  float decay = exp(-WindowManager::dt * Config::options.phosphor.screen.decay);
+  float decay = exp(-(1.0f / Config::options.window.fps_limit) * Config::options.phosphor.screen.decay);
 
   // Cache uniform locations per program
   static GLuint cachedProgram = 0;

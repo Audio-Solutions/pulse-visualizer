@@ -371,13 +371,11 @@ void SpectrumAnalyzerVisualizer::render() {
     energies.reserve(pointsMain.size());
     vectorData.reserve(pointsMain.size() * 4);
 
-    constexpr float REF_AREA = 400.f * 300.f;
+    constexpr float REF_AREA = 300.f * 300.f;
     float energy = Config::options.phosphor.beam.energy / REF_AREA *
-                   (Config::options.fft.cqt.enabled ? bounds.w * bounds.h : 400.f * 50.f);
+                   (Config::options.fft.cqt.enabled ? bounds.w * bounds.h : 300.f * 50.f) / pointsMain.size() / 128.0;
 
-    energy *= Config::options.fft.beam_multiplier * WindowManager::dt / 0.016f;
-
-    float dt = 1.0f / Config::options.audio.sample_rate;
+    energy *= Config::options.fft.beam_multiplier;
 
     for (size_t i = 1; i < pointsMain.size(); i++) {
       const auto& p1 = pointsMain[i - 1];
@@ -387,7 +385,7 @@ void SpectrumAnalyzerVisualizer::render() {
       float dy = p2.second - p1.second;
       float segLen = std::max(sqrtf(dx * dx + dy * dy), FLT_EPSILON);
 
-      float totalE = energy * (dt / (Config::options.fft.cqt.enabled ? segLen : 1.f / sqrtf(dx))) * 2.f;
+      float totalE = energy / (Config::options.fft.cqt.enabled ? segLen : 1.f / sqrtf(dx));
 
       energies.push_back(totalE);
     }

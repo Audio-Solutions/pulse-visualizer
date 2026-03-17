@@ -618,18 +618,14 @@ bool recreatePlans() {
 namespace Threads {
 
 // Thread synchronization
-std::mutex mutex;
-std::atomic<bool> dataReadyFFTMain;
-std::atomic<bool> dataReadyFFTAlt;
-std::condition_variable fft;
+std::binary_semaphore fftMainSem {0};
+std::binary_semaphore fftAltSem {0};
 
 int FFTMain() {
   while (SDLWindow::running) {
-    std::unique_lock<std::mutex> lock(mutex);
-    fft.wait(lock, [] { return dataReadyFFTMain.load() || !SDLWindow::running; });
+    fftMainSem.acquire();
     if (!SDLWindow::running)
       break;
-    dataReadyFFTMain = false;
 
     // Process main channel FFT
     if (Config::options.fft.cqt.enabled) {
@@ -782,11 +778,9 @@ int FFTMain() {
 
 int FFTAlt() {
   while (SDLWindow::running) {
-    std::unique_lock<std::mutex> lock(mutex);
-    fft.wait(lock, [] { return dataReadyFFTAlt.load() || !SDLWindow::running; });
+    fftAltSem.acquire();
     if (!SDLWindow::running)
       break;
-    dataReadyFFTAlt = false;
 
     if (Config::options.phosphor.enabled && Config::options.waveform.mode == "mono")
       continue;
@@ -913,8 +907,7 @@ int mainThread() {
     size_t sampleCount = Config::options.audio.sample_rate / Config::options.window.fps_limit;
     readBuf.resize(sampleCount * 2);
 
-    // Read audio from engine; capture writePos before writing samples
-    size_t oldWrite = writePos;
+    // Read audio from engine
     if (!AudioEngine::read(readBuf.data(), sampleCount)) {
       LOG_DEBUG("Failed to read from audio engine");
     }
@@ -956,11 +949,6 @@ int mainThread() {
     }
 #endif
 
-    // Skip if no samples have been written
-    size_t samplesWritten = (writePos + bufferSize - oldWrite) % bufferSize;
-    if (samplesWritten == 0)
-      continue;
-
     static auto lastTime = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
     auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
@@ -971,12 +959,8 @@ int mainThread() {
     lastTime = now;
 
     // Signal FFT threads that new data is available
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      dataReadyFFTMain = true;
-      dataReadyFFTAlt = true;
-      fft.notify_all();
-    }
+    fftMainSem.release();
+    fftAltSem.release();
 
     // Process bandpass filter if pitch is detected
     if (pitch > Config::options.fft.limits.min_freq && pitch < Config::options.fft.limits.max_freq)
@@ -1000,29 +984,12 @@ int mainThread() {
     RMS::process();
 
     // Signal main thread that DSP processing is complete
-    {
-      std::lock_guard<std::mutex> lock(::mainThread);
-      dataReady = true;
-      mainCv.notify_one();
-
-      // Also push an SDL user event so the main thread's SDL_PollEvent loop wakes
-      SDL_Event event;
-      SDL_zero(event);
-      event.type = SDL_EVENT_USER + 2;
-      event.user.code = 1;
-      if (!SDL_PushEvent(&event)) {
-        LOG_DEBUG("DSP thread: failed to push SDL user event");
-      }
-    }
+    mainSem.release();
   }
 
   // Ensure FFT threads are notified to exit
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    dataReadyFFTMain = true;
-    dataReadyFFTAlt = true;
-    fft.notify_all();
-  }
+  fftMainSem.release();
+  fftAltSem.release();
 
   FFTMainThread.join();
   FFTAltThread.join();

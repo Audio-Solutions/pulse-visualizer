@@ -109,10 +109,8 @@ void reconfigure() {
   DSP::LUFS::init();
 }
 
-// Thread synchronization variables for DSP data processing
-std::mutex mainThread;
-std::condition_variable mainCv;
-std::atomic<bool> dataReady {false};
+// Thread synchronization
+std::binary_semaphore mainSem {0};
 
 int main(int argc, char** argv) {
   for (int i = 0; i < argc; i++) {
@@ -313,9 +311,7 @@ int main(int argc, char** argv) {
     WindowManager::updateBounds();
 
     // Wait for DSP data to be ready
-    std::unique_lock<std::mutex> lock(mainThread);
-    mainCv.wait(lock, [] { return dataReady.load(); });
-    dataReady = false;
+    mainSem.acquire();
 
     // Render frame
     SDLWindow::clear();

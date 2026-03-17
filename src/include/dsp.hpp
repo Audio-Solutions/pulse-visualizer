@@ -191,10 +191,6 @@ bool recreatePlans();
  * @brief DSP processing threads namespace
  */
 namespace Threads {
-extern std::mutex mutex;
-extern std::atomic<bool> dataReadyFFTMain;
-extern std::atomic<bool> dataReadyFFTAlt;
-extern std::condition_variable fft;
 
 /**
  * @brief Main FFT processing thread

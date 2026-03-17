@@ -31,7 +31,6 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <cstdlib>
 #include <fftw3.h>
 #include <filesystem>
@@ -187,9 +186,7 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 // Thread synchronization variables for DSP data processing
-extern std::mutex mainThread;
-extern std::condition_variable mainCv;
-extern std::atomic<bool> dataReady;
+extern std::binary_semaphore mainSem;
 
 /**
  * @brief Expands a path starting with '~' to the user's home directory

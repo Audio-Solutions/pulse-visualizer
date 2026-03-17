@@ -420,9 +420,16 @@ inline constexpr std::array intFields = {
     "Low-Pass Filter Order",
     "Filter order (steepness). Higher values are sharper but more CPU intensive.",
     FieldUi<int>::slider(1, 16, 0)),
+  PV_SCHEMA_FIELD(
+    int, oscilloscope.spline.segments,
+    "Spline Segments",
+    "Number of interpolated points between each pair of samples.\n"
+    "Lower values are faster and more angular.\n"
+    "Higher values are smoother but draw more geometry.",
+    FieldUi<int>::slider(0, 32, 1, true)),
 
   PV_SCHEMA_FIELD(
-    int, lissajous.spline_segments,
+    int, lissajous.spline.segments,
     "Spline Segments",
     "Number of interpolated points between each pair of samples.\n"
     "Lower values are faster and more angular.\n"
@@ -493,6 +500,13 @@ inline constexpr std::array floatFields = {
     "Band-Pass Sidelobe (dB)",
     "Sidelobe attenuation for the pitch-detection band-pass filter.",
     FieldUi<float>::slider(0.f, 120.f, 1)),
+  PV_SCHEMA_FIELD(
+    float, oscilloscope.spline.tension,
+    "Spline Tension",
+    "Controls how strongly the curve bends between points.\n"
+    "0 = straight segments (no smoothing), 1 = standard smooth Catmull-Rom.\n"
+    "Higher values (>1) increase curvature and can cause overshoot around sharp peaks.",
+    FieldUi<float>::slider(0.f, 2.f, 2)),
 
   PV_SCHEMA_FIELD(
     float, lissajous.beam_multiplier,
@@ -500,7 +514,7 @@ inline constexpr std::array floatFields = {
     "Intensity multiplier applied to the Lissajous beam.",
     FieldUi<float>::slider(0.f, 10.f, 1)),
   PV_SCHEMA_FIELD(
-    float, lissajous.spline_tension,
+    float, lissajous.spline.tension,
     "Spline Tension",
     "Controls how strongly the curve bends between points.\n"
     "0 = straight segments (no smoothing), 1 = standard smooth Catmull-Rom.\n"
