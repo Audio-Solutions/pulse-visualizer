@@ -144,18 +144,6 @@
 				"CMAKE_BUILD_TYPE": "Release",
 				"VCPKG_TARGET_TRIPLET": "x64-windows-release"
 			}
-		},
-		{
-			"name": "aeiou",
-			"displayName": "Clang 20.1.8 x86_64-pc-linux-gnu",
-			"description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
-			"binaryDir": "${sourceDir}/out/build/${presetName}",
-			"cacheVariables": {
-				"CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-				"CMAKE_C_COMPILER": "/usr/bin/clang",
-				"CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-				"CMAKE_BUILD_TYPE": "Debug"
-			}
 		}
 	]
 }
