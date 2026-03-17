@@ -489,7 +489,7 @@ void rollBackup() {
   fs::create_directory(dirPath);
 
   // Shift backups
-  for (int i = 10; i > 1; i--) {
+  for (int i = 10; i >= 1; i--) {
     fs::path oldPath = dirPath / ("config.bak." + std::to_string(i));
     fs::path newPath = dirPath / ("config.bak." + std::to_string(i + 1));
 
