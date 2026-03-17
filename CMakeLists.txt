@@ -289,7 +289,7 @@ else()
   endif()
 
   # Install README and LICENSE
-  install(FILES README.md docs/CONFIGURATION.md docs/PLUGINS.md LICENSE CONTRIBUTORS.md
+  install(FILES README.md docs/CONFIGURATION.md docs/PLUGINS.md LICENSE docs/CONTRIBUTORS.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/pulse-visualizer
   )
 

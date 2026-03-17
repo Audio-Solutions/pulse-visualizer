@@ -9,7 +9,7 @@ install(TARGETS pulse-visualizer
   RUNTIME DESTINATION .
 )
 
-install(FILES README.md docs/CONFIGURATION.md docs/PLUGINS.md LICENSE CONTRIBUTORS.md
+install(FILES README.md docs/CONFIGURATION.md docs/PLUGINS.md LICENSE docs/CONTRIBUTORS.md
   DESTINATION .
 )
 
