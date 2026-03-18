@@ -150,8 +150,8 @@ message(STATUS "pulse-visualizer version ${PROJECT_VERSION_STRING} commit ${GIT_
 if(WIN32)
   set(PV_WINDOWS_CONFIG_TEMPLATE "${CMAKE_BINARY_DIR}/config.yml.template")
   file(READ "${CMAKE_SOURCE_DIR}/config.yml.template" PV_CONFIG_TEMPLATE_CONTENT)
-  string(REGEX REPLACE "font:[^\\n]*" "font: JetBrainsMonoNerdFont-Medium.ttf" PV_CONFIG_TEMPLATE_CONTENT "${PV_CONFIG_TEMPLATE_CONTENT}")
-  string(REGEX REPLACE "engine:[^\\n]*" "engine: wasapi" PV_CONFIG_TEMPLATE_CONTENT "${PV_CONFIG_TEMPLATE_CONTENT}")
+  string(REGEX REPLACE "font:[^\n]*" "font: JetBrainsMonoNerdFont-Medium.ttf" PV_CONFIG_TEMPLATE_CONTENT "${PV_CONFIG_TEMPLATE_CONTENT}")
+  string(REGEX REPLACE "  engine:[^\n]*" "  engine: wasapi" PV_CONFIG_TEMPLATE_CONTENT "${PV_CONFIG_TEMPLATE_CONTENT}")
   file(WRITE "${PV_WINDOWS_CONFIG_TEMPLATE}" "${PV_CONFIG_TEMPLATE_CONTENT}")
 endif()
 
