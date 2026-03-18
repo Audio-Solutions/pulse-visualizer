@@ -21,7 +21,7 @@
         let
           mkPulseVisualizer = pkgs.stdenv.mkDerivation {
             pname = "pulse-visualizer";
-            version = "1.3.7";
+            version = "1.3.8";
             src = ./.;
 
             nativeBuildInputs = [
