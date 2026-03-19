@@ -77,7 +77,7 @@ std::string find(std::string dev) {
     }
   }
 
-  LOG_ERROR(std::string("Warning: PulseAudio device '") + dev + "' not found. using system default");
+  logWarnAt(std::source_location::current(), "PulseAudio device '{}' not found. Using system default", dev);
   return "default";
 }
 
@@ -90,7 +90,7 @@ void cleanup() {
   running = false;
 }
 
-bool init() {
+void init() {
   if (initialized)
     cleanup();
 
@@ -100,12 +100,12 @@ bool init() {
   // Create PulseAudio mainloop and context
   pa_mainloop* ml = pa_mainloop_new();
   if (!ml)
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to create PulseAudio mainloop");
 
   pa_context* ctx = pa_context_new(pa_mainloop_get_api(ml), "pulse-device-enum");
   if (!ctx) {
     pa_mainloop_free(ml);
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to create PulseAudio context");
   }
 
   pa_context_set_state_callback(ctx, [](pa_context*, void*) {}, nullptr);
@@ -113,7 +113,7 @@ bool init() {
   if (pa_context_connect(ctx, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
     pa_context_unref(ctx);
     pa_mainloop_free(ml);
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to connect PulseAudio context");
   }
 
   // Wait for context to be ready and enumerate devices
@@ -195,19 +195,16 @@ bool init() {
   paStream = pa_simple_new(nullptr, "Pulse Visualizer", PA_STREAM_RECORD, dev.c_str(), "Pulse Audio Visualizer",
                            &sampleSpec, nullptr, &attr, &err);
 
-  if (!paStream) {
-    LOG_ERROR(std::string("Failed to create PulseAudio stream: ") + pa_strerror(err));
-    return false;
-  }
+  if (!paStream)
+    throw makeErrorAt(std::source_location::current(), "Failed to create PulseAudio stream: {}", pa_strerror(err));
 
   initialized = true;
   running = true;
 
   if (dev.empty())
-    return true;
+    return;
 
-  LOG_DEBUG("Connected to PulseAudio device '" << dev << "'");
-  return true;
+  logDebug("Connected to PulseAudio device '{}'", dev);
 }
 
 bool read(float* buffer, const size_t& samples) {
@@ -217,7 +214,7 @@ bool read(float* buffer, const size_t& samples) {
   // Read audio data from PulseAudio
   int err;
   if (pa_simple_read(paStream, buffer, samples * 2 * sizeof(float), &err) < 0) {
-    LOG_ERROR(std::string("Failed to read from pulseAudio stream: ") + pa_strerror(err));
+    logWarnAt(std::source_location::current(), "Failed to read from PulseAudio stream: {}", pa_strerror(err));
     running = false;
     return false;
   }
@@ -254,7 +251,7 @@ std::vector<std::string> enumerate() {
 }
 
 #else
-bool init() { return false; }
+void init() { throw makeErrorAt(std::source_location::current(), "PulseAudio unavailable"); }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 std::vector<std::string> enumerate() { return {}; }
@@ -303,7 +300,7 @@ void registryEventGlobalRemove(void*, uint32_t id) {}
 void onStreamStateChanged(void*, enum pw_stream_state old, enum pw_stream_state state, const char* err) {
   switch (state) {
   case PW_STREAM_STATE_ERROR:
-    LOG_ERROR(std::string("PipeWire stream error: ") + (err ? err : "unknown"));
+    logWarnAt(std::source_location::current(), "PipeWire stream error: {}", err ? err : "unknown");
   case PW_STREAM_STATE_UNCONNECTED:
     running = false;
     break;
@@ -393,7 +390,7 @@ std::pair<std::string, uint32_t> find(std::string dev) {
     }
   }
 
-  LOG_ERROR(std::string("Warning: PipeWire device '") + dev + "' not found. using system default");
+  logWarnAt(std::source_location::current(), "PipeWire device '{}' not found. Using system default", dev);
   return std::make_pair("default", PW_ID_ANY);
 }
 
@@ -437,7 +434,7 @@ void cleanup() {
   running = false;
 }
 
-bool init() {
+void init() {
   if (initialized)
     cleanup();
 
@@ -445,29 +442,21 @@ bool init() {
 
   // Create PipeWire thread loop
   loop = pw_thread_loop_new("pulse-visualizer", nullptr);
-  if (!loop) {
-    LOG_ERROR("Failed to create PipeWire thread loop");
-    return false;
-  }
+  if (!loop)
+    throw makeErrorAt(std::source_location::current(), "Failed to create PipeWire thread");
 
   // Create PipeWire context
   ctx = pw_context_new(pw_thread_loop_get_loop(loop), nullptr, 0);
-  if (!ctx) {
-    LOG_ERROR("Failed to create PipeWire context");
-    return false;
-  }
+  if (!ctx)
+    throw makeErrorAt(std::source_location::current(), "Failed to create PipeWire context");
 
   // Connect to PipeWire core
   core = pw_context_connect(ctx, nullptr, 0);
-  if (!core) {
-    LOG_ERROR("Failed to connect to PipeWire");
-    return false;
-  }
+  if (!core)
+    throw makeErrorAt(std::source_location::current(), "Failed to connect to PipeWire");
 
-  if (pw_thread_loop_start(loop) < 0) {
-    LOG_ERROR("Failed to start PipeWire thread loop");
-    return false;
-  }
+  if (pw_thread_loop_start(loop) < 0)
+    throw makeErrorAt(std::source_location::current(), "Failed to start PipeWire thread");
 
   // Setup registry to enumerate devices
   availableDevices.clear();
@@ -516,10 +505,8 @@ bool init() {
                                                   PW_KEY_NODE_LATENCY, nodeLatency.c_str(), nullptr),
                                 &streamEvents, nullptr);
 
-  if (!stream) {
-    LOG_ERROR("Failed to create PipeWire stream");
-    return false;
-  }
+  if (!stream)
+    throw makeErrorAt(std::source_location::current(), "Failed to create PipeWire stream");
 
   // Connect stream to device
   uint32_t devId;
@@ -536,8 +523,7 @@ bool init() {
                                                      PW_STREAM_FLAG_DONT_RECONNECT),
                         params, 1) < 0) {
     pw_thread_loop_unlock(loop);
-    LOG_ERROR("Failed to connect PipeWire stream");
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to connect PipeWire stream");
   }
 
   pw_thread_loop_unlock(loop);
@@ -547,10 +533,9 @@ bool init() {
   while (!running && std::chrono::steady_clock::now() - start < TIMEOUT)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  LOG_DEBUG("Connected to PipeWire device: '" << dev << "'");
+  logDebug("Connected to PipeWire device '{}'", dev);
 
   initialized = true;
-  return true;
 }
 
 bool read(float*, const size_t&) {
@@ -587,7 +572,7 @@ std::vector<std::string> enumerate() {
 }
 
 #else
-bool init() { return false; }
+bool init() { throw makeErrorAt(std::source_location::current(), "PipeWire unavailable"); }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 std::vector<std::string> enumerate() { return {}; }
@@ -803,7 +788,7 @@ void cleanup() {
   CloseHandle(captureEvent);
 }
 
-bool init() {
+void init() {
   if (initialized)
     cleanup();
 
@@ -811,15 +796,13 @@ bool init() {
 
   // Initializes the COM library
   hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-  if (!SUCCEEDED(hr) && hr != S_FALSE && hr != RPC_E_CHANGED_MODE) {
-    LOG_ERROR(std::string("Failed to initialise COM: ") + _com_error(hr).ErrorMessage());
-    return false;
-  }
+  if (!SUCCEEDED(hr) && hr != S_FALSE && hr != RPC_E_CHANGED_MODE)
+    throw makeErrorAt(std::source_location::current(), "Failed to initialize COM: {}" _com_error(hr).ErrorMessage());
 
-  // Try selecting the wanted audio device (if it's not found we select the default output)
+  // Try selecting the wanted audio device
   if (!select(Config::options.audio.device, &currentDevice)) {
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed select default device");
   }
 
   EDataFlow flow;
@@ -870,23 +853,22 @@ bool init() {
       ss << " (unknown)";
     }
 
-    LOG_DEBUG(ss.str());
+    logDebug(ss.str());
   } while (false);
 
   // Activate the current device
   hr = currentDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (void**)&audioClient);
   if (!SUCCEEDED(hr)) {
-    LOG_ERROR(std::string("Failed to activate current device: ") + _com_error(hr).ErrorMessage());
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to activate current device: {}",
+                      +_com_error(hr).ErrorMessage());
   }
 
   // Get mix format
   hr = audioClient->GetMixFormat(&wfx);
   if (!SUCCEEDED(hr)) {
-    LOG_ERROR(std::string("Failed to get mix format: ") + _com_error(hr).ErrorMessage());
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to get mix format: {}", +_com_error(hr).ErrorMessage());
   }
 
   // Check if the mix format is F32, otherwise we fail because we can't do anything about
@@ -894,14 +876,12 @@ bool init() {
   if (wfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
     const WAVEFORMATEXTENSIBLE* wfex = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(wfx);
     if (!(wfex->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT && wfx->wBitsPerSample == 32)) {
-      LOG_ERROR("Device format is not Float32, please correct that");
       cleanup();
-      return false;
+      throw makeErrorAt(std::source_location::current(), "Device format is not Float32.");
     }
   } else if (!(wfx->wFormatTag == WAVE_FORMAT_IEEE_FLOAT && wfx->wBitsPerSample == 32)) {
-    LOG_ERROR("Device format is not Float32, please correct that");
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Device format is not Float32.");
   }
 
   // I don't think WASAPI cares about ^2 sample counts
@@ -917,25 +897,25 @@ bool init() {
 
   hr = audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, streamFlags, hnsBufferDuration, 0, wfx, NULL);
   if (!SUCCEEDED(hr)) {
-    LOG_ERROR(std::string("Failed to get initialise audio client: ") + _com_error(hr).ErrorMessage());
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to initialize audio client: {}",
+                      _com_error(hr).ErrorMessage());
   }
 
   // Get the size of the allocated buffer.
   hr = audioClient->GetBufferSize(&bufferFrameCount);
   if (!SUCCEEDED(hr)) {
-    LOG_ERROR(std::string("Failed to get mix buffer size: ") + _com_error(hr).ErrorMessage());
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to get mix buffer size: {}",
+                      _com_error(hr).ErrorMessage());
   }
 
   // Create the capture service
   hr = audioClient->GetService(__uuidof(IAudioCaptureClient), (void**)&captureClient);
   if (!SUCCEEDED(hr)) {
-    LOG_ERROR(std::string("Failed to get setup capture client: ") + _com_error(hr).ErrorMessage());
     cleanup();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to setup capture client: {}",
+                      _com_error(hr).ErrorMessage());
   }
 
   // Create the capture event (doesn't make sense tbh)
@@ -946,10 +926,9 @@ bool init() {
   // start thread
   wasapiThread = std::thread(threadFunc);
 
-  LOG_DEBUG("Connected to WASAPI");
+  logDebug("Connected to WASAPI");
 
   initialized = true;
-  return true;
 }
 
 bool read(float*, const size_t&) {
@@ -1034,7 +1013,7 @@ std::vector<std::string> enumerate() {
 }
 
 #else
-bool init() { return false; }
+void init() { throw makeErrorAt(std::source_location::current(), "WASAPI unavailable"); }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 std::vector<std::string> enumerate() { return {}; }
@@ -1047,21 +1026,21 @@ std::optional<Type> init() {
   // Check for available backends
 #if !HAVE_PULSEAUDIO
   if (engine == Type::PULSEAUDIO) {
-    LOG_ERROR("Pulse not compiled with Pulseaudio support. Using auto");
+    logWarnAt(std::source_location::current(), "pulse-visualizer not compiled with PulseAudio enabled, using auto.");
     engine = Type::AUTO;
   }
 #endif
 
 #if !HAVE_PIPEWIRE
   if (engine == Type::PIPEWIRE) {
-    LOG_ERROR("Pulse not compiled with PipeWire support. Using auto");
+    logWarnAt(std::source_location::current(), "pulse-visualizer not compiled with PipeWire enabled, using auto.");
     engine = Type::AUTO;
   }
 #endif
 
 #if !HAVE_WASAPI
   if (engine == Type::WASAPI) {
-    LOG_ERROR("Pulse not compiled with WASAPI support. Using auto");
+    logWarnAt(std::source_location::current(), "pulse-visualizer not compiled with WASAPI enabled, using auto.");
     engine = Type::AUTO;
   }
 #endif
@@ -1070,53 +1049,55 @@ std::optional<Type> init() {
   switch (engine) {
   case Type::AUTO:
 #if HAVE_WASAPI
-    if (WASAPI::init()) {
-      // don't have to cleanup as we don't have other apis available
-      return Type::WASAPI;
-    }
+    WASAPI::init();
+    return Type::WASAPI;
 #endif
 
-#if HAVE_PIPEWIRE
-    if (PipeWire::init()) {
-#if HAVE_PULSEAUDIO
+    // If both PipeWire and PulseAudio are available
+#if HAVE_PIPEWIRE && HAVE_PULSEAUDIO
+    try {
+      PipeWire::init();
       Pulseaudio::cleanup();
-#endif
       return Type::PIPEWIRE;
+    } catch (const std::exception& e_pw) {
+      try {
+        Pulseaudio::init();
+        PipeWire::cleanup();
+        return Type::PULSEAUDIO;
+      } catch (const std::exception& e_pa) {
+        throw makeErrorAt(std::source_location::current(), "Auto Init failed.\nPipeWire: {}\nPulseAudio: {}",
+                          e_pw.what(), e_pa.what());
+      }
     }
-#endif
-#if HAVE_PULSEAUDIO
-    if (Pulseaudio::init()) {
-#if HAVE_PIPEWIRE
-      PipeWire::cleanup();
-#endif
-      return Type::PULSEAUDIO;
-    }
+
+    // Only PipeWire available
+#elif HAVE_PIPEWIRE
+    PipeWire::init();
+    return Type::PIPEWIRE;
+
+    // Only PulseAudio available
+#elif HAVE_PULSEAUDIO
+    Pulseaudio::init();
+    return Type::PULSEAUDIO;
 #endif
     break;
   case Type::WASAPI:
-    if (WASAPI::init()) {
-      // don't have to cleanup as we don't have other apis available
-      return Type::WASAPI;
-    } else
-      return std::nullopt;
+    WASAPI::init();
+    return Type::WASAPI;
 
   case Type::PULSEAUDIO:
-    if (Pulseaudio::init()) {
+    Pulseaudio::init();
 #if HAVE_PIPEWIRE
-      PipeWire::cleanup();
+    PipeWire::cleanup();
 #endif
-      return Type::PULSEAUDIO;
-    } else
-      return std::nullopt;
+    return Type::PULSEAUDIO;
     break;
   case Type::PIPEWIRE:
-    if (PipeWire::init()) {
+    PipeWire::init();
 #if HAVE_PULSEAUDIO
-      Pulseaudio::cleanup();
+    Pulseaudio::cleanup();
 #endif
-      return Type::PIPEWIRE;
-    } else
-      return std::nullopt;
+    return Type::PIPEWIRE;
     break;
   }
 

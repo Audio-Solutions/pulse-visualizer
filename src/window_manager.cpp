@@ -851,9 +851,8 @@ void VisualizerWindow::resizeTextures() {
       glGenTextures(1, &newTexture);
       GLenum err = glGetError();
       if (err != GL_NO_ERROR) [[unlikely]]
-        throw std::runtime_error(
-            "WindowManager::VisualizerWindow::resizeTextures(): OpenGL error during texture generation: " +
-            std::to_string(err));
+        throw makeErrorAt(std::source_location::current(), "OpenGL error during texture generation: {}",
+                          std::to_string(err));
       if (i == size_t(sizeof(textures) / sizeof(textures[0])) - 1)
         transferTexture(oldTextures[i], newTexture, GL_RGBA, GL_UNSIGNED_BYTE);
       else
@@ -925,7 +924,7 @@ void VisualizerWindow::draw() {
   // Check for OpenGL errors
   GLenum err = glGetError();
   if (err != GL_NO_ERROR) [[unlikely]]
-    LOG_DEBUG(std::string("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: ") + std::to_string(err));
+    logDebug("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: {}", std::to_string(err));
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
@@ -1009,7 +1008,7 @@ void initialize() {
     }
 
     if (it == SDLWindow::states.end()) {
-      LOG_DEBUG("Failed to find window state for group: " << key);
+      logDebug("Failed to find window state for group: {}", key);
       continue;
     }
 

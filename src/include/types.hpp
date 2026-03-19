@@ -326,7 +326,7 @@ struct Options {
     float sample_rate = 44100.0f;
     float gain_db = 0.0f;
     std::string engine = "auto";
-    std::string device = "auto";
+    std::string device = "default";
   } audio;
 
   std::unordered_map<std::string, WindowManager::Node> visualizers;
@@ -394,7 +394,11 @@ struct Options {
     } momentum;
   } vu;
 
-  std::string font;
+#ifdef _WIN32
+  std::string font = "JetBrainsMonoNerdFont-Medium.ttf";
+#else
+  std::string font = "~/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf";
+#endif
 };
 } // namespace Config
 

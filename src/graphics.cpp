@@ -167,18 +167,22 @@ FT_Library ftLib = nullptr;
 std::unordered_map<std::pair<char, float>, GlyphTexture, PairHash> glyphCache;
 
 std::string findFont(const std::string& path) {
-  // Try expandUserPath(path) first
-  std::string expanded = expandUserPath(path);
   struct stat buf;
-  if (stat(expanded.c_str(), &buf) == 0)
-    return expanded;
+  std::string resolved;
 
-  // Try system path
-  std::string inst = Config::getInstallDir() + "/" + path;
-  if (stat(inst.c_str(), &buf) == 0)
-    return inst;
+  if (path.starts_with('/')) {
+    resolved = path;
+  } else if (path.starts_with('~')) {
+    resolved = expandUserPath(path);
+  } else {
+    resolved = Config::getInstallDir() + "/" + path;
+  }
 
-  LOG_ERROR(std::string("Failed to find font file '") + path + "'");
+  if (stat(resolved.c_str(), &buf) == 0)
+    return resolved;
+
+  logWarnAt(std::source_location::current(), "Font '{}' not found at '{}'", basename(path.c_str()), resolved);
+
   return "";
 }
 
@@ -234,7 +238,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
   FT_Set_Pixel_Sizes(face, 0, size);
 
   if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-    LOG_DEBUG("Failed to load glyph for character '" << c << "'" << " at size " << size);
+    logDebug("Failed to load glyph for character '{}' at size {}", c, size);
     static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
     return empty;
   }
@@ -556,7 +560,7 @@ std::string loadFile(const char* path) {
     return content;
   }
 
-  LOG_ERROR(std::string("Failed to open shader file '") + path + "'");
+  logWarnAt(std::source_location::current(), "Failed to open shader file at {}", path);
   return "";
 }
 
@@ -581,7 +585,7 @@ GLuint load(const char* path, GLenum type) {
   std::vector<char> log(tmp);
   glGetShaderInfoLog(shader, tmp, &tmp, log.data());
 
-  LOG_ERROR(std::string("Shader compilation failed for '") + path + "': " + log.data());
+  logWarnAt(std::source_location::current(), "Shader compilation failed for {}: {}", path, log.data());
   glDeleteShader(shader);
   return 0;
 }
@@ -617,7 +621,7 @@ void ensureShaders() {
     if (!shaderProgram)
       continue;
 
-    LOG_DEBUG("Loading shader " << name << " from: " << path.second.c_str());
+    logDebug("Loading shader {} from {}", name, path.second.c_str());
 
     // Create shader program
     shader = glCreateProgram();
@@ -627,11 +631,13 @@ void ensureShaders() {
     GLint tmp;
     glGetProgramiv(shader, GL_LINK_STATUS, &tmp);
     if (!tmp) {
-      char log[512];
-      glGetProgramInfoLog(shader, 512, NULL, log);
-      LOG_ERROR("Shader linking failed:" << log);
+      glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &tmp);
+      std::vector<char> log(tmp);
+      glGetShaderInfoLog(shader, tmp, &tmp, log.data());
+
       glDeleteProgram(shader);
       shader = 0;
+      logWarnAt(std::source_location::current(), "Shader linking failed: {}", log.data());
     }
 
     glDeleteShader(shaderProgram);

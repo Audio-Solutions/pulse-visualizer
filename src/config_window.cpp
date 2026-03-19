@@ -491,7 +491,7 @@ inline void initTop() {
     };
 
     defaultButton.clicked = [](Element* self) {
-      LOG_DEBUG("Restoring config to default");
+      logDebug("Restoring config to default");
       Config::rollBackup();
       std::filesystem::remove(expandUserPath("~/.config/pulse-visualizer/config.yml"));
       Config::copyFiles();
@@ -529,7 +529,7 @@ inline void initTop() {
     };
 
     restoreButton.clicked = [](Element* self) {
-      LOG_DEBUG("Restoring config to default");
+      logDebug("Restoring config to default");
       Config::restoreBackup();
       Config::load();
 
@@ -565,14 +565,13 @@ inline void initTop() {
 
     saveButton.clicked = [](Element* self) {
       const std::string cfgPath = expandUserPath("~/.config/pulse-visualizer/config.yml");
-      bool success = false;
       try {
         std::filesystem::permissions(cfgPath, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
-        success = Config::save();
+        Config::save();
       } catch (std::exception& e) {
-        LOG_ERROR("Failed to set permissions on config file: " << e.what());
+        logWarnAt(std::source_location::current(), "Failed to set permissions on config file: {}", e.what());
       }
-      popupMessages.push_back({0.f, success ? "Saved" : "Failed to save"});
+      popupMessages.push_back({0.f, "Saved"});
     };
 
     topPage.elements.insert({"saveButton", saveButton});
@@ -1005,11 +1004,11 @@ void createCheckElement(Page& page, float& cy, const std::string key, bool* valu
 void toggle() {
   if (shown) {
     Config::save();
-    LOG_DEBUG("Destroying Config window");
+    logDebug("Destroying Config window");
     SDLWindow::destroyWindow("menu");
     deinit();
   } else {
-    LOG_DEBUG("Creating Config window");
+    logDebug("Creating Config window");
     SDLWindow::createWindow("menu", "Configuration", w, h, 0);
     init();
   }

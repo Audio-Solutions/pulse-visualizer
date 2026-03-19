@@ -47,7 +47,9 @@
 namespace CmdlineArgs {
 bool debug = false;
 bool help = false;
+#ifdef _WIN32
 bool console = false;
+#endif
 } // namespace CmdlineArgs
 
 std::string expandUserPath(const std::string& path) {
@@ -86,22 +88,22 @@ void reconfigure() {
   Theme::load();
 
   // Cleanup fonts for all SDL windows
-  LOG_DEBUG("Cleaning up fonts for all SDL windows");
+  logDebug("Cleaning up fonts for all SDL windows");
   Graphics::Font::cleanup();
 
-  LOG_DEBUG("Reordering windows");
+  logDebug("Reordering windows");
   WindowManager::initialize();
 
   // Load fonts for each SDL window
-  LOG_DEBUG("Loading fonts for each SDL window");
+  logDebug("Loading fonts for each SDL window");
   Graphics::Font::load();
 
   // Set window decorations
-  LOG_DEBUG("Setting window decorations");
+  logDebug("Setting window decorations");
   SDL_SetWindowBordered(SDLWindow::states["main"].win, Config::options.window.decorations);
   SDL_SetWindowAlwaysOnTop(SDLWindow::states["main"].win, Config::options.window.always_on_top);
 
-  LOG_DEBUG("Reconfiguring Audio...");
+  logDebug("Reconfiguring Audio...");
   AudioEngine::reconfigure();
   DSP::FFT::recreatePlans();
   DSP::ConstantQ::regenerate();
@@ -121,8 +123,10 @@ int main(int argc, char** argv) {
           CmdlineArgs::debug = true;
         } else if (std::string(argv[i]) == "--help") {
           CmdlineArgs::help = true;
+#ifdef _WIN32
         } else if (std::string(argv[i]) == "--console") {
           CmdlineArgs::console = true;
+#endif
         }
         break;
       case 'd':
@@ -131,26 +135,30 @@ int main(int argc, char** argv) {
       case 'h':
         CmdlineArgs::help = true;
         break;
+#ifdef _WIN32
       case 'c':
         CmdlineArgs::console = true;
         break;
+#endif
       }
     }
   }
 
-  std::cout << "pulse-visualizer v" << VERSION_STRING << " commit " << VERSION_COMMIT << std::endl;
+  std::cout << "pulse-visualizer v" << VERSION_STRING << " commit " << VERSION_COMMIT << "\n";
   if (CmdlineArgs::help) {
-    std::cout << "Usage: pulse-visualizer [options]" << std::endl;
-    std::cout << "Options:" << std::endl;
-    std::cout << "  -d, --debug       Enable debug mode" << std::endl;
-    std::cout << "  -h, --help        Show this help message" << std::endl;
-    std::cout << "  -c, --console     Open console window (Windows only)" << std::endl;
+    std::cout << "Usage: pulse-visualizer [options]\n";
+    std::cout << "Options:\n";
+    std::cout << "  -d, --debug       Enable debug mode\n";
+    std::cout << "  -h, --help        Show this help message\n";
+#ifdef _WIN32
+    std::cout << "  -c, --console     Open console window (Windows only)\n";
+#endif
     return 0;
   }
 
   // force debug mode on if a debugger is present
   if (debuggerPresent()) {
-    std::cout << "Debugger detected, activating debug mode" << std::endl;
+    std::cout << "Debugger detected, activating debug mode\n";
     CmdlineArgs::debug = true;
   }
 
@@ -179,42 +187,40 @@ int main(int argc, char** argv) {
   DSP::lowpassed.resize(DSP::bufferSize);
 
   // Setup configuration
-  LOG_DEBUG("Copying files");
+  logDebug("Copying Files");
   Config::copyFiles();
 
   // Load plugins
-  LOG_DEBUG("Loading Plugins");
+  logDebug("Loading Plugins");
   Plugin::loadAll();
 
-  LOG_DEBUG("Loading Config");
-  Config::load();
+  logDebug("Loading Config");
+  try {
+    Config::load();
+  } catch (const std::exception& e) {
+    std::cerr << "ERROR: " << e.what() << std::endl;
+  }
 
   // Setup theme
-  LOG_DEBUG("Loading theme");
+  logDebug("Loading theme");
   Theme::load();
 
   // Initialize SDL and OpenGL
-  LOG_DEBUG("Initializing SDL and OpenGL");
+  logDebug("Initializing SDL and OpenGL");
   SDLWindow::init();
 
-  // Check if initialization failed
-  if (!SDLWindow::running.load()) {
-    LOG_ERROR("SDL/OpenGL initialization failed, exiting");
-    return 1;
-  }
-
   // Clear and display the base window
-  LOG_DEBUG("Clearing and displaying base window");
+  logDebug("Clearing and displaying base window");
   SDLWindow::clear();
   SDLWindow::display();
 
   // Set window decorations
-  LOG_DEBUG("Setting initial window decorations");
+  logDebug("Setting initial window decorations");
   SDL_SetWindowBordered(SDLWindow::states["main"].win, Config::options.window.decorations);
   SDL_SetWindowAlwaysOnTop(SDLWindow::states["main"].win, Config::options.window.always_on_top);
 
   // Initialize audio and DSP components
-  LOG_DEBUG("Initializing audio and DSP components");
+  logDebug("Initializing audio and DSP components");
   AudioEngine::init();
   DSP::ConstantQ::init();
   DSP::ConstantQ::generate();
@@ -223,28 +229,28 @@ int main(int argc, char** argv) {
   DSP::LUFS::init();
 
   // Setup window management
-  LOG_DEBUG("Setting up window management");
+  logDebug("Setting up window management");
   WindowManager::initialize();
 
   // Start DSP processing thread
-  LOG_DEBUG("Starting DSP processing thread");
+  logDebug("Starting DSP processing thread");
   std::thread DSPThread(DSP::Threads::mainThread);
 
   // Initialise libcurl
 #ifdef USE_UPDATER
-  LOG_DEBUG("Initialising libcurl");
+  logDebug("Initialising libcurl");
   if (curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK) {
-    LOG_DEBUG("Checking for updates");
+    logDebug("Checking for updates");
     UpdaterWindow::check();
   }
 #endif
 
   // Frame timing variables
-  LOG_DEBUG("Setting up frame timing variables");
+  logDebug("Setting up frame timing variables");
   int frameCount = 0;
 
   // Start plugins
-  LOG_DEBUG("Starting plugins");
+  logDebug("Starting plugins");
   Plugin::startAll();
 
   // Depth Buffer stuff
@@ -254,90 +260,95 @@ int main(int argc, char** argv) {
   glDepthMask(GL_TRUE);
 
   // Main application loop
-  LOG_DEBUG("Starting main application loop");
-  while (1) {
-    // Handle configuration reloading
-    if (Config::reload()) {
-      LOG_DEBUG("Config reloaded");
-      reconfigure();
-      Plugin::notifyConfigReload();
-    }
+  logDebug("Starting main application loop");
+  try {
+    while (1) {
+      // Handle configuration reloading
+      if (Config::reload()) {
+        logDebug("Config reloaded");
+        reconfigure();
+        Plugin::notifyConfigReload();
+      }
 
-    // Handle theme reloading
-    if (Theme::reload()) {
-      // Cleanup fonts for all SDL windows
-      LOG_DEBUG("Cleaning up fonts for all SDL windows");
-      Graphics::Font::cleanup();
+      // Handle theme reloading
+      if (Theme::reload()) {
+        // Cleanup fonts for all SDL windows
+        logDebug("Cleaning up fonts for all SDL windows");
+        Graphics::Font::cleanup();
 
-      // Load fonts for each SDL window
-      LOG_DEBUG("Loading fonts for each SDL window");
-      Graphics::Font::load();
-    }
+        // Load fonts for each SDL window
+        logDebug("Loading fonts for each SDL window");
+        Graphics::Font::load();
+      }
 
-    // Process SDL events
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      SDLWindow::handleEvent(event);
-      ConfigWindow::handleEvent(event);
+      // Process SDL events
+      SDL_Event event;
+      while (SDL_PollEvent(&event)) {
+        SDLWindow::handleEvent(event);
+        ConfigWindow::handleEvent(event);
 #ifdef USE_UPDATER
-      UpdaterWindow::handleEvent(event);
+        UpdaterWindow::handleEvent(event);
 #endif
-      WindowManager::handleEvent(event);
-      Plugin::handleEvent(event);
-    }
+        WindowManager::handleEvent(event);
+        Plugin::handleEvent(event);
+      }
 
 #ifndef _WIN32
-    // Poll Signals
-    struct timespec ts = {0, 0};
-    int sig = sigtimedwait(&sigset, nullptr, &ts);
-    if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT)
-      SDLWindow::running = false;
+      // Poll Signals
+      struct timespec ts = {0, 0};
+      int sig = sigtimedwait(&sigset, nullptr, &ts);
+      if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT)
+        SDLWindow::running = false;
 #endif
 
-    if (!SDLWindow::running) {
-      LOG_DEBUG("Quit signal received, exiting");
-      break;
-    }
-    glUseProgram(0);
-    if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(),
-                    [](auto& state) {
-                      int width, height;
-                      SDL_GetWindowSize(state.second.win, &width, &height);
-                      return width == 0 || height == 0;
-                    }) ||
-        Config::broken)
-      continue;
+      if (!SDLWindow::running) {
+        logDebug("Quit signal received, exiting");
+        break;
+      }
+      glUseProgram(0);
+      if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(),
+                      [](auto& state) {
+                        int width, height;
+                        SDL_GetWindowSize(state.second.win, &width, &height);
+                        return width == 0 || height == 0;
+                      }) ||
+          Config::broken)
+        continue;
 
-    WindowManager::updateBounds();
+      WindowManager::updateBounds();
 
-    // Wait for DSP data to be ready
-    mainSem.acquire();
+      // Wait for DSP data to be ready
+      mainSem.acquire();
 
-    // Render frame
-    SDLWindow::clear();
-    WindowManager::render();
-    ConfigWindow::draw();
+      // Render frame
+      SDLWindow::clear();
+      WindowManager::render();
+      ConfigWindow::draw();
 #ifdef USE_UPDATER
-    UpdaterWindow::draw();
+      UpdaterWindow::draw();
 #endif
-    Plugin::drawAll();
-    SDLWindow::display();
+      Plugin::drawAll();
+      SDLWindow::display();
 
-    // FPS logging if enabled
-    if (Config::options.debug.log_fps) {
-      frameCount++;
-      static float fpsTimeAccum = 0.0f;
-      fpsTimeAccum += WindowManager::dt;
-      if (fpsTimeAccum >= 1.0f) {
-        std::cout << "FPS: " << static_cast<int>(frameCount / fpsTimeAccum) << std::endl;
-        frameCount = 0;
-        fpsTimeAccum = 0.0f;
+      // FPS logging if enabled
+      if (Config::options.debug.log_fps) {
+        frameCount++;
+        static float fpsTimeAccum = 0.0f;
+        fpsTimeAccum += WindowManager::dt;
+        if (fpsTimeAccum >= 1.0f) {
+          std::cout << "FPS: " << static_cast<int>(frameCount / fpsTimeAccum) << std::endl;
+          frameCount = 0;
+          fpsTimeAccum = 0.0f;
+        }
       }
     }
+  } catch (const std::exception& e) {
+    SDLWindow::running.store(false);
+    std::cerr << "ERROR: " << e.what() << std::endl;
   }
 
   // Cleanup
-  LOG_DEBUG("Cleaning up...");
+  logDebug("Cleaning up...");
   SDLWindow::running.store(false);
   WindowManager::cleanup();
   Plugin::unloadAll();

@@ -55,8 +55,7 @@ void load() {
   path = expandUserPath(path);
   std::ifstream file(path);
   if (!file.is_open()) {
-    LOG_ERROR(std::string("Failed to open theme file: ") + path);
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to open theme file at {}", path);
   }
 
 #ifdef __linux__
@@ -184,7 +183,7 @@ void load() {
     };
 
     if (!parseAndStoreColor()) {
-      LOG_ERROR(key + std::string(" is invalid or has invalid data: ") + value);
+      logWarnAt(std::source_location::current(), "{} is invalid or has invalid data: {}", key, value);
     }
 
     std::string keyTrim = key;
@@ -231,7 +230,7 @@ void load() {
 
   for (size_t i = 0; i < mainColors.size(); ++i) {
     if (std::abs(mainColors[i][3]) < FLT_EPSILON) {
-      LOG_ERROR(std::string("Color ") + colorNames[i] + " is missing!");
+      logWarnAt(std::source_location::current(), "Color {} is missing", colorNames[i]);
     }
   }
 

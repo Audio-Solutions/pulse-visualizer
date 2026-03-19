@@ -50,7 +50,7 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
   // Reallocate memory to fit new data
   char* ptr = (char*)realloc(mem->data, mem->size + total_size + 1);
   if (ptr == NULL) {
-    LOG_ERROR("Error: Not enough memory to store data");
+    logWarnAt(std::source_location::current(), "Error: Not enough memory to store data");
     return 0; // Returning 0 will signal libcurl to abort
   }
 
@@ -63,69 +63,70 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
 }
 
 void _check() {
-  LOG_DEBUG("Checking for updates");
+  logDebug("Checking for updates");
 
-  // Init cURL request
-  CURL* curl = curl_easy_init();
-  if (!curl) {
-    LOG_ERROR("Failed to initialise curl request");
-    return;
-  }
+  try {
+    // Init cURL request
+    CURL* curl = curl_easy_init();
+    if (!curl)
+      throw makeErrorAt(std::source_location::current(), "Failed to init curl");
 
-  MemoryBlock chunk = {nullptr, 0};
+    MemoryBlock chunk = {nullptr, 0};
 
-  // Set cURL options
-  curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/Audio-Solutions/pulse-visualizer/releases/latest");
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "pulse-visualizer/" VERSION_STRING);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    // Set cURL options
+    curl_easy_setopt(curl, CURLOPT_URL,
+                     "https://api.github.com/repos/Audio-Solutions/pulse-visualizer/releases/latest");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "pulse-visualizer/" VERSION_STRING);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
-  // Send request
-  CURLcode res = curl_easy_perform(curl);
+    // Send request
+    CURLcode res = curl_easy_perform(curl);
 
-  if (res != CURLE_OK) {
-    LOG_ERROR("curl_easy_perform() failed with: " << curl_easy_strerror(res));
-    free(chunk.data);
-    return;
-  } else {
-    // Successfully fetched JSON
-    LOG_DEBUG("Received release json (" << chunk.size << " bytes)");
-  }
-
-  curl_easy_cleanup(curl);
-
-  // JSON regex
-  std::regex re(R"_rx("tag_name"\s*:\s*"v?(\d+(?:\.\d+)+)")_rx");
-  std::smatch m;
-  std::string json(chunk.data);
-
-  updateShown = false;
-
-  if (std::regex_search(json, m, re)) {
-    std::string version = m[1];
-    LOG_DEBUG("Latest version is: " << version << " while current version is: " << VERSION_STRING);
-
-    newVersion = version;
-    if (version != VERSION_STRING) {
-      updateAvailable = true;
-      LOG_DEBUG("Update available");
+    if (res != CURLE_OK) {
+      free(chunk.data);
+      throw makeErrorAt(std::source_location::current(), "Curl failed: {}", curl_easy_strerror(res));
+    } else {
+      // Successfully fetched JSON
+      logDebug("Received release json ({} bytes)", chunk.size);
     }
-  } else {
-    updateAvailable = false;
-    LOG_DEBUG("Regex failed");
-  }
 
-  // Notify main thread about data
-  SDL_Event event;
-  SDL_zero(event);
-  event.type = eventId;
-  event.user.code = 1;
-  if (!SDL_PushEvent(&event)) {
-    LOG_ERROR("Failed to push SDL event");
-  }
+    curl_easy_cleanup(curl);
 
-  free(chunk.data);
+    // JSON regex
+    std::regex re(R"_rx("tag_name"\s*:\s*"v?(\d+(?:\.\d+)+)")_rx");
+    std::smatch m;
+    std::string json(chunk.data);
+
+    updateShown = false;
+
+    if (std::regex_search(json, m, re)) {
+      std::string version = m[1];
+      logDebug("Latest version is {} while current version is {}", version, VERSION_STRING);
+
+      newVersion = version;
+      if (version != VERSION_STRING) {
+        updateAvailable = true;
+        logDebug("Update available");
+      }
+    } else {
+      updateAvailable = false;
+      logDebug("Regex failed");
+    }
+
+    // Notify main thread about data
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = eventId;
+    event.user.code = 1;
+    if (!SDL_PushEvent(&event))
+      logWarnAt(std::source_location::current(), "Failed to push SDL event");
+
+    free(chunk.data);
+  } catch (const std::exception& e) {
+    std::cerr << "ERROR: " << e.what() << std::endl;
+  }
 }
 
 void check() {
@@ -148,7 +149,7 @@ bool mouseOverRect(float x, float y, float w, float h) {
 
 void hide() {
   shown = false;
-  LOG_DEBUG("Destroying Update window");
+  logDebug("Destroying Update window");
   SDLWindow::destroyWindow("update");
 }
 
@@ -184,7 +185,7 @@ void handleEvent(const SDL_Event& event) {
     if (event.user.code == 1) {
       if (updateAvailable && !updateShown) {
         // create window
-        LOG_DEBUG("Creating Update window");
+        logDebug("Creating Update window");
         SDLWindow::createWindow("update", "Update available", 300, 100, 0);
         shown = true;
         updateShown = true;

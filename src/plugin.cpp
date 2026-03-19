@@ -97,16 +97,16 @@ void loadAll() {
 #endif
       continue;
 
-    LOG_DEBUG("Loading " << entry.path().filename());
+    logDebug("Loading {}", entry.path().filename().c_str());
 
 #ifdef _WIN32
     HMODULE handle = LoadLibrary(entry.path().string().c_str());
     if (!handle) {
-      LOG_ERROR("LoadLibrary failed: " << GetLastError());
+      logWarnAt(std::source_location::current(), "LoadLibrary failed: {}", GetLastError());
 #else
     void* handle = dlopen(entry.path().string().c_str(), RTLD_NOW);
     if (!handle) {
-      LOG_ERROR("dlopen failed: " << dlerror());
+      logWarnAt(std::source_location::current(), "dlopen failed: {}", dlerror());
 #endif
       continue;
     }
@@ -115,17 +115,17 @@ void loadAll() {
 #ifdef _WIN32
       FARPROC sym = GetProcAddress(handle, name);
       if (!sym) {
-        LOG_ERROR("GetProcAddress " << name << " failed: " << GetLastError());
+        logWarnAt(std::source_location::current(), "GetProcAddress {} failed: {}", name, GetLastError());
         return false;
       }
 #else
       void* sym = dlsym(handle, name);
       if (const char* e = dlerror()) {
-        LOG_ERROR("dlsym " << name << " failed: " << e);
+        logWarnAt(std::source_location::current(), "dlsym on {} failed: {}", name, e);
         return false;
       }
       if (!sym) {
-        LOG_ERROR("dlsym " << name << " returned null");
+        logWarnAt(std::source_location::current(), "dlsym on {} returned null", name);
         return false;
       }
 #endif
@@ -180,7 +180,7 @@ void loadAll() {
     pl.api.pluginContext = &pl;
 
     if (pl.init(&pl.api) != 0) {
-      LOG_ERROR("init returned non-zero");
+      logWarnAt(std::source_location::current(), "init returned non-zero");
       unloadCurrent();
       continue;
     }

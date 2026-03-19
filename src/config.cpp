@@ -66,9 +66,9 @@ void copyFiles() {
 #endif
   if (!home) {
 #ifdef _WIN32
-    LOG_ERROR("Warning: USERPROFILE environment variable not set, cannot setup user config");
+    logWarnAt(std::source_location::current(), "USERPROFILE environment variable not set, cannot setup user config");
 #else
-    LOG_ERROR("Warning: HOME environment variable not set, cannot setup user config");
+    logWarnAt(std::source_location::current(), "HOME environment variable not set, cannot setup user config");
 #endif
     return;
   }
@@ -90,9 +90,9 @@ void copyFiles() {
     if (std::filesystem::exists(cfgSource)) {
       try {
         std::filesystem::copy_file(cfgSource, userCfgDir + "/config.yml");
-        LOG_DEBUG("Created user config file: " << userCfgDir << "/config.yml");
+        logDebug("Created user config file: {}/config.yml", userCfgDir);
       } catch (const std::exception& e) {
-        LOG_ERROR("Warning: Failed to copy config template: " << e.what());
+        logWarnAt(std::source_location::current(), "Failed to copy config template: {}", e.what());
       }
     }
   }
@@ -109,9 +109,9 @@ void copyFiles() {
           }
         }
       }
-      LOG_DEBUG("Copied themes to: " << userThemeDir);
+      logDebug("Copied themes to: {}", userThemeDir);
     } catch (const std::exception& e) {
-      LOG_ERROR("Warning: Failed to copy themes: " << e.what());
+      logWarnAt(std::source_location::current(), "Failed to copy themes: {}", e.what());
     }
   }
 
@@ -122,34 +122,31 @@ void copyFiles() {
     try {
       if (!std::filesystem::exists(userFontFile)) {
         std::filesystem::copy_file(fontSource, userFontFile);
-        LOG_DEBUG("Copied font to: " << userFontFile);
+        logDebug("Copied font to: {}", userFontFile);
       }
     } catch (const std::exception& e) {
-      LOG_ERROR("Warning: Failed to copy font: " << e.what());
+      logWarnAt(std::source_location::current(), "Failed to copy font: {}", e.what());
     }
   }
 }
 
-std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path) {
+YAML::Node getNode(const YAML::Node& root, std::string_view path) {
   const std::string pathStr(path);
   if (root[pathStr].IsDefined())
     return root[pathStr];
 
   const size_t dotIndex = path.find('.');
   if (dotIndex == std::string_view::npos) {
-    broken = true;
-    return std::nullopt;
+    throw makeErrorAt(std::source_location::current(), "Path '{}' not found", path);
   }
 
   const std::string section(path.substr(0, dotIndex));
-  const std::string_view sub = path.substr(dotIndex + 1);
-
   if (!root[section].IsDefined()) {
-    broken = true;
-    return std::nullopt;
+    throw makeErrorAt(std::source_location::current(), "Section '{}' missing from path '{}'", section, path);
   }
 
-  return getNode(root[section], sub);
+  const std::string_view subpath = path.substr(dotIndex + 1);
+  return getNode(root[section], subpath);
 }
 
 /**
@@ -159,34 +156,29 @@ std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path)
  * @param out Output reference to receive the parsed value
  */
 template <typename T> void get(const YAML::Node& root, std::string_view path, T& out) {
-  constexpr auto typeName = []() constexpr -> std::string_view {
-    if constexpr (std::is_same_v<T, std::string>)
-      return "string";
-    else if constexpr (std::is_same_v<T, int>)
-      return "int";
-    else if constexpr (std::is_same_v<T, float>)
-      return "float";
-    else if constexpr (std::is_same_v<T, Rotation>)
-      return "Rotation";
-    else
-      return "unknown";
-  }();
+  constexpr auto typeName = std::is_same_v<T, std::string> ? "string"
+                            : std::is_same_v<T, int>       ? "int"
+                            : std::is_same_v<T, float>     ? "float"
+                            : std::is_same_v<T, Rotation>  ? "Rotation"
+                                                           : "unknown";
 
-  auto node = getNode(root, path);
-  if (node.has_value()) {
-    try {
-      T value = node.value().as<T>();
-      out = value;
-      return;
-    } catch (std::exception) {
-      broken = true;
-      LOG_ERROR("Converting " << path << " to " << typeName << " failed");
-      return;
-    }
+  YAML::Node node;
+
+  try {
+    node = getNode(root, path);
+    T value = node.as<T>();
+    out = value;
+    return;
+  } catch (const typename YAML::TypedBadConversion<T>& e) {
+    throw makeErrorAt(std::source_location::current(), "Type mismatch at config.yml:{} ({}): expected {}, got {}",
+                      e.mark.line + 1, path, typeName, node.Tag());
+  } catch (const YAML::InvalidNode& e) {
+    throw makeErrorAt(std::source_location::current(), "Invalid node access at config.yml:{} ({})", e.mark.line + 1,
+                      path);
+  } catch (const YAML::Exception& e) {
+    throw makeErrorAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1,
+                      e.msg);
   }
-
-  broken = true;
-  LOG_ERROR(path << " is missing.");
 }
 
 /**
@@ -196,42 +188,23 @@ template <typename T> void get(const YAML::Node& root, std::string_view path, T&
  * @param out Output reference to receive the parsed value
  */
 template <> void get<bool>(const YAML::Node& root, std::string_view path, bool& out) {
-  auto node = getNode(root, path);
-  if (!node.has_value()) {
-    broken = true;
-    return;
-  }
+  YAML::Node node = getNode(root, path);
 
-  const YAML::Node& value = node.value();
+  if (node.IsScalar()) {
+    std::string str = node.as<std::string>();
+    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 
-  try {
-    out = value.as<bool>();
-    return;
-  } catch (...) {
-    try {
-      std::string str = value.as<std::string>();
-      if (str == "true" || str == "yes" || str == "on") {
-        out = true;
-        return;
-      }
-      if (str == "false" || str == "no" || str == "off") {
-        out = false;
-        return;
-      }
-      LOG_ERROR("Converting " << path << " to bool failed");
-      broken = true;
+    if (str == "true" || str == "yes" || str == "on" || str == "1") {
+      out = true;
       return;
-    } catch (...) {
-      try {
-        out = (value.as<int>() != 0);
-        return;
-      } catch (...) {
-        LOG_ERROR("Converting " << path << " to bool failed");
-        broken = true;
-        return;
-      }
+    }
+    if (str == "false" || str == "no" || str == "off" || str == "0") {
+      out = false;
+      return;
     }
   }
+
+  throw makeErrorAt(std::source_location::current(), "Converting {} to boolean failed", path);
 }
 
 /**
@@ -255,89 +228,59 @@ template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Ro
 template <>
 void get<std::unordered_map<std::string, WindowManager::Node>>(
     const YAML::Node& root, std::string_view path, std::unordered_map<std::string, WindowManager::Node>& out) {
-  auto node = getNode(root, path);
+  YAML::Node node = getNode(root, path);
 
-  if (!node.has_value() || !node.value().IsMap()) {
-    visualizersBroken = broken = true;
-    return;
-  }
+  if (!node.IsMap())
+    throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
 
-  const YAML::Node& value = node.value();
-
-  std::function<WindowManager::Node(const YAML::Node&, const std::string_view)> parseHierarchyTree;
-  parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp) -> WindowManager::Node {
+  std::function<WindowManager::Node(const YAML::Node&, const std::string_view, std::string)> parseHierarchyTree;
+  parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp,
+                           std::string subPath) -> WindowManager::Node {
     if (!n || n.IsNull())
-      return nullptr;
+      throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
 
-    if (n.IsScalar()) {
-      try {
-        // treat bare scalar as an id
-        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()));
-      } catch (...) {
-        visualizersBroken = broken = true;
-        return nullptr;
-      }
+    if (n.IsScalar())
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()));
+
+    if (!n.IsMap())
+      throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
+
+    // Branch by explicit id
+    if (n["id"] && n["id"].IsScalar())
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()));
+
+    // Split node: require 'type' and 'children'
+    if (!n["type"] || !n["children"] || !n["children"].IsSequence())
+      throw makeErrorAt(std::source_location::current(), "missing 'type' and 'children' at {}.{}", path, subPath);
+
+    WindowManager::Splitter s {};
+    s.orientation = (n["type"].as<std::string>() == "hsplit") ? WindowManager::Orientation::Horizontal
+                                                              : WindowManager::Orientation::Vertical;
+
+    if (n["ratio"] && n["ratio"].IsScalar())
+      s.ratio = n["ratio"].as<float>();
+    else
+      s.ratio = 0.5f;
+
+    const YAML::Node children = n["children"];
+    if (children.size() != 2) {
+      throw makeErrorAt(std::source_location::current(), "'children' must contain exactly 2 nodes, got {} at {}.{}",
+                        children.size(), path, subPath);
     }
 
-    if (n.IsMap()) {
-      // Branch by explicit id
-      if (n["id"] && n["id"].IsScalar()) {
-        try {
-          return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()));
-        } catch (...) {
-          visualizersBroken = broken = true;
-          return nullptr;
-        }
-      }
+    // parse two children
+    s.primary = parseHierarchyTree(children[0], grp, subPath + ".children[0]");
+    s.secondary = parseHierarchyTree(children[1], grp, subPath + ".children[1]");
 
-      // Split node: require 'type' and 'children'
-      if (!n["type"] || !n["children"] || !n["children"].IsSequence()) {
-        visualizersBroken = broken = true;
-        return nullptr;
-      }
-
-      WindowManager::Splitter s {};
-      try {
-        const std::string t = n["type"].as<std::string>();
-        if (t == "vsplit")
-          s.orientation = WindowManager::Orientation::Vertical;
-        else if (t == "hsplit")
-          s.orientation = WindowManager::Orientation::Horizontal;
-        else {
-          visualizersBroken = broken = true;
-        }
-
-        if (n["ratio"] && n["ratio"].IsScalar())
-          s.ratio = n["ratio"].as<float>();
-        else
-          s.ratio = 0.5f;
-
-        const YAML::Node children = n["children"];
-        if (!children.IsSequence() || children.size() != 2) {
-          visualizersBroken = broken = true;
-          return nullptr;
-        }
-
-        // parse two children
-        s.primary = parseHierarchyTree(children[0], grp);
-        s.secondary = parseHierarchyTree(children[1], grp);
-      } catch (...) {
-        visualizersBroken = broken = true;
-        return nullptr;
-      }
-
-      return std::make_shared<WindowManager::Variant>(std::move(s));
-    }
-
-    visualizersBroken = broken = true;
-    return nullptr;
+    return std::make_shared<WindowManager::Variant>(std::move(s));
   };
 
-  out.clear();
-  for (const auto& item : value) {
+  std::decay_t<decltype(out)> temp;
+  for (const auto& item : node) {
     const std::string itemKey = item.first.as<std::string>();
-    out[itemKey] = std::move(parseHierarchyTree(item.second, itemKey));
+    temp[itemKey] = std::move(parseHierarchyTree(item.second, itemKey, itemKey));
   }
+  out = std::move(temp);
 }
 
 /**
@@ -352,12 +295,8 @@ void get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKey
     std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>& out) {
   auto node = getNode(root, path);
 
-  if (!node.has_value() || !node.value().IsMap()) {
-    broken = true;
-    return;
-  }
-
-  const YAML::Node& value = node.value();
+  if (!node.IsMap())
+    throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
 
   std::lock_guard<std::mutex> lock(pluginOptionsMutex);
 
@@ -367,25 +306,25 @@ void get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKey
     switch (rec.spec.type) {
     case PluginConfigType::Bool: {
       bool tmp = std::get<bool>(rec.value);
-      get<bool>(value, path, tmp);
+      get<bool>(node, path, tmp);
       rec.value = PluginConfigValue(tmp);
       break;
     }
     case PluginConfigType::Int: {
       int tmp = std::get<int>(rec.value);
-      get<int>(value, path, tmp);
+      get<int>(node, path, tmp);
       rec.value = PluginConfigValue(tmp);
       break;
     }
     case PluginConfigType::Float: {
       float tmp = std::get<float>(rec.value);
-      get<float>(value, path, tmp);
+      get<float>(node, path, tmp);
       rec.value = PluginConfigValue(tmp);
       break;
     }
     case PluginConfigType::String: {
       std::string tmp = std::get<std::string>(rec.value);
-      get<std::string>(value, path, tmp);
+      get<std::string>(node, path, tmp);
       rec.value = PluginConfigValue(tmp);
       break;
     }
@@ -421,7 +360,8 @@ bool registerPluginConfigOption(void* pluginContext, const char* path, const Con
 
   auto it = pluginOptions.find(key);
   if (it != pluginOptions.end() && !it->second.spec.label.empty()) {
-    LOG_ERROR("Duplicate plugin config option registration for 'plugins." << pluginKey << "." << keyPath << "'");
+    logWarnAt(std::source_location::current(), "Duplicate plugin config option registration for 'plugins.{}.{}'",
+              pluginKey, keyPath);
     return false;
   }
 
@@ -537,22 +477,17 @@ void restoreBackup() {
   dst.close();
 }
 
+inline void tryRestore() {
+  logWarnAt(std::source_location::current(), "Trying build working config");
+
+  rollBackup();
+  save();
+  load(true);
+}
+
 void load(bool recovering) {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
-
-  broken = false;
-
-  // Handle YAML errors
-  try {
-    configData = YAML::LoadFile(path);
-  } catch (YAML::BadFile e) {
-    LOG_ERROR("Failed to load config file");
-  } catch (YAML::ParserException e) {
-    LOG_ERROR("Parser error when loading the config file: \"" << e.msg << "\" at " << (e.mark.line + 1) << "("
-                                                              << (e.mark.column + 1) << ")");
-    broken = true;
-  }
 
 #ifdef __linux__
   // Setup file watching for configuration changes
@@ -564,36 +499,41 @@ void load(bool recovering) {
   }
 #endif
 
-  // If the config fails to load we still want the watch to be created
-  if (configData.IsNull()) {
+  // Handle YAML errors
+  try {
+    configData = YAML::LoadFile(path);
+  } catch (const YAML::BadFile&) {
+    logWarnAt(std::source_location::current(), "Failed to load config file");
+  } catch (const YAML::ParserException& e) {
+    logWarnAt(std::source_location::current(), "Parser error when loading config: '{}' at {}:{}", e.msg,
+              e.mark.line + 1, e.mark.column + 1);
+    tryRestore();
     return;
   }
 
-  get<std::unordered_map<std::string, WindowManager::Node>>(configData, "visualizers", options.visualizers);
+  try {
+    get<std::unordered_map<std::string, WindowManager::Node>>(configData, "visualizers", options.visualizers);
 
-  get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
-                                                                                      pluginOptions);
+    get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
+                                                                                        pluginOptions);
 
-  ConfigSchema::forEachFieldByType(
-      [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
-      [&](const auto& field) { get<int>(configData, field.path, field.get(options)); },
-      [&](const auto& field) { get<float>(configData, field.path, field.get(options)); },
-      [&](const auto& field) { get<std::string>(configData, field.path, field.get(options)); },
-      [&](const auto& field) { get<Rotation>(configData, field.path, field.get(options)); });
+    ConfigSchema::forEachFieldByType(
+        [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
+        [&](const auto& field) { get<int>(configData, field.path, field.get(options)); },
+        [&](const auto& field) { get<float>(configData, field.path, field.get(options)); },
+        [&](const auto& field) { get<std::string>(configData, field.path, field.get(options)); },
+        [&](const auto& field) { get<Rotation>(configData, field.path, field.get(options)); });
+  } catch (const std::exception& e) {
+    // if already recovering, rethrow
+    if (recovering)
+      throw e;
 
-  // If the config is broken, attempt to recover by merging defaults
-  if (broken && !recovering) {
-    LOG_ERROR("Config is broken, attempting to recover...");
-    rollBackup();
-    save();
-    load(true);
-  } else if (broken && recovering) {
-    LOG_ERROR("Failed to recover config.");
-    SDLWindow::running.store(false);
+    logWarnAt(std::source_location::current(), "Config load failed: {}", e.what());
+    tryRestore();
   }
 }
 
-bool save() {
+void save() {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
 
   YAML::Node root;
@@ -606,29 +546,12 @@ bool save() {
       [&](const auto& field) { setNodeByPath(root, field.path, static_cast<int>(field.getConst(options))); });
 
   // Visualizers
-  // If the config was detected as broken, write a safe default layout
-  // instead of persisting the invalid current layout.
-  if (visualizersBroken) {
-    YAML::Node defVis(YAML::NodeType::Map);
-    YAML::Node mainNode(YAML::NodeType::Map);
-    mainNode["type"] = "hsplit";
-    mainNode["ratio"] = 0.5;
-    YAML::Node children(YAML::NodeType::Sequence);
-    YAML::Node c0(YAML::NodeType::Map);
-    c0["id"] = "oscilloscope";
-    children.push_back(c0);
-    YAML::Node c1(YAML::NodeType::Map);
-    c1["id"] = "spectrum_analyzer";
-    children.push_back(c1);
-    mainNode["children"] = children;
-    defVis["main"] = mainNode;
-    root["visualizers"] = defVis;
-  } else {
+  try {
     YAML::Node vis(YAML::NodeType::Map);
     std::function<YAML::Node(const WindowManager::Node&)> nodeToYaml;
     nodeToYaml = [&](const WindowManager::Node& node) -> YAML::Node {
       if (!node)
-        return YAML::Node();
+        throw makeErrorAt(std::source_location::current(), "Invalid node");
       // clang-format off
       return std::visit(Visitor {
         [&](std::shared_ptr<WindowManager::VisualizerWindow>& w) {
@@ -654,6 +577,21 @@ bool save() {
       vis[groupName] = nodeToYaml(nodePtr);
     }
     root["visualizers"] = vis;
+  } catch (...) {
+    YAML::Node defVis(YAML::NodeType::Map);
+    YAML::Node mainNode(YAML::NodeType::Map);
+    mainNode["type"] = "hsplit";
+    mainNode["ratio"] = 0.5;
+    YAML::Node children(YAML::NodeType::Sequence);
+    YAML::Node c0(YAML::NodeType::Map);
+    c0["id"] = "oscilloscope";
+    children.push_back(c0);
+    YAML::Node c1(YAML::NodeType::Map);
+    c1["id"] = "spectrum_analyzer";
+    children.push_back(c1);
+    mainNode["children"] = children;
+    defVis["main"] = mainNode;
+    root["visualizers"] = defVis;
   }
 
   // Persist plugin options from the consolidated map
@@ -678,20 +616,15 @@ bool save() {
   }
 
   std::ofstream fout(path);
-  if (!fout.is_open()) {
-    LOG_ERROR("Failed to open config file for writing");
-    return false;
-  }
+  if (!fout.is_open())
+    throw makeErrorAt(std::source_location::current(), "Failed to open config file for writing");
 
   fout << out.c_str();
 
-  if (fout.fail()) {
-    return false;
-  }
+  if (fout.fail())
+    throw makeErrorAt(std::source_location::current(), "Failed to write to config file");
 
   fout.close();
-
-  return true;
 }
 
 bool reload() {

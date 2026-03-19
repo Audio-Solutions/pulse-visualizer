@@ -60,9 +60,9 @@ void copyFiles();
  * @brief Get a nested node from YAML configuration
  * @param root Root YAML node
  * @param path Dot-separated path to the desired node
- * @return Optional YAML node if found
+ * @return YAML node
  */
-std::optional<YAML::Node> getNode(const YAML::Node& root, std::string_view path);
+YAML::Node getNode(const YAML::Node& root, std::string_view path);
 
 bool registerPluginConfigOption(void* pluginContext, const char* path, const Config::PluginConfigValue* defaultValue,
                                 const Config::PluginConfigSpec* descriptor);
@@ -91,9 +91,8 @@ bool reload();
 
 /**
  * @brief Save configuration to file
- * @return true if saved properly, false otherwise
  */
-bool save();
+void save();
 
 /**
  * @brief Cleanup inotify resources

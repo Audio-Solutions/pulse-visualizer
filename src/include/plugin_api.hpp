@@ -56,9 +56,8 @@ struct PvAPI {
 
   /**
    * @brief Save configuration to file
-   * @return true if saved properly, false otherwise
    */
-  bool (*saveConfig)(void);
+  void (*saveConfig)(void);
 
   /**
    * @brief Expands a path starting with '~' to the user's home directory

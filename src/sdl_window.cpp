@@ -67,8 +67,7 @@ void init() {
 
   // Initialize SDL video subsystem
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    LOG_ERROR(std::string("SDL_Init failed: ") + SDL_GetError());
-    exit(1);
+    throw makeErrorAt(std::source_location::current(), "SDL init failed: {}", SDL_GetError());
   }
 
   // Configure OpenGL context attributes
@@ -89,34 +88,27 @@ void init() {
 
   // Check if window creation was successful
   if (states.find("main") == states.end()) {
-    LOG_ERROR("Failed to create main window");
-    running.store(false);
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to create main window");
   }
 
   // Make the OpenGL context current before initializing GLAD
   if (!selectWindow("main")) {
-    LOG_ERROR("Failed to select main window");
-    running.store(false);
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to select main window");
   }
 
   // Initialize GLAD
   int version = gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
   if (version == 0) {
-    LOG_ERROR("GLAD initialization failed");
-
     const GLubyte* glVersion = glGetString(GL_VERSION);
     if (glVersion)
-      LOG_ERROR("OpenGL Version: " << reinterpret_cast<const char*>(glVersion));
+      throw makeErrorAt(std::source_location::current(), "GLAD initialization failed. OpenGL Version {}",
+                        reinterpret_cast<const char*>(glVersion));
     else
-      LOG_ERROR("No valid OpenGL context available");
-
-    running.store(false);
-    return;
+      throw makeErrorAt(std::source_location::current(),
+                        "GLAD initialization failed. No valid OpenGL context available");
   }
 
-  LOG_DEBUG("OpenGL Loaded via GLAD: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version));
+  logDebug("OpenGL Loaded via GLAD: {}.{}", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
   Graphics::Font::load();
 
@@ -241,20 +233,18 @@ void clear() {
 
 void createWindow(const std::string& group, const std::string& title, int width, int height, uint32_t flags) {
   // Create SDL window with OpenGL support
-  LOG_DEBUG(std::string("Creating window: ") + title);
+  logDebug("Creating window: {}", title);
   SDL_Window* win = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | flags);
   if (!win) {
-    LOG_ERROR(std::string("Failed to create window: ") + SDL_GetError());
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to create Window: {}", SDL_GetError());
   }
 
   // Create OpenGL context
-  LOG_DEBUG(std::string("Creating OpenGL context"));
+  logDebug("Creating OpenGL context");
   SDL_GLContext glContext = SDL_GL_CreateContext(win);
   if (!glContext) {
-    LOG_ERROR(std::string("Failed to create OpenGL context: ") + SDL_GetError());
     SDL_DestroyWindow(win);
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to create OpenGL Context: {}", SDL_GetError());
   }
 
   // Fix nvidia bug
@@ -264,7 +254,8 @@ void createWindow(const std::string& group, const std::string& title, int width,
     icon = IMG_Load((Config::getInstallDir() + "/icons/icon.ico").c_str());
 
   if (!icon)
-    LOG_ERROR("Failed to load window icon (icons/icon.ico)");
+    logWarnAt(std::source_location::current(), "Failed to load window icon from {}/icons/icon.ico",
+              Config::getInstallDir());
   else
     SDL_SetWindowIcon(win, icon);
 
@@ -275,7 +266,7 @@ bool destroyWindow(const std::string& group) {
   if (states.find(group) == states.end())
     return false;
 
-  LOG_DEBUG(std::string("Destroying window: ") + group);
+  logDebug("Destroying window: {}", group);
   SDL_DestroyWindow(states[group].win);
   SDL_GL_DestroyContext(states[group].glContext);
   states.erase(group);

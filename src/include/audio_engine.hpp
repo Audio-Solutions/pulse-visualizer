@@ -79,9 +79,8 @@ void cleanup();
 
 /**
  * @brief Initialize PulseAudio backend
- * @return true if successful
  */
-bool init();
+void init();
 
 /**
  * @brief Read audio samples from PulseAudio
@@ -104,7 +103,7 @@ bool reconfigure();
 std::vector<std::string> enumerate();
 
 #else
-bool init();
+void init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
 std::vector<std::string> enumerate();
@@ -188,9 +187,8 @@ void cleanup();
 
 /**
  * @brief Initialize PipeWire backend
- * @return true if successful
  */
-bool init();
+void init();
 
 /**
  * @brief Read audio samples from PipeWire
@@ -213,7 +211,7 @@ bool reconfigure();
 std::vector<std::string> enumerate();
 
 #else
-bool init();
+void init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
 std::vector<std::string> enumerate();
@@ -268,7 +266,7 @@ void cleanup();
  * @brief Initialize WASAPI backend
  * @return true if successful
  */
-bool init();
+void init();
 
 /**
  * @brief Read audio samples from WASAPI
@@ -291,7 +289,7 @@ bool reconfigure();
 std::vector<std::string> enumerate();
 
 #else
-bool init();
+void init();
 bool read(float*, size_t);
 bool reconfigure(const std::string&, uint32_t, size_t);
 std::vector<std::string> enumerate();

@@ -38,6 +38,7 @@
 #include <ebur128.h>
 #include <fftw3.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <ft2build.h>
 #include <functional>
@@ -47,6 +48,7 @@
 #include <optional>
 #include <semaphore>
 #include <signal.h>
+#include <source_location>
 #include <span>
 #include <sstream>
 #include <string_view>
@@ -61,25 +63,83 @@
 #include <yaml-cpp/yaml.h>
 #include FT_FREETYPE_H
 
+using namespace std::literals;
+
 namespace CmdlineArgs {
 extern bool debug;
 extern bool help;
+#ifdef _WIN32
 extern bool console;
+#endif
 } // namespace CmdlineArgs
 
-// constexpr recursive function template to isolate filename
-template <std::size_t N> constexpr const char* constexpr_strrchr(const char (&str)[N], std::size_t pos = N - 2) {
-  return pos == static_cast<std::size_t>(-1)
-             ? str
-             : (str[pos] == '/' || str[pos] == '\\' ? str + pos + 1 : constexpr_strrchr(str, pos - 1));
+constexpr const char* constexpr_basename(const char* p) noexcept {
+  const char* b = p;
+  const char* s = nullptr;
+  while (*b) {
+    if (*b == '/' || *b == '\\')
+      s = b;
+    ++b;
+  }
+  return s ? s + 1 : p;
 }
 
-// Logging macros
-#define LOG_ERROR(x)                                                                                                   \
-  std::cout << "ERROR in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl
-#define LOG_DEBUG(x)                                                                                                   \
-  if (CmdlineArgs::debug)                                                                                              \
-  std::cout << "DEBUG in " << constexpr_strrchr(__FILE__) << "#" << __LINE__ << ": " << x << std::endl
+constexpr const char* constexpr_trim_ret(const char* p) noexcept {
+  if (!p || !*p)
+    return p;
+  const char* open = nullptr;
+  const char* cur = p;
+
+  while (*cur && *cur != '(')
+    ++cur;
+  if (!*cur)
+    return p;
+  open = cur;
+
+  while (open > p && (open[-1] != ' ' && open[-1] != '>'))
+    --open;
+  return open < cur ? open : p;
+}
+
+/**
+ * @brief Constructs a std::runtime_error with a formatted error message including source location information.
+ * @param fmt The format string, compatible with std::format.
+ * @param args Arguments to be formatted into the format string.
+ * @param loc The source location where the error occurred (defaults to current location).
+ * @return std::runtime_error The constructed runtime error with the formatted message.
+ */
+template <typename... Args>
+[[nodiscard]] inline std::runtime_error makeErrorAt(std::source_location loc, std::format_string<Args...> fmt,
+                                                    Args&&... args) {
+  return std::runtime_error(std::format("{} | {}:{} in {}", std::vformat(fmt.get(), std::make_format_args(args...)),
+                                        constexpr_basename(loc.file_name()), loc.line(),
+                                        constexpr_trim_ret(loc.function_name())));
+}
+
+/**
+ * @brief Prints a formatted warning message to std::clog including source location information.
+ * @param loc The source location where the warning occurred (defaults to current location).
+ * @param fmt The format string, compatible with std::format.
+ * @param args Arguments to be formatted into the format string.
+ */
+template <typename... Args>
+inline void logWarnAt(std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
+  std::clog << "WARN: " << std::vformat(fmt.get(), std::make_format_args(args...)) << " | "
+            << constexpr_basename(loc.file_name()) << ":" << loc.line() << " in "
+            << constexpr_trim_ret(loc.function_name()) << "\n";
+}
+
+/**
+ * @brief Logs a formatted debug message string to stderr.
+ * @param fmt The format string, compatible with std::format.
+ * @param args Arguments to be formatted into the format string.
+ */
+template <typename... Args> inline void logDebug(std::format_string<Args...> fmt, Args&&... args) {
+  if (!CmdlineArgs::debug)
+    return;
+
+  std::clog << "DEBUG: " << std::vformat(fmt.get(), std::make_format_args(args...)) << '\n';
+}
 
 #ifdef HAVE_AVX2
 #include <immintrin.h>
