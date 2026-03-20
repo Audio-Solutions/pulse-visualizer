@@ -700,7 +700,12 @@ void updateBounds() {
     return;
   boundsDirty.store(false);
 
-  for (auto& [key, state] : SDLWindow::states) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    auto it = SDLWindow::states.find(key);
+    if (it == SDLWindow::states.end())
+      continue;
+
+    auto state = it->second;
     if (!state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;

@@ -526,9 +526,9 @@ void load(bool recovering) {
   } catch (const std::exception& e) {
     // if already recovering, rethrow
     if (recovering)
-      throw e;
+      throw;
 
-    logWarnAt(std::source_location::current(), "Config load failed: {}", e.what());
+    std::clog << "WARN:" << e.what() << std::endl;
     tryRestore();
   }
 }
