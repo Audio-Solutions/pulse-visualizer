@@ -49,8 +49,10 @@ void setViewport(Bounds bounds) {
  * @param callback The function to call for each node pointer.
  */
 template <typename Fn> void walkTree(Node& nodePtr, Fn&& callback) {
-  if (!nodePtr)
+  if (!nodePtr) {
+    logWarnAt(std::source_location::current(), "Nullptr found while walking tree");
     return;
+  }
 
   // clang-format off
   std::visit(Visitor {
@@ -232,8 +234,10 @@ void Splitter::handleEvent(const SDL_Event& event) {
 }
 
 void updateBounds(Node& node, Bounds bounds) {
-  if (!node)
+  if (!node) {
+    logWarnAt(std::source_location::current(), "Nullptr found while walking tree");
     return;
+  }
 
   bounds.w = std::clamp(bounds.w, MIN_SIDELENGTH / 2, MAX_SIDELENGTH);
   bounds.h = std::clamp(bounds.h, MIN_SIDELENGTH / 2, MAX_SIDELENGTH);
@@ -548,8 +552,10 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
     // clang-format on
   });
 
-  if (!aParentPtr || !bParentPtr)
+  if (!aParentPtr || !bParentPtr) {
+    logWarnAt(std::source_location::current(), "Could not find parent pointers during insertion");
     return;
+  }
 
   auto dragging = VisualizerRegistry::find(draggingId);
   auto hovering = VisualizerRegistry::find(hoveringId);
@@ -583,7 +589,8 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
   }
 
   // Remove dragging node first
-  removeVisualizerById(it->second, draggingId);
+  if (!removeVisualizerById(it->second, draggingId))
+    logWarnAt(std::source_location::current(), "Could not remove dragged node while inserting");
 
   Node* hoveringNode = nullptr;
   walkTree(it->second, [&](Node& node) {
@@ -601,6 +608,8 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
   // Replace hovering with splitter
   if (hoveringNode)
     *hoveringNode = std::make_shared<WindowManager::Variant>(std::move(s));
+  else
+    logWarnAt(std::source_location::current(), "Could not find hovered node while inserting");
 
   // Trigger reload
   initialize();
@@ -609,13 +618,16 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
 
 void addVisualizerToGroup(const std::string& group, const std::string& id) {
   auto vis = VisualizerRegistry::find(id);
-  if (!vis)
+  if (!vis) {
+    logWarnAt(std::source_location::current(), "Could not find visualizer with id '{}'", id);
     return;
+  }
 
   auto [it, inserted] = Config::options.visualizers.try_emplace(group);
   auto& root = it->second;
   if (!root) {
     root = std::make_shared<WindowManager::Variant>(vis);
+    logDebug("Created new window '{}' with visualizer '{}'", group, id);
   } else {
     // Create a new splitter that contains the existing root and the new id
     Splitter s;
@@ -624,6 +636,7 @@ void addVisualizerToGroup(const std::string& group, const std::string& id) {
     s.primary = std::move(root);
     s.secondary = std::make_shared<WindowManager::Variant>(vis);
     root = std::make_shared<WindowManager::Variant>(std::move(s));
+    logDebug("Inserted visualizer '{}' into window '{}'", id, group);
   }
 
   boundsDirty.store(true);
@@ -631,11 +644,17 @@ void addVisualizerToGroup(const std::string& group, const std::string& id) {
 
 void removeVisualizerFromGroup(const std::string& group, const std::string& id) {
   auto it = Config::options.visualizers.find(group);
-  if (it == Config::options.visualizers.end())
+  if (it == Config::options.visualizers.end()) {
+    logWarnAt(std::source_location::current(), "Could not find window with group '{}'", group);
     return;
-  removeVisualizerById(it->second, id);
-  if (!it->second)
+  }
+
+  if (removeVisualizerById(it->second, id))
+    logDebug("Removed visualizer '{}' from window '{}'", id, group);
+  if (!it->second) {
     Config::options.visualizers.erase(group);
+    logDebug("Deleted empty window '{}'", group);
+  }
 
   initialize();
 }
@@ -682,8 +701,10 @@ void updateBounds() {
   boundsDirty.store(false);
 
   for (auto& [key, state] : SDLWindow::states) {
-    if (!state.root)
+    if (!state.root) {
+      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
+    }
 
     SDL_GL_MakeCurrent(state.win, state.glContext);
     updateBounds(state.root, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
@@ -721,8 +742,10 @@ void cleanup() {
   for (auto& [key, state] : SDLWindow::states) {
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    if (!state.root)
+    if (!state.root) {
+      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
+    }
 
     walkTree(state.root, [&](Node& ptr) {
       // clang-format off
@@ -738,15 +761,16 @@ void cleanup() {
 void handleEvent(const SDL_Event& event) {
   for (auto& [key, state] : SDLWindow::states) {
 
-    if (!state.root)
+    if (!state.root) {
+      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
+    }
 
     walkTree(state.root, [&](Node& ptr) {
       // clang-format off
       std::visit(Visitor {
         [&](std::shared_ptr<VisualizerWindow>& w) { w->handleEvent(event); },
-        [&](Splitter& s) { s.handleEvent(event); },
-        [&](auto&) {}},
+        [&](Splitter& s) { s.handleEvent(event); }},
         *ptr);
       // clang-format on
     });

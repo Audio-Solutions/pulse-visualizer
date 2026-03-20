@@ -181,7 +181,7 @@ std::string findFont(const std::string& path) {
   if (stat(resolved.c_str(), &buf) == 0)
     return resolved;
 
-  logWarnAt(std::source_location::current(), "Font '{}' not found at '{}'", basename(path.c_str()), resolved);
+  logWarnAt(std::source_location::current(), "Font '{}' not found at {}", basename(path.c_str()), resolved);
 
   return "";
 }
@@ -194,14 +194,12 @@ void load() {
   // Initialize FreeType library for this window
   if (!ftLib) {
     if (FT_Init_FreeType(&ftLib) != 0)
-      return;
+      throw makeErrorAt(std::source_location::current(), "Failed to initialize FreeType");
   }
 
   // Load font face for this window
-  if (FT_New_Face(ftLib, path.c_str(), 0, &face))
-    return;
-
-  glyphCache = {};
+  if (FT_New_Face(ftLib, path.c_str(), 0, &face) != 0)
+    throw makeErrorAt(std::source_location::current(), "Failed to load font at {}", path);
 }
 
 void cleanup() {
@@ -238,7 +236,7 @@ GlyphTexture& getGlyphTexture(char c, float size) {
   FT_Set_Pixel_Sizes(face, 0, size);
 
   if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-    logDebug("Failed to load glyph for character '{}' at size {}", c, size);
+    logWarnAt(std::source_location::current(), "Failed to load glyph for character '{}' at size {}", c, size);
     static GlyphTexture empty = {0, 0, 0, 0, 0, 0};
     return empty;
   }

@@ -87,7 +87,7 @@ void loadAll() {
     std::filesystem::create_directories(dir);
 
   if (!std::filesystem::is_directory(dir))
-    return;
+    throw makeErrorAt(std::source_location::current(), "Failed to create directory '{}'", dir.c_str());
 
   for (const auto& entry : std::filesystem::directory_iterator {dir}) {
 #ifdef _WIN32
