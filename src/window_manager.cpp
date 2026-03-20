@@ -890,7 +890,7 @@ void VisualizerWindow::cleanup() {
 void VisualizerWindow::draw() {
   // Validate phosphor output texture
   if (!glIsTexture(phosphor.outputTexture)) [[unlikely]] {
-    throw std::runtime_error("WindowManager::VisualizerWindow::draw(): outputTexture is not a Texture");
+    throw makeErrorAt(std::source_location::current(), "outputTexture is not a texture");
   }
 
   if (Config::options.phosphor.enabled) {
@@ -924,7 +924,7 @@ void VisualizerWindow::draw() {
   // Check for OpenGL errors
   GLenum err = glGetError();
   if (err != GL_NO_ERROR) [[unlikely]]
-    logDebug("WindowManager::VisualizerWindow::draw(): OpenGL error during draw: {}", std::to_string(err));
+    logDebug("OpenGL error during draw: {}", std::to_string(err));
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {

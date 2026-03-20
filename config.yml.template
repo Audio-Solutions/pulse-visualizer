@@ -106,6 +106,7 @@ phosphor:
     vignette: 0.300000012
     chromatic_aberration: 0.00300000235
     grain: 0.100000001
+    aa_size: 4
   reflections:
     strength: 0.699999988
 

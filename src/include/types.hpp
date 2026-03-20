@@ -367,6 +367,7 @@ struct Options {
       float vignette = 0.3f;
       float chromatic_aberration = 0.008f;
       float grain = 0.1f;
+      int aa_size = 4;
     } screen;
 
     struct Reflections {

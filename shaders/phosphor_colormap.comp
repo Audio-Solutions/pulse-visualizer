@@ -37,6 +37,7 @@ uniform float chromaticAberrationStrength;
 uniform ivec2 texSize;
 uniform bool colorBeam;
 uniform float borderReflectionStrength;
+uniform int aaSize;
 
 // CRT curvature distortion
 vec2 crtDistortion(vec2 uv) {
@@ -149,11 +150,11 @@ vec3 sampleCA(vec2 uv) {
 vec3 sampleAA(vec2 uv) {
   vec3 result = vec3(0.0);
   float weightSum = 0.0;
-  const float AA_WEIGHT = 1.0 / 16.0;
+  float AA_WEIGHT = 1.0 / float(aaSize * aaSize);
 
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      vec2 offset = (vec2(float(i), float(j)) / float(4 - 1) - 0.5) / texSize;
+  for (int i = 0; i < aaSize; i++) {
+    for (int j = 0; j < aaSize; j++) {
+      vec2 offset = (vec2(float(i), float(j)) / float(aaSize - 1) - 0.5) / texSize;
       result += sampleCA(uv + offset) * AA_WEIGHT;
       weightSum += AA_WEIGHT;
     }

@@ -429,6 +429,12 @@ inline constexpr std::array intFields = {
     FieldUi<int>::slider(0, 32, 1, true)),
 
   PV_SCHEMA_FIELD(
+    int, phosphor.screen.aa_size,
+    "AntiAliasing size",
+    "Size of the AntiAliasing pass during color-mapping.",
+    FieldUi<int>::slider(2, 16, 0, false)),
+
+  PV_SCHEMA_FIELD(
     int, lissajous.spline.segments,
     "Spline Segments",
     "Number of interpolated points between each pair of samples.\n"

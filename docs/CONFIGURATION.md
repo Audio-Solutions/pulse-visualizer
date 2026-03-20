@@ -328,6 +328,9 @@ phosphor:
     # Grain strength (spatial noise, 0.0-1.0)
     grain: 0.1
 
+    # AntiAliasing size (2-16)
+    aa_size: 4
+
   # Reflections settings
   reflections:
     # Strength of reflections (0.0-1.0)

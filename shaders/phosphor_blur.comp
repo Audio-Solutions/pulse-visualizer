@@ -29,21 +29,18 @@ layout(binding = 4, r32ui) uniform uimage2D outputTexG;
 layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
 uniform float line_blur_spread;
-uniform vec2 texSize;
+uniform ivec2 texSize;
 uniform int blur_direction; // 0: horizontal, 1: vertical
 uniform int kernel_type;    // 0: F kernel, 1: G kernel
 uniform float f_intensity;
 uniform float g_intensity;
 uniform bool colorBeam;
 
-const float PI = 3.14159265359;
-
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  ivec2 texSizeInt = ivec2(texSize);
 
   // Out-of-bounds check
-  if (coord.x >= texSizeInt.x || coord.y >= texSizeInt.y)
+  if (coord.x >= texSize.x || coord.y >= texSize.y)
     return;
 
   int range_filter = int(ceil(line_blur_spread * 2.0)) * 2 + 1;
@@ -115,7 +112,7 @@ void main() {
     ivec2 pos = coord + i * stepVec;
     ivec2 neg = coord - i * stepVec;
 
-    if (pos.x >= 0 && pos.x < texSizeInt.x && pos.y >= 0 && pos.y < texSizeInt.y) {
+    if (pos.x >= 0 && pos.x < texSize.x && pos.y >= 0 && pos.y < texSize.y) {
       sumR += float(imageLoad(inputTexR, pos).r) * kernel_weight;
       if (colorBeam) {
         sumG += float(imageLoad(inputTexG, pos).r) * kernel_weight;
@@ -123,7 +120,7 @@ void main() {
       }
       kernelSum += kernel_weight;
     }
-    if (neg.x >= 0 && neg.x < texSizeInt.x && neg.y >= 0 && neg.y < texSizeInt.y) {
+    if (neg.x >= 0 && neg.x < texSize.x && neg.y >= 0 && neg.y < texSize.y) {
       sumR += float(imageLoad(inputTexR, neg).r) * kernel_weight;
       if (colorBeam) {
         sumG += float(imageLoad(inputTexG, neg).r) * kernel_weight;

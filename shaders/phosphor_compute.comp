@@ -38,6 +38,7 @@ layout(r32ui, binding = 1) restrict uniform uimage2D energyTexG;
 layout(r32ui, binding = 2) restrict uniform uimage2D energyTexB;
 
 uniform bool colorBeam;
+uniform ivec2 texSize;
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
@@ -55,8 +56,6 @@ void main() {
   // Last vertex has no segment
   if (index + 1 >= vertexCount)
     return;
-
-  ivec2 texSize = imageSize(energyTexR);
 
   vec3 nextVertex = vertices[index + 1];
   vec2 nextPos = nextVertex.xy;
