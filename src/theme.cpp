@@ -275,7 +275,7 @@ bool reload() {
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
 #endif
-    LOG_ERROR("Warning: could not stat theme file.");
+    logWarnAt(std::source_location::current(), "Could not stat theme file");
     return false;
   }
   static time_t lastThemeMTime = st.st_mtime;

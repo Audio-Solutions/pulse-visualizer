@@ -181,7 +181,8 @@ std::string findFont(const std::string& path) {
   if (stat(resolved.c_str(), &buf) == 0)
     return resolved;
 
-  logWarnAt(std::source_location::current(), "Font '{}' not found at {}", basename(path.c_str()), resolved);
+  logWarnAt(std::source_location::current(), "Font '{}' not found at {}",
+            std::filesystem::path(path).filename().string(), resolved);
 
   return "";
 }

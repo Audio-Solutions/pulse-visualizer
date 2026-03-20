@@ -247,7 +247,7 @@ void threadFunc();
  * @param outDevice Device pointer
  * @return Success status
  */
-bool selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice);
+void selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice);
 
 /**
  * @brief Find audio device by name
@@ -255,7 +255,7 @@ bool selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice);
  * @param outDevice Device pointer
  * @return Success status
  */
-bool select(const std::string& targetName, IMMDevice** outDevice);
+void select(const std::string& targetName, IMMDevice** outDevice);
 
 /**
  * @brief Cleanup WASAPI resources

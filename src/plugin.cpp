@@ -87,7 +87,7 @@ void loadAll() {
     std::filesystem::create_directories(dir);
 
   if (!std::filesystem::is_directory(dir))
-    throw makeErrorAt(std::source_location::current(), "Failed to create directory '{}'", dir.c_str());
+    throw makeErrorAt(std::source_location::current(), "Failed to create directory '{}'", dir.string());
 
   for (const auto& entry : std::filesystem::directory_iterator {dir}) {
 #ifdef _WIN32
@@ -97,7 +97,7 @@ void loadAll() {
 #endif
       continue;
 
-    logDebug("Loading {}", entry.path().filename().c_str());
+    logDebug("Loading {}", entry.path().filename().string());
 
 #ifdef _WIN32
     HMODULE handle = LoadLibrary(entry.path().string().c_str());

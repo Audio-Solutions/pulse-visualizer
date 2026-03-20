@@ -363,8 +363,8 @@ void updateBounds(Node& node, Bounds bounds) {
         else
           s.ratio = std::clamp(s.ratio, minRatio, maxRatio);
         s.movable = true;
-      } else if (primaryAxis == ConstraintType::Forced && secondaryAxis == ConstraintType::Minimum ||
-                primaryAxis == ConstraintType::Minimum && secondaryAxis == ConstraintType::Forced) {
+      } else if ((primaryAxis == ConstraintType::Forced && secondaryAxis == ConstraintType::Minimum) ||
+                (primaryAxis == ConstraintType::Minimum && secondaryAxis == ConstraintType::Forced)) {
         boundAxis = std::max(boundAxis, primaryAxisSize + secondaryAxisSize + SPLITTER_WIDTH);
         s.ratio = primaryAxis == ConstraintType::Forced
                         ? static_cast<float>(primaryAxisSize) / (boundAxis - SPLITTER_WIDTH)
@@ -1015,7 +1015,7 @@ void initialize() {
   std::vector<std::string> toDestroy;
   toDestroy.reserve(SDLWindow::states.size());
   for (auto const& [key, state] : SDLWindow::states) {
-    if (state.removable & Config::options.visualizers.find(key) == Config::options.visualizers.end())
+    if (state.removable && Config::options.visualizers.find(key) == Config::options.visualizers.end())
       toDestroy.push_back(key);
   }
   for (auto const& key : toDestroy)

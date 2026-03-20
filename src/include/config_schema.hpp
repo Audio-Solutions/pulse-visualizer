@@ -430,8 +430,8 @@ inline constexpr std::array intFields = {
 
   PV_SCHEMA_FIELD(
     int, phosphor.screen.aa_size,
-    "AntiAliasing size",
-    "Size of the AntiAliasing pass during color-mapping.",
+    "Anti-Aliasing size",
+    "Size of the Anti-Aliasing pass during color-mapping.",
     FieldUi<int>::slider(2, 16, 0, false)),
 
   PV_SCHEMA_FIELD(

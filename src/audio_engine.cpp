@@ -572,7 +572,7 @@ std::vector<std::string> enumerate() {
 }
 
 #else
-bool init() { throw makeErrorAt(std::source_location::current(), "PipeWire unavailable"); }
+void init() { throw makeErrorAt(std::source_location::current(), "PipeWire unavailable"); }
 bool read(float*, size_t) { return false; }
 bool reconfigure(const std::string&, uint32_t, size_t) { return false; }
 std::vector<std::string> enumerate() { return {}; }
@@ -677,21 +677,21 @@ std::string WideToUtf8(const std::wstring& wstr) {
   return result;
 }
 
-bool selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice) {
+void selectDefault(IMMDeviceEnumerator* enumerator, IMMDevice** outDevice) {
   HRESULT hr;
   IMMDevice* device = nullptr;
 
   hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
   if (SUCCEEDED(hr)) {
     *outDevice = device;
-    return true;
+    return;
   }
 
-  LOG_ERROR(std::string("Failed to get default audio endpoint: ") + _com_error(hr).ErrorMessage());
-  return false;
+  throw makeErrorAt(std::source_location::current(),
+              "Failed to get default audio endpoint: {}", _com_error(hr).ErrorMessage());
 }
 
-bool select(const std::string& targetName, IMMDevice** outDevice) {
+void select(const std::string& targetName, IMMDevice** outDevice) {
   HRESULT hr;
   IMMDeviceEnumerator* enumerator = nullptr;
   IMMDeviceCollection* collection = nullptr;
@@ -699,8 +699,8 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
   hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
                         (void**)&enumerator);
   if (FAILED(hr)) {
-    LOG_ERROR(std::string("Failed to create device enumerator: ") + _com_error(hr).ErrorMessage());
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to create device enumerator: {}",
+                      _com_error(hr).ErrorMessage());
   }
 
   std::string targetNameCorrected = targetName;
@@ -708,16 +708,16 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
                  [](unsigned char c) { return std::tolower(c); });
 
   if (targetNameCorrected == "default") {
-    bool defaultSuccess = selectDefault(enumerator, outDevice);
+    selectDefault(enumerator, outDevice);
     enumerator->Release();
-    return defaultSuccess;
+    return;
   }
 
   hr = enumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &collection);
   if (FAILED(hr)) {
-    LOG_ERROR(std::string("Failed to enumerate audio endpoints: ") + _com_error(hr).ErrorMessage());
     enumerator->Release();
-    return false;
+    throw makeErrorAt(std::source_location::current(), "Failed to enumerate audio endpoints: {}",
+                      _com_error(hr).ErrorMessage());
   }
 
   UINT count;
@@ -752,7 +752,7 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
         PropVariantClear(&name);
         collection->Release();
         enumerator->Release();
-        return true;
+        return;
       }
     }
 
@@ -761,13 +761,12 @@ bool select(const std::string& targetName, IMMDevice** outDevice) {
     device->Release();
   }
 
-  LOG_ERROR(std::string("Device not found: ") + targetName + ", selecting the default output device");
+  logWarnAt(std::source_location::current(), "Audio device '{}' not found. Selecting default device", targetName);
 
-  bool defaultSuccess = selectDefault(enumerator, outDevice);
+  selectDefault(enumerator, outDevice);
 
   collection->Release();
   enumerator->Release();
-  return defaultSuccess;
 }
 
 #define SAFE_RELEASE(punk)                                                                                             \
@@ -780,7 +779,8 @@ void cleanup() {
   initialized = false;
   running = false;
 
-  wasapiThread.join();
+  if (wasapiThread.joinable())
+    wasapiThread.join();
   CoTaskMemFree(wfx);
   SAFE_RELEASE(currentDevice);
   SAFE_RELEASE(audioClient);
@@ -797,12 +797,15 @@ void init() {
   // Initializes the COM library
   hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
   if (!SUCCEEDED(hr) && hr != S_FALSE && hr != RPC_E_CHANGED_MODE)
-    throw makeErrorAt(std::source_location::current(), "Failed to initialize COM: {}" _com_error(hr).ErrorMessage());
+    throw makeErrorAt(std::source_location::current(), "Failed to initialize COM: {}", _com_error(hr).ErrorMessage());
 
   // Try selecting the wanted audio device
-  if (!select(Config::options.audio.device, &currentDevice)) {
+  try {
+    select(Config::options.audio.device, &currentDevice);
+  } catch (const std::exception& e) {
     cleanup();
-    throw makeErrorAt(std::source_location::current(), "Failed select default device");
+    throw makeErrorAt(std::source_location::current(), "Failed to select specified audio device: {}. Error: {}",
+                      Config::options.audio.device, e.what());
   }
 
   EDataFlow flow;
@@ -853,7 +856,7 @@ void init() {
       ss << " (unknown)";
     }
 
-    logDebug(ss.str());
+    logDebug("{}", ss.str());
   } while (false);
 
   // Activate the current device
@@ -861,14 +864,14 @@ void init() {
   if (!SUCCEEDED(hr)) {
     cleanup();
     throw makeErrorAt(std::source_location::current(), "Failed to activate current device: {}",
-                      +_com_error(hr).ErrorMessage());
+                      _com_error(hr).ErrorMessage());
   }
 
   // Get mix format
   hr = audioClient->GetMixFormat(&wfx);
   if (!SUCCEEDED(hr)) {
     cleanup();
-    throw makeErrorAt(std::source_location::current(), "Failed to get mix format: {}", +_com_error(hr).ErrorMessage());
+    throw makeErrorAt(std::source_location::current(), "Failed to get mix format: {}", _com_error(hr).ErrorMessage());
   }
 
   // Check if the mix format is F32, otherwise we fail because we can't do anything about
@@ -963,15 +966,17 @@ std::vector<std::string> enumerate() {
   hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
                         (void**)&enumerator);
   if (FAILED(hr)) {
-    LOG_ERROR(std::string("Failed to create device enumerator: ") + _com_error(hr).ErrorMessage());
-    return {};
+    throw makeErrorAt(std::source_location::current(), "Failed to create device enumerator: {}",
+                      _com_error(hr).ErrorMessage());
+    //return {};
   }
 
   hr = enumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &collection);
   if (FAILED(hr)) {
-    LOG_ERROR(std::string("Failed to enumerate audio endpoints: ") + _com_error(hr).ErrorMessage());
     enumerator->Release();
-    return {};
+    throw makeErrorAt(std::source_location::current(), "Failed to enumerate audio endpoints: {}",
+                      _com_error(hr).ErrorMessage());
+    //return {};
   }
 
   UINT count;
