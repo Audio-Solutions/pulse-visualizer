@@ -109,9 +109,8 @@ constexpr const char* constexpr_trim_ret(const char* p) noexcept {
  * @return std::runtime_error The constructed runtime error with the formatted message.
  */
 template <typename... Args>
-[[nodiscard]] inline std::runtime_error makeErrorAt(std::source_location loc, std::format_string<Args...> fmt,
-                                                    Args&&... args) {
-  return std::runtime_error(std::format("{} | {}:{} in {}", std::vformat(fmt.get(), std::make_format_args(args...)),
+std::runtime_error makeErrorAt(std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
+  return std::runtime_error(std::format("{} | {}:{} in {}", std::format(fmt, std::forward<Args>(args)...),
                                         constexpr_basename(loc.file_name()), loc.line(),
                                         constexpr_trim_ret(loc.function_name())));
 }
@@ -122,11 +121,9 @@ template <typename... Args>
  * @param fmt The format string, compatible with std::format.
  * @param args Arguments to be formatted into the format string.
  */
-template <typename... Args>
-inline void logWarnAt(std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
-  std::clog << "WARN: " << std::vformat(fmt.get(), std::make_format_args(args...)) << " | "
-            << constexpr_basename(loc.file_name()) << ":" << loc.line() << " in "
-            << constexpr_trim_ret(loc.function_name()) << "\n";
+template <typename... Args> void logWarnAt(std::source_location loc, std::format_string<Args...> fmt, Args&&... args) {
+  std::clog << "WARN: " << std::format(fmt, std::forward<Args>(args)...) << " | " << constexpr_basename(loc.file_name())
+            << ":" << loc.line() << " in " << constexpr_trim_ret(loc.function_name()) << "\n";
 }
 
 /**
@@ -134,11 +131,11 @@ inline void logWarnAt(std::source_location loc, std::format_string<Args...> fmt,
  * @param fmt The format string, compatible with std::format.
  * @param args Arguments to be formatted into the format string.
  */
-template <typename... Args> inline void logDebug(std::format_string<Args...> fmt, Args&&... args) {
+template <typename... Args> void logDebug(std::format_string<Args...> fmt, Args&&... args) {
   if (!CmdlineArgs::debug)
     return;
 
-  std::clog << "DEBUG: " << std::vformat(fmt.get(), std::make_format_args(args...)) << '\n';
+  std::clog << "DEBUG: " << std::format(fmt, std::forward<Args>(args)...) << '\n';
 }
 
 #ifdef HAVE_AVX2
