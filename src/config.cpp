@@ -648,6 +648,7 @@ bool reload() {
       return true;
     }
   }
+
 #else
   // Check for file changes using stat (non-Linux systems)
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
@@ -658,7 +659,7 @@ bool reload() {
   struct stat st;
   if (stat(path.c_str(), &st) != 0) {
 #endif
-    LOG_ERROR("Warning: could not stat config file.");
+    logWarnAt(std::source_location::current(), "Could not stat config file.");
     return false;
   }
   static time_t lastConfigMTime = st.st_mtime;
