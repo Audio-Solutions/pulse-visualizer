@@ -603,8 +603,7 @@ void save() {
       std::visit([&](const auto& v) { setNodeByPath(pluginNode, key.second, v); }, rec.value);
       pluginsNode[key.first] = pluginNode;
     }
-    if (pluginsNode.IsDefined() && pluginsNode.size() > 0)
-      root["plugins"] = pluginsNode;
+    root["plugins"] = pluginsNode;
   }
 
   YAML::Emitter out;

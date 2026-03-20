@@ -712,7 +712,12 @@ void updateBounds() {
 }
 
 void render() {
-  for (auto& [key, state] : SDLWindow::states) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    auto it = SDLWindow::states.find(key);
+    if (it == SDLWindow::states.end())
+      continue;
+
+    auto state = it->second;
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
     if (!state.root)
@@ -739,7 +744,12 @@ void render() {
 }
 
 void cleanup() {
-  for (auto& [key, state] : SDLWindow::states) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    auto it = SDLWindow::states.find(key);
+    if (it == SDLWindow::states.end())
+      continue;
+
+    auto state = it->second;
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
     if (!state.root) {
@@ -759,7 +769,12 @@ void cleanup() {
 }
 
 void handleEvent(const SDL_Event& event) {
-  for (auto& [key, state] : SDLWindow::states) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    auto it = SDLWindow::states.find(key);
+    if (it == SDLWindow::states.end())
+      continue;
+
+    auto state = it->second;
 
     if (!state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);

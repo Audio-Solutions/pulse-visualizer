@@ -170,3 +170,5 @@ visualizers:
         children:
           - id: waveform
           - id: spectrogram
+
+plugins: {}
