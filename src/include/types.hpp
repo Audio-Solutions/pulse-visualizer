@@ -90,6 +90,7 @@ public:
   std::string displayName;
   std::string group;
   Bounds bounds;
+  Bounds drawBounds = Bounds {}; // Used for supersampling lissajous in headless
   float aspectRatio = 0;
   size_t forceWidth = 0;
   size_t pointCount = 0;
@@ -407,6 +408,9 @@ namespace DSP {
 // Audio buffer data
 extern std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 extern std::vector<float, AlignedAllocator<float, 32>> bufferSide;
+extern std::vector<float, AlignedAllocator<float, 32>> bufferR;
+extern std::vector<float, AlignedAllocator<float, 32>> bufferG;
+extern std::vector<float, AlignedAllocator<float, 32>> bufferB;
 extern std::vector<float, AlignedAllocator<float, 32>> bandpassed;
 extern std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 

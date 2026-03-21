@@ -20,6 +20,7 @@
 #include "include/config.hpp"
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
+#include "include/headless.hpp"
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
@@ -191,7 +192,7 @@ void LissajousVisualizer::render() {
       vertexData.push_back(0);
 
       // Calculate direction-based gradient using HSV
-      if (Config::options.phosphor.beam.rainbow) {
+      if (Config::options.phosphor.beam.rainbow && !Headless::hasRGBCh) {
         float hue = 0.0f;
         float saturation = 0.6f;
         float value = 1.0f;
@@ -229,6 +230,12 @@ void LissajousVisualizer::render() {
         vertexColors.push_back(r);
         vertexColors.push_back(g);
         vertexColors.push_back(b);
+        vertexColors.push_back(1.0f);
+      } else if (Config::options.phosphor.beam.rainbow && Headless::hasRGBCh) {
+        size_t idx = (start + i) % DSP::bufferSize;
+        vertexColors.push_back(DSP::bufferR[idx]);
+        vertexColors.push_back(DSP::bufferG[idx]);
+        vertexColors.push_back(DSP::bufferB[idx]);
         vertexColors.push_back(1.0f);
       } else {
         vertexColors.push_back(1.0f);

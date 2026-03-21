@@ -23,6 +23,7 @@
 #include "include/config_window.hpp"
 #include "include/dsp.hpp"
 #include "include/graphics.hpp"
+#include "include/headless.hpp"
 #include "include/plugin.hpp"
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
@@ -47,6 +48,10 @@
 namespace CmdlineArgs {
 bool debug = false;
 bool help = false;
+bool limitFps = false;
+std::string file = "";
+std::string outFile = "./out.mp4";
+int resolution = 1024;
 #ifdef _WIN32
 bool console = false;
 #endif
@@ -127,6 +132,32 @@ int main(int argc, char** argv) {
         } else if (std::string(argv[i]) == "--console") {
           CmdlineArgs::console = true;
 #endif
+        } else if (std::string(argv[i]) == "--limit") {
+          CmdlineArgs::limitFps = true;
+        } else if (std::string(argv[i]) == "--file") {
+          if (i + 1 >= argc) {
+            std::cerr << "--file requires a value\n";
+            return 1;
+          }
+
+          CmdlineArgs::file = argv[i + 1];
+          i++;
+        } else if (std::string(argv[i]) == "--out") {
+          if (i + 1 >= argc) {
+            std::cerr << "--out requires a value\n";
+            return 1;
+          }
+
+          CmdlineArgs::outFile = argv[i + 1];
+          i++;
+        } else if (std::string(argv[i]) == "--res") {
+          if (i + 1 >= argc) {
+            std::cerr << "--res requires a value\n";
+            return 1;
+          }
+
+          CmdlineArgs::resolution = std::stoi(argv[i + 1]);
+          i++;
         }
         break;
       case 'd':
@@ -135,11 +166,41 @@ int main(int argc, char** argv) {
       case 'h':
         CmdlineArgs::help = true;
         break;
+      case 'l':
+        CmdlineArgs::limitFps = true;
+        break;
 #ifdef _WIN32
       case 'c':
         CmdlineArgs::console = true;
         break;
 #endif
+      case 'f':
+        if (i + 1 >= argc) {
+          std::cerr << "-f requires a value\n";
+          return 1;
+        }
+
+        CmdlineArgs::file = argv[i + 1];
+        i++;
+        break;
+      case 'o':
+        if (i + 1 >= argc) {
+          std::cerr << "-o requires a value\n";
+          return 1;
+        }
+
+        CmdlineArgs::file = argv[i + 1];
+        i++;
+        break;
+      case 'r':
+        if (i + 1 >= argc) {
+          std::cerr << "-r requires a value\n";
+          return 1;
+        }
+
+        CmdlineArgs::resolution = std::stoi(argv[i + 1]);
+        i++;
+        break;
       }
     }
   }
@@ -150,9 +211,28 @@ int main(int argc, char** argv) {
     std::cout << "Options:\n";
     std::cout << "  -d, --debug       Enable debug mode\n";
     std::cout << "  -h, --help        Show this help message\n";
+    std::cout << "  -f, --file        File to read from (headless mode)\n";
+    std::cout << "  -o, --out         File to write to (headless mode, default './out.mp4')\n";
+    std::cout << "  -r, --res         Resolution to render VectorScope at (default 1024)\n";
+    std::cout << "  -l, --limit       Limit FPS to config setting when rendering to file\n";
 #ifdef _WIN32
-    std::cout << "  -c, --console     Open console window (Windows only)\n";
+    std::cout << "  -c, --console     Open console window\n";
 #endif
+    return 0;
+  }
+
+  if (CmdlineArgs::file != "") {
+    Config::load();
+    Theme::load();
+    Config::options.window.default_height = 512;
+    Config::options.window.default_width = 512;
+    SDLWindow::init();
+    SDLWindow::clear();
+    SDLWindow::display();
+    Headless::render();
+    SDLWindow::deinit();
+    Config::cleanup();
+    Theme::cleanup();
     return 0;
   }
 

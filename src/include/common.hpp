@@ -68,6 +68,10 @@ using namespace std::literals;
 namespace CmdlineArgs {
 extern bool debug;
 extern bool help;
+extern bool limitFps;
+extern std::string file;
+extern std::string outFile;
+extern int resolution;
 #ifdef _WIN32
 extern bool console;
 #endif

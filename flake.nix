@@ -42,6 +42,7 @@
               pkgs.curl
               pkgs.yaml-cpp
               pkgs.libebur128
+              pkgs.ffmpeg-full
             ];
 
             strictDeps = true;

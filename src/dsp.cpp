@@ -30,6 +30,9 @@ namespace DSP {
 // Audio buffer data with SIMD alignment
 std::vector<float, AlignedAllocator<float, 32>> bufferMid;
 std::vector<float, AlignedAllocator<float, 32>> bufferSide;
+std::vector<float, AlignedAllocator<float, 32>> bufferR;
+std::vector<float, AlignedAllocator<float, 32>> bufferG;
+std::vector<float, AlignedAllocator<float, 32>> bufferB;
 std::vector<float, AlignedAllocator<float, 32>> bandpassed;
 std::vector<float, AlignedAllocator<float, 32>> lowpassed;
 

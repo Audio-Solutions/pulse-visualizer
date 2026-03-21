@@ -943,11 +943,21 @@ void VisualizerWindow::draw() {
     glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
     glColor4f(1.f, 1.f, 1.f, 1.f);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    float w = static_cast<float>(bounds.w);
-    float h = static_cast<float>(bounds.h);
+    float w = static_cast<float>(drawBounds.w > MIN_SIDELENGTH ? drawBounds.w : bounds.w);
+    float h = static_cast<float>(drawBounds.h > MIN_SIDELENGTH ? drawBounds.h : bounds.h);
     float y = 0.0f;
 
-    float vertices[] = {0.0f, y, 0.f, 0.f, w, y, 1.f, 0.f, w, y + h, 1.f, 1.f, 0.0f, y + h, 0.f, 1.f};
+    bool flipY = (drawBounds.w > MIN_SIDELENGTH && drawBounds.h > MIN_SIDELENGTH);
+    float vertices[16];
+    if (!flipY) {
+      // Standard orientation
+      float verts[] = {0.0f, y, 0.f, 0.f, w, y, 1.f, 0.f, w, y + h, 1.f, 1.f, 0.0f, y + h, 0.f, 1.f};
+      std::copy(std::begin(verts), std::end(verts), vertices);
+    } else {
+      // Flip Y: swap v texcoords (0 <-> 1)
+      float verts[] = {0.0f, y, 0.f, 1.f, w, y, 1.f, 1.f, w, y + h, 1.f, 0.f, 0.0f, y + h, 0.f, 0.f};
+      std::copy(std::begin(verts), std::end(verts), vertices);
+    }
 
     // Draw textured quad
     glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);

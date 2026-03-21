@@ -101,6 +101,16 @@ endif()
 # Find FFTW
 pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3f)
 
+# Find FFmpeg libraries
+pkg_check_modules(FFMPEG REQUIRED 
+  IMPORTED_TARGET 
+  libavformat 
+  libavcodec 
+  libavutil 
+  libswresample
+  libswscale
+)
+
 # Find FreeType
 pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 
@@ -222,6 +232,7 @@ endif()
 target_link_libraries(pulse-visualizer PRIVATE
   ${SDL3_LIBRARIES}
   PkgConfig::FFTW
+  PkgConfig::FFMPEG
   PkgConfig::FREETYPE
   OpenGL::GL
   yaml-cpp::yaml-cpp

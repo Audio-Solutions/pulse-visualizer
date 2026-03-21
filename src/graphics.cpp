@@ -20,6 +20,7 @@
 #include "include/graphics.hpp"
 
 #include "include/config.hpp"
+#include "include/headless.hpp"
 #include "include/sdl_window.hpp"
 #include "include/theme.hpp"
 #include "include/window_manager.hpp"
