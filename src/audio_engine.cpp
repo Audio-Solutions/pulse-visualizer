@@ -622,41 +622,50 @@ void threadFunc() {
         float* samples = reinterpret_cast<float*>(pData);
         size_t n_samples = numFrames * 2;
 
-        float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
+        if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
+          // If the buffer is silent, skip processing and just write zeros
+          for (size_t i = 0; i + 1 < n_samples; i += 2) {
+            DSP::bufferMid[DSP::writePos] = 0.f;
+            DSP::bufferSide[DSP::writePos] = 0.f;
+            DSP::writePos = (DSP::writePos + 1) % DSP::bufferSize;
+          }
+        } else {
+          float gain = powf(10.0f, Config::options.audio.gain_db / 20.0f);
 
-        // Process samples with SIMD optimization if available
+          // Process samples with SIMD optimization if available
 #ifdef HAVE_AVX2
-        size_t simd_samples = n_samples & ~7;
-        __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
-        __m256i right_idx = _mm256_setr_epi32(1, 3, 5, 7, 0, 0, 0, 0);
+          size_t simd_samples = n_samples & ~7;
+          __m256i left_idx = _mm256_setr_epi32(0, 2, 4, 6, 0, 0, 0, 0);
+          __m256i right_idx = _mm256_setr_epi32(1, 3, 5, 7, 0, 0, 0, 0);
 
-        for (size_t i = 0; i < simd_samples; i += 8) {
-          __m256 data = _mm256_loadu_ps(&samples[i]);
+          for (size_t i = 0; i < simd_samples; i += 8) {
+            __m256 data = _mm256_loadu_ps(&samples[i]);
 
-          __m256 left = _mm256_permutevar8x32_ps(data, left_idx);
-          __m256 right = _mm256_permutevar8x32_ps(data, right_idx);
+            __m256 left = _mm256_permutevar8x32_ps(data, left_idx);
+            __m256 right = _mm256_permutevar8x32_ps(data, right_idx);
 
-          __m256 vGain = _mm256_set1_ps(gain);
-          left = _mm256_mul_ps(left, vGain);
-          right = _mm256_mul_ps(right, vGain);
+            __m256 vGain = _mm256_set1_ps(gain);
+            left = _mm256_mul_ps(left, vGain);
+            right = _mm256_mul_ps(right, vGain);
 
-          __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), _mm256_set1_ps(0.5f));
-          __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), _mm256_set1_ps(0.5f));
+            __m256 mid = _mm256_mul_ps(_mm256_add_ps(left, right), _mm256_set1_ps(0.5f));
+            __m256 side = _mm256_mul_ps(_mm256_sub_ps(left, right), _mm256_set1_ps(0.5f));
 
-          _mm_storeu_ps(&DSP::bufferMid[DSP::writePos], _mm256_castps256_ps128(mid));
-          _mm_storeu_ps(&DSP::bufferSide[DSP::writePos], _mm256_castps256_ps128(side));
-          DSP::writePos = (DSP::writePos + 4) % DSP::bufferSize;
-        }
+            _mm_storeu_ps(&DSP::bufferMid[DSP::writePos], _mm256_castps256_ps128(mid));
+            _mm_storeu_ps(&DSP::bufferSide[DSP::writePos], _mm256_castps256_ps128(side));
+            DSP::writePos = (DSP::writePos + 4) % DSP::bufferSize;
+          }
 
-        for (size_t i = simd_samples; i + 1 < n_samples; i += 2) {
+          for (size_t i = simd_samples; i + 1 < n_samples; i += 2) {
 #else
-        for (size_t i = 0; i + 1 < n_samples; i += 2) {
+          for (size_t i = 0; i + 1 < n_samples; i += 2) {
 #endif
-          float left = samples[i] * gain;
-          float right = samples[i + 1] * gain;
-          DSP::bufferMid[DSP::writePos] = (left + right) / 2.0f;
-          DSP::bufferSide[DSP::writePos] = (left - right) / 2.0f;
-          DSP::writePos = (DSP::writePos + 1) % DSP::bufferSize;
+            float left = samples[i] * gain;
+            float right = samples[i + 1] * gain;
+            DSP::bufferMid[DSP::writePos] = (left + right) / 2.0f;
+            DSP::bufferSide[DSP::writePos] = (left - right) / 2.0f;
+            DSP::writePos = (DSP::writePos + 1) % DSP::bufferSize;
+          }
         }
 
         captureClient->ReleaseBuffer(numFrames);
