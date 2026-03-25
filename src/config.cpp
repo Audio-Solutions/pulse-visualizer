@@ -293,41 +293,54 @@ template <>
 void get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(
     const YAML::Node& root, std::string_view path,
     std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>& out) {
-  auto node = getNode(root, path);
+  YAML::Node node;
 
-  if (!node.IsMap())
-    throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
+  try {
+    node = getNode(root, path);
+  } catch (const std::exception& e) {
+    std::cerr << "WARN: " << e.what() << std::endl;
+    return;
+  }
+
+  if (!node.IsMap()) {
+    logWarnAt(std::source_location::current(), "{} is not a map", path);
+    return;
+  }
 
   std::lock_guard<std::mutex> lock(pluginOptionsMutex);
 
   for (auto& [key, rec] : out) {
-    std::string path = key.first + "." + key.second;
+    try {
+      std::string path = key.first + "." + key.second;
 
-    switch (rec.spec.type) {
-    case PluginConfigType::Bool: {
-      bool tmp = std::get<bool>(rec.value);
-      get<bool>(node, path, tmp);
-      rec.value = PluginConfigValue(tmp);
-      break;
-    }
-    case PluginConfigType::Int: {
-      int tmp = std::get<int>(rec.value);
-      get<int>(node, path, tmp);
-      rec.value = PluginConfigValue(tmp);
-      break;
-    }
-    case PluginConfigType::Float: {
-      float tmp = std::get<float>(rec.value);
-      get<float>(node, path, tmp);
-      rec.value = PluginConfigValue(tmp);
-      break;
-    }
-    case PluginConfigType::String: {
-      std::string tmp = std::get<std::string>(rec.value);
-      get<std::string>(node, path, tmp);
-      rec.value = PluginConfigValue(tmp);
-      break;
-    }
+      switch (rec.spec.type) {
+      case PluginConfigType::Bool: {
+        bool tmp = std::get<bool>(rec.value);
+        get<bool>(node, path, tmp);
+        rec.value = PluginConfigValue(tmp);
+        break;
+      }
+      case PluginConfigType::Int: {
+        int tmp = std::get<int>(rec.value);
+        get<int>(node, path, tmp);
+        rec.value = PluginConfigValue(tmp);
+        break;
+      }
+      case PluginConfigType::Float: {
+        float tmp = std::get<float>(rec.value);
+        get<float>(node, path, tmp);
+        rec.value = PluginConfigValue(tmp);
+        break;
+      }
+      case PluginConfigType::String: {
+        std::string tmp = std::get<std::string>(rec.value);
+        get<std::string>(node, path, tmp);
+        rec.value = PluginConfigValue(tmp);
+        break;
+      }
+      }
+    } catch (const std::exception& e) {
+      std::cerr << "WARN: " << e.what() << std::endl;
     }
   }
 }
