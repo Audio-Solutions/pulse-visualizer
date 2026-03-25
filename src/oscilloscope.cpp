@@ -140,9 +140,8 @@ void OscilloscopeVisualizer::render() {
   }
 
   if (Config::options.oscilloscope.spline.tension > FLT_EPSILON && Config::options.oscilloscope.spline.segments != 0)
-    points =
-        Spline::generate(points, {0.f, 0.f}, {bounds.w - 1, bounds.h - 1}, Config::options.oscilloscope.spline.segments,
-                         Config::options.oscilloscope.spline.tension);
+    points = Spline::generate(points, Config::options.oscilloscope.spline.segments,
+                              Config::options.oscilloscope.spline.tension);
 
   // Choose rendering color
   float* color = Theme::colors.color;
@@ -158,27 +157,19 @@ void OscilloscopeVisualizer::render() {
     std::vector<float> energies;
     energies.reserve(points.size());
 
-    // Calculate energy for phosphor effect
-    constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
-    energy *= Config::options.oscilloscope.beam_multiplier / samples * 1024.f;
-    energy /=
-        (Config::options.oscilloscope.spline.tension > FLT_EPSILON && Config::options.oscilloscope.spline.segments != 0
-             ? Config::options.oscilloscope.spline.segments
-             : 1.0f);
+    // Calculate frame energy
+    float energy = Config::options.phosphor.beam.energy;
+    energy *= Config::options.oscilloscope.beam_multiplier;
+    energy /= samples;
+    energy /= 1000.0f * 1000.0f;
+    energy *= bounds.w * bounds.h;
 
-    // Calculate energy for each line segment
-    for (size_t i = 0; i < points.size() - 1; i++) {
-      const auto& p1 = points[i];
-      const auto& p2 = points[i + 1];
+    if (Config::options.oscilloscope.spline.tension > FLT_EPSILON && Config::options.oscilloscope.spline.segments != 0)
+      energy /= Config::options.oscilloscope.spline.segments;
 
-      float dx = p2.first - p1.first;
-      float dy = p2.second - p1.second;
-      float len = sqrtf(dx * dx + dy * dy);
-      float totalE = energy * ((1.f / Config::options.audio.sample_rate) / len);
-
-      energies.push_back(totalE);
-    }
+    // Build energy vector
+    for (size_t i = 0; i < points.size() - 1; i++)
+      energies.push_back(energy);
 
     // Prepare vertex data for phosphor rendering
     for (size_t i = 0; i < points.size(); i++) {

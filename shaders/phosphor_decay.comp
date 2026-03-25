@@ -24,13 +24,14 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(binding = 0, r32ui) uniform uimage2D energyTexR;
 layout(binding = 1, r32ui) uniform uimage2D energyTexG;
 layout(binding = 2, r32ui) uniform uimage2D energyTexB;
-layout(binding = 3, r32ui) uniform uimage2D outputTexR;
-layout(binding = 4, r32ui) uniform uimage2D outputTexG;
-layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
-uniform float decay;
 uniform bool colorBeam;
 uniform ivec2 texSize;
+uniform float thresh;
+uniform float tail;
+uniform float depth;
+
+const float SCALE = 65536;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -43,16 +44,16 @@ void main() {
   uint currentEnergyG = colorBeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorBeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  uint newEnergyR = uint(float(currentEnergyR) * decay);
+  float dampingR = (1.0 - tail) - depth * (currentEnergyR / (currentEnergyR + thresh * SCALE));
+  uint newEnergyR = uint(float(currentEnergyR) * dampingR);
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
-  imageStore(outputTexR, coord, uvec4((currentEnergyR - newEnergyR) * decay, 0, 0, 0));
 
   if (colorBeam) {
-    uint newEnergyG = uint(float(currentEnergyG) * decay);
-    uint newEnergyB = uint(float(currentEnergyB) * decay);
+    float dampingG = (1.0 - tail) - depth * (currentEnergyG / (currentEnergyG + thresh * SCALE));
+    float dampingB = (1.0 - tail) - depth * (currentEnergyB / (currentEnergyB + thresh * SCALE));
+    uint newEnergyG = uint(float(currentEnergyG) * dampingG);
+    uint newEnergyB = uint(float(currentEnergyB) * dampingB);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
     imageStore(energyTexB, coord, uvec4(newEnergyB, 0, 0, 0));
-    imageStore(outputTexG, coord, uvec4((currentEnergyG - newEnergyG) * decay, 0, 0, 0));
-    imageStore(outputTexB, coord, uvec4((currentEnergyB - newEnergyB) * decay, 0, 0, 0));
   }
 }

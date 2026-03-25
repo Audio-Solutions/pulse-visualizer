@@ -635,8 +635,8 @@ int FFTMain() {
         ConstantQ::compute(bufferMid, bufferSide, 1.0f, 0.0f, fftMidRaw, fftMidPhase);
       }
     } else {
-      fftMidRaw.resize(Config::options.fft.size);
-      fftMidPhase.resize(Config::options.fft.size);
+      fftMidRaw.resize(Config::options.fft.size / 2 + 1);
+      fftMidPhase.resize(Config::options.fft.size / 2 + 1);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
 
       // Apply window function and prepare FFT input
@@ -793,8 +793,8 @@ int FFTAlt() {
         ConstantQ::compute(bufferSide, bufferMid, 1.0f, 0.0f, fftSideRaw, fftSidePhase);
       }
     } else {
-      fftSideRaw.resize(Config::options.fft.size);
-      fftSidePhase.resize(Config::options.fft.size);
+      fftSideRaw.resize(Config::options.fft.size / 2 + 1);
+      fftSidePhase.resize(Config::options.fft.size / 2 + 1);
       size_t start = (writePos + bufferSize - Config::options.fft.size) % bufferSize;
 
       // Apply window function and prepare FFT input

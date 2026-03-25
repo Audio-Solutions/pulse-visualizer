@@ -124,6 +124,9 @@ fft:
   # Show readout header with peak/frequency/note info for strongest partial
   readout_header: false
 
+  # Frequency scale for the FFT display: "log", "linear", or "mel"
+  frequency_scale: mel
+
   # Frequency and amplitude limits
   limits:
     # dB level at the top of the display before slope correction
@@ -310,8 +313,14 @@ phosphor:
   
   # Screen effect settings
   screen:
-    # Decay rate of phosphor persistence (higher=shorter persistence)
-    decay: 30
+    # Decay parameters for phosphor persistence
+    decay:
+      # When the rate of decay starts slowing down
+      threshold: 0.999999046
+      # How quickly the tail of the decay fades
+      tail: 0.099999994
+      # How quickly the head of the decay fades
+      depth: 0.899999976
 
     # Curvature intensity for curved screen effect (0.0-1.0)
     curvature: 0.1
@@ -344,8 +353,8 @@ Controls the spectrogram visualization (time-frequency heat map).
 
 ```yaml
 spectrogram:
-  # Frequency scale: "log" or "linear"
-  frequency_scale: log
+  # Frequency scale: "log", "linear", or "mel"
+  frequency_scale: mel
 
   # Sharpen broad spectral peaks by iteratively reassigning energy to nearby dominant bins
   iterative_reassignment: true

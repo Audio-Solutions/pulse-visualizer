@@ -755,8 +755,7 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 }
 
 void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& energyTexR, const GLuint& energyTexG,
-                   const GLuint& energyTexB, const GLuint& outputTexR, const GLuint& outputTexG,
-                   const GLuint& outputTexB) {
+                   const GLuint& energyTexB) {
   using namespace Uniform;
   using enum Uniform::Type;
 
@@ -766,18 +765,17 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 
   glUseProgram(shader);
 
-  float decay = exp(-(1.0f / Config::options.window.fps_limit) * Config::options.phosphor.screen.decay);
+  const float fps_norm = Config::options.window.fps_limit / 60.0f;
 
-  bind<FLOAT>("phosphor_decay", "decay", decay);
+  bind<FLOAT>("phosphor_decay", "thresh", Config::options.phosphor.screen.decay.threshold);
+  bind<FLOAT>("phosphor_decay", "tail", Config::options.phosphor.screen.decay.tail / fps_norm);
+  bind<FLOAT>("phosphor_decay", "depth", Config::options.phosphor.screen.decay.depth / fps_norm);
   bind<BOOL>("phosphor_decay", "colorBeam", Config::options.phosphor.beam.rainbow);
   bind<INT2>("phosphor_decay", "texSize", win->bounds.w, win->bounds.h);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(2, energyTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(3, outputTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(4, outputTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(5, outputTexB, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
 
   GLuint gX = (win->bounds.w + 7) / 8;
   GLuint gY = (win->bounds.h + 7) / 8;
@@ -883,39 +881,38 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   Graphics::Shader::ensureShaders();
 
+  // Apply decay to phosphor effect
+  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB);
+
   // Add new points if rendering is enabled
   if (renderPoints)
     Shader::dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer,
                             SDLWindow::vertexColorBuffer, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
                             win->phosphor.energyTextureB);
 
-  // Apply decay to phosphor effect
-  Shader::dispatchDecay(win, win->phosphor.energyTextureR, win->phosphor.energyTextureG, win->phosphor.energyTextureB,
-                        win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB);
-
   // Copy tempTexture{R,G,B} to tempTexture3{R,G,B}
-  glCopyImageSubData(win->phosphor.tempTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3R, GL_TEXTURE_2D,
-                     0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
+  glCopyImageSubData(win->phosphor.energyTextureR, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2R,
+                     GL_TEXTURE_2D, 0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
 
   if (Config::options.phosphor.beam.rainbow) {
-    glCopyImageSubData(win->phosphor.tempTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3G,
+    glCopyImageSubData(win->phosphor.energyTextureG, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2G,
                        GL_TEXTURE_2D, 0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
-    glCopyImageSubData(win->phosphor.tempTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture3B,
+    glCopyImageSubData(win->phosphor.energyTextureB, GL_TEXTURE_2D, 0, 0, 0, 0, win->phosphor.tempTexture2B,
                        GL_TEXTURE_2D, 0, 0, 0, 0, win->bounds.w, win->bounds.h, 1);
   }
 
   // Apply multiple additive blur passes
   for (int k = 0; k < 2; k++) {
-    Shader::dispatchBlur(win, 0, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB,
+    Shader::dispatchBlur(win, 0, k, win->phosphor.energyTextureR, win->phosphor.energyTextureG,
+                         win->phosphor.energyTextureB, win->phosphor.tempTextureR, win->phosphor.tempTextureG,
+                         win->phosphor.tempTextureB);
+    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTextureR, win->phosphor.tempTextureG, win->phosphor.tempTextureB,
                          win->phosphor.tempTexture2R, win->phosphor.tempTexture2G, win->phosphor.tempTexture2B);
-    Shader::dispatchBlur(win, 1, k, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
-                         win->phosphor.tempTexture2B, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
-                         win->phosphor.tempTexture3B);
   }
 
   // Apply colormap to final result
-  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture3R, win->phosphor.tempTexture3G,
-                           win->phosphor.tempTexture3B, win->phosphor.outputTexture);
+  Shader::dispatchColormap(win, beamColor, win->phosphor.tempTexture2R, win->phosphor.tempTexture2G,
+                           win->phosphor.tempTexture2B, win->phosphor.outputTexture);
 }
 } // namespace Phosphor
 

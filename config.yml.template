@@ -64,6 +64,7 @@ fft:
     min_freq: 10
   key: sharp
   mode: midside
+  frequency_scale: mel
   rotation: 0
 
 spectrogram:
@@ -100,7 +101,10 @@ phosphor:
     near_intensity: 0.399999857
     far_intensity: 0.600000381
   screen:
-    decay: 30
+    decay:
+      threshold: 0.3
+      tail: 0.04
+      depth: 1.2
     curvature: 0.180000067
     gap: 0.0299999993
     vignette: 0.300000012

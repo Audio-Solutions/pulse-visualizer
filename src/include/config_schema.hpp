@@ -275,7 +275,7 @@ inline constexpr std::array fftStereoChoices = {
   Choice<std::string_view>{"leftright", "Left/Right"},
 };
 
-inline constexpr std::array spectrogramScaleChoices = {
+inline constexpr std::array frequencyScaleOptions = {
   Choice<std::string_view>{"log",    "Logarithmic"},
   Choice<std::string_view>{"linear", "Linear"},
   Choice<std::string_view>{"mel",    "Mel"},
@@ -672,10 +672,20 @@ inline constexpr std::array floatFields = {
     "Blur intensity for distant pixels.",
     FieldUi<float>::slider(0.f, 1.f, 3)),
   PV_SCHEMA_FIELD(
-    float, phosphor.screen.decay,
-    "Decay Rate",
-    "How quickly phosphor trails fade over time.",
-    FieldUi<float>::slider(1.f, 100.f, 1)),
+    float, phosphor.screen.decay.threshold,
+    "Decay Threshold",
+    "When the rate of decay starts slowing down.",
+    FieldUi<float>::slider(0.f, 4.f, 2)),
+  PV_SCHEMA_FIELD(
+    float, phosphor.screen.decay.tail,
+    "Decay Tail",
+    "How quickly the tail of the decay fades.",
+    FieldUi<float>::slider(0.f, 1.f, 2)),
+  PV_SCHEMA_FIELD(
+    float, phosphor.screen.decay.depth,
+    "Decay Depth",
+    "How quickly the head of the decay fades.",
+    FieldUi<float>::slider(0.f, 4.f, 2)),
   PV_SCHEMA_FIELD(
     float, phosphor.screen.curvature,
     "Screen Curvature",
@@ -765,12 +775,17 @@ inline constexpr std::array stringFields = {
     "Channel Mode",
     "Analyze channels as Mid/Side or Left/Right.",
     FieldUi<std::string>::enumDrop(std::span<const Choice<std::string_view>>(fftStereoChoices))),
+  PV_SCHEMA_FIELD(
+    std::string, fft.frequency_scale,
+    "Frequency Scale",
+    "Choose logarithmic, mel or linear spacing on the frequency axis.",
+    FieldUi<std::string>::enumDrop(std::span<const Choice<std::string_view>>(frequencyScaleOptions))),
 
   PV_SCHEMA_FIELD(
     std::string, spectrogram.frequency_scale,
     "Frequency Scale",
-    "Choose logarithmic or linear spacing on the frequency axis.",
-    FieldUi<std::string>::enumDrop(std::span<const Choice<std::string_view>>(spectrogramScaleChoices))),
+    "Choose logarithmic, mel or linear spacing on the frequency axis.",
+    FieldUi<std::string>::enumDrop(std::span<const Choice<std::string_view>>(frequencyScaleOptions))),
 
   PV_SCHEMA_FIELD(
     std::string, waveform.mode,

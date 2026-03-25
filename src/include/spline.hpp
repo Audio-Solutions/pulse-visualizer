@@ -45,16 +45,13 @@ struct SplineConfig {
 /**
  * @brief Generates a Catmull-Rom style spline with controllable tension and runtime density.
  * @param control Vector of control points as (x, y) pairs.
- * @param min Minimum bounds for the output points (x_min, y_min).
- * @param max Maximum bounds for the output points (x_max, y_max).
  * @param density Number of samples per segment; controls point density along the curve.
  * @param tension 0 = straight (close to polyline), 1 = standard Catmull-Rom.
  *                Values > 1 tighten the curve further by scaling the tangents.
  * @return Vector of interpolated points forming the smooth spline curve.
  */
-inline std::vector<std::pair<float, float>> generate(const std::vector<std::pair<float, float>>& control,
-                                                     std::pair<float, float> min, std::pair<float, float> max,
-                                                     int density, float tension = 1.0f) {
+inline std::vector<std::pair<float, float>> generate(const std::vector<std::pair<float, float>>& control, int density,
+                                                     float tension = 1.0f) {
   if (density <= 0)
     return {};
   if (control.size() < 4)
@@ -105,10 +102,6 @@ inline std::vector<std::pair<float, float>> generate(const std::vector<std::pair
         x = lx * (1.0f - w) + x * w;
         y = ly * (1.0f - w) + y * w;
       }
-
-      // Clamp to provided bounds.
-      x = std::clamp(x, min.first, max.first);
-      y = std::clamp(y, min.second, max.second);
 
       spline.emplace_back(x, y);
     }

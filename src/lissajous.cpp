@@ -91,8 +91,8 @@ void LissajousVisualizer::render() {
 
   // Apply spline smoothing
   if (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0)
-    points = Spline::generate(points, {0.f, 0.f}, {bounds.w - 1, bounds.h - 1},
-                              Config::options.lissajous.spline.segments, Config::options.lissajous.spline.tension);
+    points =
+        Spline::generate(points, Config::options.lissajous.spline.segments, Config::options.lissajous.spline.tension);
 
   // Apply stretch mode if enabled
   const std::string& mode = Config::options.lissajous.mode;
@@ -161,33 +161,25 @@ void LissajousVisualizer::render() {
     std::vector<float> energies;
     energies.reserve(points.size());
 
-    // Calculate energy per segment for phosphor effect
-    constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA * (bounds.w * bounds.h);
+    // Calculate frame energy
+    float energy = Config::options.phosphor.beam.energy;
+    energy *= Config::options.lissajous.beam_multiplier;
+    energy /= points.size();
+    energy /= 300.0f * 300.0f;
+    energy *= bounds.w * bounds.h;
 
-    energy *= Config::options.lissajous.beam_multiplier /
-              (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0
-                   ? Config::options.lissajous.spline.segments
-                   : 1.0f) /
-              points.size() / 4.f;
+    if (Config::options.lissajous.spline.tension > FLT_EPSILON && Config::options.lissajous.spline.segments != 0)
+      energy /= Config::options.lissajous.spline.segments;
 
-    for (size_t i = 0; i < points.size() - 1; i++) {
-      const auto& p1 = points[i];
-      const auto& p2 = points[i + 1];
-
-      float dx = p2.first - p1.first;
-      float dy = p2.second - p1.second;
-      float len = std::max(FLT_EPSILON, sqrtf(dx * dx + dy * dy));
-
-      float totalE = energy / len;
-      energies.push_back(totalE);
-    }
+    // Build energy vector
+    for (size_t i = 0; i < points.size() - 1; i++)
+      energies.push_back(energy);
 
     // Prepare vertex data for phosphor rendering
     for (size_t i = 0; i < points.size(); i++) {
       vertexData.push_back(points[i].first);
       vertexData.push_back(points[i].second);
-      vertexData.push_back(i < energies.size() ? energies[i] : 0);
+      vertexData.push_back(energies[i]);
       vertexData.push_back(0);
 
       // Calculate direction-based gradient using HSV

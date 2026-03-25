@@ -121,9 +121,6 @@ public:
     GLuint tempTexture2R = 0;
     GLuint tempTexture2G = 0;
     GLuint tempTexture2B = 0;
-    GLuint tempTexture3R = 0;
-    GLuint tempTexture3G = 0;
-    GLuint tempTexture3B = 0;
     GLuint outputTexture = 0;
     int textureWidth = 0;
     int textureHeight = 0;
@@ -269,6 +266,7 @@ struct Options {
     float slope = 3.0f;
     std::string key = "sharp";
     std::string mode = "midside";
+    std::string frequency_scale = "log";
     bool cursor = false;
     bool readout_header = true;
 
@@ -361,7 +359,11 @@ struct Options {
     } blur;
 
     struct Screen {
-      float decay = 30.0f;
+      struct Decay {
+        float threshold = 0.5f;
+        float tail = 0.1f;
+        float depth = 0.9f;
+      } decay;
       float curvature = 0.1f;
       float gap = 0.03f;
       float vignette = 0.3f;

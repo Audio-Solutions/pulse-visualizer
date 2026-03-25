@@ -857,7 +857,6 @@ void VisualizerWindow::resizeTextures() {
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
                         &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
                         &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
-                        &phosphor.tempTexture3R,  &phosphor.tempTexture3G,  &phosphor.tempTexture3B,
                         &phosphor.outputTexture};
 
   bool textureUninitialized = [textures]() -> bool {
@@ -920,7 +919,6 @@ void VisualizerWindow::cleanup() {
   GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
                         &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
                         &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
-                        &phosphor.tempTexture3R,  &phosphor.tempTexture3G,  &phosphor.tempTexture3B,
                         &phosphor.outputTexture};
 
   for (auto texture : textures) {

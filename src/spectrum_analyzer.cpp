@@ -30,6 +30,7 @@ class SpectrumAnalyzerVisualizer : public WindowManager::VisualizerWindow {
 public:
   std::vector<std::pair<float, float>> pointsMain;
   std::vector<std::pair<float, float>> pointsAlt;
+  std::vector<float> energyCompensation;
 
   SpectrumAnalyzerVisualizer() {
     id = "spectrum_analyzer";
@@ -48,11 +49,50 @@ std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() {
   return std::make_shared<SpectrumAnalyzerVisualizer>();
 }
 
+float hzToMel(float f) { return 2595.0f * log10f(1.0f + f / 700.0f); }
+
+// Helper to map a bin index to an X coordinate
+float binToX(size_t bin, float width, float minFreq, float maxFreq, float logMin, float logMax, float melMin,
+             float melMax) {
+  float f = Config::options.fft.cqt.enabled
+                ? DSP::ConstantQ::frequencies[bin]
+                : static_cast<float>(bin) * (Config::options.audio.sample_rate / Config::options.fft.size);
+
+  if (Config::options.fft.frequency_scale == "log") {
+    float norm = (logf(f) - logMin) / (logMax - logMin);
+    return norm * width;
+  } else if (Config::options.fft.frequency_scale == "mel") {
+    float norm = (hzToMel(f) - melMin) / (melMax - melMin);
+    return norm * width;
+  } else {
+    float norm = (f - minFreq) / (maxFreq - minFreq);
+    return norm * width;
+  }
+}
+
 void SpectrumAnalyzerVisualizer::render() {
 
-  // Calculate logarithmic frequency scale
-  float logMin = log(Config::options.fft.limits.min_freq);
-  float logMax = log(Config::options.fft.limits.max_freq);
+  // Choose between smoothed and raw FFT data
+  const std::vector<float>& inMain = Config::options.fft.smoothing.enabled ? DSP::fftMid : DSP::fftMidRaw;
+  const std::vector<float>& inAlt = Config::options.fft.smoothing.enabled ? DSP::fftSide : DSP::fftSideRaw;
+
+  float minFreq;
+  float maxFreq;
+
+  if (Config::options.fft.cqt.enabled) {
+    minFreq = DSP::ConstantQ::frequencies.front();
+    maxFreq = DSP::ConstantQ::frequencies.back();
+  } else {
+    minFreq = Config::options.audio.sample_rate / Config::options.fft.size;
+    maxFreq = inMain.size() * (Config::options.audio.sample_rate / Config::options.fft.size);
+  }
+
+  const float logMin = log(minFreq);
+  const float logMax = log(maxFreq);
+  const float melMin = hzToMel(minFreq);
+  const float melMax = hzToMel(maxFreq);
+
+  const int binOffset = Config::options.fft.cqt.enabled ? 0 : 1;
 
   // Set viewport for rendering
   WindowManager::setViewport(bounds);
@@ -62,6 +102,7 @@ void SpectrumAnalyzerVisualizer::render() {
     auto drawLogLine = [&](float f) {
       if (f < Config::options.fft.limits.min_freq || f > Config::options.fft.limits.max_freq)
         return;
+
       float logX = (log(f) - logMin) / (logMax - logMin);
       float x = roundf(logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
                                        Config::options.fft.rotation == Config::ROTATION_270
@@ -109,10 +150,6 @@ void SpectrumAnalyzerVisualizer::render() {
       }
     }
   }
-
-  // Choose between smoothed and raw FFT data
-  const std::vector<float>& inMain = Config::options.fft.smoothing.enabled ? DSP::fftMid : DSP::fftMidRaw;
-  const std::vector<float>& inAlt = Config::options.fft.smoothing.enabled ? DSP::fftSide : DSP::fftSideRaw;
 
   // Prepare point arrays
   pointsMain.clear();
@@ -173,19 +210,19 @@ void SpectrumAnalyzerVisualizer::render() {
       }
       maxBinMain = (k == 0) ? 0 : (k - 1);
     } else {
-      float binHz = Config::options.audio.sample_rate / std::max(static_cast<float>(inMain.size()), 1.0f);
+      float binHz = Config::options.audio.sample_rate / std::max(static_cast<float>(Config::options.fft.size), 1.0f);
       maxBinMain = static_cast<size_t>(std::floor(fMax / std::max(binHz, FLT_EPSILON)));
       if (maxBinMain >= inMain.size())
         maxBinMain = inMain.size() - 1;
     }
 
     semiMain.reserve(maxBinMain + 1);
-    for (size_t bin = 0; bin <= maxBinMain; bin++) {
+    for (size_t bin = binOffset; bin <= maxBinMain; bin++) {
       float f;
       if (Config::options.fft.cqt.enabled)
         f = DSP::ConstantQ::frequencies[bin];
       else
-        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inMain.size());
+        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / Config::options.fft.size);
 
       float mag = inMain[bin];
       float k = Config::options.fft.slope / 20.f / log10f(2.f);
@@ -251,34 +288,39 @@ void SpectrumAnalyzerVisualizer::render() {
       depthsMain.push_back(semiMainDepth[i]);
     }
   } else {
-
     float height =
         Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
             ? bounds.w
             : bounds.h;
 
-    for (size_t bin = 0; bin < inMain.size(); bin++) {
-      // Calculate frequency for this bin
+    if (Config::options.phosphor.enabled)
+      energyCompensation.resize(inMain.size());
+
+    const float width =
+        (Config::options.fft.rotation == Config::ROTATION_90 || Config::options.fft.rotation == Config::ROTATION_270
+             ? static_cast<float>(bounds.h)
+             : static_cast<float>(bounds.w));
+    static float prevX;
+    for (size_t bin = binOffset; bin < inMain.size(); bin++) {
+      float x = binToX(bin, width, minFreq, maxFreq, logMin, logMax, melMin, melMax);
+      if (bin == binOffset) {
+        prevX = -binToX(bin + 1, width, minFreq, maxFreq, logMin, logMax, melMin, melMax);
+      }
+      if (Config::options.phosphor.enabled)
+        energyCompensation[bin] = x - prevX;
+      prevX = x;
+
       float f;
       if (Config::options.fft.cqt.enabled)
         f = DSP::ConstantQ::frequencies[bin];
       else
-        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inMain.size());
+        f = static_cast<float>(bin) * (Config::options.audio.sample_rate / Config::options.fft.size);
 
-      // Convert to logarithmic X coordinate
-      float logX = (log(f) - logMin) / (logMax - logMin);
-      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
-                                Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(bounds.h)
-                            : static_cast<float>(bounds.w));
       float mag = inMain[bin];
-
-      // Apply slope correction
       float k = Config::options.fft.slope / 20.f / log10f(2.f);
       float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
       mag *= gain;
 
-      // Convert to decibels and map to Y coordinate
       float dB = 20.f * log10f(mag + FLT_EPSILON);
       float y = (dB - Config::options.fft.limits.min_db) /
                 (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
@@ -286,7 +328,6 @@ void SpectrumAnalyzerVisualizer::render() {
       if (Config::options.fft.flip_x)
         y = height - y;
 
-      // Apply rotation transformation
       switch (Config::options.fft.rotation) {
       case Config::ROTATION_0:
         pointsMain[bin] = {x, y};
@@ -307,36 +348,22 @@ void SpectrumAnalyzerVisualizer::render() {
     if (!Config::options.phosphor.enabled)
       pointsAlt.resize(inAlt.size());
 
-    for (size_t bin = 0; bin < inAlt.size() && !Config::options.phosphor.enabled; bin++) {
-      // Calculate frequency for this bin
+    for (size_t bin = binOffset; bin < inAlt.size() && !Config::options.phosphor.enabled; bin++) {
+      float x = binToX(bin, width, minFreq, maxFreq, logMin, logMax, melMin, melMax);
       float f;
       if (Config::options.fft.cqt.enabled)
         f = DSP::ConstantQ::frequencies[bin];
       else
         f = static_cast<float>(bin) * (Config::options.audio.sample_rate / inAlt.size());
-
-      // Convert to logarithmic X coordinate
-      float logX = (log(f) - logMin) / (logMax - logMin);
-      float x = logX * (Config::options.fft.rotation == Config::ROTATION_90 ||
-                                Config::options.fft.rotation == Config::ROTATION_270
-                            ? static_cast<float>(bounds.h)
-                            : static_cast<float>(bounds.w));
       float mag = inAlt[bin];
-
-      // Apply slope correction
       float k = Config::options.fft.slope / 20.f / log10f(2.f);
       float gain = powf(f * 1.0f / (440.0f * 2.0f), k);
       mag *= gain;
-
-      // Convert to decibels and map to Y coordinate
       float dB = 20.f * log10f(mag + FLT_EPSILON);
       float y = (dB - Config::options.fft.limits.min_db) /
                 (Config::options.fft.limits.max_db - Config::options.fft.limits.min_db) * height;
-
       if (Config::options.fft.flip_x)
         y = height - y;
-
-      // Apply rotation transformation
       switch (Config::options.fft.rotation) {
       case Config::ROTATION_0:
         pointsAlt[bin] = {x, y};
@@ -371,29 +398,24 @@ void SpectrumAnalyzerVisualizer::render() {
     energies.reserve(pointsMain.size());
     vectorData.reserve(pointsMain.size() * 4);
 
-    constexpr float REF_AREA = 300.f * 300.f;
-    float energy = Config::options.phosphor.beam.energy / REF_AREA *
-                   (Config::options.fft.cqt.enabled ? bounds.w * bounds.h : 300.f * 50.f) / pointsMain.size() / 128.0;
-
+    // Calculate frame energy
+    float energy = Config::options.phosphor.beam.energy;
     energy *= Config::options.fft.beam_multiplier;
+    energy /= pointsMain.size();
+    energy /= 800.0f * 800.0f;
+    energy *= bounds.w * bounds.h;
 
-    for (size_t i = 1; i < pointsMain.size(); i++) {
-      const auto& p1 = pointsMain[i - 1];
-      const auto& p2 = pointsMain[i];
+    if (Config::options.fft.cqt.enabled)
+      energy /= 4.0; // magic constant woo
 
-      float dx = p2.first - p1.first;
-      float dy = p2.second - p1.second;
-      float segLen = std::max(sqrtf(dx * dx + dy * dy), FLT_EPSILON);
+    // Build energy vector
+    for (size_t i = 0; i < pointsMain.size() - 1; i++)
+      energies.push_back(energy * energyCompensation[i]);
 
-      float totalE = energy / (Config::options.fft.cqt.enabled ? segLen : 1.f / sqrtf(dx));
-
-      energies.push_back(totalE);
-    }
-
-    for (size_t i = 0; i < pointsMain.size(); i++) {
+    for (size_t i = binOffset; i < pointsMain.size() - 1; i++) {
       vectorData.push_back(pointsMain[i].first);
       vectorData.push_back(pointsMain[i].second);
-      vectorData.push_back(i < energies.size() ? energies[i] : 0);
+      vectorData.push_back(energies[i]);
       vectorData.push_back(0);
 
       // Calculate direction-based gradient using HSV

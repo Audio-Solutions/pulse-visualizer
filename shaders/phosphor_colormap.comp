@@ -130,20 +130,22 @@ vec3 sampleCA(vec2 uv) {
   vec2 offset = (uv - 0.5) * chromaticAberrationStrength;
   ivec2 pos = clamp(ivec2(round(uv * texSize)), ivec2(0), texSize - 1);
 
+  const float SCALE = 65536.0f;
+
   if (chromaticAberrationStrength < 1e-6) {
     float r = imageLoad(energyTexR, pos).r;
     if (colorBeam)
-      return vec3(r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, pos).r);
-    return vec3(r);
+      return vec3(r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, pos).r) / SCALE;
+    return vec3(r / SCALE);
   }
 
   ivec2 posR = clamp(ivec2(round((uv + offset) * texSize)), ivec2(0), texSize - 1);
   ivec2 posB = clamp(ivec2(round((uv - offset) * texSize)), ivec2(0), texSize - 1);
 
   if (colorBeam)
-    return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, posB).r);
+    return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, posB).r) / SCALE;
 
-  return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexR, pos).r, imageLoad(energyTexR, posB).r);
+  return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexR, pos).r, imageLoad(energyTexR, posB).r) / SCALE;
 }
 
 // Antialiased sampling
@@ -201,7 +203,7 @@ void main() {
   // Map to color using tanhColorMap
   if (!colorBeam)
     energy *= beamColor;
-  vec3 screenColor = tanhColorMap(energy / 5e5);
+  vec3 screenColor = tanhColorMap(energy);
 
   // add bg
   screenColor = screenColor + blackColor;
@@ -227,7 +229,7 @@ void main() {
 
       if (!colorBeam)
         refRGB *= beamColor;
-      vec3 reflectColor = tanhColorMap(refRGB / 5e5);
+      vec3 reflectColor = tanhColorMap(refRGB);
 
       // Pixel-thin exponential darkening along the corner diagonals
       float diagDist = min(abs(distortedUV.x - distortedUV.y), abs(distortedUV.x + distortedUV.y - 1.0));
