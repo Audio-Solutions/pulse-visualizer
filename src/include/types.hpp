@@ -492,6 +492,6 @@ struct State {
   std::pair<int, int> windowSizes;
   std::pair<int, int> mousePos;
   bool focused, removable = false;
-  WindowManager::Node root;
+  WindowManager::Node* root;
 };
 } // namespace SDLWindow

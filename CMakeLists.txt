@@ -174,6 +174,10 @@ endif()
 
 add_executable(pulse-visualizer ${SRC_FILES} ${RESOURCE_FILE})
 
+if(NOT WIN32)
+  target_link_options(pulse-visualizer PRIVATE -rdynamic)
+endif()
+
 # Add GLAD
 add_library(glad OBJECT
   external/glad/src/gl.c

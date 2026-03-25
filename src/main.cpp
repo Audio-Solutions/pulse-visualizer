@@ -27,6 +27,7 @@
 #include "include/sdl_window.hpp"
 #include "include/spline.hpp"
 #include "include/theme.hpp"
+#include "include/visualizer_registry.hpp"
 #include "include/window_manager.hpp"
 
 #include <SDL3/SDL_main.h>
@@ -351,7 +352,6 @@ int main(int argc, char** argv) {
   logDebug("Cleaning up...");
   SDLWindow::running.store(false);
   WindowManager::cleanup();
-  Plugin::unloadAll();
   Graphics::Font::cleanup();
   DSPThread.join();
   AudioEngine::cleanup();
@@ -359,6 +359,9 @@ int main(int argc, char** argv) {
   Config::cleanup();
   Theme::cleanup();
   SDLWindow::deinit();
+  for (auto& v : VisualizerRegistry::visualizers)
+    v.reset();
+  Plugin::unloadAll();
 
 #ifdef USE_UPDATER
   UpdaterWindow::cleanup();

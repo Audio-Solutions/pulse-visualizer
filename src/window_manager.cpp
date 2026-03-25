@@ -96,7 +96,7 @@ void updateCursorForGroup(const std::string& group) {
 
   bool isDragging = false;
 
-  walkTree(state.root, [&](Node& node) {
+  walkTree(*state.root, [&](Node& node) {
     // clang-format off
     std::visit(Visitor {
       [&](std::shared_ptr<VisualizerWindow>& w) {
@@ -117,7 +117,7 @@ void updateCursorForGroup(const std::string& group) {
   bool anyHorizontal = false;
   bool anyVertical = false;
 
-  walkTree(state.root, [&](Node& node) {
+  walkTree(*state.root, [&](Node& node) {
     // clang-format off
     std::visit(Visitor {
       [&](Splitter& s) {
@@ -402,10 +402,10 @@ std::tuple<VisualizerWindow*, VisualizerWindow*, HoverRegion> getHoverState(SDLW
   VisualizerWindow* draggingWindow = nullptr;
   VisualizerWindow* hoveringWindow = nullptr;
 
-  if (!state.root)
+  if (!*state.root)
     return std::tuple {nullptr, nullptr, HoverRegion::None};
 
-  walkTree(state.root, [&](Node& node) {
+  walkTree(*state.root, [&](Node& node) {
     // clang-format off
     std::visit(Visitor {
       [&](std::shared_ptr<VisualizerWindow>& w) {
@@ -557,8 +557,8 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
     return;
   }
 
-  auto dragging = VisualizerRegistry::find(draggingId);
-  auto hovering = VisualizerRegistry::find(hoveringId);
+  auto dragging = VisualizerRegistry::find(draggingId).lock();
+  auto hovering = VisualizerRegistry::find(hoveringId).lock();
 
   Splitter s;
   s.orientation = (region == HoverRegion::Top || region == HoverRegion::Bottom)
@@ -617,7 +617,7 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
 }
 
 void addVisualizerToGroup(const std::string& group, const std::string& id) {
-  auto vis = VisualizerRegistry::find(id);
+  auto vis = VisualizerRegistry::find(id).lock();
   if (!vis) {
     logWarnAt(std::source_location::current(), "Could not find visualizer with id '{}'", id);
     return;
@@ -706,13 +706,13 @@ void updateBounds() {
       continue;
 
     auto state = it->second;
-    if (!state.root) {
+    if (!*state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
     }
 
     SDL_GL_MakeCurrent(state.win, state.glContext);
-    updateBounds(state.root, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
+    updateBounds(*state.root, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
   }
 }
 
@@ -725,10 +725,10 @@ void render() {
     auto state = it->second;
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    if (!state.root)
+    if (!*state.root)
       continue;
 
-    walkTree(state.root, [&](Node& ptr) {
+    walkTree(*state.root, [&](Node& ptr) {
       // clang-format off
       std::visit(Visitor {
         [&](std::shared_ptr<VisualizerWindow>& w) {
@@ -757,15 +757,15 @@ void cleanup() {
     auto state = it->second;
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    if (!state.root) {
+    if (!*state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
     }
 
-    walkTree(state.root, [&](Node& ptr) {
+    walkTree(*state.root, [&](Node& ptr) {
       // clang-format off
       std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow>& w) { w->cleanup(); }, 
+        [&](std::shared_ptr<VisualizerWindow>& w) { w->cleanup(); w.reset(); }, 
         [&](auto&) {}}
         , *ptr);
       // clang-format on
@@ -781,12 +781,12 @@ void handleEvent(const SDL_Event& event) {
 
     auto state = it->second;
 
-    if (!state.root) {
+    if (!*state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
     }
 
-    walkTree(state.root, [&](Node& ptr) {
+    walkTree(*state.root, [&](Node& ptr) {
       // clang-format off
       std::visit(Visitor {
         [&](std::shared_ptr<VisualizerWindow>& w) { w->handleEvent(event); },
@@ -1013,7 +1013,7 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
       if (draggingWindow && hoveringWindow && draggingWindow != hoveringWindow) {
         // Operate on the config tree instead of the live SDL tree
         if (region == HoverRegion::Center) {
-          swapVisualizer(state.root, draggingWindow->id, hoveringWindow->id);
+          swapVisualizer(*state.root, draggingWindow->id, hoveringWindow->id);
         } else if (region != HoverRegion::None)
           insertVisualizer(draggingWindow->group, draggingWindow->id, hoveringWindow->id, region);
       }
@@ -1071,7 +1071,7 @@ void initialize() {
       // clang-format on
     });
 
-    it->second.root = node;
+    it->second.root = &node;
   }
 
   boundsDirty.store(true);

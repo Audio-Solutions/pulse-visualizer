@@ -37,7 +37,7 @@ void ensureBuiltinsRegistered() {
   });
 }
 
-std::shared_ptr<WindowManager::VisualizerWindow> find(const std::string& id) {
+std::weak_ptr<WindowManager::VisualizerWindow> find(const std::string& id) {
   ensureBuiltinsRegistered();
   auto it = std::find_if(visualizers.begin(), visualizers.end(),
                          [&](const auto& visualizer) { return visualizer->id == id; });

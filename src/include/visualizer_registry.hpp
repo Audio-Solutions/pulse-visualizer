@@ -29,7 +29,7 @@ namespace VisualizerRegistry {
 extern std::vector<std::shared_ptr<WindowManager::VisualizerWindow>> visualizers;
 
 void ensureBuiltinsRegistered();
-std::shared_ptr<WindowManager::VisualizerWindow> find(const std::string& id);
+std::weak_ptr<WindowManager::VisualizerWindow> find(const std::string& id);
 bool registerVisualizer(std::shared_ptr<WindowManager::VisualizerWindow> visualizer);
 
 } // namespace VisualizerRegistry

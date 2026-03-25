@@ -240,14 +240,14 @@ void get<std::unordered_map<std::string, WindowManager::Node>>(
       throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
 
     if (n.IsScalar())
-      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()));
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()).lock());
 
     if (!n.IsMap())
       throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
 
     // Branch by explicit id
     if (n["id"] && n["id"].IsScalar())
-      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()));
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()).lock());
 
     // Split node: require 'type' and 'children'
     if (!n["type"] || !n["children"] || !n["children"].IsSequence())

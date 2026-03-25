@@ -717,9 +717,8 @@ int FFTMain() {
       size_t i = 0;
       bool hovering =
           !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled && Config::options.fft.cursor;
-      std::weak_ptr<WindowManager::VisualizerWindow> spectrumWindow = VisualizerRegistry::find("spectrum_analyzer");
-      if (auto window = spectrumWindow.lock())
-        hovering = hovering && window->hovering;
+      auto window = VisualizerRegistry::find("spectrum_analyzer").lock();
+      hovering = hovering && window->hovering;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
@@ -835,9 +834,8 @@ int FFTAlt() {
       size_t i = 0;
       bool hovering =
           !Config::options.fft.sphere.enabled && !Config::options.phosphor.enabled && Config::options.fft.cursor;
-      std::weak_ptr<WindowManager::VisualizerWindow> spectrumWindow = VisualizerRegistry::find("spectrum_analyzer");
-      if (auto window = spectrumWindow.lock())
-        hovering = hovering && window->hovering;
+      auto window = VisualizerRegistry::find("spectrum_analyzer").lock();
+      hovering = hovering && window->hovering;
       const float riseSpeed = Config::options.fft.smoothing.rise_speed * WindowManager::dt;
       const float fallSpeed =
           (hovering ? Config::options.fft.smoothing.hover_fall_speed : Config::options.fft.smoothing.fall_speed) *
