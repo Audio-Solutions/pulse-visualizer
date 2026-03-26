@@ -194,21 +194,24 @@ namespace Threads {
 
 /**
  * @brief Main FFT processing thread
+ * @param stoken Stop token provided by jthread
  * @return Thread exit code
  */
-int FFTMain();
+int FFTMain(std::stop_token stoken);
 
 /**
  * @brief Alternative FFT processing thread
+ * @param stoken Stop token provided by jthread
  * @return Thread exit code
  */
-int FFTAlt();
+int FFTAlt(std::stop_token stoken);
 
 /**
  * @brief Main DSP processing thread
+ * @param stoken Stop token provided by jthread
  * @return Thread exit code
  */
-int mainThread();
+int mainThread(std::stop_token stoken);
 
 } // namespace Threads
 

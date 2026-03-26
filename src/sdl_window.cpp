@@ -35,7 +35,7 @@ std::unordered_map<std::string, State> states;
 GLuint vertexBuffer = 0;
 GLuint vertexColorBuffer = 0;
 
-std::atomic<bool> running {false};
+std::stop_source stopSource;
 
 SDL_Surface* icon = nullptr;
 
@@ -127,8 +127,6 @@ void init() {
 
   // Create system cursors
   initCursors();
-
-  running.store(true);
 }
 
 // Cursors
@@ -157,12 +155,11 @@ void setCursor(CursorType type) {
 
 void handleEvent(SDL_Event& event) {
   std::string group = "";
-  for (auto& [_group, state] : states) {
-    if (event.window.windowID == state.winID) {
-      group = _group;
-      break;
-    }
-  }
+  auto isThisWindow = [&event](auto const& p) { return event.window.windowID == std::get<1>(p).winID; };
+  if (auto it = std::ranges::find_if(SDLWindow::states, isThisWindow); it == SDLWindow::states.end())
+    return;
+  else
+    group = it->first;
 
   switch (event.type) {
 
@@ -170,7 +167,7 @@ void handleEvent(SDL_Event& event) {
     if (group != "main")
       return;
   case SDL_EVENT_QUIT:
-    running.store(false);
+    stopSource.request_stop();
     return;
 
   case SDL_EVENT_KEY_DOWN:
@@ -178,7 +175,7 @@ void handleEvent(SDL_Event& event) {
     case SDLK_Q:
     case SDLK_ESCAPE:
       if (group == "main")
-        running.store(false);
+        stopSource.request_stop();
       return;
     case SDLK_M:
       ConfigWindow::toggle();

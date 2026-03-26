@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
 
   // Start DSP processing thread
   logDebug("Starting DSP processing thread");
-  std::thread DSPThread(DSP::Threads::mainThread);
+  std::jthread DSPThread(DSP::Threads::mainThread);
 
   // Initialise libcurl
 #ifdef USE_UPDATER
@@ -299,27 +299,19 @@ int main(int argc, char** argv) {
       struct timespec ts = {0, 0};
       int sig = sigtimedwait(&sigset, nullptr, &ts);
       if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT)
-        SDLWindow::running = false;
-#endif
-
-      if (!SDLWindow::running) {
-        logDebug("Quit signal received, exiting");
         break;
-      }
+#endif
+      if (SDLWindow::stopSource.stop_requested())
+        break;
+
       glUseProgram(0);
-      if (std::any_of(SDLWindow::states.begin(), SDLWindow::states.end(),
-                      [](auto& state) {
-                        int width, height;
-                        SDL_GetWindowSize(state.second.win, &width, &height);
-                        return width == 0 || height == 0;
-                      }) ||
-          Config::broken)
+      if (Config::broken)
         continue;
 
       WindowManager::updateBounds();
 
       // Wait for DSP data to be ready
-      mainSem.acquire();
+      mainSem.try_acquire_for(100ms);
 
       // Render frame
       SDLWindow::clear();
@@ -334,33 +326,32 @@ int main(int argc, char** argv) {
       // FPS logging if enabled
       if (Config::options.debug.log_fps) {
         frameCount++;
-        static float fpsTimeAccum = 0.0f;
-        fpsTimeAccum += WindowManager::dt;
-        if (fpsTimeAccum >= 1.0f) {
-          std::cout << "FPS: " << static_cast<int>(frameCount / fpsTimeAccum) << std::endl;
+        static auto fpsStart = std::chrono::steady_clock::now();
+        static auto lastPrint = fpsStart;
+        auto now = std::chrono::steady_clock::now();
+        if (now - lastPrint >= 1s) {
+          float fps = frameCount / std::chrono::duration<float>(now - fpsStart).count();
+          std::cout << "FPS: " << static_cast<int>(fps) << std::endl;
           frameCount = 0;
-          fpsTimeAccum = 0.0f;
+          fpsStart = now;
+          lastPrint = now;
         }
       }
     }
   } catch (const std::exception& e) {
-    SDLWindow::running.store(false);
     std::cerr << "ERROR: " << e.what() << std::endl;
   }
 
   // Cleanup
   logDebug("Cleaning up...");
-  SDLWindow::running.store(false);
   WindowManager::cleanup();
   Graphics::Font::cleanup();
-  DSPThread.join();
   AudioEngine::cleanup();
   DSP::FFT::cleanup();
   Config::cleanup();
   Theme::cleanup();
   SDLWindow::deinit();
-  for (auto& v : VisualizerRegistry::visualizers)
-    v.reset();
+  VisualizerRegistry::cleanup();
   Plugin::unloadAll();
 
 #ifdef USE_UPDATER

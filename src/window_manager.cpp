@@ -145,15 +145,9 @@ void updateCursorForGroup(const std::string& group) {
 }
 
 void Splitter::handleEvent(const SDL_Event& event) {
-  std::string group = "";
-  for (auto& [_group, state] : SDLWindow::states) {
-    if (event.window.windowID == state.winID) {
-      group = _group;
-      break;
-    }
-  }
-
-  if (group.empty() || group != this->group || !movable)
+  auto isThisWindow = [&event](auto const& p) { return event.window.windowID == std::get<1>(p).winID; };
+  if (auto it = std::ranges::find_if(SDLWindow::states, isThisWindow);
+      it == SDLWindow::states.end() || it->first != group || !movable)
     return;
 
   float mouseX, mouseY;
@@ -696,9 +690,8 @@ void drawHoverHandles(std::string key, SDLWindow::State& state) {
 }
 
 void updateBounds() {
-  if (boundsDirty.load() == false)
+  if (!boundsDirty.exchange(false, std::memory_order_acq_rel))
     return;
-  boundsDirty.store(false);
 
   for (auto& [key, node] : Config::options.visualizers) {
     auto it = SDLWindow::states.find(key);
@@ -970,15 +963,9 @@ void VisualizerWindow::draw() {
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
-  std::string group = "";
-  for (auto& [_group, state] : SDLWindow::states) {
-    if (event.window.windowID == state.winID) {
-      group = _group;
-      break;
-    }
-  }
-
-  if (group.empty() || group != this->group)
+  auto isThisWindow = [&event](auto const& p) { return event.window.windowID == std::get<1>(p).winID; };
+  if (auto it = std::ranges::find_if(SDLWindow::states, isThisWindow);
+      it == SDLWindow::states.end() || it->first != group)
     return;
 
   auto isHovering = [&](int x, int y, int off) -> bool {
@@ -1030,18 +1017,20 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 }
 
 void initialize() {
+  auto destroyable = [](auto const& p) {
+    return std::get<1>(p).removable &&
+           Config::options.visualizers.find(std::get<0>(p)) == Config::options.visualizers.end();
+  };
+
   std::vector<std::string> toDestroy;
-  toDestroy.reserve(SDLWindow::states.size());
-  for (auto const& [key, state] : SDLWindow::states) {
-    if (state.removable && Config::options.visualizers.find(key) == Config::options.visualizers.end())
-      toDestroy.push_back(key);
-  }
+  std::ranges::copy(SDLWindow::states | std::views::filter(destroyable) | std::views::keys,
+                    std::back_inserter(toDestroy));
+
   for (auto const& key : toDestroy)
     SDLWindow::destroyWindow(key);
 
-  for (auto& [key, node] : Config::options.visualizers) {
-    if (key == "hidden")
-      continue;
+  auto isNotHidden = [](auto const& p) { return std::get<0>(p) != "hidden"; };
+  for (auto& [key, node] : Config::options.visualizers | std::views::filter(isNotHidden)) {
 
     auto it = SDLWindow::states.find(key);
     if (it == SDLWindow::states.end() && key != "main") {

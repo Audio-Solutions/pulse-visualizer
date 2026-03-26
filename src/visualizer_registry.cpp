@@ -39,8 +39,7 @@ void ensureBuiltinsRegistered() {
 
 std::weak_ptr<WindowManager::VisualizerWindow> find(const std::string& id) {
   ensureBuiltinsRegistered();
-  auto it = std::find_if(visualizers.begin(), visualizers.end(),
-                         [&](const auto& visualizer) { return visualizer->id == id; });
+  auto it = std::ranges::find_if(visualizers, [&](const auto& visualizer) { return visualizer->id == id; });
   return it == visualizers.end() ? nullptr : *it;
 }
 
@@ -49,6 +48,11 @@ bool registerVisualizer(std::shared_ptr<WindowManager::VisualizerWindow> visuali
     return false;
   visualizers.push_back(visualizer);
   return true;
+}
+
+void cleanup() {
+  for (auto& v : visualizers)
+    v.reset();
 }
 
 } // namespace VisualizerRegistry

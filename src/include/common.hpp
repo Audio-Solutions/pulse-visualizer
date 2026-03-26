@@ -46,6 +46,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <ranges>
 #include <semaphore>
 #include <signal.h>
 #include <source_location>

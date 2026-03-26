@@ -621,10 +621,12 @@ namespace Threads {
 std::binary_semaphore fftMainSem {0};
 std::binary_semaphore fftAltSem {0};
 
-int FFTMain() {
-  while (SDLWindow::running) {
+int FFTMain(std::stop_token stoken) {
+  std::stop_callback cb {stoken, [] { fftMainSem.release(); }};
+
+  while (true) {
     fftMainSem.acquire();
-    if (!SDLWindow::running)
+    if (stoken.stop_requested())
       break;
 
     // Process main channel FFT
@@ -775,10 +777,12 @@ int FFTMain() {
   return 0;
 }
 
-int FFTAlt() {
-  while (SDLWindow::running) {
+int FFTAlt(std::stop_token stoken) {
+  std::stop_callback cb {stoken, [] { fftAltSem.release(); }};
+
+  while (true) {
     fftAltSem.acquire();
-    if (!SDLWindow::running)
+    if (stoken.stop_requested())
       break;
 
     if (Config::options.phosphor.enabled && Config::options.waveform.mode == "mono")
@@ -892,15 +896,15 @@ int FFTAlt() {
   return 0;
 }
 
-int mainThread() {
+int mainThread(std::stop_token stoken) {
   LUFS::init();
   std::vector<float> readBuf;
 
   // Start FFT processing threads
-  std::thread FFTMainThread(Threads::FFTMain);
-  std::thread FFTAltThread(Threads::FFTAlt);
+  std::jthread FFTMainThread(Threads::FFTMain);
+  std::jthread FFTAltThread(Threads::FFTAlt);
 
-  while (SDLWindow::running) {
+  while (!stoken.stop_requested()) {
     // Calculate samples to read based on frame time
     size_t sampleCount = Config::options.audio.sample_rate / Config::options.window.fps_limit;
     readBuf.resize(sampleCount * 2);
@@ -989,12 +993,6 @@ int mainThread() {
     mainSem.release();
   }
 
-  // Ensure FFT threads are notified to exit
-  fftMainSem.release();
-  fftAltSem.release();
-
-  FFTMainThread.join();
-  FFTAltThread.join();
   LUFS::reset();
   return 0;
 }

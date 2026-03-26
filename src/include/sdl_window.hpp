@@ -30,7 +30,7 @@ extern GLuint vertexColorBuffer;
 // Window and OpenGL context handles
 extern std::unordered_map<std::string, State> states;
 
-extern std::atomic<bool> running;
+extern std::stop_source stopSource;
 
 /**
  * @brief Cleanup SDL window and OpenGL context
