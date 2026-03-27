@@ -28,8 +28,9 @@ layout(binding = 2, r32ui) uniform uimage2D energyTexB;
 uniform bool colorBeam;
 uniform ivec2 texSize;
 uniform float thresh;
-uniform float tail;
-uniform float depth;
+
+uniform float fastDecay;
+uniform float slowDecay;
 
 const float SCALE = 65536;
 
@@ -44,13 +45,16 @@ void main() {
   uint currentEnergyG = colorBeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorBeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  float dampingR = (1.0 - tail) - depth * (currentEnergyR / (currentEnergyR + thresh * SCALE));
+  float sigmoidR = 1.0 - 1.0 * (currentEnergyR / (currentEnergyR + thresh * SCALE));
+  float dampingR = mix(fastDecay, slowDecay, sigmoidR);
   uint newEnergyR = uint(float(currentEnergyR) * dampingR);
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
 
   if (colorBeam) {
-    float dampingG = (1.0 - tail) - depth * (currentEnergyG / (currentEnergyG + thresh * SCALE));
-    float dampingB = (1.0 - tail) - depth * (currentEnergyB / (currentEnergyB + thresh * SCALE));
+    float sigmoidG = 1.0 - 1.0 * (currentEnergyG / (currentEnergyG + thresh * SCALE));
+    float sigmoidB = 1.0 - 1.0 * (currentEnergyB / (currentEnergyB + thresh * SCALE));
+    float dampingG = mix(fastDecay, slowDecay, sigmoidG);
+    float dampingB = mix(fastDecay, slowDecay, sigmoidB);
     uint newEnergyG = uint(float(currentEnergyG) * dampingG);
     uint newEnergyB = uint(float(currentEnergyB) * dampingB);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));

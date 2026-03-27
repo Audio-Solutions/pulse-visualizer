@@ -765,11 +765,12 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 
   glUseProgram(shader);
 
-  const float fps_norm = Config::options.window.fps_limit / 60.0f;
+  const float fastDecay = exp(-1.0f / Config::options.phosphor.screen.decay.fast_frames);
+  const float slowDecay = exp(-1.0f / Config::options.phosphor.screen.decay.slow_frames);
 
+  bind<FLOAT>("phosphor_decay", "fastDecay", fastDecay);
+  bind<FLOAT>("phosphor_decay", "slowDecay", slowDecay);
   bind<FLOAT>("phosphor_decay", "thresh", Config::options.phosphor.screen.decay.threshold);
-  bind<FLOAT>("phosphor_decay", "tail", Config::options.phosphor.screen.decay.tail / fps_norm);
-  bind<FLOAT>("phosphor_decay", "depth", Config::options.phosphor.screen.decay.depth / fps_norm);
   bind<BOOL>("phosphor_decay", "colorBeam", Config::options.phosphor.beam.rainbow);
   bind<INT2>("phosphor_decay", "texSize", win->bounds.w, win->bounds.h);
 

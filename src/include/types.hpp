@@ -361,8 +361,8 @@ struct Options {
     struct Screen {
       struct Decay {
         float threshold = 0.5f;
-        float tail = 0.1f;
-        float depth = 0.9f;
+        int fast_frames = 10;
+        int slow_frames = 100;
       } decay;
       float curvature = 0.1f;
       float gap = 0.03f;

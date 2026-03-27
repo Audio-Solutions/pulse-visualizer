@@ -433,6 +433,16 @@ inline constexpr std::array intFields = {
     "Anti-Aliasing size",
     "Size of the Anti-Aliasing pass during color-mapping.",
     FieldUi<int>::slider(2, 16, 0, false)),
+  PV_SCHEMA_FIELD(
+    int, phosphor.screen.decay.fast_frames,
+    "Fast decay",
+    "How many frames to take to get to threshold.",
+    FieldUi<int>::slider(0, 100, 0, false)),
+  PV_SCHEMA_FIELD(
+    int, phosphor.screen.decay.slow_frames,
+    "Slow decay",
+    "How many frames to take to get to 0.",
+    FieldUi<int>::slider(0, 500, 0, false)),
 
   PV_SCHEMA_FIELD(
     int, lissajous.spline.segments,
@@ -675,16 +685,6 @@ inline constexpr std::array floatFields = {
     float, phosphor.screen.decay.threshold,
     "Decay Threshold",
     "When the rate of decay starts slowing down.",
-    FieldUi<float>::slider(0.f, 4.f, 2)),
-  PV_SCHEMA_FIELD(
-    float, phosphor.screen.decay.tail,
-    "Decay Tail",
-    "How quickly the tail of the decay fades.",
-    FieldUi<float>::slider(0.f, 1.f, 2)),
-  PV_SCHEMA_FIELD(
-    float, phosphor.screen.decay.depth,
-    "Decay Depth",
-    "How quickly the head of the decay fades.",
     FieldUi<float>::slider(0.f, 4.f, 2)),
   PV_SCHEMA_FIELD(
     float, phosphor.screen.curvature,
