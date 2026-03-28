@@ -45,16 +45,16 @@ void main() {
   uint currentEnergyG = colorBeam ? imageLoad(energyTexG, coord).r : 0u;
   uint currentEnergyB = colorBeam ? imageLoad(energyTexB, coord).r : 0u;
 
-  float sigmoidR = 1.0 - 1.0 * (currentEnergyR / (currentEnergyR + thresh * SCALE));
-  float dampingR = mix(fastDecay, slowDecay, sigmoidR);
+  float ratioR = (currentEnergyR / (thresh * SCALE));
+  float dampingR = mix(fastDecay, slowDecay, 1.0 - (ratioR / (ratioR + 1)));
   uint newEnergyR = uint(float(currentEnergyR) * dampingR);
   imageStore(energyTexR, coord, uvec4(newEnergyR, 0, 0, 0));
 
   if (colorBeam) {
-    float sigmoidG = 1.0 - 1.0 * (currentEnergyG / (currentEnergyG + thresh * SCALE));
-    float sigmoidB = 1.0 - 1.0 * (currentEnergyB / (currentEnergyB + thresh * SCALE));
-    float dampingG = mix(fastDecay, slowDecay, sigmoidG);
-    float dampingB = mix(fastDecay, slowDecay, sigmoidB);
+    float ratioG = (currentEnergyG / (thresh * SCALE));
+    float ratioB = (currentEnergyB / (thresh * SCALE));
+    float dampingG = mix(fastDecay, slowDecay, 1.0 - (ratioG / (ratioG + 1)));
+    float dampingB = mix(fastDecay, slowDecay, 1.0 - (ratioB / (ratioB + 1)));
     uint newEnergyG = uint(float(currentEnergyG) * dampingG);
     uint newEnergyB = uint(float(currentEnergyB) * dampingB);
     imageStore(energyTexG, coord, uvec4(newEnergyG, 0, 0, 0));
