@@ -162,22 +162,19 @@ template <typename T> void get(const YAML::Node& root, std::string_view path, T&
                             : std::is_same_v<T, Rotation>  ? "Rotation"
                                                            : "unknown";
 
-  YAML::Node node;
-
   try {
-    node = getNode(root, path);
+    YAML::Node node = getNode(root, path);
     T value = node.as<T>();
     out = value;
-    return;
   } catch (const typename YAML::TypedBadConversion<T>& e) {
-    throw makeErrorAt(std::source_location::current(), "Type mismatch at config.yml:{} ({}): expected {}, got {}",
-                      e.mark.line + 1, path, typeName, node.Tag());
+    logWarnAt(std::source_location::current(), "Type mismatch at config.yml:{} ({}): expected {}", e.mark.line + 1,
+              path, typeName);
   } catch (const YAML::InvalidNode& e) {
-    throw makeErrorAt(std::source_location::current(), "Invalid node access at config.yml:{} ({})", e.mark.line + 1,
-                      path);
+    logWarnAt(std::source_location::current(), "Invalid node access at config.yml:{} ({})", e.mark.line + 1, path);
   } catch (const YAML::Exception& e) {
-    throw makeErrorAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1,
-                      e.msg);
+    logWarnAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1, e.msg);
+  } catch (const std::exception& e) {
+    std::clog << "WARN:" << e.what() << std::endl;
   }
 }
 
@@ -188,23 +185,26 @@ template <typename T> void get(const YAML::Node& root, std::string_view path, T&
  * @param out Output reference to receive the parsed value
  */
 template <> void get<bool>(const YAML::Node& root, std::string_view path, bool& out) {
-  YAML::Node node = getNode(root, path);
+  try {
+    YAML::Node node = getNode(root, path);
 
-  if (node.IsScalar()) {
-    std::string str = node.as<std::string>();
-    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+    if (node.IsScalar()) {
+      std::string str = node.as<std::string>();
+      std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 
-    if (str == "true" || str == "yes" || str == "on" || str == "1") {
-      out = true;
-      return;
+      if (str == "true" || str == "yes" || str == "on" || str == "1") {
+        out = true;
+        return;
+      }
+      if (str == "false" || str == "no" || str == "off" || str == "0") {
+        out = false;
+        return;
+      }
     }
-    if (str == "false" || str == "no" || str == "off" || str == "0") {
-      out = false;
-      return;
-    }
+    logWarnAt(std::source_location::current(), "Converting {} to boolean failed", path);
+  } catch (const std::exception& e) {
+    std::clog << "WARN:" << e.what() << std::endl;
   }
-
-  throw makeErrorAt(std::source_location::current(), "Converting {} to boolean failed", path);
 }
 
 /**
@@ -228,59 +228,65 @@ template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Ro
 template <>
 void get<std::unordered_map<std::string, WindowManager::Node>>(
     const YAML::Node& root, std::string_view path, std::unordered_map<std::string, WindowManager::Node>& out) {
-  YAML::Node node = getNode(root, path);
+  try {
+    YAML::Node node = getNode(root, path);
 
-  if (!node.IsMap())
-    throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
+    if (!node.IsMap())
+      throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
 
-  std::function<WindowManager::Node(const YAML::Node&, const std::string_view, std::string)> parseHierarchyTree;
-  parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp,
-                           std::string subPath) -> WindowManager::Node {
-    if (!n || n.IsNull())
-      throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
+    std::function<WindowManager::Node(const YAML::Node&, const std::string_view, std::string)> parseHierarchyTree;
+    parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp,
+                             std::string subPath) -> WindowManager::Node {
+      if (!n || n.IsNull())
+        throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
 
-    if (n.IsScalar())
-      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()).lock());
+      if (n.IsScalar())
+        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()).lock());
 
-    if (!n.IsMap())
-      throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
+      if (!n.IsMap())
+        throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
 
-    // Branch by explicit id
-    if (n["id"] && n["id"].IsScalar())
-      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()).lock());
+      // Branch by explicit id
+      if (n["id"] && n["id"].IsScalar())
+        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()).lock());
 
-    // Split node: require 'type' and 'children'
-    if (!n["type"] || !n["children"] || !n["children"].IsSequence())
-      throw makeErrorAt(std::source_location::current(), "missing 'type' and 'children' at {}.{}", path, subPath);
+      // Split node: require 'type' and 'children'
+      if (!n["type"] || !n["children"] || !n["children"].IsSequence())
+        throw makeErrorAt(std::source_location::current(), "missing 'type' and 'children' at {}.{}", path, subPath);
 
-    WindowManager::Splitter s {};
-    s.orientation = (n["type"].as<std::string>() == "hsplit") ? WindowManager::Orientation::Horizontal
-                                                              : WindowManager::Orientation::Vertical;
+      WindowManager::Splitter s {};
+      s.orientation = (n["type"].as<std::string>() == "hsplit") ? WindowManager::Orientation::Horizontal
+                                                                : WindowManager::Orientation::Vertical;
 
-    if (n["ratio"] && n["ratio"].IsScalar())
-      s.ratio = n["ratio"].as<float>();
-    else
-      s.ratio = 0.5f;
+      if (n["ratio"] && n["ratio"].IsScalar())
+        s.ratio = n["ratio"].as<float>();
+      else
+        s.ratio = 0.5f;
 
-    const YAML::Node children = n["children"];
-    if (children.size() != 2) {
-      throw makeErrorAt(std::source_location::current(), "'children' must contain exactly 2 nodes, got {} at {}.{}",
-                        children.size(), path, subPath);
+      const YAML::Node children = n["children"];
+      if (children.size() != 2) {
+        throw makeErrorAt(std::source_location::current(), "'children' must contain exactly 2 nodes, got {} at {}.{}",
+                          children.size(), path, subPath);
+      }
+
+      // parse two children
+      s.primary = parseHierarchyTree(children[0], grp, subPath + ".children[0]");
+      s.secondary = parseHierarchyTree(children[1], grp, subPath + ".children[1]");
+
+      return std::make_shared<WindowManager::Variant>(std::move(s));
+    };
+
+    std::decay_t<decltype(out)> temp;
+    for (const auto& item : node) {
+      const std::string itemKey = item.first.as<std::string>();
+      temp[itemKey] = std::move(parseHierarchyTree(item.second, itemKey, itemKey));
     }
-
-    // parse two children
-    s.primary = parseHierarchyTree(children[0], grp, subPath + ".children[0]");
-    s.secondary = parseHierarchyTree(children[1], grp, subPath + ".children[1]");
-
-    return std::make_shared<WindowManager::Variant>(std::move(s));
-  };
-
-  std::decay_t<decltype(out)> temp;
-  for (const auto& item : node) {
-    const std::string itemKey = item.first.as<std::string>();
-    temp[itemKey] = std::move(parseHierarchyTree(item.second, itemKey, itemKey));
+    out = std::move(temp);
+  } catch (const YAML::Exception& e) {
+    logWarnAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1, e.msg);
+  } catch (const std::exception& e) {
+    std::clog << "WARN:" << e.what() << std::endl;
   }
-  out = std::move(temp);
 }
 
 /**
@@ -339,6 +345,8 @@ void get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKey
         break;
       }
       }
+    } catch (const YAML::Exception& e) {
+      logWarnAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1, e.msg);
     } catch (const std::exception& e) {
       std::cerr << "WARN: " << e.what() << std::endl;
     }
@@ -490,15 +498,9 @@ void restoreBackup() {
   dst.close();
 }
 
-inline void tryRestore() {
-  logWarnAt(std::source_location::current(), "Trying build working config");
-
+void load() {
   rollBackup();
-  save();
-  load(true);
-}
 
-void load(bool recovering) {
   static std::string path = expandUserPath("~/.config/pulse-visualizer/config.yml");
   YAML::Node configData;
 
@@ -520,30 +522,20 @@ void load(bool recovering) {
   } catch (const YAML::ParserException& e) {
     logWarnAt(std::source_location::current(), "Parser error when loading config: '{}' at {}:{}", e.msg,
               e.mark.line + 1, e.mark.column + 1);
-    tryRestore();
     return;
   }
 
-  try {
-    get<std::unordered_map<std::string, WindowManager::Node>>(configData, "visualizers", options.visualizers);
+  get<std::unordered_map<std::string, WindowManager::Node>>(configData, "visualizers", options.visualizers);
 
-    get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
-                                                                                        pluginOptions);
+  get<std::unordered_map<PluginOptionKey, PluginOptionRecord, PluginOptionKeyHasher>>(configData, "plugins",
+                                                                                      pluginOptions);
 
-    ConfigSchema::forEachFieldByType(
-        [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
-        [&](const auto& field) { get<int>(configData, field.path, field.get(options)); },
-        [&](const auto& field) { get<float>(configData, field.path, field.get(options)); },
-        [&](const auto& field) { get<std::string>(configData, field.path, field.get(options)); },
-        [&](const auto& field) { get<Rotation>(configData, field.path, field.get(options)); });
-  } catch (const std::exception& e) {
-    // if already recovering, rethrow
-    if (recovering)
-      throw;
-
-    std::clog << "WARN:" << e.what() << std::endl;
-    tryRestore();
-  }
+  ConfigSchema::forEachFieldByType(
+      [&](const auto& field) { get<bool>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<int>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<float>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<std::string>(configData, field.path, field.get(options)); },
+      [&](const auto& field) { get<Rotation>(configData, field.path, field.get(options)); });
 }
 
 void save() {

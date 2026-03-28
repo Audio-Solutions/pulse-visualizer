@@ -81,7 +81,7 @@ template <typename T> void get(const YAML::Node& root, std::string_view path, T&
 /**
  * @brief Load configuration from file
  */
-void load(bool recovering = false);
+void load();
 
 /**
  * @brief Check if configuration file has been modified and reload if necessary
