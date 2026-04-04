@@ -102,9 +102,9 @@ phosphor:
     far_intensity: 0.600000381
   screen:
     decay:
-      threshold: 0.3
-      tail: 0.04
-      depth: 1.2
+      fast_frames: 2
+      slow_frames: 60
+      threshold: 0.300000012
     curvature: 0.180000067
     gap: 0.0299999993
     vignette: 0.300000012
