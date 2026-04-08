@@ -39,6 +39,7 @@ public:
 std::shared_ptr<WindowManager::VisualizerWindow> createVisualizer() { return std::make_shared<WaveformVisualizer>(); }
 
 void WaveformVisualizer::render() {
+  using enum WindowManager::Textures;
 
   static size_t current = 0;
   static float columnAccumulator = 0.0f;
@@ -46,7 +47,7 @@ void WaveformVisualizer::render() {
     current = 0;
 
   glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
+  glBindTexture(GL_TEXTURE_2D, phosphor.textures[OUTPUT]);
   glColor4f(1.f, 1.f, 1.f, 1.f);
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 

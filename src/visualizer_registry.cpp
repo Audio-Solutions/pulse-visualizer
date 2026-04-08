@@ -39,7 +39,9 @@ void ensureBuiltinsRegistered() {
 
 std::weak_ptr<WindowManager::VisualizerWindow> find(const std::string& id) {
   ensureBuiltinsRegistered();
-  auto it = std::ranges::find_if(visualizers, [&](const auto& visualizer) { return visualizer->id == id; });
+
+  auto matchesId = [&id](const auto& vis) { return vis->id == id; };
+  auto it = std::ranges::find_if(visualizers, matchesId);
   return it == visualizers.end() ? nullptr : *it;
 }
 

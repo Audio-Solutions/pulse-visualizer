@@ -258,6 +258,13 @@ std::string expandUserPath(const std::string& path);
 void reconfigure();
 
 /**
+ * @brief convert GLenum to human readable error string.
+ * @param err The GLenum to convert.
+ * @return Pointer to the human readable error string.
+ */
+const char* glErrorString(GLenum err);
+
+/**
  * @brief Helper struct for creating a visitor for std::visit with multiple lambdas.
  *
  * @tparam Ts Lambda types to inherit from.

@@ -240,6 +240,8 @@ std::vector<float>& SpectrogramVisualizer::mapSpectrum(const std::vector<float>&
 }
 
 void SpectrogramVisualizer::render() {
+  using enum WindowManager::Textures;
+
   auto* window = this;
 
   static size_t current = 0;
@@ -249,7 +251,7 @@ void SpectrogramVisualizer::render() {
     current = 0;
 
   glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, window->phosphor.outputTexture);
+  glBindTexture(GL_TEXTURE_2D, window->phosphor.textures[OUTPUT]);
   glColor4f(1.f, 1.f, 1.f, 1.f);
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 

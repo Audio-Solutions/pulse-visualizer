@@ -689,16 +689,20 @@ void drawHoverHandles(std::string key, SDLWindow::State& state) {
   }
 }
 
+/**
+ * @brief Returns true if the given SDL window state belongs to a configured visualizer group.
+ * @param kv Pair of group key and its `SDLWindow::State`.
+ * @return true or false.
+ */
+static inline bool isVisualizerWindow(const std::pair<std::string, SDLWindow::State>& kv) {
+  return Config::options.visualizers.find(kv.first) != Config::options.visualizers.end();
+}
+
 void updateBounds() {
   if (!boundsDirty.exchange(false, std::memory_order_acq_rel))
     return;
 
-  for (auto& [key, node] : Config::options.visualizers) {
-    auto it = SDLWindow::states.find(key);
-    if (it == SDLWindow::states.end())
-      continue;
-
-    auto state = it->second;
+  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
     if (!*state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
       continue;
@@ -710,12 +714,7 @@ void updateBounds() {
 }
 
 void render() {
-  for (auto& [key, node] : Config::options.visualizers) {
-    auto it = SDLWindow::states.find(key);
-    if (it == SDLWindow::states.end())
-      continue;
-
-    auto state = it->second;
+  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
     if (!*state.root)
@@ -742,12 +741,7 @@ void render() {
 }
 
 void cleanup() {
-  for (auto& [key, node] : Config::options.visualizers) {
-    auto it = SDLWindow::states.find(key);
-    if (it == SDLWindow::states.end())
-      continue;
-
-    auto state = it->second;
+  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
     if (!*state.root) {
@@ -767,12 +761,7 @@ void cleanup() {
 }
 
 void handleEvent(const SDL_Event& event) {
-  for (auto& [key, node] : Config::options.visualizers) {
-    auto it = SDLWindow::states.find(key);
-    if (it == SDLWindow::states.end())
-      continue;
-
-    auto state = it->second;
+  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
 
     if (!*state.root) {
       logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
@@ -790,115 +779,79 @@ void handleEvent(const SDL_Event& event) {
   }
 }
 
-void VisualizerWindow::transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) {
-  // Calculate minimum dimensions for texture transfer
-  int minWidth = std::min(bounds.w, phosphor.textureWidth);
-  int minHeight = std::min(bounds.h, phosphor.textureHeight);
-  std::vector<uint8_t> newData(bounds.w * bounds.h * 4, 0);
+void VisualizerWindow::resizeTextures() {
+  using enum WindowManager::Textures;
+  constexpr size_t N = std::tuple_size_v<decltype(phosphor.textures)>;
 
-  if (glIsTexture(oldTex)) [[likely]] {
-    // Read pixel data from old texture
-    std::vector<uint8_t> oldData(phosphor.textureWidth * phosphor.textureHeight * 4);
-    glBindTexture(GL_TEXTURE_2D, oldTex);
-    glGetTexImage(GL_TEXTURE_2D, 0, format, type, oldData.data());
+  bool sizeChanged = (phosphor.textureWidth != bounds.w || phosphor.textureHeight != bounds.h);
+
+  auto initialized = [](GLuint texture) { return texture == 0; };
+  if (!sizeChanged && std::ranges::none_of(phosphor.textures, initialized)) [[likely]]
+    return;
+
+  // Lambda to copy image data
+  auto transferTexture = [this](GLuint oldTex, GLuint newTex, size_t texIndex) {
+    using enum WindowManager::Textures;
+
+    int minWidth = std::min(bounds.w, phosphor.textureWidth);
+    int minHeight = std::min(bounds.h, phosphor.textureHeight);
+
+    GLenum internalFormat = texIndex == OUTPUT ? GL_RGBA8 : GL_R32UI;
+    GLenum format = texIndex == OUTPUT ? GL_RGBA : GL_RED_INTEGER;
+    GLenum type = texIndex == OUTPUT ? GL_UNSIGNED_BYTE : GL_UNSIGNED_INT;
 
     // Calculate offsets for centering texture in both directions
     int srcOffsetX = std::max(0, (phosphor.textureWidth - bounds.w) / 2);
     int srcOffsetY = std::max(0, (phosphor.textureHeight - bounds.h) / 2);
     int dstOffsetX = std::max(0, (bounds.w - phosphor.textureWidth) / 2);
     int dstOffsetY = std::max(0, (bounds.h - phosphor.textureHeight) / 2);
+    GLenum err = GL_NO_ERROR;
 
-    for (int y = 0; y < minHeight; ++y) {
-      int oldRowBase = (y + srcOffsetY) * phosphor.textureWidth * 4 + srcOffsetX * 4;
-      int newRowBase = (y + dstOffsetY) * bounds.w * 4 + dstOffsetX * 4;
-      int x = 0;
+    // Create new texture
+    glBindTexture(GL_TEXTURE_2D, newTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, bounds.w, bounds.h, 0, format, type, nullptr);
 
-#ifdef HAVE_AVX2
-      // SIMD-optimized texture transfer
-      for (; x + 32 <= minWidth * 4; x += 32) {
-        __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&oldData[oldRowBase + x]));
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&newData[newRowBase + x]), v);
-      }
-#endif
-      // Standard processing for remaining pixels
-      for (; x < minWidth * 4; x += 4) {
-        int oldIdx = oldRowBase + x;
-        int newIdx = newRowBase + x;
-        if (newIdx + 3 < newData.size() && oldIdx + 3 < oldData.size()) {
-          newData[newIdx] = oldData[oldIdx];
-          newData[newIdx + 1] = oldData[oldIdx + 1];
-          newData[newIdx + 2] = oldData[oldIdx + 2];
-          newData[newIdx + 3] = oldData[oldIdx + 3];
-        }
-      }
-    }
-  }
-  // Create new texture with transferred data
-  glBindTexture(GL_TEXTURE_2D, newTex);
-  glTexImage2D(GL_TEXTURE_2D, 0, format == GL_RED_INTEGER ? GL_R32UI : GL_RGBA8, bounds.w, bounds.h, 0, format, type,
-               newData.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-}
+    glClearTexImage(newTex, 0, format, type, nullptr);
 
-void VisualizerWindow::resizeTextures() {
-  bool sizeChanged = (phosphor.textureWidth != bounds.w || phosphor.textureHeight != bounds.h);
-
-  GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
-                        &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
-                        &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
-                        &phosphor.outputTexture};
-
-  bool textureUninitialized = [textures]() -> bool {
-    for (auto texture : textures) {
-      if (*texture == 0)
-        return true;
-    }
-    return false;
-  }();
-
-  if (!sizeChanged && !textureUninitialized) [[likely]]
-    return;
-
-  glFinish();
-  glMemoryBarrier(GL_ALL_BARRIER_BITS);
-  glBindTexture(GL_TEXTURE_2D, 0);
-  glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
-  glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+    if (glIsTexture(oldTex)) [[likely]]
+      glCopyImageSubData(oldTex, GL_TEXTURE_2D, 0, srcOffsetX, srcOffsetY, 0, newTex, GL_TEXTURE_2D, 0, dstOffsetX,
+                         dstOffsetY, 0, minWidth, minHeight, 1);
+  };
 
   if (phosphor.unused) {
     GLuint newTexture = 0;
     glGenTextures(1, &newTexture);
-    constexpr size_t LAST = size_t(sizeof(textures) / sizeof(textures[0])) - 1;
-    transferTexture(*textures[LAST], newTexture, GL_RGBA, GL_UNSIGNED_BYTE);
-    if (textures[LAST])
-      glDeleteTextures(1, textures[LAST]);
-    *textures[LAST] = newTexture;
-  } else {
-    std::vector<GLuint> oldTextures;
-    oldTextures.reserve(size_t(sizeof(textures) / sizeof(textures[0])));
+    transferTexture(phosphor.textures[OUTPUT], newTexture, OUTPUT);
+    if (phosphor.textures[OUTPUT])
+      glDeleteTextures(1, &phosphor.textures[OUTPUT]);
+    phosphor.textures[OUTPUT] = newTexture;
+    phosphor.textureHeight = bounds.h;
+    phosphor.textureWidth = bounds.w;
 
-    for (int i = 0; i < size_t(sizeof(textures) / sizeof(textures[0])); ++i) {
-      oldTextures.push_back(*textures[i]);
-      GLuint newTexture = 0;
-      glGenTextures(1, &newTexture);
-      GLenum err = glGetError();
-      if (err != GL_NO_ERROR) [[unlikely]]
-        throw makeErrorAt(std::source_location::current(), "OpenGL error during texture generation: {}",
-                          std::to_string(err));
-      if (i == size_t(sizeof(textures) / sizeof(textures[0])) - 1)
-        transferTexture(oldTextures[i], newTexture, GL_RGBA, GL_UNSIGNED_BYTE);
-      else
-        transferTexture(oldTextures[i], newTexture, GL_RED_INTEGER, GL_UNSIGNED_INT);
-      if (oldTextures[i]) {
-        glDeleteTextures(1, &oldTextures[i]);
-      }
-      *textures[i] = newTexture;
-    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return;
   }
+
+  std::array<GLuint, N> oldTextures;
+  std::ranges::copy(phosphor.textures, oldTextures.begin());
+
+  std::array<GLuint, N> newTextures {};
+  glGenTextures(N, newTextures.data());
+
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) [[unlikely]]
+    logWarnAt(std::source_location::current(), "OpenGL error during texture generation: {}", glErrorString(err));
+
+  for (size_t i : std::views::iota((size_t)0, N))
+    transferTexture(oldTextures[i], newTextures[i], i);
+
+  glDeleteTextures(N, oldTextures.data());
+  std::ranges::copy(newTextures, phosphor.textures.begin());
 
   phosphor.textureHeight = bounds.h;
   phosphor.textureWidth = bounds.w;
@@ -907,59 +860,51 @@ void VisualizerWindow::resizeTextures() {
 }
 
 void VisualizerWindow::cleanup() {
-  SDLWindow::selectWindow(group);
-  // Cleanup phosphor effect textures
-  GLuint* textures[] = {&phosphor.energyTextureR, &phosphor.energyTextureG, &phosphor.energyTextureB,
-                        &phosphor.tempTextureR,   &phosphor.tempTextureG,   &phosphor.tempTextureB,
-                        &phosphor.tempTexture2R,  &phosphor.tempTexture2G,  &phosphor.tempTexture2B,
-                        &phosphor.outputTexture};
+  constexpr size_t N = std::tuple_size_v<decltype(phosphor.textures)>;
 
-  for (auto texture : textures) {
-    if (*texture) {
-      glDeleteTextures(1, texture);
-      *texture = 0;
-    }
-  }
+  SDLWindow::selectWindow(group);
+  glDeleteTextures(N, phosphor.textures.data());
+  std::ranges::fill(phosphor.textures, 0);
 }
 
 void VisualizerWindow::draw() {
+  using enum WindowManager::Textures;
+
   // Validate phosphor output texture
-  if (!glIsTexture(phosphor.outputTexture)) [[unlikely]] {
+  if (!glIsTexture(phosphor.textures[OUTPUT])) [[unlikely]] {
     throw makeErrorAt(std::source_location::current(), "outputTexture is not a texture");
   }
 
-  if (Config::options.phosphor.enabled) {
-    // Render phosphor effect using output texture
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, phosphor.outputTexture);
-    glColor4f(1.f, 1.f, 1.f, 1.f);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    float w = static_cast<float>(bounds.w);
-    float h = static_cast<float>(bounds.h);
-    float y = 0.0f;
+  // Render phosphor effect using output texture
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, phosphor.textures[OUTPUT]);
+  glColor4f(1.f, 1.f, 1.f, 1.f);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+  float w = static_cast<float>(bounds.w);
+  float h = static_cast<float>(bounds.h);
+  float y = 0.0f;
 
-    float vertices[] = {0.0f, y, 0.f, 0.f, w, y, 1.f, 0.f, w, y + h, 1.f, 1.f, 0.0f, y + h, 0.f, 1.f};
+  float vertices[] = {0.0f, y, 0.f, 0.f, w, y, 1.f, 0.f, w, y + h, 1.f, 1.f, 0.0f, y + h, 0.f, 1.f};
 
-    // Draw textured quad
-    glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
-    glDrawArrays(GL_QUADS, 0, 4);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+  // Draw textured quad
+  glBindBuffer(GL_ARRAY_BUFFER, SDLWindow::vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  glVertexPointer(2, GL_FLOAT, sizeof(float) * 4, nullptr);
+  glTexCoordPointer(2, GL_FLOAT, sizeof(float) * 4, reinterpret_cast<void*>(sizeof(float) * 2));
+  glDrawArrays(GL_QUADS, 0, 4);
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
-    glDisable(GL_TEXTURE_2D);
-  }
+  glDisable(GL_TEXTURE_2D);
 
   // Check for OpenGL errors
   GLenum err = glGetError();
   if (err != GL_NO_ERROR) [[unlikely]]
-    logDebug("OpenGL error during draw: {}", std::to_string(err));
+    logDebug("OpenGL error during draw: {}", glErrorString(err));
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {

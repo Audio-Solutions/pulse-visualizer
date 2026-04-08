@@ -84,6 +84,20 @@ struct Size {
   int w, h;
 };
 
+// Enum for phosphor textures
+enum Textures : size_t {
+  OUTPUT = 0,
+  ENERGY_R,
+  ENERGY_G,
+  ENERGY_B,
+  TEMP1_R,
+  TEMP1_G,
+  TEMP1_B,
+  TEMP2_R,
+  TEMP2_G,
+  TEMP2_B,
+};
+
 class VisualizerWindow {
 public:
   std::string id;
@@ -112,25 +126,19 @@ public:
   virtual void render() {}
 
   struct Phosphor {
-    GLuint energyTextureR = 0;
-    GLuint energyTextureG = 0;
-    GLuint energyTextureB = 0;
-    GLuint tempTextureR = 0;
-    GLuint tempTextureG = 0;
-    GLuint tempTextureB = 0;
-    GLuint tempTexture2R = 0;
-    GLuint tempTexture2G = 0;
-    GLuint tempTexture2B = 0;
-    GLuint outputTexture = 0;
+    std::array<GLuint, 10> textures {};
     int textureWidth = 0;
     int textureHeight = 0;
     bool unused = false;
   } phosphor;
 
-  virtual void handleEvent(const SDL_Event& event) final;
-  virtual void transferTexture(GLuint oldTex, GLuint newTex, GLenum format, GLenum type) final;
-  virtual void resizeTextures() final;
+  /**
+   * @brief draw output texture at bounds.
+   */
   virtual void draw() final;
+
+  virtual void handleEvent(const SDL_Event& event) final;
+  virtual void resizeTextures() final;
   virtual void cleanup() final;
 };
 
