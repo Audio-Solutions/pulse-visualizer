@@ -955,15 +955,6 @@ int mainThread(std::stop_token stoken) {
     }
 #endif
 
-    static auto lastTime = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
-    if (now < targetTime)
-      std::this_thread::sleep_until(targetTime);
-    now = std::chrono::steady_clock::now();
-    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
-    lastTime = now;
-
     // Signal FFT threads that new data is available
     fftMainSem.release();
     fftAltSem.release();
@@ -991,6 +982,16 @@ int mainThread(std::stop_token stoken) {
 
     // Signal main thread that DSP processing is complete
     mainSem.release();
+
+    // Wait to start next frame
+    static auto lastTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto targetTime = lastTime + std::chrono::duration<double>(1.0 / Config::options.window.fps_limit);
+    if (now < targetTime)
+      std::this_thread::sleep_until(targetTime);
+    now = std::chrono::steady_clock::now();
+    WindowManager::dt = std::chrono::duration<float>(now - lastTime).count();
+    lastTime = now;
   }
 
   LUFS::reset();
