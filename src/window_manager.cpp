@@ -44,27 +44,22 @@ void setViewport(Bounds bounds) {
 }
 
 /**
- * @brief Walks the entire hierarchy tree and applies a callback to each node.
+ * @brief Walks the entire hierarchy tree and applies a callback or visitor to each node.
  * @param node The root node to start traversal from.
- * @param callback The function to call for each node pointer.
+ * @param fn The callback or visitor for each node variant.
  */
-template <typename Fn> void walkTree(Node& nodePtr, Fn&& callback) {
-  if (!nodePtr) {
-    logWarnAt(std::source_location::current(), "Nullptr found while walking tree");
-    return;
+template <typename T>
+  requires visitable<T, Variant> || std::invocable<T, Node&>
+void walkTree(Node& node, T&& fn) {
+  if (Splitter* s = std::get_if<Splitter>(node.get())) {
+    walkTree(s->primary, fn);
+    walkTree(s->secondary, fn);
   }
 
-  // clang-format off
-  std::visit(Visitor {
-    [&](Splitter& s) {
-      walkTree(s.primary, callback);
-      walkTree(s.secondary, callback);
-    },
-    [&](auto&) {}},
-    *nodePtr);
-  // clang-format on
-
-  callback(nodePtr);
+  if constexpr (visitable<T, Variant>)
+    std::visit(std::forward<T>(fn), *node);
+  else
+    fn(node);
 }
 
 void Splitter::render() {
@@ -88,25 +83,25 @@ void Splitter::render() {
 void updateCursorForGroup(const std::string& group) {
   if (group.empty())
     return;
-  auto it = SDLWindow::states.find(group);
-  if (it == SDLWindow::states.end())
+  auto it = Config::options.visualizers.find(group);
+  if (it == Config::options.visualizers.end())
     return;
 
-  auto& state = it->second;
+  auto& node = it->second;
 
   bool isDragging = false;
 
-  walkTree(*state.root, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
-      [&](std::shared_ptr<VisualizerWindow>& w) {
-        if (w->dragging)
-          isDragging = true;
-      },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+  // clang-format off
+  Visitor draggingVisitor = {
+    [&](std::shared_ptr<VisualizerWindow>& w) -> void {
+      if (w->dragging)
+        isDragging = true;
+    },
+    [&](Splitter&) -> void {}
+  };
+  // clang-format on
+
+  walkTree(node, draggingVisitor);
 
   // If any visualizer is dragging, show Move cursor and return.
   if (isDragging) {
@@ -117,21 +112,21 @@ void updateCursorForGroup(const std::string& group) {
   bool anyHorizontal = false;
   bool anyVertical = false;
 
-  walkTree(*state.root, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
-      [&](Splitter& s) {
-        if (s.hovering) {
-          if (s.orientation == Orientation::Horizontal)
-            anyHorizontal = true;
-          else
-            anyVertical = true;
-        }
-      },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+  // clang-format off
+  Visitor hoveringVisitor = {
+    [&](Splitter& s) -> void {
+      if (s.hovering) {
+        if (s.orientation == Orientation::Horizontal)
+          anyHorizontal = true;
+        else
+          anyVertical = true;
+      }
+    },
+    [&](std::shared_ptr<VisualizerWindow>&) -> void {}
+  };
+  // clang-format on
+
+  walkTree(node, hoveringVisitor);
 
   SDLWindow::CursorType ct = SDLWindow::CursorType::Default;
   if (anyHorizontal && anyVertical)
@@ -240,87 +235,88 @@ void updateBounds(Node& node, Bounds bounds) {
   getConstraints = [&](Node& node, Bounds bounds,
                        WindowManager::Orientation orientation) -> std::pair<Size, Constraint> {
     // clang-format off
-    return std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow>& w) {
-          Size constraintSize = 
-              Size{w->minSize.w > 0 ? w->minSize.w : MIN_SIDELENGTH, w->minSize.h > 0 ? w->minSize.h : MIN_SIDELENGTH};
-          Constraint constraint {};
-          if (w->forceWidth > FLT_EPSILON) {
-            constraintSize.w = w->forceWidth;
+    Visitor boundVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> std::pair<Size, Constraint> {
+        Size constraintSize = 
+            Size{w->minSize.w > 0 ? w->minSize.w : MIN_SIDELENGTH, w->minSize.h > 0 ? w->minSize.h : MIN_SIDELENGTH};
+        Constraint constraint {};
+        if (w->forceWidth > FLT_EPSILON) {
+          constraintSize.w = w->forceWidth;
+          constraint.w = ConstraintType::Forced;
+        } else if (w->aspectRatio > FLT_EPSILON) {
+          if (orientation == WindowManager::Orientation::Horizontal) {
+            constraintSize.w = bounds.h * w->aspectRatio;
             constraint.w = ConstraintType::Forced;
-          } else if (w->aspectRatio > FLT_EPSILON) {
-            if (orientation == WindowManager::Orientation::Horizontal) {
-              constraintSize.w = bounds.h * w->aspectRatio;
-              constraint.w = ConstraintType::Forced;
-            } else {
-              constraintSize.h = bounds.w / w->aspectRatio;
-              constraint.h = ConstraintType::Forced;
-            }
-          }
-
-          return std::make_pair(constraintSize, constraint);
-        },
-        [&](Splitter& s) {
-          int totalSize =
-              (s.orientation == WindowManager::Orientation::Horizontal ? bounds.w : bounds.h) - SPLITTER_WIDTH;
-          int primarySize = static_cast<int>(totalSize * s.ratio);
-          int secondarySize = totalSize - primarySize;
-
-          Bounds primaryBounds = s.orientation == WindowManager::Orientation::Horizontal
-                                    ? Bounds(bounds.x, bounds.y, primarySize, bounds.h)
-                                    : Bounds(bounds.x, bounds.y, bounds.w, primarySize);
-          Bounds secondaryBounds =
-              s.orientation == WindowManager::Orientation::Horizontal
-                  ? Bounds(bounds.x + primarySize + SPLITTER_WIDTH, bounds.y, secondarySize, bounds.h)
-                  : Bounds(bounds.x, bounds.y + primarySize + SPLITTER_WIDTH, bounds.w, secondarySize);
-
-          std::tie(s.primaryConstraintSize, s.primaryConstraint) =
-              getConstraints(s.primary, primaryBounds, s.orientation);
-          std::tie(s.secondaryConstraintSize, s.secondaryConstraint) =
-              getConstraints(s.secondary, secondaryBounds, s.orientation);
-
-          Size constraintSize;
-          Constraint constraint;
-          if (s.orientation == WindowManager::Orientation::Horizontal) {
-            int totalW = s.primaryConstraintSize.w + s.secondaryConstraintSize.w;
-            int maxH = std::max(s.primaryConstraintSize.h, s.secondaryConstraintSize.h);
-            constraintSize = Size(totalW, maxH);
-            ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced &&
-                                    s.secondaryConstraint.w == ConstraintType::Forced)
-                                      ? ConstraintType::Forced
-                                      : ConstraintType::Minimum;
-            ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced ||
-                                    s.secondaryConstraint.h == ConstraintType::Forced)
-                                      ? ConstraintType::Forced
-                                      : ConstraintType::Minimum;
-            constraint = Constraint(wType, hType);
           } else {
-            int totalH = s.primaryConstraintSize.h + s.secondaryConstraintSize.h;
-            int maxW = std::max(s.primaryConstraintSize.w, s.secondaryConstraintSize.w);
-            constraintSize = Size(maxW, totalH);
-            ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced &&
-                                    s.secondaryConstraint.h == ConstraintType::Forced)
-                                      ? ConstraintType::Forced
-                                      : ConstraintType::Minimum;
-            ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced ||
-                                    s.secondaryConstraint.w == ConstraintType::Forced)
-                                      ? ConstraintType::Forced
-                                      : ConstraintType::Minimum;
-            constraint = Constraint(wType, hType);
+            constraintSize.h = bounds.w / w->aspectRatio;
+            constraint.h = ConstraintType::Forced;
           }
+        }
 
-          return std::make_pair(constraintSize, constraint);
-        },
-        [&](auto&) {return std::make_pair(Size{MIN_SIDELENGTH, MIN_SIDELENGTH}, Constraint{});}},
-        *node);
+        return std::make_pair(constraintSize, constraint);
+      },
+      [&](Splitter& s) -> std::pair<Size, Constraint> {
+        int totalSize =
+            (s.orientation == WindowManager::Orientation::Horizontal ? bounds.w : bounds.h) - SPLITTER_WIDTH;
+        int primarySize = static_cast<int>(totalSize * s.ratio);
+        int secondarySize = totalSize - primarySize;
+
+        Bounds primaryBounds = s.orientation == WindowManager::Orientation::Horizontal
+                                  ? Bounds(bounds.x, bounds.y, primarySize, bounds.h)
+                                  : Bounds(bounds.x, bounds.y, bounds.w, primarySize);
+        Bounds secondaryBounds =
+            s.orientation == WindowManager::Orientation::Horizontal
+                ? Bounds(bounds.x + primarySize + SPLITTER_WIDTH, bounds.y, secondarySize, bounds.h)
+                : Bounds(bounds.x, bounds.y + primarySize + SPLITTER_WIDTH, bounds.w, secondarySize);
+
+        std::tie(s.primaryConstraintSize, s.primaryConstraint) =
+            getConstraints(s.primary, primaryBounds, s.orientation);
+        std::tie(s.secondaryConstraintSize, s.secondaryConstraint) =
+            getConstraints(s.secondary, secondaryBounds, s.orientation);
+
+        Size constraintSize;
+        Constraint constraint;
+        if (s.orientation == WindowManager::Orientation::Horizontal) {
+          int totalW = s.primaryConstraintSize.w + s.secondaryConstraintSize.w;
+          int maxH = std::max(s.primaryConstraintSize.h, s.secondaryConstraintSize.h);
+          constraintSize = Size(totalW, maxH);
+          ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced &&
+                                  s.secondaryConstraint.w == ConstraintType::Forced)
+                                    ? ConstraintType::Forced
+                                    : ConstraintType::Minimum;
+          ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced ||
+                                  s.secondaryConstraint.h == ConstraintType::Forced)
+                                    ? ConstraintType::Forced
+                                    : ConstraintType::Minimum;
+          constraint = Constraint(wType, hType);
+        } else {
+          int totalH = s.primaryConstraintSize.h + s.secondaryConstraintSize.h;
+          int maxW = std::max(s.primaryConstraintSize.w, s.secondaryConstraintSize.w);
+          constraintSize = Size(maxW, totalH);
+          ConstraintType hType = (s.primaryConstraint.h == ConstraintType::Forced &&
+                                  s.secondaryConstraint.h == ConstraintType::Forced)
+                                    ? ConstraintType::Forced
+                                    : ConstraintType::Minimum;
+          ConstraintType wType = (s.primaryConstraint.w == ConstraintType::Forced ||
+                                  s.secondaryConstraint.w == ConstraintType::Forced)
+                                    ? ConstraintType::Forced
+                                    : ConstraintType::Minimum;
+          constraint = Constraint(wType, hType);
+        }
+
+        return std::make_pair(constraintSize, constraint);
+      }
+    };
+
+    return std::visit(boundVisitor, *node);
   };
 
-  std::visit(Visitor {
-    [&](std::shared_ptr<VisualizerWindow>& w) {
+  Visitor boundVisitor =  {
+    [&](std::shared_ptr<VisualizerWindow>& w) -> void {
       w->bounds = bounds;
       w->resizeTextures();
     },
-    [&](Splitter& s) {
+    [&](Splitter& s) -> void {
       int& boundAxis = s.orientation == WindowManager::Orientation::Horizontal ? bounds.w : bounds.h;
       int totalSize = boundAxis - SPLITTER_WIDTH;
       int primarySize = static_cast<int>(totalSize * s.ratio);
@@ -386,32 +382,32 @@ void updateBounds(Node& node, Bounds bounds) {
       updateBounds(s.secondary, secondaryBounds);
 
       s.bounds = bounds;
-    },
-    [&](auto&) {}},
-      *node);
+    }
+  };
+
+  std::visit(boundVisitor, *node);
   // clang-format on
 }
 
-std::tuple<VisualizerWindow*, VisualizerWindow*, HoverRegion> getHoverState(SDLWindow::State& state) {
+std::tuple<VisualizerWindow*, VisualizerWindow*, HoverRegion> getHoverState(std::string& group) {
+  SDLWindow::State& state = SDLWindow::states[group];
+
   VisualizerWindow* draggingWindow = nullptr;
   VisualizerWindow* hoveringWindow = nullptr;
 
-  if (!*state.root)
-    return std::tuple {nullptr, nullptr, HoverRegion::None};
+  // clang-format off
+  Visitor modifierVisitor = {
+    [&](std::shared_ptr<VisualizerWindow>& w) -> void {
+      if (w->dragging)
+        draggingWindow = w.get();
+      if (w->hovering)
+        hoveringWindow = w.get();
+    },
+    [&](Splitter&) -> void {}
+  };
+  // clang-format on
 
-  walkTree(*state.root, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
-      [&](std::shared_ptr<VisualizerWindow>& w) {
-        if (w->dragging)
-          draggingWindow = w.get();
-        if (w->hovering)
-          hoveringWindow = w.get();
-      },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+  walkTree(Config::options.visualizers[group], modifierVisitor);
 
   if (draggingWindow && hoveringWindow && draggingWindow != hoveringWindow) {
     auto hoveringBounds = hoveringWindow->bounds;
@@ -462,19 +458,24 @@ void swapVisualizer(Node& root, std::string_view draggingId, std::string_view ho
   Node* aPtr = nullptr;
   Node* bPtr = nullptr;
 
-  walkTree(root, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
-      [&](std::shared_ptr<VisualizerWindow>& w) {
+  // clang-format off
+  std::function<void(Node& node)> nodeCallback;
+  nodeCallback = [&](Node& node) {
+    Visitor nodeVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> void {
         if (w->id == draggingId)
           aPtr = &node;
         if (w->id == hoveringId)
           bPtr = &node;
       },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+      [&](Splitter&) -> void {}
+    };
+
+    std::visit(nodeVisitor, *node);
+  };
+  // clang-format on
+
+  walkTree(root, nodeCallback);
 
   if (!aPtr || !bPtr || aPtr == bPtr)
     return;
@@ -489,7 +490,7 @@ void swapVisualizer(Node& root, std::string_view draggingId, std::string_view ho
 bool removeVisualizerById(Node& n, const std::string& id) {
 
   // clang-format off
-  return std::visit(Visitor {
+  Visitor removalVisitor = {
     [&](std::shared_ptr<VisualizerWindow>& w) -> bool {
       if (w->id == id) {
         n.reset();
@@ -509,9 +510,11 @@ bool removeVisualizerById(Node& n, const std::string& id) {
         return true;
       }
       return false;
-    }}, 
-    *n);
+    }
+  };
   // clang-format on
+
+  return std::visit(removalVisitor, *n);
 }
 
 /**
@@ -525,26 +528,32 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
   Node* aParentPtr = nullptr;
   Node* bParentPtr = nullptr;
 
-  walkTree(it->second, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
+  // clang-format off
+  std::function<void(Node& node)> parentCallback;
+  parentCallback = [&](Node& node) {
+    Visitor parentVisitor = {
       [&](Splitter& s) {
-        auto checkNode = [&](Node& opt) {
-          if (auto wPtr = std::get_if<std::shared_ptr<VisualizerWindow>>(opt.get())) {
-            auto w = *wPtr;
+        Visitor childVisitor = {
+          [&](std::shared_ptr<VisualizerWindow> &w) -> void {
             if (w->id == draggingId)
               aParentPtr = &node;
             if (w->id == hoveringId)
               bParentPtr = &node;
-          }
+          },
+          [](Splitter&) -> void {}
         };
-        checkNode(s.primary);
-        checkNode(s.secondary);
+
+        std::visit(childVisitor, *s.primary);
+        std::visit(childVisitor, *s.secondary);
       },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+      [](std::shared_ptr<VisualizerWindow>&) -> void {}
+    };
+
+    std::visit(parentVisitor, *node);
+  };
+  // clang-format on
+
+  walkTree(it->second, parentCallback);
 
   if (!aParentPtr || !bParentPtr) {
     logWarnAt(std::source_location::current(), "Could not find parent pointers during insertion");
@@ -587,17 +596,23 @@ void insertVisualizer(std::string group, std::string draggingId, std::string hov
     logWarnAt(std::source_location::current(), "Could not remove dragged node while inserting");
 
   Node* hoveringNode = nullptr;
-  walkTree(it->second, [&](Node& node) {
-    // clang-format off
-    std::visit(Visitor {
-      [&](std::shared_ptr<VisualizerWindow>& w) {
+
+  // clang-format off
+  std::function<void(Node& node)> hoveringCallback;
+  hoveringCallback = [&](Node& node) {
+    Visitor hoveringVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> void {
         if (w->id == hoveringId)
           hoveringNode = &node;
       },
-      [&](auto&) {}},
-      *node);
-    // clang-format on
-  });
+      [&](Splitter&) -> void {}
+    };
+
+    std::visit(hoveringVisitor, *node);
+  };
+  // clang-format on
+
+  walkTree(it->second, hoveringCallback);
 
   // Replace hovering with splitter
   if (hoveringNode)
@@ -653,8 +668,8 @@ void removeVisualizerFromGroup(const std::string& group, const std::string& id) 
   initialize();
 }
 
-void drawHoverHandles(std::string key, SDLWindow::State& state) {
-  auto [draggingWindow, hoveringWindow, region] = getHoverState(state);
+void drawDragRegion(std::string key) {
+  auto [draggingWindow, hoveringWindow, region] = getHoverState(key);
   if (region == HoverRegion::None || !hoveringWindow)
     return;
 
@@ -689,93 +704,64 @@ void drawHoverHandles(std::string key, SDLWindow::State& state) {
   }
 }
 
-/**
- * @brief Returns true if the given SDL window state belongs to a configured visualizer group.
- * @param kv Pair of group key and its `SDLWindow::State`.
- * @return true or false.
- */
-static inline bool isVisualizerWindow(const std::pair<std::string, SDLWindow::State>& kv) {
-  return Config::options.visualizers.find(kv.first) != Config::options.visualizers.end();
-}
-
 void updateBounds() {
   if (!boundsDirty.exchange(false, std::memory_order_acq_rel))
     return;
 
-  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
-    if (!*state.root) {
-      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
-      continue;
-    }
+  for (auto& [key, node] : Config::options.visualizers) {
+    SDLWindow::State& state = SDLWindow::states[key];
 
     SDL_GL_MakeCurrent(state.win, state.glContext);
-    updateBounds(*state.root, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
+    updateBounds(node, Bounds(0, 0, state.windowSizes.first, state.windowSizes.second));
   }
 }
 
 void render() {
-  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    SDLWindow::State& state = SDLWindow::states[key];
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    if (!*state.root)
-      continue;
+    // clang-format off
+    Visitor renderVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> void { setViewport(w->bounds); w->render(); },
+      [&](Splitter& s) -> void { setViewport(s.bounds); s.render(); },
+    };
+    // clang-format on
 
-    walkTree(*state.root, [&](Node& ptr) {
-      // clang-format off
-      std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow>& w) {
-          setViewport(w->bounds);
-          w->render();
-        },
-        [&](Splitter& s) {
-          setViewport(s.bounds);
-          s.render();
-        },
-        [&](auto&) {}},
-        *ptr);
-      // clang-format on
-    });
+    walkTree(node, renderVisitor);
 
-    drawHoverHandles(key, state);
+    drawDragRegion(key);
   }
 }
 
 void cleanup() {
-  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    SDLWindow::State& state = SDLWindow::states[key];
     SDL_GL_MakeCurrent(state.win, state.glContext);
 
-    if (!*state.root) {
-      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
-      continue;
-    }
+    // clang-format off
+    Visitor cleanupVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> void { w->cleanup(); w.reset(); }, 
+      [&](Splitter&) -> void {}
+    };
+    // clang-format on
 
-    walkTree(*state.root, [&](Node& ptr) {
-      // clang-format off
-      std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow>& w) { w->cleanup(); w.reset(); }, 
-        [&](auto&) {}}
-        , *ptr);
-      // clang-format on
-    });
+    walkTree(node, cleanupVisitor);
   }
 }
 
 void handleEvent(const SDL_Event& event) {
-  for (auto& [key, state] : SDLWindow::states | std::views::filter(isVisualizerWindow)) {
+  for (auto& [key, node] : Config::options.visualizers) {
+    SDLWindow::State& state = SDLWindow::states[key];
 
-    if (!*state.root) {
-      logWarnAt(std::source_location::current(), "root node for {} is nullptr", key);
-      continue;
-    }
+    // clang-format off
+    Visitor nodeEventVisitor = {
+      [&](std::shared_ptr<VisualizerWindow>& w) -> void { w->handleEvent(event); },
+      [&](Splitter& s) -> void { s.handleEvent(event); }
+    };
+    // clang-format on
 
-    walkTree(*state.root, [&](Node& ptr) {
-      // clang-format off
-      std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow>& w) { w->handleEvent(event); },
-        [&](Splitter& s) { s.handleEvent(event); }},
-        *ptr);
-      // clang-format on
-    });
+    walkTree(node, nodeEventVisitor);
   }
 }
 
@@ -785,12 +771,14 @@ void VisualizerWindow::resizeTextures() {
 
   bool sizeChanged = (phosphor.textureWidth != bounds.w || phosphor.textureHeight != bounds.h);
 
-  auto initialized = [](GLuint texture) { return texture == 0; };
+  std::function<bool(GLuint texture)> initialized;
+  initialized = [](GLuint texture) { return texture == 0; };
   if (!sizeChanged && std::ranges::none_of(phosphor.textures, initialized)) [[likely]]
     return;
 
   // Lambda to copy image data
-  auto transferTexture = [this](GLuint oldTex, GLuint newTex, size_t texIndex) {
+  std::function<void(GLuint oldTex, GLuint newTex, size_t texIndex)> transferTexture;
+  transferTexture = [this](GLuint oldTex, GLuint newTex, size_t texIndex) {
     using enum WindowManager::Textures;
 
     int minWidth = std::min(bounds.w, phosphor.textureWidth);
@@ -908,12 +896,15 @@ void VisualizerWindow::draw() {
 }
 
 void VisualizerWindow::handleEvent(const SDL_Event& event) {
-  auto isThisWindow = [&event](auto const& p) { return event.window.windowID == std::get<1>(p).winID; };
+  std::function<bool(std::pair<std::string, SDLWindow::State> kv)> isThisWindow;
+  isThisWindow = [&event](auto const& kv) { return event.window.windowID == kv.second.winID; };
+
   if (auto it = std::ranges::find_if(SDLWindow::states, isThisWindow);
       it == SDLWindow::states.end() || it->first != group)
     return;
 
-  auto isHovering = [&](int x, int y, int off) -> bool {
+  std::function<bool(int x, int y, int off)> isHovering;
+  isHovering = [&](int x, int y, int off) {
     return x >= bounds.x + off && x < bounds.x + bounds.w - off && y >= bounds.y + off && y < bounds.y + bounds.h - off;
   };
 
@@ -938,14 +929,11 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
     break;
 
   case SDL_EVENT_MOUSE_BUTTON_UP: {
-    // If we were dragging, handle drop actions before clearing dragging state
     if (dragging) {
-      auto& state = SDLWindow::states[group];
-      auto [draggingWindow, hoveringWindow, region] = getHoverState(state);
+      auto [draggingWindow, hoveringWindow, region] = getHoverState(group);
       if (draggingWindow && hoveringWindow && draggingWindow != hoveringWindow) {
-        // Operate on the config tree instead of the live SDL tree
         if (region == HoverRegion::Center) {
-          swapVisualizer(*state.root, draggingWindow->id, hoveringWindow->id);
+          swapVisualizer(Config::options.visualizers[group], draggingWindow->id, hoveringWindow->id);
         } else if (region != HoverRegion::None)
           insertVisualizer(draggingWindow->group, draggingWindow->id, hoveringWindow->id, region);
       }
@@ -962,50 +950,34 @@ void VisualizerWindow::handleEvent(const SDL_Event& event) {
 }
 
 void initialize() {
-  auto destroyable = [](auto const& p) {
-    return std::get<1>(p).removable &&
-           Config::options.visualizers.find(std::get<0>(p)) == Config::options.visualizers.end();
+  std::function<bool(std::pair<std::string, SDLWindow::State> const& kv)> destroyable;
+  destroyable = [](auto const& kv) {
+    return kv.second.removable && Config::options.visualizers.find(kv.first) == Config::options.visualizers.end();
   };
 
   std::vector<std::string> toDestroy;
   std::ranges::copy(SDLWindow::states | std::views::filter(destroyable) | std::views::keys,
                     std::back_inserter(toDestroy));
 
-  for (auto const& key : toDestroy)
-    SDLWindow::destroyWindow(key);
+  std::ranges::for_each(toDestroy, SDLWindow::destroyWindow);
 
-  auto isNotHidden = [](auto const& p) { return std::get<0>(p) != "hidden"; };
+  std::function<bool(std::pair<std::string, Node> const& kv)> isNotHidden;
+  isNotHidden = [](auto const& kv) { return kv.first != "hidden"; };
+
   for (auto& [key, node] : Config::options.visualizers | std::views::filter(isNotHidden)) {
-
-    auto it = SDLWindow::states.find(key);
-    if (it == SDLWindow::states.end() && key != "main") {
+    if (SDLWindow::states.find(key) == SDLWindow::states.end() && key != "main") {
       SDLWindow::createWindow(key, key, Config::options.window.default_width, Config::options.window.default_height);
-      it = SDLWindow::states.find(key);
+      SDLWindow::states[key].removable = true;
     }
 
-    if (it == SDLWindow::states.end()) {
-      logDebug("Failed to find window state for group: {}", key);
-      continue;
-    }
+    // clang-format off
+    Visitor initVisitor = {
+      [&](std::shared_ptr<VisualizerWindow> &w) -> void { w->group = key; w->configure(); },
+      [&](Splitter &s) -> void { s.group = key; }
+    };
+    // clang-format on
 
-    if (key != "main")
-      it->second.removable = true;
-
-    walkTree(node, [&](Node& n) {
-      // clang-format off
-      std::visit(Visitor {
-        [&](std::shared_ptr<VisualizerWindow> &w) {
-          w->group = key;
-          w->configure();
-        },
-        [&](Splitter &s) {
-          s.group = key;
-        }
-      }, *n);
-      // clang-format on
-    });
-
-    it->second.root = &node;
+    walkTree(node, initVisitor);
   }
 
   boundsDirty.store(true);

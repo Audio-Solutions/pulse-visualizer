@@ -228,65 +228,75 @@ template <> void get<Rotation>(const YAML::Node& root, std::string_view path, Ro
 template <>
 void get<std::unordered_map<std::string, WindowManager::Node>>(
     const YAML::Node& root, std::string_view path, std::unordered_map<std::string, WindowManager::Node>& out) {
+  YAML::Node node;
+
   try {
-    YAML::Node node = getNode(root, path);
-
-    if (!node.IsMap())
-      throw makeErrorAt(std::source_location::current(), "{} is not a map", path);
-
-    std::function<WindowManager::Node(const YAML::Node&, const std::string_view, std::string)> parseHierarchyTree;
-    parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp,
-                             std::string subPath) -> WindowManager::Node {
-      if (!n || n.IsNull())
-        throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
-
-      if (n.IsScalar())
-        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()).lock());
-
-      if (!n.IsMap())
-        throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
-
-      // Branch by explicit id
-      if (n["id"] && n["id"].IsScalar())
-        return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()).lock());
-
-      // Split node: require 'type' and 'children'
-      if (!n["type"] || !n["children"] || !n["children"].IsSequence())
-        throw makeErrorAt(std::source_location::current(), "missing 'type' and 'children' at {}.{}", path, subPath);
-
-      WindowManager::Splitter s {};
-      s.orientation = (n["type"].as<std::string>() == "hsplit") ? WindowManager::Orientation::Horizontal
-                                                                : WindowManager::Orientation::Vertical;
-
-      if (n["ratio"] && n["ratio"].IsScalar())
-        s.ratio = n["ratio"].as<float>();
-      else
-        s.ratio = 0.5f;
-
-      const YAML::Node children = n["children"];
-      if (children.size() != 2) {
-        throw makeErrorAt(std::source_location::current(), "'children' must contain exactly 2 nodes, got {} at {}.{}",
-                          children.size(), path, subPath);
-      }
-
-      // parse two children
-      s.primary = parseHierarchyTree(children[0], grp, subPath + ".children[0]");
-      s.secondary = parseHierarchyTree(children[1], grp, subPath + ".children[1]");
-
-      return std::make_shared<WindowManager::Variant>(std::move(s));
-    };
-
-    std::decay_t<decltype(out)> temp;
-    for (const auto& item : node) {
-      const std::string itemKey = item.first.as<std::string>();
-      temp[itemKey] = std::move(parseHierarchyTree(item.second, itemKey, itemKey));
-    }
-    out = std::move(temp);
+    node = getNode(root, path);
   } catch (const YAML::Exception& e) {
     logWarnAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1, e.msg);
   } catch (const std::exception& e) {
     std::clog << "WARN:" << e.what() << std::endl;
   }
+
+  if (!node.IsMap()) {
+    logWarnAt(std::source_location::current(), "{} is not a map", path);
+    return;
+  }
+
+  std::function<WindowManager::Node(const YAML::Node&, const std::string_view, std::string)> parseHierarchyTree;
+  parseHierarchyTree = [&](const YAML::Node& n, const std::string_view grp,
+                           std::string subPath) -> WindowManager::Node {
+    if (!n || n.IsNull())
+      throw makeErrorAt(std::source_location::current(), "Node at {}.{} is null or undefined", path, subPath);
+
+    if (n.IsScalar())
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n.as<std::string>()).lock());
+
+    if (!n.IsMap())
+      throw makeErrorAt(std::source_location::current(), "Expected map node at {}.{}", path, subPath);
+
+    // Branch by explicit id
+    if (n["id"] && n["id"].IsScalar())
+      return std::make_shared<WindowManager::Variant>(VisualizerRegistry::find(n["id"].as<std::string>()).lock());
+
+    // Split node: require 'type' and 'children'
+    if (!n["type"] || !n["children"] || !n["children"].IsSequence())
+      throw makeErrorAt(std::source_location::current(), "missing 'type' and 'children' at {}.{}", path, subPath);
+
+    WindowManager::Splitter s {};
+    s.orientation = (n["type"].as<std::string>() == "hsplit") ? WindowManager::Orientation::Horizontal
+                                                              : WindowManager::Orientation::Vertical;
+
+    if (n["ratio"] && n["ratio"].IsScalar())
+      s.ratio = n["ratio"].as<float>();
+    else
+      s.ratio = 0.5f;
+
+    const YAML::Node children = n["children"];
+    if (children.size() != 2) {
+      throw makeErrorAt(std::source_location::current(), "'children' must contain exactly 2 nodes, got {} at {}.{}",
+                        children.size(), path, subPath);
+    }
+
+    // parse two children
+    s.primary = parseHierarchyTree(children[0], grp, subPath + ".children[0]");
+    s.secondary = parseHierarchyTree(children[1], grp, subPath + ".children[1]");
+
+    return std::make_shared<WindowManager::Variant>(std::move(s));
+  };
+
+  std::decay_t<decltype(out)> temp;
+  for (const auto& item : node) {
+    try {
+      const std::string itemKey = item.first.as<std::string>();
+      temp[itemKey] = std::move(parseHierarchyTree(item.second, itemKey, itemKey));
+    } catch (const YAML::Exception& e) {
+      logWarnAt(std::source_location::current(), "YAML error at config.yml:{} ({}): {}", path, e.mark.line + 1, e.msg);
+    } catch (const std::exception& e) {
+      std::clog << "WARN:" << e.what() << std::endl;
+    }
+  }
+  out = std::move(temp);
 }
 
 /**

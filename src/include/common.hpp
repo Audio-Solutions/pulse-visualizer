@@ -60,6 +60,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 #include FT_FREETYPE_H
@@ -266,7 +267,6 @@ const char* glErrorString(GLenum err);
 
 /**
  * @brief Helper struct for creating a visitor for std::visit with multiple lambdas.
- *
  * @tparam Ts Lambda types to inherit from.
  */
 template <class... Ts> struct Visitor : Ts... {
@@ -274,3 +274,13 @@ template <class... Ts> struct Visitor : Ts... {
 };
 
 template <class... Ts> Visitor(Ts...) -> Visitor<Ts...>;
+
+/**
+ * @brief Concept that requires a visitor to be invocable with every alternative type of a variant.
+ * @tparam Visitor The visitor type.
+ * @tparam Variant The variant type whose alternatives must all be visitable by `Visitor`.
+ */
+template <class Visitor, class Variant>
+concept visitable = []<std::size_t... I>(std::index_sequence<I...>) {
+  return (std::invocable<Visitor, std::variant_alternative_t<I, Variant>&> && ...);
+}(std::make_index_sequence<std::variant_size_v<Variant>> {});

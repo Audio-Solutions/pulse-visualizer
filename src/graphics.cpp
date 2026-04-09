@@ -667,8 +667,6 @@ namespace Uniform {
 std::unordered_map<std::string, GLint> locCache;
 std::unordered_map<std::string, GLuint> shaderIdCache;
 
-enum class Type { BOOL, INT, INT2, FLOAT, FLOAT2, FLOAT3 };
-
 GLint getLocation(std::string shaderName, std::string uniformName) {
   std::string key = shaderName + "." + uniformName;
   GLuint shader = shaders[shaderName];
@@ -684,64 +682,79 @@ GLint getLocation(std::string shaderName, std::string uniformName) {
   }
   return loc;
 }
-// Single value overload
-template <Type Tp, typename T> void bind(std::string shaderName, std::string uniformName, T&& value) {
+
+template <typename T>
+concept Numeric = std::same_as<T, bool> || std::same_as<T, int> || std::same_as<T, float>;
+
+template <typename T, size_t N>
+concept ValidNumericInput =
+    Numeric<std::remove_const_t<T>> && N == 1 ||
+    (std::is_pointer_v<T> && Numeric<std::remove_const_t<std::remove_pointer_t<T>>> && (N == 2 || N == 3)) ||
+    (std::is_array_v<T> && Numeric<std::remove_const_t<std::remove_extent_t<T>>> &&
+     ((N == 1 && (std::extent_v<T> == 2 || std::extent_v<T> == 3)) || (N == 2 || N == 3)));
+
+template <size_t N = 1, typename T>
+  requires ValidNumericInput<T, N>
+void bind(std::string shaderName, std::string uniformName, const T& value) {
+  constexpr size_t ARR_SIZE = (std::is_array_v<T> && N == 1) ? std::extent_v<T> : N;
+
   GLint loc = getLocation(shaderName, uniformName);
   if (loc == -1) {
     logWarnAt(std::source_location::current(), "Could not find uniform '{}' for {}", uniformName, shaderName);
     return;
   }
 
-  if constexpr (Tp == Type::BOOL || Tp == Type::INT) {
-    static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, int> ||
-                      std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, bool>,
-                  "BOOL/INT requires bool/int");
+  using Tn = std::remove_const_t<T>;
+  using Tv = std::remove_const_t<std::remove_pointer_t<std::remove_extent_t<Tn>>>;
+  if constexpr (std::same_as<Tn, bool> || std::same_as<Tn, int>) {
     glUniform1i(loc, value);
-  } else if constexpr (Tp == Type::FLOAT) {
-    static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, float>, "FLOAT requires float");
+  } else if constexpr (std::same_as<Tn, float>) {
     glUniform1f(loc, value);
-  } else {
-    static_assert(std::is_pointer_v<std::remove_reference_t<T>>, "Vector uniforms require pointer");
-    if constexpr (Tp == Type::INT2)
+  } else if constexpr (std::same_as<Tv, bool> || std::same_as<Tv, int>) {
+    if constexpr (ARR_SIZE == 2)
       glUniform2iv(loc, 1, value);
-    else if constexpr (Tp == Type::FLOAT2)
+    if constexpr (ARR_SIZE == 3)
+      glUniform3iv(loc, 1, value);
+  } else if constexpr (std::same_as<Tv, float>) {
+    if constexpr (ARR_SIZE == 2)
       glUniform2fv(loc, 1, value);
-    else if constexpr (Tp == Type::FLOAT3)
+    if constexpr (ARR_SIZE == 3)
       glUniform3fv(loc, 1, value);
+  } else {
+    static_assert(false, "T must be bool/int/float scalar, or pointer/array to these types");
   }
 }
 
-// Scalar overloads
-template <Type Tp, typename T>
-  requires(Tp == Type::FLOAT2 || Tp == Type::INT2)
-void bind(std::string shaderName, std::string uniformName, T&& x, T&& y) {
+template <typename T>
+  requires Numeric<std::remove_const_t<T>>
+void bind(std::string shaderName, std::string uniformName, const T& x, const T& y) {
   GLint loc = getLocation(shaderName, uniformName);
   if (loc == -1) {
     logWarnAt(std::source_location::current(), "Could not find uniform '{}' for {}", uniformName, shaderName);
     return;
   }
 
-  if constexpr (Tp == Type::FLOAT2) {
-    static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, float>, "FLOAT2 requires float");
-    glUniform2f(loc, x, y);
-  }
-  if constexpr (Tp == Type::INT2) {
-    static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, int>, "INT2 requires int");
+  using Tn = std::remove_const_t<T>;
+  if constexpr (std::same_as<Tn, bool> || std::same_as<Tn, int>)
     glUniform2i(loc, x, y);
-  }
+  if constexpr (std::same_as<Tn, float>)
+    glUniform2f(loc, x, y);
 }
 
-template <Type Tp, typename T>
-  requires(Tp == Type::FLOAT3)
-void bind(std::string shaderName, std::string uniformName, T&& x, T&& y, T&& z) {
+template <typename T>
+  requires Numeric<std::remove_const_t<T>>
+void bind(std::string shaderName, std::string uniformName, const T& x, const T& y, const T& z) {
   GLint loc = getLocation(shaderName, uniformName);
   if (loc == -1) {
     logWarnAt(std::source_location::current(), "Could not find uniform '{}' for {}", uniformName, shaderName);
     return;
   }
 
-  static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, float>, "FLOAT3 requires float");
-  glUniform3f(loc, x, y, z);
+  using Tn = std::remove_const_t<T>;
+  if constexpr (std::same_as<Tn, bool> || std::same_as<Tn, int>)
+    glUniform3i(loc, x, y, z);
+  if constexpr (std::same_as<Tn, float>)
+    glUniform3f(loc, x, y, z);
 }
 } // namespace Uniform
 
@@ -749,7 +762,6 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
                      const GLuint& vertexColorBuffer, const GLuint& energyTexR, const GLuint& energyTexG,
                      const GLuint& energyTexB) {
   using namespace Uniform;
-  using enum Type;
 
   auto& shader = shaders["phosphor_compute"];
   if (!shader)
@@ -757,8 +769,8 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 
   glUseProgram(shader);
 
-  bind<BOOL>("phosphor_compute", "colorBeam", Config::options.phosphor.beam.rainbow);
-  bind<INT2>("phosphor_compute", "texSize", win->bounds.w, win->bounds.h);
+  bind("phosphor_compute", "colorBeam", Config::options.phosphor.beam.rainbow);
+  bind("phosphor_compute", "texSize", win->bounds.w, win->bounds.h);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, vertexColorBuffer);
@@ -776,7 +788,6 @@ void dispatchCompute(const WindowManager::VisualizerWindow* win, const int& vert
 void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& energyTexR, const GLuint& energyTexG,
                    const GLuint& energyTexB) {
   using namespace Uniform;
-  using enum Uniform::Type;
 
   auto& shader = shaders["phosphor_decay"];
   if (!shader)
@@ -787,11 +798,11 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   const float fastDecay = exp(-1.0f / Config::options.phosphor.screen.decay.fast_frames);
   const float slowDecay = exp(-1.0f / Config::options.phosphor.screen.decay.slow_frames);
 
-  bind<FLOAT>("phosphor_decay", "fastDecay", fastDecay);
-  bind<FLOAT>("phosphor_decay", "slowDecay", slowDecay);
-  bind<FLOAT>("phosphor_decay", "thresh", Config::options.phosphor.screen.decay.threshold);
-  bind<BOOL>("phosphor_decay", "colorBeam", Config::options.phosphor.beam.rainbow);
-  bind<INT2>("phosphor_decay", "texSize", win->bounds.w, win->bounds.h);
+  bind("phosphor_decay", "fastDecay", fastDecay);
+  bind("phosphor_decay", "slowDecay", slowDecay);
+  bind("phosphor_decay", "thresh", Config::options.phosphor.screen.decay.threshold);
+  bind("phosphor_decay", "colorBeam", Config::options.phosphor.beam.rainbow);
+  bind("phosphor_decay", "texSize", win->bounds.w, win->bounds.h);
 
   glBindImageTexture(0, energyTexR, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
   glBindImageTexture(1, energyTexG, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
@@ -808,7 +819,6 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
 void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
                   const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB) {
   using namespace Uniform;
-  using enum Uniform::Type;
 
   auto& shader = shaders["phosphor_blur"];
   if (!shader)
@@ -816,13 +826,13 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
   glUseProgram(shader);
 
-  bind<FLOAT>("phosphor_blur", "line_blur_spread", Config::options.phosphor.blur.spread);
-  bind<INT>("phosphor_blur", "blur_direction", dir);
-  bind<INT>("phosphor_blur", "kernel_type", kernel);
-  bind<FLOAT>("phosphor_blur", "f_intensity", Config::options.phosphor.blur.near_intensity);
-  bind<FLOAT>("phosphor_blur", "g_intensity", Config::options.phosphor.blur.far_intensity);
-  bind<BOOL>("phosphor_blur", "colorBeam", Config::options.phosphor.beam.rainbow);
-  bind<INT2>("phosphor_blur", "texSize", win->bounds.w, win->bounds.h);
+  bind("phosphor_blur", "line_blur_spread", Config::options.phosphor.blur.spread);
+  bind("phosphor_blur", "blur_direction", dir);
+  bind("phosphor_blur", "kernel_type", kernel);
+  bind("phosphor_blur", "f_intensity", Config::options.phosphor.blur.near_intensity);
+  bind("phosphor_blur", "g_intensity", Config::options.phosphor.blur.far_intensity);
+  bind("phosphor_blur", "colorBeam", Config::options.phosphor.beam.rainbow);
+  bind("phosphor_blur", "texSize", win->bounds.w, win->bounds.h);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
@@ -842,7 +852,6 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* beamColor, const GLuint& inR,
                       const GLuint& inG, const GLuint& inB, const GLuint& out) {
   using namespace Uniform;
-  using enum Uniform::Type;
 
   auto& shader = shaders["phosphor_colormap"];
   if (!shader)
@@ -850,26 +859,26 @@ void dispatchColormap(const WindowManager::VisualizerWindow* win, const float* b
 
   glUseProgram(shader);
 
-  float borderColor[4] = {0};
+  float borderColor[3] = {0};
   if (Theme::colors.phosphor_border[3] > 0) {
-    std::copy(Theme::colors.phosphor_border, Theme::colors.phosphor_border + 4, borderColor);
+    std::ranges::copy(Theme::colors.phosphor_border | std::views::take(3), borderColor);
   } else {
-    std::transform(Theme::colors.background, Theme::colors.background + 4, borderColor,
-                   [](float c) { return c * 0.7f; });
+    std::function<float(float)> darken = [](float c) { return c * 0.7f; };
+    std::ranges::transform(Theme::colors.background | std::views::take(3), borderColor, darken);
   }
 
-  bind<FLOAT3>("phosphor_colormap", "beamColor", beamColor);
-  bind<FLOAT3>("phosphor_colormap", "blackColor", &Theme::colors.background[0]);
-  bind<FLOAT3>("phosphor_colormap", "borderColor", &borderColor[0]);
-  bind<FLOAT>("phosphor_colormap", "screenCurvature", Config::options.phosphor.screen.curvature);
-  bind<FLOAT>("phosphor_colormap", "screenGapFactor", Config::options.phosphor.screen.gap);
-  bind<FLOAT>("phosphor_colormap", "grainStrength", Config::options.phosphor.screen.grain);
-  bind<FLOAT>("phosphor_colormap", "vignetteStrength", Config::options.phosphor.screen.vignette);
-  bind<FLOAT>("phosphor_colormap", "chromaticAberrationStrength", Config::options.phosphor.screen.chromatic_aberration);
-  bind<INT>("phosphor_colormap", "aaSize", Config::options.phosphor.screen.aa_size);
-  bind<FLOAT>("phosphor_colormap", "borderReflectionStrength", Config::options.phosphor.reflections.strength);
-  bind<BOOL>("phosphor_colormap", "colorBeam", Config::options.phosphor.beam.rainbow);
-  bind<INT2>("phosphor_colormap", "texSize", win->bounds.w, win->bounds.h);
+  bind<3>("phosphor_colormap", "beamColor", beamColor);
+  bind<3>("phosphor_colormap", "blackColor", Theme::colors.background);
+  bind("phosphor_colormap", "borderColor", borderColor);
+  bind("phosphor_colormap", "screenCurvature", Config::options.phosphor.screen.curvature);
+  bind("phosphor_colormap", "screenGapFactor", Config::options.phosphor.screen.gap);
+  bind("phosphor_colormap", "grainStrength", Config::options.phosphor.screen.grain);
+  bind("phosphor_colormap", "vignetteStrength", Config::options.phosphor.screen.vignette);
+  bind("phosphor_colormap", "chromaticAberrationStrength", Config::options.phosphor.screen.chromatic_aberration);
+  bind("phosphor_colormap", "aaSize", Config::options.phosphor.screen.aa_size);
+  bind("phosphor_colormap", "borderReflectionStrength", Config::options.phosphor.reflections.strength);
+  bind("phosphor_colormap", "colorBeam", Config::options.phosphor.beam.rainbow);
+  bind("phosphor_colormap", "texSize", win->bounds.w, win->bounds.h);
 
   glBindImageTexture(0, inR, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
   glBindImageTexture(1, inG, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32UI);
