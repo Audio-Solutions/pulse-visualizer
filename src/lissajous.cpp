@@ -176,7 +176,7 @@ void LissajousVisualizer::render() {
       energies.push_back(energy);
 
     // Prepare vertex data for phosphor rendering
-    for (size_t i = 0; i < points.size(); i++) {
+    for (size_t i = 0; i < points.size() - 1; i++) {
       vertexData.push_back(points[i].first);
       vertexData.push_back(points[i].second);
       vertexData.push_back(energies[i]);
