@@ -816,8 +816,9 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
   glUseProgram(0);
 }
 
-void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
-                  const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB) {
+void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& radius, const float& intensity,
+                  const GLuint& inR, const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG,
+                  const GLuint& outB) {
   using namespace Uniform;
 
   auto& shader = shaders["phosphor_blur"];
@@ -826,11 +827,9 @@ void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, co
 
   glUseProgram(shader);
 
-  bind("phosphor_blur", "line_blur_spread", Config::options.phosphor.blur.spread);
+  bind("phosphor_blur", "blur_radius", radius);
   bind("phosphor_blur", "blur_direction", dir);
-  bind("phosphor_blur", "kernel_type", kernel);
-  bind("phosphor_blur", "f_intensity", Config::options.phosphor.blur.near_intensity);
-  bind("phosphor_blur", "g_intensity", Config::options.phosphor.blur.far_intensity);
+  bind("phosphor_blur", "kernel_intensity", intensity);
   bind("phosphor_blur", "colorBeam", Config::options.phosphor.beam.rainbow);
   bind("phosphor_blur", "texSize", win->bounds.w, win->bounds.h);
 
@@ -922,7 +921,7 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
     dispatchCompute(win, static_cast<GLuint>(points.size()), SDLWindow::vertexBuffer, SDLWindow::vertexColorBuffer,
                     textures[ENERGY_R], textures[ENERGY_G], textures[ENERGY_B]);
 
-  // Copy tempTexture{R,G,B} to tempTexture3{R,G,B}
+  // Copy bare beam
   glCopyImageSubData(textures[ENERGY_R], GL_TEXTURE_2D, 0, 0, 0, 0, textures[TEMP2_R], GL_TEXTURE_2D, 0, 0, 0, 0,
                      win->bounds.w, win->bounds.h, 1);
 
@@ -934,11 +933,14 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
   }
 
   // Apply multiple additive blur passes
-  for (int k = 0; k < 2; k++) {
-    Shader::dispatchBlur(win, 0, k, textures[ENERGY_R], textures[ENERGY_G], textures[ENERGY_B], textures[TEMP1_R],
+  int r = Config::options.phosphor.blur.radius;
+  float i = Config::options.phosphor.blur.intensity;
+  while (r > 4) {
+    Shader::dispatchBlur(win, 0, r, i, textures[ENERGY_R], textures[ENERGY_G], textures[ENERGY_B], textures[TEMP1_R],
                          textures[TEMP1_G], textures[TEMP1_B]);
-    Shader::dispatchBlur(win, 1, k, textures[TEMP1_R], textures[TEMP1_G], textures[TEMP1_B], textures[TEMP2_R],
+    Shader::dispatchBlur(win, 1, r, i, textures[TEMP1_R], textures[TEMP1_G], textures[TEMP1_B], textures[TEMP2_R],
                          textures[TEMP2_G], textures[TEMP2_B]);
+    r /= 2;
   }
 
   // Apply colormap to final result

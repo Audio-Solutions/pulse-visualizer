@@ -126,43 +126,80 @@ vec3 tanhColorMap(vec3 value) {
   return clamp(vec3(fast_tanh(value.x), fast_tanh(value.y), fast_tanh(value.z)), 0.0, 1.0);
 }
 
-vec3 sampleCA(vec2 uv) {
-  vec2 offset = (uv - 0.5) * chromaticAberrationStrength;
-  ivec2 pos = clamp(ivec2(round(uv * texSize)), ivec2(0), texSize - 1);
+vec3 loadBilinear(vec2 uv) {
+  const float SCALE = 65536.0;
 
-  const float SCALE = 65536.0f;
+  vec2 size = vec2(texSize);
 
-  if (chromaticAberrationStrength < 1e-6) {
-    float r = imageLoad(energyTexR, pos).r;
-    if (colorBeam)
-      return vec3(r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, pos).r) / SCALE;
-    return vec3(r / SCALE);
+  vec2 p = uv * size - 0.5;
+  vec2 f = fract(p);
+  ivec2 i0 = ivec2(floor(p));
+  ivec2 i1 = i0 + ivec2(1);
+
+  i0 = clamp(i0, ivec2(0), texSize - ivec2(1));
+  i1 = clamp(i1, ivec2(0), texSize - ivec2(1));
+
+  float w00 = (1.0 - f.x) * (1.0 - f.y);
+  float w10 = f.x * (1.0 - f.y);
+  float w01 = (1.0 - f.x) * f.y;
+  float w11 = f.x * f.y;
+
+  if (colorBeam) {
+    float r = float(imageLoad(energyTexR, ivec2(i0.x, i0.y)).r) * w00 +
+              float(imageLoad(energyTexR, ivec2(i1.x, i0.y)).r) * w10 +
+              float(imageLoad(energyTexR, ivec2(i0.x, i1.y)).r) * w01 +
+              float(imageLoad(energyTexR, ivec2(i1.x, i1.y)).r) * w11;
+
+    float g = float(imageLoad(energyTexG, ivec2(i0.x, i0.y)).r) * w00 +
+              float(imageLoad(energyTexG, ivec2(i1.x, i0.y)).r) * w10 +
+              float(imageLoad(energyTexG, ivec2(i0.x, i1.y)).r) * w01 +
+              float(imageLoad(energyTexG, ivec2(i1.x, i1.y)).r) * w11;
+
+    float b = float(imageLoad(energyTexB, ivec2(i0.x, i0.y)).r) * w00 +
+              float(imageLoad(energyTexB, ivec2(i1.x, i0.y)).r) * w10 +
+              float(imageLoad(energyTexB, ivec2(i0.x, i1.y)).r) * w01 +
+              float(imageLoad(energyTexB, ivec2(i1.x, i1.y)).r) * w11;
+
+    return vec3(r, g, b) / SCALE;
   }
 
-  ivec2 posR = clamp(ivec2(round((uv + offset) * texSize)), ivec2(0), texSize - 1);
-  ivec2 posB = clamp(ivec2(round((uv - offset) * texSize)), ivec2(0), texSize - 1);
+  float v = float(imageLoad(energyTexR, ivec2(i0.x, i0.y)).r) * w00 +
+            float(imageLoad(energyTexR, ivec2(i1.x, i0.y)).r) * w10 +
+            float(imageLoad(energyTexR, ivec2(i0.x, i1.y)).r) * w01 +
+            float(imageLoad(energyTexR, ivec2(i1.x, i1.y)).r) * w11;
 
-  if (colorBeam)
-    return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexG, pos).r, imageLoad(energyTexB, posB).r) / SCALE;
-
-  return vec3(imageLoad(energyTexR, posR).r, imageLoad(energyTexR, pos).r, imageLoad(energyTexR, posB).r) / SCALE;
+  return vec3(v / SCALE);
 }
 
-// Antialiased sampling
-vec3 sampleAA(vec2 uv) {
-  vec3 result = vec3(0.0);
-  float weightSum = 0.0;
-  float AA_WEIGHT = 1.0 / float(aaSize * aaSize);
+vec3 sampleCA(vec2 uv) {
+  vec2 offset = (uv - 0.5) * chromaticAberrationStrength;
 
-  for (int i = 0; i < aaSize; i++) {
-    for (int j = 0; j < aaSize; j++) {
-      vec2 offset = (vec2(float(i), float(j)) / float(aaSize - 1) - 0.5) / texSize;
-      result += sampleCA(uv + offset) * AA_WEIGHT;
-      weightSum += AA_WEIGHT;
-    }
+  if (chromaticAberrationStrength < 1e-6) {
+    return loadBilinear(uv);
   }
 
-  return weightSum > 0.0 ? result / weightSum : result;
+  if (colorBeam) {
+    return vec3(loadBilinear(uv + offset).r, loadBilinear(uv).g, loadBilinear(uv - offset).b);
+  }
+
+  vec3 sR = loadBilinear(uv + offset);
+  vec3 sG = loadBilinear(uv);
+  vec3 sB = loadBilinear(uv - offset);
+  return vec3(sR.r, sG.r, sB.r);
+}
+
+vec3 sampleAA(vec2 uv) {
+  vec3 sum = vec3(0.0);
+  vec2 px = 1.0 / texSize;
+
+  // simple stratified jitter in pixel space
+  for (int i = 0; i < aaSize; ++i) {
+    for (int j = 0; j < aaSize; ++j) {
+      vec2 jitter = (vec2(i + 0.5, j + 0.5) / float(aaSize) - 0.5) * px;
+      sum += sampleCA(uv + jitter);
+    }
+  }
+  return sum / float(aaSize * aaSize);
 }
 
 void main() {

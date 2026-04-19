@@ -97,9 +97,8 @@ phosphor:
     rainbow: false
     energy: 50
   blur:
-    spread: 128
-    near_intensity: 0.399999857
-    far_intensity: 0.600000381
+    radius: 128
+    intensity: 0.3
   screen:
     decay:
       fast_frames: 2

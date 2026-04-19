@@ -443,6 +443,12 @@ inline constexpr std::array intFields = {
     "Slow decay",
     "How many frames to take to get to 0.",
     FieldUi<int>::slider(0, 500, 0, false)),
+    
+  PV_SCHEMA_FIELD(
+    int, phosphor.blur.radius,
+    "Blur Radius",
+    "Radius of the phosphor blur kernel.",
+    FieldUi<int>::slider(2, 512, 0, false)),
 
   PV_SCHEMA_FIELD(
     int, lissajous.spline.segments,
@@ -667,19 +673,9 @@ inline constexpr std::array floatFields = {
     "Base beam energy driving phosphor brightness.",
     FieldUi<float>::slider(1.f, 1000.f, 1)),
   PV_SCHEMA_FIELD(
-    float, phosphor.blur.spread,
-    "Blur Spread",
-    "Radius/spread of the phosphor blur kernel.",
-    FieldUi<float>::slider(1.f, 512.f, 1)),
-  PV_SCHEMA_FIELD(
-    float, phosphor.blur.near_intensity,
-    "Near Blur Intensity",
-    "Blur intensity for nearby pixels.",
-    FieldUi<float>::slider(0.f, 1.f, 3)),
-  PV_SCHEMA_FIELD(
-    float, phosphor.blur.far_intensity,
-    "Far Blur Intensity",
-    "Blur intensity for distant pixels.",
+    float, phosphor.blur.intensity,
+    "Blur Intensity",
+    "Blur intensity.",
     FieldUi<float>::slider(0.f, 1.f, 3)),
   PV_SCHEMA_FIELD(
     float, phosphor.screen.decay.threshold,

@@ -28,12 +28,10 @@ layout(binding = 3, r32ui) uniform uimage2D outputTexR;
 layout(binding = 4, r32ui) uniform uimage2D outputTexG;
 layout(binding = 5, r32ui) uniform uimage2D outputTexB;
 
-uniform float line_blur_spread;
+uniform int blur_radius;
+uniform float kernel_intensity;
 uniform ivec2 texSize;
-uniform int blur_direction; // 0: horizontal, 1: vertical
-uniform int kernel_type;    // 0: F kernel, 1: G kernel
-uniform float f_intensity;
-uniform float g_intensity;
+uniform int blur_direction;
 uniform bool colorBeam;
 
 void main() {
@@ -43,51 +41,15 @@ void main() {
   if (coord.x >= texSize.x || coord.y >= texSize.y)
     return;
 
-  int range_filter = int(ceil(line_blur_spread * 2.0)) * 2 + 1;
-  int half_range = range_filter / 2;
-
-  // Early exit for negligible blur or zero kernel
-  if (half_range == 0) {
-    uint valueR = imageLoad(inputTexR, coord).r;
-    uint valueG = colorBeam ? imageLoad(inputTexG, coord).r : 0u;
-    uint valueB = colorBeam ? imageLoad(inputTexB, coord).r : 0u;
-    if (blur_direction == 1) {
-      imageAtomicAdd(outputTexR, coord, valueR);
-      if (colorBeam) {
-        imageAtomicAdd(outputTexG, coord, valueG);
-        imageAtomicAdd(outputTexB, coord, valueB);
-      }
-    } else {
-      imageStore(outputTexR, coord, uvec4(valueR, 0, 0, 0));
-      if (colorBeam) {
-        imageStore(outputTexG, coord, uvec4(valueG, 0, 0, 0));
-        imageStore(outputTexB, coord, uvec4(valueB, 0, 0, 0));
-      }
-    }
-    return;
-  }
-
-  // Compute kernel parameters
-  float inv_2variance;
-  if (kernel_type == 0) {
-    float eq_width = 0.693147 * (line_blur_spread * 0.1);
-    float variance = (eq_width / 1.177) * (eq_width / 1.177);
-    inv_2variance = 1.0 / (2.0 * variance);
-  } else {
-    float eq_width = 0.693147 * (float(range_filter) / 8.0);
-    float variance = (eq_width / 1.177) * (eq_width / 1.177);
-    inv_2variance = 1.0 / (2.0 * variance);
-  }
-
-  // Dynamic cutoff for negligible Gaussian weights
-  const float LOG_CUTOFF = 9.210340371976184; // ln(1e4)
-  int max_i_by_cutoff = int(floor(sqrt(LOG_CUTOFF / max(inv_2variance, 1e-12))));
-  int i_max = min(half_range, max(0, max_i_by_cutoff));
+  // Compute kernel parameters from radius.
+  float sigma = max(0.5, float(blur_radius) * 0.5 + 0.5);
+  float variance = sigma * sigma;
+  float inv_variance = 1.0 / (variance);
 
   ivec2 stepVec = (blur_direction == 0) ? ivec2(1, 0) : ivec2(0, 1);
 
-  // Gaussian weight via recurrence (avoid per-iteration exp)
-  float k = inv_2variance;
+  // Gaussian weight via recurrence
+  float k = inv_variance;
   float w = 1.0;           // w(0)
   float m = exp(-k);       // m(0)
   float r = exp(-2.0 * k); // constant ratio for m update
@@ -103,8 +65,8 @@ void main() {
   }
   kernelSum += kernel_weight;
 
-  // Symmetric accumulation for i = 1..i_max
-  for (int i = 1; i <= i_max; ++i) {
+  // Symmetric accumulation for i = 1..radius
+  for (int i = 1; i <= blur_radius; ++i) {
     w *= m;
     m *= r;
     float kernel_weight = w;
@@ -135,10 +97,9 @@ void main() {
   float resultG = sumG * invKernel;
   float resultB = sumB * invKernel;
 
-  float intensity = (kernel_type == 0) ? f_intensity : g_intensity;
-  resultR *= intensity;
-  resultG *= intensity;
-  resultB *= intensity;
+  resultR *= kernel_intensity;
+  resultG *= kernel_intensity;
+  resultB *= kernel_intensity;
 
   uint outR = uint(max(0.0, resultR));
   uint outG = uint(max(0.0, resultG));

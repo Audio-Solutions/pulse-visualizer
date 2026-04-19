@@ -236,8 +236,9 @@ void dispatchDecay(const WindowManager::VisualizerWindow* win, const GLuint& ene
  * @param outG Output green-channel texture
  * @param outB Output blue-channel texture
  */
-void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& kernel, const GLuint& inR,
-                  const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG, const GLuint& outB);
+void dispatchBlur(const WindowManager::VisualizerWindow* win, const int& dir, const int& radius, const float& intensity,
+                  const GLuint& inR, const GLuint& inG, const GLuint& inB, const GLuint& outR, const GLuint& outG,
+                  const GLuint& outB);
 
 /**
  * @brief Dispatch colormap shader

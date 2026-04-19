@@ -361,9 +361,8 @@ struct Options {
     } beam;
 
     struct Blur {
-      float spread = 128.0f;
-      float near_intensity = 0.6f;
-      float far_intensity = 0.8f;
+      int radius = 128;
+      float intensity = 0.6f;
     } blur;
 
     struct Screen {
