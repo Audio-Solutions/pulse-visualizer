@@ -934,8 +934,9 @@ void render(const WindowManager::VisualizerWindow* win, const std::vector<std::p
 
   // Apply multiple additive blur passes
   int r = Config::options.phosphor.blur.radius;
-  float i = Config::options.phosphor.blur.intensity;
-  while (r > 4) {
+  int steps = floor(log2(r));
+  float i = Config::options.phosphor.blur.intensity / (steps + 1) * 10;
+  while (steps--) {
     Shader::dispatchBlur(win, 0, r, i, textures[ENERGY_R], textures[ENERGY_G], textures[ENERGY_B], textures[TEMP1_R],
                          textures[TEMP1_G], textures[TEMP1_B]);
     Shader::dispatchBlur(win, 1, r, i, textures[TEMP1_R], textures[TEMP1_G], textures[TEMP1_B], textures[TEMP2_R],
