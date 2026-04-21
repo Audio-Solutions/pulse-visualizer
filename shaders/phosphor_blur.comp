@@ -44,7 +44,7 @@ void main() {
   // Compute kernel parameters from radius.
   float sigma = max(0.5, float(blur_radius) * 0.5 + 0.5);
   float variance = sigma * sigma;
-  float inv_variance = 1.0 / (variance);
+  float inv_variance = 1.0 / (2 * variance);
 
   ivec2 stepVec = (blur_direction == 0) ? ivec2(1, 0) : ivec2(0, 1);
 
@@ -65,8 +65,8 @@ void main() {
   }
   kernelSum += kernel_weight;
 
-  // Symmetric accumulation for i = 1..radius
-  for (int i = 1; i <= blur_radius; ++i) {
+  // Symmetric accumulation
+  for (int i = 1; i <= ceil(3 * sigma); ++i) {
     w *= m;
     m *= r;
     float kernel_weight = w;
@@ -106,16 +106,16 @@ void main() {
   uint outB = uint(max(0.0, resultB));
 
   if (blur_direction == 1) {
-    imageAtomicAdd(outputTexR, coord, outR);
+    outR += imageLoad(outputTexR, coord).r;
     if (colorBeam) {
-      imageAtomicAdd(outputTexG, coord, outG);
-      imageAtomicAdd(outputTexB, coord, outB);
+      outG += imageLoad(outputTexG, coord).r;
+      outB += imageLoad(outputTexB, coord).r;
     }
-  } else {
-    imageStore(outputTexR, coord, uvec4(outR, 0, 0, 0));
-    if (colorBeam) {
-      imageStore(outputTexG, coord, uvec4(outG, 0, 0, 0));
-      imageStore(outputTexB, coord, uvec4(outB, 0, 0, 0));
-    }
+  }
+
+  imageStore(outputTexR, coord, uvec4(outR, 0, 0, 0));
+  if (colorBeam) {
+    imageStore(outputTexG, coord, uvec4(outG, 0, 0, 0));
+    imageStore(outputTexB, coord, uvec4(outB, 0, 0, 0));
   }
 }
